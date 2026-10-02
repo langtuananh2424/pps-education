@@ -5,7 +5,7 @@ import { UserRole } from "@/types";
 import { mockEmployees, mockLeaveRequests } from "@/data/mockData";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
-import { useDialog } from "@/components/ui/DialogProvider";
+import { notifyError } from "@/components/ui/FloatingBanner";
 
 interface PublicLeaveRequestFormProps {
   onClose: () => void;
@@ -19,12 +19,11 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
   const [endDate, setEndDate] = useState("2026-07-16");
   const [reason, setReason] = useState("");
   const [success, setSuccess] = useState(false);
-  const { alertDialog } = useDialog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) {
-      await alertDialog(t("publicLeave.reasonRequired"));
+      notifyError(t("publicLeave.reasonRequired"));
       return;
     }
 

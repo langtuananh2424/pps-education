@@ -7,6 +7,7 @@ import Select from "@/components/ui/Select";
 import { SkillTrendSeries, useStudentProfileData } from "../hooks/useStudentProfileData";
 import HomeworkAttemptDetail from "./HomeworkAttemptDetail";
 import { formatDateTime } from "@/lib/i18nFormat";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Nhãn dịch qua i18next namespace "reports-student-profile" — xem src/i18n/locales/{vi,en}/reports-student-profile.json. */
 function studentStatusLabel(t: (key: string) => string, status: string): string {
@@ -346,7 +347,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
       {!student || profile.loading ? (
         <div className="py-16 text-center text-sm text-slate-400">{t("modal.loading")}</div>
       ) : profile.error ? (
-        <div className="py-16 text-center text-sm text-rose-500">{profile.error}</div>
+        <FloatingError message={profile.error} />
       ) : (
         <div className="space-y-4">
           {/* Header học sinh */}

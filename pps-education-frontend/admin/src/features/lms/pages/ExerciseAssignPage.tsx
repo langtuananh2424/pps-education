@@ -50,6 +50,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
@@ -233,7 +234,7 @@ export default function ExerciseAssignPage() {
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -424,7 +425,7 @@ function CreateExamModal({
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.createExamModal.title")} size="md">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>{t("assignPage.createExamModal.examCodeLabel")}</label>
@@ -523,7 +524,7 @@ function EditExamModal({
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.editExamModal.modalTitle", { code: exam.code })} size="md">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>{t("assignPage.editExamModal.examTitleLabel")}</label>
@@ -635,7 +636,7 @@ function EditExerciseModal({
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.editExerciseModal.modalTitle", { code: exercise.code })} size="md">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>{t("assignPage.editExerciseModal.exerciseTitleLabel")}</label>
@@ -745,7 +746,7 @@ function AddQuestionsModal({
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.addQuestionsModal.modalTitle", { code: exercise.code })} size="lg">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <ExerciseQuestionsStep exercise={exercise} teacherType={teacherType} onDone={onDone} onError={setError} onClose={onClose} />
     </Modal>
   );
@@ -905,7 +906,7 @@ function ExamDetailPanel({
         />
       )}
 
-      {error && <p className="px-5 pt-3 text-[13px] text-rose-600">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loadingExercises ? (
         <p className="text-sm text-slate-500 p-6 text-center">{t("common.loading")}</p>
@@ -1168,7 +1169,7 @@ function ExerciseRow({
         </div>
       </div>
 
-      {error && <p className="px-5 pb-2 text-[13px] text-rose-600">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {previewOpen && <ExercisePreviewModal exercise={exercise} onClose={() => setPreviewOpen(false)} />}
 
@@ -1331,7 +1332,7 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
   return (
     <Modal open onClose={onClose} title={t("assignPage.assignClassModal.title")} size="md">
       <p className="text-[13px] text-slate-500 mb-3">{t("assignPage.assignClassModal.description")}</p>
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
         <p className="text-sm text-slate-500 p-3 text-center">{t("common.loading")}</p>
       ) : classes.length === 0 ? (

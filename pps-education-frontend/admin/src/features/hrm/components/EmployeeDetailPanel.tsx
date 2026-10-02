@@ -32,6 +32,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -143,7 +144,7 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <AvatarUploadField
         value={form.portraitUrl}
@@ -352,7 +353,7 @@ function QualificationsTab({ employeeId, showToast }: { employeeId: number; show
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t("employeeDetail.qualifications.modalTitle")}>
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <div className="grid grid-cols-2 gap-3">
             <Select value={form.qualificationType} onChange={(e) => setForm({ ...form, qualificationType: e.target.value })} className={inputClass}>
               <option value="DEGREE">{t("qualificationType.DEGREE")}</option>
@@ -448,7 +449,7 @@ function CommendationsTab({ employeeId, showToast }: { employeeId: number; showT
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t("employeeDetail.commendations.modalTitle")}>
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <div className="grid grid-cols-2 gap-3">
             <div className="grid grid-cols-2 gap-2 col-span-2">
               <button
@@ -590,7 +591,7 @@ function ContractsTab({ employeeId, showToast }: { employeeId: number; showToast
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t("employeeDetail.contracts.modalTitle")}>
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <div className="grid grid-cols-2 gap-3">
             <input
               value={form.contractNumber}

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { AlertCircle } from "lucide-react";
 import { Employee } from "@/types";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface TaskFormPanelProps {
   employees: Employee[];
@@ -85,12 +85,7 @@ export default function TaskFormPanel({ employees, onSubmit, onCancel }: TaskFor
         </div>
       </div>
 
-      {error && (
-        <div className="text-sm font-semibold text-brand-red flex items-center gap-1 mt-2">
-          <AlertCircle className="w-3.5 h-3.5" />
-          <span>{error}</span>
-        </div>
-      )}
+      <FloatingError message={error} onClose={() => setError("")} />
     </form>
   );
 }

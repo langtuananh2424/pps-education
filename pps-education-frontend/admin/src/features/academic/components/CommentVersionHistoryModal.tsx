@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import { StudentCommentHistoryResponse, listStudentCommentHistory } from "../api";
 import Badge from "@/components/ui/Badge";
 import { toLocaleTag } from "@/lib/i18nFormat";
+import FloatingError from "@/components/ui/FloatingError";
 
 const statusVariants: Record<StudentCommentHistoryResponse["details"]["status"], "success" | "warning" | "danger" | "neutral"> = {
   DRAFT: "neutral",
@@ -64,7 +65,7 @@ export default function CommentVersionHistoryModal({ commentId, studentFullName,
         </div>
 
         <div className="p-5 space-y-2.5">
-          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           {loading ? (
             <p className="text-sm text-slate-400">{t("commentVersionHistoryModal.loading")}</p>
           ) : history.length === 0 ? (

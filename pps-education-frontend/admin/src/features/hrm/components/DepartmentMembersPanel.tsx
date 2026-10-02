@@ -13,6 +13,7 @@ import {
   removeDepartmentMember,
   searchDepartmentMemberCandidates
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface DepartmentMembersPanelProps {
   department: DepartmentResponse;
@@ -67,7 +68,7 @@ export default function DepartmentMembersPanel({ department, canManage, onChange
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {members == null ? (
         <p className="text-[13px] text-slate-400">{t("departmentsTab.loading")}</p>
@@ -215,7 +216,7 @@ function AddMembersModal({
             {t("departmentsTab.members.moveWarning", { count: movingCount })}
           </p>
         )}
-        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>{t("departmentsTab.members.cancel")}</Button>

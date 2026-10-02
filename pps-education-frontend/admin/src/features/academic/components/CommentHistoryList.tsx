@@ -11,6 +11,7 @@ import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import { toLocaleTag } from "@/lib/i18nFormat";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
 const statusVariants: Record<StudentCommentResponse["status"], "success" | "warning" | "danger" | "neutral"> = {
@@ -265,7 +266,7 @@ export default function CommentHistoryList({
     const COLUMN_COUNT = 14;
     return (
       <div className="space-y-2">
-        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <TableContainer>
           <thead>
             <tr className="border-b border-slate-300 [&>th]:text-center">
@@ -341,7 +342,7 @@ export default function CommentHistoryList({
 
   return (
     <div className="space-y-2">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {history.map((h) => (
         <div key={h.id} className="border border-slate-200 rounded-lg p-2.5 text-[13px] space-y-1.5">
           <div className="flex items-center justify-between gap-2">

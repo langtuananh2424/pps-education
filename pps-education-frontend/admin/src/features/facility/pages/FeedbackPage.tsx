@@ -18,6 +18,7 @@ import { cn } from "@/lib/cn";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
+import FloatingError from "@/components/ui/FloatingError";
 
 const priorityVariants: Record<PartnerFeedbackResponse["priority"], BadgeVariant> = {
   URGENT: "danger",
@@ -105,7 +106,7 @@ export default function FeedbackPage() {
         <p className="text-sm text-slate-500 mt-1">{t("feedbackPage.description")}</p>
       </div>
 
-      {error && <div className="text-sm font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card padded={false} className="lg:col-span-2 overflow-hidden">

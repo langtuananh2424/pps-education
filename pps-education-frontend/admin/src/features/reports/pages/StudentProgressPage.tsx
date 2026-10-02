@@ -29,6 +29,7 @@ import Toast from "@/components/ui/Toast";
 import { ApiError, downloadReport } from "@/lib/apiClient";
 import SelectReportTemplateModal from "../components/SelectReportTemplateModal";
 import { useStudentProfileData } from "../hooks/useStudentProfileData";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Nhãn trạng thái học sinh dịch qua i18next namespace "reports-progress". */
 function studentStatusLabel(t: (key: string) => string, status: string): string {
@@ -287,9 +288,7 @@ export default function StudentProgressPage() {
               {t("studentProgressPage.loadingProfile")}
             </div>
           ) : profile.error ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-rose-500 text-sm">
-              {profile.error}
-            </div>
+            <FloatingError message={profile.error} />
           ) : (
             <>
               {/* Tabs */}

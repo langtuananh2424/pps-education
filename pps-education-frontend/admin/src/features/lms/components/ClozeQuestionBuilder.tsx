@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { QuestionResponse, createExamQuestion } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[12px]";
@@ -132,7 +133,7 @@ export default function ClozeQuestionBuilder({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div>
         <label className={labelClass}>{t("clozeQuestionBuilder.passageLabel")}</label>

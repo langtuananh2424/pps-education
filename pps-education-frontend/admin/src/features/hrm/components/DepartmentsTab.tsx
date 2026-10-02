@@ -12,6 +12,7 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import Select from "@/components/ui/Select";
 import { useApp } from "@/context/AppContext";
 import DepartmentMembersPanel from "./DepartmentMembersPanel";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -71,7 +72,7 @@ export default function DepartmentsTab() {
         </Button>
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Modal open={creating} onClose={() => setCreating(false)} title={t("departmentsTab.modalTitle")}>
         <DepartmentForm
@@ -270,7 +271,7 @@ function DepartmentForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className={labelClass}>{t("departmentForm.codeLabel")}</label>

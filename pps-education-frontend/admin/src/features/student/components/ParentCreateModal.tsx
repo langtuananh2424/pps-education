@@ -6,6 +6,7 @@ import AccountSelector, { AccountSelection } from "@/features/system-admin/compo
 import { createParent, ParentResponse } from "../api";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
@@ -65,7 +66,7 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
           <p className="text-[13px] text-slate-500 mt-1">{t("parentCreateModal.description")}</p>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           <div className="space-y-2 border-t border-slate-100 pt-4">
             <span className="text-[12px] font-bold uppercase text-slate-500">{t("parentCreateModal.avatarLabel")}</span>

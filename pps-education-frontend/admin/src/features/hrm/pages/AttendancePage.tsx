@@ -19,6 +19,7 @@ import {
 } from "../api";
 import { attendanceMethodLabel, attendanceStatusLabel, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
 import SelfAttendanceCard from "../components/SelfAttendanceCard";
+import FloatingError from "@/components/ui/FloatingError";
 
 export default function AttendancePage() {
   const { t } = useTranslation("hrm-attendance");
@@ -150,7 +151,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
         </div>
       </div>
 
-      {error && <div className="m-4 text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <TableContainer className="rounded-none border-0">
         <thead>
@@ -296,7 +297,7 @@ function ClassSessionCheckInAdminSummary({ sites }: { sites: SiteResponse[] }) {
         </div>
       </div>
 
-      {error && <div className="m-4 text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <TableContainer className="rounded-none border-0">
         <thead>

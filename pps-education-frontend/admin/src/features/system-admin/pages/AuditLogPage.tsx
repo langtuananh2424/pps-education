@@ -19,6 +19,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 import { formatDateTime } from "@/lib/i18nFormat";
+import FloatingError from "@/components/ui/FloatingError";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
@@ -165,7 +166,7 @@ export default function AuditLogPage() {
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
-        {error && <div className="p-4 text-sm text-rose-600 bg-rose-50 border-b border-rose-100">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         {!loading && rows.length === 0 && !error ? (
           <EmptyState icon={Search} title={t("auditLogPage.emptyTitle")} description={t("auditLogPage.emptyDescription")} />
         ) : (

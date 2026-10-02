@@ -3,13 +3,13 @@ import { Building2, CheckCircle2, Fingerprint, Loader2, MapPin } from "lucide-re
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { Badge } from "@/components/ui";
-import { useDialog } from "@/components/ui/DialogProvider";
 import { useApp } from "@/context/AppContext";
 import { toLocaleTag } from "@/lib/i18nFormat";
 import { describeGeolocationError, getCurrentPosition } from "@/lib/geolocation";
 import { ATTENDANCE_CHECKED_EVENT, AttendanceRecordResponse, DetectedSiteResponse, checkIn, checkOut, detectAttendanceSite } from "../api";
 import { attendanceStatusLabel, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
 import AttendanceSuccessModal from "./AttendanceSuccessModal";
+import { notifyError } from "@/components/ui/FloatingBanner";
 
 /** Đồng bộ với badge "PPS English" ở LoginHeroPanel/auth.json — tên hiển thị chung của trung tâm. */
 const COMPANY_NAME = "PPS English";
@@ -40,7 +40,6 @@ export default function SelfAttendanceCard({ todayRecord, onChecked, onRequestCl
   const { t, i18n } = useTranslation("hrm-attendance");
   const { t: tc } = useTranslation("common");
   const { currentUser, currentRoleLabel } = useApp();
-  const { alertDialog } = useDialog();
   const [processing, setProcessing] = useState<"in" | "out" | null>(null);
   const [lastRecord, setLastRecord] = useState<AttendanceRecordResponse | null>(todayRecord ?? null);
   const [successRecord, setSuccessRecord] = useState<{ kind: "in" | "out"; record: AttendanceRecordResponse } | null>(null);
@@ -155,9 +154,9 @@ export default function SelfAttendanceCard({ todayRecord, onChecked, onRequestCl
         console.error("Chấm công thất bại — lỗi không xác định:", err);
         message = err instanceof Error ? err.message : t("selfAttendance.checkInFailedUnknown");
       }
-      // Popup cảnh báo dùng chung của app (thay window.alert) -- yêu cầu người dùng khi review UI
-      // chấm công, thay cho banner đỏ inline cũ (dễ bị lẫn/không đủ nổi bật khi lỗi GPS/quyền định vị).
-      void alertDialog(message);
+      // Banner lỗi nổi ở giữa phía trên (2026-10-01). Trước đó là popup alertDialog -- người dùng từng yêu cầu
+      // thay banner đỏ inline cũ vì dễ bị lẫn/không đủ nổi bật khi lỗi GPS/quyền định vị; banner nổi đáp ứng điều đó.
+      notifyError(message);
     } finally {
       busyRef.current = false;
       setProcessing(null);

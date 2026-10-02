@@ -25,6 +25,7 @@ import { formatDateTime } from "@/lib/i18nFormat";
 import DatePicker from "@/components/ui/DatePicker";
 import Time24Input from "@/components/ui/Time24Input";
 import Modal from "@/components/ui/Modal";
+import FloatingError from "@/components/ui/FloatingError";
 
 /**
  * UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — "Xem chi tiết" 1 BTVN Video
@@ -168,7 +169,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
         </button>
         <Card>
           {error ? (
-            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
+            <FloatingError message={error} />
           ) : loading ? (
             <p className="text-sm text-slate-500">{t("shared.loadingDetail")}</p>
           ) : (
@@ -256,8 +257,8 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
-      {exportError && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{exportError}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
+      <FloatingError message={exportError} onClose={() => setExportError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         {isConnection && (
@@ -488,7 +489,7 @@ function ReflexStudentHistoryModal({
         {loading ? (
           <p className="text-sm text-slate-500">{t("reviewVideoDetail.reflexHistoryModal.loading")}</p>
         ) : loadError ? (
-          <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{loadError}</div>
+          <FloatingError message={loadError} />
         ) : questionGroups.length === 0 ? (
           <p className="text-sm text-slate-400 italic">{t("reviewVideoDetail.reflexHistoryModal.empty")}</p>
         ) : (

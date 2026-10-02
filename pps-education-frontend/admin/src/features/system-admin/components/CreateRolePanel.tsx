@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { createRole, DataScope, RoleResponse } from "../api";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
@@ -109,7 +110,7 @@ export default function CreateRolePanel({ roles, onCancel, onCreated }: CreateRo
         </div>
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="flex gap-2 pt-1">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>

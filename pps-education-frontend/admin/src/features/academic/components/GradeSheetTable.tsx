@@ -18,6 +18,7 @@ import {
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
+import FloatingError from "@/components/ui/FloatingError";
 
 type TFunc = (key: string, options?: Record<string, unknown>) => string;
 
@@ -268,7 +269,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
           <p className="text-[13px] text-slate-400 italic">{t("sheetTable.editWindowHint")}</p>
         </div>
       )}
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {!readOnly && (
         <div className="px-5 py-3 space-y-2 border-b border-slate-200">
           <label className="block text-sm font-semibold text-slate-700">{t("sheetTable.disclaimerLabel")}</label>

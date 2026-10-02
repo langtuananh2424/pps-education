@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Loader2, Paperclip, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface FileUploadFieldProps {
   /** URL hiện tại (nếu đã có file/đang sửa) — hiển thị read-only, không cho gõ tay. */
@@ -114,7 +115,7 @@ export default function FileUploadField({ value, onChange, onUpload, onFileSize,
           {uploading ? t("upload.file.uploading") : placeholder ?? t("upload.file.choose")}
         </button>
       )}
-      {error && <p className="text-[12px] text-rose-600 font-semibold">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
     </div>
   );
 }

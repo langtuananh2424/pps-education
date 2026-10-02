@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { ReviewVideoQuestionImportResponse, importReviewVideoConnectionQuestions, importReviewVideoQuestions } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const REFLEX_SAMPLE_ROWS: string[][] = [
   ["30", "Describe your favorite hobby.", "60", "3", "1"],
@@ -88,7 +89,7 @@ export default function ReviewVideoQuestionImportPanel({ videoId, videoType, onI
       </button>
       <input ref={inputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {result && (
         <div className="space-y-3">

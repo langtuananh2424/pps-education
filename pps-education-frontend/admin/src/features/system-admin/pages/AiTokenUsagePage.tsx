@@ -15,6 +15,7 @@ import {
   getAiTokenUsageSummary,
   subscribeAiTokenUsage
 } from "../aiTokenUsageApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 /**
  * Quản trị hệ thống → Sử dụng token AI (V192, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
@@ -123,9 +124,7 @@ export default function AiTokenUsagePage() {
         </div>
       </div>
 
-      {error && (
-        <Card className="border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>
-      )}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

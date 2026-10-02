@@ -23,6 +23,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
@@ -203,7 +204,7 @@ function ProfileTab({
   return (
     <div className="space-y-5">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelClass}>{t("detail.profile.nameLabel")}</label>
@@ -331,7 +332,7 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-2 gap-2">
         <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder={t("detail.customForm.codePlaceholder")} className={`${inputClass} font-mono`} />
         <Select value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={inputClass}>
@@ -385,7 +386,7 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-sm text-slate-500">{t("detail.subjects.loading")}</p>
@@ -450,7 +451,7 @@ function AddSubjectForm({ curriculumId, onDone, onCancel }: { curriculumId: numb
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-3 gap-2">
         <input value={form.subjectCode} onChange={(e) => setForm({ ...form, subjectCode: e.target.value })} placeholder={t("detail.addSubjectForm.codePlaceholder")} className={`${inputClass} font-mono`} />
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t("detail.addSubjectForm.namePlaceholder")} className={`${inputClass} col-span-2`} />

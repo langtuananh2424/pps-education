@@ -15,6 +15,7 @@ import {
   listCurriculums,
   promoteClass
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -150,7 +151,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
   return (
     <Modal open onClose={onClose} title={t("classPromotion.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
-        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div>
           <label className={labelClass}>{t("classPromotion.sourceClassLabel")}</label>

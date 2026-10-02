@@ -40,6 +40,7 @@ import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface FlatQuestionRow {
   question: QuestionResponse;
@@ -210,7 +211,7 @@ export default function QuestionBankPage() {
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 space-y-4">
@@ -840,7 +841,7 @@ function ManageBanksModal({
           </button>
         </div>
         <div className="p-6 space-y-2">
-          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-2">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           {banks.length === 0 ? (
             <p className="text-sm text-slate-400 italic text-center py-6">{t("bankPage.manageBanksModal.empty")}</p>
           ) : (
@@ -897,7 +898,7 @@ export function QuickBankForm({ curriculumId, onCreated, onCancel }: { curriculu
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-3 gap-2">
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("bankPage.quickBankForm.codePlaceholder")} className="bg-white border border-slate-200 text-sm p-2 rounded-lg font-mono" />
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("bankPage.quickBankForm.namePlaceholder")} className="bg-white border border-slate-200 text-sm p-2 rounded-lg" />

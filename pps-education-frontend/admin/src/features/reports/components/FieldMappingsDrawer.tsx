@@ -12,6 +12,7 @@ import {
   getAvailableReportFields,
 } from "@/features/academic/api";
 import { ApiError } from "@/lib/apiClient";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface Props {
   template: ReportTemplateResponse;
@@ -300,9 +301,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
 
         {/* Body */}
         <div className="p-6 flex-1 overflow-y-auto space-y-4">
-          {error && (
-            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
-          )}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           {/* Hướng dẫn */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700 space-y-1">

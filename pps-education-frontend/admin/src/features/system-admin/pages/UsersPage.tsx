@@ -30,6 +30,7 @@ import {
 import Select from "@/components/ui/Select";
 import { formatDateTime } from "@/lib/i18nFormat";
 import UserSessionsSection from "../components/UserSessionsSection";
+import FloatingError from "@/components/ui/FloatingError";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -179,7 +180,7 @@ export default function UsersPage() {
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
-        {listError && <div className="p-4 text-sm text-rose-600 bg-rose-50 border-b border-rose-100">{listError}</div>}
+        <FloatingError message={listError} onClose={() => setListError(null)} />
         {!loading && rows.length === 0 && !listError ? (
           <EmptyState icon={UsersIcon} title={t("usersPage.empty.title")} description={t("usersPage.empty.description")} />
         ) : (
@@ -446,7 +447,7 @@ function UserDetailModal({
   return (
     <Modal open={userId != null} onClose={onClose} title={detail ? t("usersPage.detail.titleWithUsername", { username: detail.username }) : t("usersPage.detail.titleFallback")} size="lg">
       {loading && <p className="text-sm text-slate-500">{t("usersPage.detail.loading")}</p>}
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-4">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {detail && (
         <div className="space-y-5">

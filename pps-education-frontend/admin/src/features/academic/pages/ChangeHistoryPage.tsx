@@ -15,6 +15,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import Pagination from "@/components/ui/Pagination";
 import type { Page } from "@/types";
 import { ChangeHistoryEntityType, ChangeHistoryItem, searchChangeHistory } from "../oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 const ENTITY_TYPES: ChangeHistoryEntityType[] = [
   "CLASS",
@@ -313,7 +314,7 @@ export default function ChangeHistoryPage() {
         )}
       </Card>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         {loading && !data ? (

@@ -11,6 +11,7 @@ import SubstituteTeacherCombobox from "./SubstituteTeacherCombobox";
 import type { ClassSessionResponse } from "@/features/academic/api";
 import { CreateLeaveRequestRequest, listTeachingSessionsForSubstitution, submitLeaveRequest, TeacherLookupResponse } from "../api";
 import { useLeaveTypes } from "../hooks/useLeaveTypes";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface LeaveRequestFormProps {
   onSubmitted: () => void;
@@ -135,7 +136,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
         </h3>
         <p className="text-sm text-slate-500">{t("leaveRequestForm.description")}</p>
 
-        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <form id="leave-request-form" onSubmit={handleSubmit} className="space-y-3.5">
         <div className="space-y-1">

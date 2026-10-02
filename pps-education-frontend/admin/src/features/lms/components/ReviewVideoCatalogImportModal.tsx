@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { ReviewVideoCatalogImportResponse, importReviewVideoCatalog } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const TEMPLATE_HEADERS = ["Mã bộ", "Loại video", "Mã khung chương trình", "Loại giáo viên", "Tên sách", "Mã Unit", "Mã subtopic", "Tiêu đề", "Link video"];
 
@@ -48,7 +49,7 @@ export default function ReviewVideoCatalogImportModal({ open, onClose, onImporte
   const handleFile = async (file: File | null) => {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
-      setError(t("importModal.onlyXlsx"));
+      setError(t("lectures.importModal.onlyXlsx"));
       return;
     }
     setSubmitting(true);
@@ -59,7 +60,7 @@ export default function ReviewVideoCatalogImportModal({ open, onClose, onImporte
       setResult(res);
       if (res.successRows > 0) onImported();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("importModal.importFailed"));
+      setError(err instanceof ApiError ? err.message : t("lectures.importModal.importFailed"));
     } finally {
       setSubmitting(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -67,7 +68,7 @@ export default function ReviewVideoCatalogImportModal({ open, onClose, onImporte
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title={t("importModal.title")} description={t("importModal.description")}>
+    <Modal open={open} onClose={handleClose} title={t("lectures.importModal.title")} description={t("lectures.importModal.description")}>
       <div className="space-y-3">
         <button
           type="button"
@@ -75,7 +76,7 @@ export default function ReviewVideoCatalogImportModal({ open, onClose, onImporte
           className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
         >
           <Download className="w-4 h-4" />
-          {t("importModal.downloadTemplate")}
+          {t("lectures.importModal.downloadTemplate")}
         </button>
 
         <button
@@ -86,34 +87,34 @@ export default function ReviewVideoCatalogImportModal({ open, onClose, onImporte
         >
           <UploadCloud className="w-6 h-6 text-brand-red" />
           <span className="text-sm font-bold text-slate-700">
-            {submitting ? t("importModal.importing") : t("importModal.chooseFile")}
+            {submitting ? t("lectures.importModal.importing") : t("lectures.importModal.chooseFile")}
           </span>
         </button>
         <input ref={inputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
 
-        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {result && (
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-slate-50 border border-slate-100 rounded-lg py-2">
                 <div className="text-sm font-bold text-slate-800">{result.totalRows ?? "—"}</div>
-                <div className="text-[12px] text-slate-400">{t("importModal.stats.totalRows")}</div>
+                <div className="text-[12px] text-slate-400">{t("lectures.importModal.stats.totalRows")}</div>
               </div>
               <div className="bg-emerald-50 border border-emerald-100 rounded-lg py-2">
                 <div className="text-sm font-bold text-emerald-600">{result.successRows}</div>
-                <div className="text-[12px] text-emerald-500">{t("importModal.stats.successRows")}</div>
+                <div className="text-[12px] text-emerald-500">{t("lectures.importModal.stats.successRows")}</div>
               </div>
               <div className="bg-rose-50 border border-rose-100 rounded-lg py-2">
                 <div className="text-sm font-bold text-rose-600">{result.failedRows}</div>
-                <div className="text-[12px] text-rose-500">{t("importModal.stats.failedRows")}</div>
+                <div className="text-[12px] text-rose-500">{t("lectures.importModal.stats.failedRows")}</div>
               </div>
             </div>
 
             {result.errorSummary.length > 0 && (
               <div className="border border-rose-100 rounded-lg overflow-hidden">
                 <div className="bg-rose-50 px-3 py-1.5 text-[12px] font-bold text-rose-600 uppercase">
-                  {t("importModal.errorDetailTitle")}
+                  {t("lectures.importModal.errorDetailTitle")}
                 </div>
                 <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                   {result.errorSummary.map((e, i) => (

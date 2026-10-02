@@ -5,6 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
 import GoogleSignInButton from "./GoogleSignInButton";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -59,12 +60,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
         <p className="text-sm text-slate-400 font-medium">{t("welcomeBackSub")}</p>
       </div>
 
-      {error && (
-        <div className="p-3 bg-rose-50 border border-rose-100 text-rose-700 text-sm rounded-xl font-semibold flex items-center gap-2 animate-in fade-in mt-6">
-          <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 animate-ping" />
-          <span>{error}</span>
-        </div>
-      )}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <form onSubmit={handleSubmit} className="space-y-4 mt-6">
         <div className="space-y-1.5">

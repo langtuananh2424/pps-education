@@ -18,6 +18,7 @@ import {
   getAttendanceSession,
   listClassSessions
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 /**
  * 1 lần bấm "Xác nhận & Lưu điểm danh" ghi N dòng attendance_marks_history (1/học sinh, cùng actor +
@@ -195,7 +196,7 @@ export default function AttendanceHistoryPanel({ classes, loadingClasses, onOpen
         </span>
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-sm text-slate-500 p-4">{t("attendancePage.history.loading")}</p>
@@ -321,7 +322,7 @@ function SessionRow({ entry, onOpenSession }: { entry: SessionAttendanceEntry; o
             <History className="w-3 h-3" />
             {t("attendancePage.history.timeline.title")}
           </p>
-          {historyError && <p className="text-[13px] text-rose-600">{historyError}</p>}
+          <FloatingError message={historyError} onClose={() => setHistoryError(null)} />
           {historyLoading ? (
             <p className="text-[13px] text-slate-400">{t("attendancePage.history.timeline.loading")}</p>
           ) : timelineBuckets.length === 0 ? (

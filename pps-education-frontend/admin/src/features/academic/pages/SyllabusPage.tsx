@@ -11,6 +11,7 @@ import CurriculumFormModal from "../components/CurriculumFormModal";
 import CurriculumApprovalPanel from "../components/CurriculumApprovalPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 export default function SyllabusPage() {
   const { t } = useTranslation("academic-curriculum");
@@ -52,7 +53,7 @@ export default function SyllabusPage() {
         </p>
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <CurriculumListPanel

@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import FileUploadField from "@/components/ui/FileUploadField";
 import Select from "@/components/ui/Select";
 import { QuestionResponse, createExamQuestion, uploadMedia } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[12px]";
@@ -164,7 +165,7 @@ export default function FillInBlankGroupBuilder({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — chỉ hiện khi Bài đang soạn đã có sẵn ≥1 nhóm điền từ (existingGroups), cho GV chọn thêm câu vào nhóm cũ thay vì luôn tạo nhóm mới. */}
       {existingGroups && existingGroups.length > 0 && (

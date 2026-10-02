@@ -24,6 +24,7 @@ import { ASSIGNER_TRANSITIONS, ASSIGNMENT_STATUS_META, assignmentStatusLabel } f
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 
@@ -207,7 +208,7 @@ export default function CreatedTaskDetailModal({ task, onClose, onTaskChanged }:
         <p className="text-sm text-slate-500">{t("createdTaskDetail.loading")}</p>
       ) : (
         <div className="space-y-4">
-          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           <div className="flex items-center justify-between gap-2">
             <span className="text-[12px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">

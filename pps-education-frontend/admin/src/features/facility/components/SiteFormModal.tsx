@@ -6,6 +6,7 @@ import { createSite, CreateSiteRequest } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
@@ -73,7 +74,7 @@ export default function SiteFormModal({ onClose, onCreated }: SiteFormModalProps
   return (
     <Modal open onClose={onClose} title={t("siteForm.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t("siteForm.codeLabel")}</label>

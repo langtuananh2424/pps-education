@@ -19,6 +19,7 @@ import {
   exportTeachingStats,
   getTeachingStats
 } from "@/features/academic/oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 function firstDayOfMonthIso(): string {
   const now = new Date();
@@ -135,7 +136,7 @@ export default function TeachingStatsPage() {
         </div>
       </Card>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         {loading && !stats ? (

@@ -29,6 +29,7 @@ import {
   getSessionReportTimeline,
   getSessionReportTracking
 } from "@/features/academic/oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 type TabId = "sessions" | "teachers" | "approvers";
 type RowFilter = "all" | "problems" | "missing" | "approvalOverdue" | "resubmitOverdue";
@@ -249,7 +250,7 @@ export default function SessionReportsPage() {
         )}
       </Card>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {summaryTiles.map(({ key, tone }) => (
@@ -387,7 +388,7 @@ export default function SessionReportsPage() {
         size="lg"
       >
         {timelineError ? (
-          <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{timelineError}</div>
+          <FloatingError message={timelineError} />
         ) : timeline == null ? (
           <div className="py-10 text-center text-slate-300"><History className="w-10 h-10 mx-auto animate-pulse" /></div>
         ) : timeline.length === 0 ? (

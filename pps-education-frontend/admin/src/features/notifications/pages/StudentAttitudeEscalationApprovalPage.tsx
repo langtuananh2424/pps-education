@@ -8,6 +8,7 @@ import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 /**
  * Duyệt cảnh báo thái độ học tập Yếu/Trung bình liên tục 3 buổi trước khi gửi xuống Phụ huynh —
@@ -62,7 +63,7 @@ export default function StudentAttitudeEscalationApprovalPage() {
         <p className="text-sm text-slate-500 mt-1">{t("attitudeEscalations.description")}</p>
       </div>
 
-      {error && <div className="text-sm font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">

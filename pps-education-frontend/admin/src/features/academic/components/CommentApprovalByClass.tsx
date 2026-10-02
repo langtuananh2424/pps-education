@@ -34,6 +34,7 @@ import { toLocaleTag } from "@/lib/i18nFormat";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import AiAssistantFab from "@/components/ai/AiAssistantFab";
 import CommentApprovalAssistantSidebar, { PendingClassOption } from "./CommentApprovalAssistantSidebar";
+import FloatingError from "@/components/ui/FloatingError";
 
 // Đồng bộ đúng bố cục/tên cột với form Giáo viên điền & gửi (DailyCommentPanel.tsx) — bổ sung ngoài
 // SDD gốc, đã xác nhận với người dùng 2026-08-06. Nhãn 2 kênh BTVN ăn theo "Loại giáo viên" của buổi
@@ -412,7 +413,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
   return (
     <div className="space-y-4">
       <NotificationBanner message={decidedMessage} onClose={() => setDecidedMessage(null)} />
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {classIdsInOrder.map((classId) => {
         const cls = classesById[classId];
         const classItems = items.filter((it) => it.classId === classId);

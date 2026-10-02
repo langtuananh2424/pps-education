@@ -19,6 +19,7 @@ import UserSearchCombobox from "../components/UserSearchCombobox";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 export default function OverridesPage() {
   const { t } = useTranslation("system-admin-overrides");
@@ -99,7 +100,7 @@ export default function OverridesPage() {
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading && <p className="text-sm text-slate-500">{t("overridesPage.loading")}</p>}
 

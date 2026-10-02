@@ -60,6 +60,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -229,7 +230,7 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {!canManage && (
         <div className="text-[13px] text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded-lg">
           {t("classDetail.profile.readOnlyNotice")}
@@ -417,7 +418,7 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
         </div>
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-sm text-slate-500">{t("common.loading")}</p>
@@ -573,7 +574,7 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <UserSearchCombobox
         value={selected}
         onChange={setSelected}
@@ -655,7 +656,7 @@ function ChangeTeacherForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-sky-50 border border-sky-200 rounded-lg p-3 mt-2 space-y-2">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <p className="text-[12px] text-slate-500">{t("classDetail.changeTeacherForm.cascadeHint")}</p>
       <UserSearchCombobox
         value={selected}
@@ -867,7 +868,7 @@ function StudentsTab({
         </div>
       )}
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-sm text-slate-500">{t("common.loading")}</p>
@@ -998,7 +999,7 @@ function EnrollStudentForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="relative">
         <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
@@ -1210,7 +1211,7 @@ function SessionsTab({
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-sm text-slate-500">{t("common.loading")}</p>
@@ -1400,7 +1401,7 @@ function RescheduleSessionForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <p className="text-[13px] text-slate-500">
         {t("classDetail.rescheduleForm.currentSchedulePrefix", { number: session.sessionNumber })}{" "}
         <span className="font-bold text-slate-700">{session.sessionDate} {session.startTime}–{session.endTime}</span>
@@ -1543,7 +1544,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div>
         <label className={labelClass}>{t("classDetail.createSessionForm.sessionDateLabel")}</label>

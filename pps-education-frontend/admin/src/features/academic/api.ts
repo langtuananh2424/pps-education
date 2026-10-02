@@ -1588,6 +1588,8 @@ export interface SaveDraftRowRequest extends UpdateStudentCommentRequest {
   studentId: number;
   /** UC-74 (V201) — true khi dòng vừa áp dụng từ bản nháp trợ lý AI; bỏ trống thì BE giữ nguyên cờ đã lưu. */
   aiDrafted?: boolean;
+  /** UC-74 (V208) — nguyên văn Nhận xét trợ lý AI soạn lúc áp dụng; chỉ gửi kèm khi aiDrafted. */
+  aiDraftContent?: string;
 }
 
 export interface SaveDraftCommentsRequest {

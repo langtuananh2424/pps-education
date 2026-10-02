@@ -29,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -66,7 +67,7 @@ class CommentAiDraftServiceTest {
     private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService, attitudeAlertTrackingService,
             classEnrollmentRepository, attendanceSessionRepository, attendanceMarkRepository, studentCommentRepository,
             homeworkInsightService, studentSignalService, aiClient, new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
-            "comment-pps", 3, 120, 0.5, 10, 1024, 20, 0.3);
+            "comment-pps", 3, 120, 0.5, 10, 1024, 20, 0.3, 0.7);
 
     private final ClassSession session = mock(ClassSession.class);
 
@@ -100,7 +101,7 @@ class CommentAiDraftServiceTest {
     }
 
     private void stubAi(String promptFile, String... responses) {
-        var stub = when(aiClient.chatWithFinishReason(eq(promptFile), anyString(), anyString()));
+        var stub = when(aiClient.chatWithFinishReason(eq(promptFile), anyString(), anyString(), anyDouble()));
         for (String response : responses) {
             stub = stub.thenReturn(new NineRouterAiClient.ChatResult(response, "stop", null));
         }
@@ -191,7 +192,7 @@ class CommentAiDraftServiceTest {
         assertThat(result.rows().subList(1, 3)).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
         assertThat(result.assistantMessage()).contains("3 học sinh").contains("Nguyễn Văn An");
         // Không có dòng trùng -> không gọi viết lại.
-        verify(aiClient, times(1)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
+        verify(aiClient, times(1)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), anyDouble());
     }
 
     @Test
@@ -207,8 +208,22 @@ class CommentAiDraftServiceTest {
 
         assertThat(result.rows().get(1).content()).isEqualTo("Bình chú tâm nghe giảng suốt buổi, rất đáng khen.");
         assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
-        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), anyDouble());
         verify(aiClient, never()).transcribe(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void generateDraft_UC74_Step6_writesWithConfiguredTemperatureButExtractsAtZero() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": \"GOOD\", \"classPoints\": [\"cả lớp tập trung tốt\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT,
+                "{\"comments\": [{\"studentId\": 1, \"content\": \"An tập trung nghe giảng suốt buổi.\"}]}");
+
+        service.generateDraft(context(AN), null, null, "cả lớp tập trung tốt");
+
+        // Bổ sung 2026-10-01: chỉ bước viết câu dùng nhiệt độ cấu hình (0.7) để câu chữ đa dạng; tách ý giữ 0.
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.EXTRACT_PROMPT), anyString(), anyString(), eq(0.0));
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), eq(0.7));
     }
 
     // ---- Alternate Flows ----
@@ -238,7 +253,7 @@ class CommentAiDraftServiceTest {
     void startDraft_UC74_A3_rejectsWhenNoAudioAndNoNote() {
         assertThatThrownBy(() -> service.startDraft(SESSION_ID, null, "  ", null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -250,7 +265,7 @@ class CommentAiDraftServiceTest {
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("quá lớn");
         assertThatThrownBy(() -> service.startDraft(SESSION_ID, notAudio, null, null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("không phải audio");
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -279,7 +294,7 @@ class CommentAiDraftServiceTest {
 
     @Test
     void generateDraft_UC74_A5_failsWhenAiReturnsUnreadableOrTruncatedResult() {
-        when(aiClient.chatWithFinishReason(eq(CommentAiDraftService.EXTRACT_PROMPT), anyString(), anyString()))
+        when(aiClient.chatWithFinishReason(eq(CommentAiDraftService.EXTRACT_PROMPT), anyString(), anyString(), anyDouble()))
                 .thenReturn(new NineRouterAiClient.ChatResult("{\"classPoints\": [\"tốt\"", "length", null));
 
         assertThatThrownBy(() -> service.generateDraft(context(AN), null, null, "cả lớp tốt"))
@@ -290,7 +305,7 @@ class CommentAiDraftServiceTest {
     void generateDraft_UC74_A5_retriesFailedWriteBatchOnceBeforeWarning() {
         stubAi(CommentAiDraftService.EXTRACT_PROMPT,
                 "{\"classAttitude\": \"GOOD\", \"classPoints\": [\"cả lớp tập trung tốt\"], \"individuals\": [], \"unmatched\": []}");
-        when(aiClient.chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString()))
+        when(aiClient.chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), anyDouble()))
                 .thenReturn(null)
                 .thenReturn(new NineRouterAiClient.ChatResult("{\"comments\": ["
                         + "{\"studentId\": 1, \"content\": \"An chú tâm nghe giảng suốt buổi học.\"},"
@@ -302,14 +317,14 @@ class CommentAiDraftServiceTest {
                 .containsExactly("An chú tâm nghe giảng suốt buổi học.", "Bình hăng hái phát biểu, xây dựng bài sôi nổi.");
         assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
         // Lô đầu lỗi -> thử lại đúng 1 lần (lô nửa kích thước vẫn chứa cả 2 học sinh).
-        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), anyDouble());
     }
 
     @Test
     void generateDraft_UC74_A5_warnsNotWrittenWhenRetryAlsoFails() {
         stubAi(CommentAiDraftService.EXTRACT_PROMPT,
                 "{\"classAttitude\": \"GOOD\", \"classPoints\": [\"cả lớp tập trung tốt\"], \"individuals\": [], \"unmatched\": []}");
-        when(aiClient.chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString()))
+        when(aiClient.chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), anyDouble()))
                 .thenReturn(new NineRouterAiClient.ChatResult(
                         "{\"comments\": [{\"studentId\": 1, \"content\": \"An chú tâm nghe giảng suốt buổi học.\"}]}", "stop", null))
                 .thenReturn(null);
@@ -318,7 +333,7 @@ class CommentAiDraftServiceTest {
 
         assertThat(result.rows().get(1).warnings()).extracting(CommentAiDraftResult.Warning::type).containsExactly("NOT_WRITTEN");
         // 1 lượt đầu + 1 lần thử lại cho Bình, không thử lần thứ 3.
-        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), anyDouble());
     }
 
     @Test
@@ -376,7 +391,7 @@ class CommentAiDraftServiceTest {
 
         CommentAiDraftResult result = service.generateDraft(context(AN, BINH), null, null, "ghi chú");
 
-        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), anyDouble());
         assertThat(result.rows().get(1).content()).startsWith("Điểm đáng khen");
         assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).extracting(CommentAiDraftResult.Warning::type)
                 .doesNotContain("REPEATED_PATTERN"));
@@ -428,7 +443,7 @@ class CommentAiDraftServiceTest {
                 .containsExactly("SIMILAR_TO_PREVIOUS");
         assertThat(result.rows().get(0).warnings().get(0).message()).contains(SESSION_DATE.minusDays(7).toString());
         // Lượt viết lại có kèm câu cũ để tránh.
-        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString(), anyDouble());
     }
 
     @Test
@@ -453,7 +468,7 @@ class CommentAiDraftServiceTest {
 
         assertThatThrownBy(() -> service.startRevise(SESSION_ID, request, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -480,6 +495,48 @@ class CommentAiDraftServiceTest {
     }
 
     @Test
+    void revise_UC74_Step7_rephrasesRevisedRowThatDuplicatesClassmateOnce() {
+        stubAi(CommentAiDraftService.REVISE_PROMPT, """
+                {"assistantMessage": "Đã viết lại nhận xét của Bình.",
+                 "changes": [{"studentId": 2, "content": "Hôm nay con tập trung rất tốt trong giờ học và hăng hái phát biểu."}]}""",
+                """
+                {"assistantMessage": "Đã diễn đạt lại.",
+                 "changes": [{"studentId": 2, "content": "Bình chú tâm suốt buổi, giơ tay phát biểu rất mạnh dạn."},
+                             {"studentId": 1, "content": "không được đổi dòng của An"}]}""");
+        ReviseCommentAiDraftRequest request = new ReviseCommentAiDraftRequest(ReviseCommentAiDraftRequest.Mode.INSTRUCTION,
+                "viết lại nhận xét của Bình", "transcript", null,
+                List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "GOOD", "Hôm nay con tập trung rất tốt trong giờ học và hăng hái phát biểu."),
+                        new ReviseCommentAiDraftRequest.CurrentRow(2L, "GOOD", "Bình tập trung tốt.")),
+                List.of(), null);
+
+        CommentAiDraftResult result = service.revise(context(AN, BINH), request);
+
+        // Dòng vừa sửa trùng nguyên văn bạn An -> nhờ AI diễn đạt lại đúng 1 lần, chỉ nhận thay đổi của dòng đó.
+        assertThat(result.rows().get(1).content()).isEqualTo("Bình chú tâm suốt buổi, giơ tay phát biểu rất mạnh dạn.");
+        assertThat(result.rows().get(0).content()).isEqualTo("Hôm nay con tập trung rất tốt trong giờ học và hăng hái phát biểu.");
+        assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT), anyString(), anyString(), anyDouble());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT),
+                org.mockito.ArgumentMatchers.contains("Diễn đạt lại câu chữ nhận xét của: Trần Thị Bình (studentId 2)"), anyString(), eq(0.7));
+    }
+
+    @Test
+    void revise_UC74_Step9_doesNotRephraseWhenRevisedRowIsDistinct() {
+        stubAi(CommentAiDraftService.REVISE_PROMPT, """
+                {"assistantMessage": "Đã sửa.", "changes": [{"studentId": 2, "content": "Bình hôm nay còn lơ là, cần cố gắng hơn."}]}""");
+        ReviseCommentAiDraftRequest request = new ReviseCommentAiDraftRequest(ReviseCommentAiDraftRequest.Mode.INSTRUCTION,
+                "Bình lơ là", "transcript", null,
+                List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "GOOD", "An tập trung tốt."),
+                        new ReviseCommentAiDraftRequest.CurrentRow(2L, "GOOD", "Bình tập trung tốt.")),
+                List.of(), null);
+
+        service.revise(context(AN, BINH), request);
+
+        verify(aiClient, times(1)).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT), anyString(), anyString(), anyDouble());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT), anyString(), anyString(), eq(0.0));
+    }
+
+    @Test
     void revise_UC74_rewriteAllKeepsTeacherAdjustedAttitudeAndAvoidsOldTexts() {
         stubAi(CommentAiDraftService.WRITE_PROMPT, """
                 {"comments": [{"studentId": 1, "content": "An giữ được sự chú ý trong giờ, rất đáng khen."}]}""");
@@ -493,9 +550,9 @@ class CommentAiDraftServiceTest {
         assertThat(result.rows().get(0).attitude()).isEqualTo("FAIR");
         assertThat(result.rows().get(0).content()).isEqualTo("An giữ được sự chú ý trong giờ, rất đáng khen.");
         verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
-                org.mockito.ArgumentMatchers.contains("An tập trung tốt."), anyString());
+                org.mockito.ArgumentMatchers.contains("An tập trung tốt."), anyString(), anyDouble());
         verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
-                org.mockito.ArgumentMatchers.contains("\"teacherPronoun\":\"cô\""), anyString());
+                org.mockito.ArgumentMatchers.contains("\"teacherPronoun\":\"cô\""), anyString(), anyDouble());
     }
 
     // ---- Đại từ giáo viên tự xưng + rubric ----
@@ -510,7 +567,7 @@ class CommentAiDraftServiceTest {
 
         assertThat(result.extraction().teacherPronoun()).isEqualTo("thầy");
         verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
-                org.mockito.ArgumentMatchers.contains("\"teacherPronoun\":\"thầy\""), anyString());
+                org.mockito.ArgumentMatchers.contains("\"teacherPronoun\":\"thầy\""), anyString(), anyDouble());
     }
 
     @Test
@@ -542,7 +599,7 @@ class CommentAiDraftServiceTest {
         assertThat(result.extraction().individuals()).extracting(CommentAiDraftResult.IndividualPoints::sharedWith)
                 .containsExactly(List.of(2L), List.of(1L));
         verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
-                org.mockito.ArgumentMatchers.contains("\"sharedWithStudentIds\":[2]"), anyString());
+                org.mockito.ArgumentMatchers.contains("\"sharedWithStudentIds\":[2]"), anyString(), anyDouble());
     }
 
     @Test
@@ -601,7 +658,7 @@ class CommentAiDraftServiceTest {
 
         CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "ghi chú");
 
-        verify(aiClient, never()).chatWithFinishReason(anyString(), org.mockito.ArgumentMatchers.contains("lessonContent"), anyString());
+        verify(aiClient, never()).chatWithFinishReason(anyString(), org.mockito.ArgumentMatchers.contains("lessonContent"), anyString(), anyDouble());
         assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::type).contains("LESSON_TITLE");
     }
 
@@ -643,7 +700,7 @@ class CommentAiDraftServiceTest {
         service.generateDraft(context(an), null, null, "ghi chú");
 
         verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
-                org.mockito.ArgumentMatchers.contains("nghe — cần cố gắng"), anyString());
+                org.mockito.ArgumentMatchers.contains("nghe — cần cố gắng"), anyString(), anyDouble());
     }
 
     @Test
@@ -679,7 +736,7 @@ class CommentAiDraftServiceTest {
         service.generateDraft(context(thuy), null, null, "ghi chú");
 
         verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
-                org.mockito.ArgumentMatchers.contains("\"homeworkDetails\":[\"kỹ năng nghe đi xuống qua các buổi gần đây\"]"), anyString());
+                org.mockito.ArgumentMatchers.contains("\"homeworkDetails\":[\"kỹ năng nghe đi xuống qua các buổi gần đây\"]"), anyString(), anyDouble());
     }
 
     @Test
@@ -702,7 +759,7 @@ class CommentAiDraftServiceTest {
                 org.mockito.ArgumentMatchers.argThat(payload -> payload.contains("\"attendance\":[\"hôm nay đến lớp muộn")
                         && payload.contains("\"toneHints\":[\"học sinh nhỏ tuổi")
                         && payload.contains("\"studentInfo\":[\"mới vào lớp gần đây")
-                        && payload.contains("\"otherTeacherComment\":\"Thủy mạnh dạn nói tiếng Anh.\"")), anyString());
+                        && payload.contains("\"otherTeacherComment\":\"Thủy mạnh dạn nói tiếng Anh.\"")), anyString(), anyDouble());
         assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::type).contains("STUDENT_INFO_CHECK");
     }
 

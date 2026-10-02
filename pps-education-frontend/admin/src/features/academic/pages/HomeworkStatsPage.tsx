@@ -15,6 +15,7 @@ import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
 import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
 import Pagination from "@/components/ui/Pagination";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — lọc theo GV Việt Nam/nước ngoài, dùng chung cho cả 2 nguồn (Exercise lấy qua exam.teacherType, review-video lấy trực tiếp từ set.teacherType). */
 type TeacherTypeFilter = "VIETNAMESE" | "FOREIGN";
@@ -239,7 +240,7 @@ export default function HomeworkStatsPage() {
         <p className="text-sm text-slate-500 mt-1">{t("list.subtitle")}</p>
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {!selectedClassId ? (
         <Card>

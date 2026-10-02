@@ -15,6 +15,7 @@ import {
   getReflexQuestionFormats,
   uploadMedia
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
@@ -277,7 +278,7 @@ function ReflexPictureModal({
           activeId={tab}
           onChange={(id) => setTab(id as "image" | "brief")}
         />
-        {error && <div className="text-[13px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         {notice && <div className="text-[13px] text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">{notice}</div>}
 
         {tab === "image" ? (

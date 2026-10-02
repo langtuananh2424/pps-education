@@ -19,6 +19,7 @@ import {
   updateRolePermissions
 } from "../api";
 import PermissionChecklist from "./PermissionChecklist";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Vai trò Quản trị viên luôn có mọi quyền — backend cũng chặn sửa (RoleLockedException). */
 const LOCKED_ROLE_CODE = "SYS_ADMIN";
@@ -208,7 +209,7 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
     <div className="@container">
       <div className="grid grid-cols-1 @4xl:grid-cols-[minmax(0,1fr)_220px] gap-5">
         <div className="space-y-5 min-w-0">
-          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           {locked && (
             <div className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">{t("roleAccessEditor.lockedNotice")}</div>
           )}

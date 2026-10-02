@@ -5,6 +5,7 @@ import Modal from "./Modal";
 import Button from "./Button";
 import { ApiError } from "@/lib/apiClient";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
+import FloatingError from "@/components/ui/FloatingError";
 
 export interface ImportErrorRow {
   row: number;
@@ -181,7 +182,7 @@ export default function ImportExcelButton({
               />
             </div>
 
-            {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+            <FloatingError message={error} onClose={() => setError(null)} />
 
             {result && (
               <div className="space-y-3">
