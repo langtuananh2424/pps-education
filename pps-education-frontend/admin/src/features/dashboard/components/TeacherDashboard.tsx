@@ -38,12 +38,12 @@ function SectionHead({
       <div className="flex items-center gap-3 min-w-0">
         <Icon className="w-[18px] h-[18px] text-slate-400 shrink-0" />
         <div className="min-w-0">
-          <span className="text-xs font-bold text-slate-800 font-display block">{title}</span>
-          <p className="text-xs text-slate-400 truncate mt-0.5">{subtitle}</p>
+          <span className="text-sm font-bold text-slate-800 font-display block">{title}</span>
+          <p className="text-sm text-slate-400 truncate mt-0.5">{subtitle}</p>
         </div>
       </div>
       {action && (
-        <button onClick={action.onClick} className="text-xs font-bold text-brand-red shrink-0 hover:underline">
+        <button onClick={action.onClick} className="text-sm font-bold text-brand-red shrink-0 hover:underline">
           {action.label}
         </button>
       )}
@@ -68,8 +68,8 @@ function InlineEmpty({
       <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2.5 ${tone === "good" ? "bg-emerald-50 text-emerald-500" : "bg-slate-100 text-slate-400"}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <p className="text-xs font-bold text-slate-600">{title}</p>
-      {description && <p className="text-xs text-slate-400 mt-1 max-w-xs">{description}</p>}
+      <p className="text-sm font-bold text-slate-600">{title}</p>
+      {description && <p className="text-sm text-slate-400 mt-1 max-w-xs">{description}</p>}
     </div>
   );
 }
@@ -119,7 +119,7 @@ function WeeklyTrendChart({ points, thisWeekLabel }: { points: TeacherWeekPoint[
       </svg>
       <div className="flex justify-between px-1 mt-1">
         {coords.map((c, i) => (
-          <span key={c.weekLabel + i} className="text-[9px] font-bold text-slate-400" style={{ flex: coords.length > 1 ? "0 0 auto" : undefined }}>
+          <span key={c.weekLabel + i} className="text-[12px] font-bold text-slate-400" style={{ flex: coords.length > 1 ? "0 0 auto" : undefined }}>
             {c.isCurrentWeek ? thisWeekLabel : c.weekLabel}
           </span>
         ))}
@@ -249,26 +249,26 @@ export default function TeacherDashboard() {
         <div className="absolute -right-8 -top-12 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="absolute right-20 -bottom-10 w-28 h-28 rounded-full bg-white/10 blur-xl pointer-events-none" />
         <div className="relative z-10">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-white/15 border border-white/25 rounded-full px-2.5 py-1 mb-3">
+          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-white bg-white/15 border border-white/25 rounded-full px-2.5 py-1 mb-3">
             <Sparkles className="w-3 h-3" />
             {t("teacher.banner.badge")}
           </span>
-          <h1 className="text-xl font-bold font-display tracking-tight">
+          <h1 className="text-2xl font-bold font-display tracking-tight">
             {t("teacher.banner.greeting", { name: currentUser?.fullName ?? firstName })}
           </h1>
-          <p className="text-xs text-white/80 mt-1.5 max-w-md">{t("teacher.banner.subtitle")}</p>
+          <p className="text-sm text-white/80 mt-1.5 max-w-md">{t("teacher.banner.subtitle")}</p>
         </div>
         <div className="relative z-10 flex items-center gap-2 flex-wrap">
           <button
             onClick={() => navigate("/academic/homework-stats")}
-            className="text-xs font-bold text-white bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl px-4 py-2.5 flex items-center gap-1.5 transition-all backdrop-blur-sm"
+            className="text-sm font-bold text-white bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl px-4 py-2.5 flex items-center gap-1.5 transition-all backdrop-blur-sm"
           >
             <ClipboardList className="w-4 h-4" />
             {t("teacher.banner.viewHomeworkButton")}
           </button>
           <button
             onClick={() => navigate("/lms/exercises")}
-            className="text-xs font-bold text-brand-red bg-white hover:bg-white/90 rounded-xl px-4 py-2.5 flex items-center gap-1.5 transition-all shadow-md"
+            className="text-sm font-bold text-brand-red bg-white hover:bg-white/90 rounded-xl px-4 py-2.5 flex items-center gap-1.5 transition-all shadow-md"
           >
             <PlusCircle className="w-4 h-4" />
             {t("teacher.banner.createHomeworkButton")}
@@ -323,8 +323,8 @@ export default function TeacherDashboard() {
               <div className="p-4 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-rose-500 mt-2 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-800">{t("teacher.todo.pendingGrading", { count: data.pendingGradingCount })}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{t("teacher.todo.pendingGradingDesc")}</p>
+                  <p className="text-sm font-bold text-slate-800">{t("teacher.todo.pendingGrading", { count: data.pendingGradingCount })}</p>
+                  <p className="text-sm text-slate-400 mt-0.5">{t("teacher.todo.pendingGradingDesc")}</p>
                 </div>
               </div>
             )}
@@ -338,8 +338,8 @@ export default function TeacherDashboard() {
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-800 truncate">{a.exerciseTitle}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-sm font-bold text-slate-800 truncate">{a.exerciseTitle}</p>
+                    <p className="text-sm text-slate-400 mt-0.5">
                       {t("teacher.todo.classLabel", { className: a.className, count: a.totalStudents - a.completedCount })}
                     </p>
                   </div>
@@ -372,11 +372,11 @@ export default function TeacherDashboard() {
                   <span className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${statusKey === "ongoing" ? "bg-emerald-500 ring-4 ring-emerald-50" : "bg-brand-orange ring-4 ring-orange-50"}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-slate-800 font-mono shrink-0">{s.startTime}</span>
-                      <p className="text-xs font-bold text-slate-800">{t("teacher.todaySchedule.classLabel", { className: s.className })}</p>
+                      <span className="text-sm font-bold text-slate-800 font-mono shrink-0">{s.startTime}</span>
+                      <p className="text-sm font-bold text-slate-800">{t("teacher.todaySchedule.classLabel", { className: s.className })}</p>
                       <Badge variant={sessionStatusVariant[statusKey]}>{t(`teacher.sessionStatus.${statusKey}`)}</Badge>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-sm text-slate-400 mt-1">
                       {s.roomName ?? t("teacher.todaySchedule.noRoom")}
                       {studentCount != null && t("teacher.todaySchedule.studentCountSuffix", { count: studentCount })}
                     </p>
@@ -386,7 +386,7 @@ export default function TeacherDashboard() {
                       setSelectedClassId(s.classId);
                       navigate(`/student/attendance?classId=${s.classId}&sessionId=${s.id}`);
                     }}
-                    className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 shrink-0 self-start"
+                    className="text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 shrink-0 self-start"
                   >
                     {t("teacher.todaySchedule.checkInButton")}
                   </button>
@@ -419,7 +419,7 @@ export default function TeacherDashboard() {
               <button
                 key={key}
                 onClick={() => setAssignmentFilter(key)}
-                className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all ${
+                className={`text-sm font-bold px-3 py-1.5 rounded-full transition-all ${
                   assignmentFilter === key ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                 }`}
               >
@@ -444,7 +444,7 @@ export default function TeacherDashboard() {
                 const statusKey = assignmentStatusKey(a);
                 return (
                   <tr key={a.assignmentId} onClick={() => goToAssignmentDetail(a)} className="cursor-pointer hover:bg-slate-50">
-                    <Td className="font-bold text-xs text-slate-800">{a.exerciseTitle}</Td>
+                    <Td className="font-bold text-sm text-slate-800">{a.exerciseTitle}</Td>
                     <Td>{a.className}</Td>
                     <Td className="font-mono">
                       {a.completedCount}/{a.totalStudents}
@@ -499,7 +499,7 @@ export default function TeacherDashboard() {
                 const noteKey = classNoteKey(c.completionPercent);
                 return (
                   <tr key={c.classId} onClick={() => goToClass(c.classId)} className="cursor-pointer hover:bg-slate-50">
-                    <Td className="font-bold text-xs text-slate-800">{c.className}</Td>
+                    <Td className="font-bold text-sm text-slate-800">{c.className}</Td>
                     <Td className="font-mono">{c.studentCount} {t("teacher.myClasses.studentsUnit")}</Td>
                     <Td>
                       <div className="flex items-center gap-2">

@@ -81,7 +81,7 @@ function SkillTrendChart({ series, color }: { series: SkillTrendSeries; color: s
       <div className="flex items-center gap-2 mb-2">
         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
         <span className="text-sm font-semibold text-slate-700">{series.skillName}</span>
-        <span className="text-xs text-slate-400 ml-auto">
+        <span className="text-sm text-slate-400 ml-auto">
           {t("skillTrendChart.latestLabel")} <span className="font-bold text-slate-600">{points[points.length - 1]?.score ?? "—"}</span>
         </span>
       </div>
@@ -361,8 +361,8 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
             )}
             <div>
               <h2 className="text-base font-bold">{student.fullName}</h2>
-              <p className="text-xs opacity-75">{student.studentCode} · {student.primarySiteName ?? "—"}</p>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 inline-block ${STATUS_COLORS[student.status] ?? ""}`}>
+              <p className="text-sm opacity-75">{student.studentCode} · {student.primarySiteName ?? "—"}</p>
+              <span className={`text-sm px-2 py-0.5 rounded-full font-semibold mt-1 inline-block ${STATUS_COLORS[student.status] ?? ""}`}>
                 {studentStatusLabel(t, student.status)}
               </span>
             </div>
@@ -374,7 +374,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
                   activeTab === tab.key ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -390,36 +390,36 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
               <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="w-4 h-4 text-indigo-500" />
-                  <span className="text-xs font-semibold text-slate-600">{t("modal.overview.enrolledClassesLabel")}</span>
+                  <span className="text-sm font-semibold text-slate-600">{t("modal.overview.enrolledClassesLabel")}</span>
                 </div>
                 <p className="text-3xl font-bold text-indigo-600">{profile.enrollments.length}</p>
-                <p className="text-xs text-slate-400 mt-1">{t("modal.overview.enrolledClassesUnit")}</p>
+                <p className="text-sm text-slate-400 mt-1">{t("modal.overview.enrolledClassesUnit")}</p>
               </div>
               <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
                   <Award className="w-4 h-4 text-amber-500" />
-                  <span className="text-xs font-semibold text-slate-600">{t("modal.overview.avgScoreLabel")}</span>
+                  <span className="text-sm font-semibold text-slate-600">{t("modal.overview.avgScoreLabel")}</span>
                 </div>
                 <p className="text-3xl font-bold text-amber-600">{avgScore ?? "—"}</p>
-                <p className="text-xs text-slate-400 mt-1">{t("modal.overview.avgScoreUnit", { count: profile.allGrades.length })}</p>
+                <p className="text-sm text-slate-400 mt-1">{t("modal.overview.avgScoreUnit", { count: profile.allGrades.length })}</p>
               </div>
               <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
                   <BookOpen className="w-4 h-4 text-emerald-500" />
-                  <span className="text-xs font-semibold text-slate-600">{t("modal.overview.commentsLabel")}</span>
+                  <span className="text-sm font-semibold text-slate-600">{t("modal.overview.commentsLabel")}</span>
                 </div>
                 <p className="text-3xl font-bold text-emerald-600">{dailyComments.length}</p>
-                <p className="text-xs text-slate-400 mt-1">{t("modal.overview.commentsUnit")}</p>
+                <p className="text-sm text-slate-400 mt-1">{t("modal.overview.commentsUnit")}</p>
               </div>
               <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
                   <Calendar className="w-4 h-4 text-rose-500" />
-                  <span className="text-xs font-semibold text-slate-600">{t("modal.overview.attendanceLabel")}</span>
+                  <span className="text-sm font-semibold text-slate-600">{t("modal.overview.attendanceLabel")}</span>
                 </div>
                 <p className="text-3xl font-bold text-rose-600">
                   {attendanceStats.total > 0 ? `${Math.round((attendanceStats.present / attendanceStats.total) * 100)}%` : "—"}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-sm text-slate-400 mt-1">
                   {t("modal.overview.attendancePresentUnit", { present: attendanceStats.present, total: attendanceStats.total })}
                 </p>
               </div>
@@ -434,12 +434,12 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                       <div key={e.id} className="py-2 flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium text-slate-700">{e.className}</p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-sm text-slate-400">
                             {t("modal.overview.enrolledOn", { date: e.enrolledDate })}
                             {e.withdrawnDate ? t("modal.overview.withdrawnOn", { date: e.withdrawnDate }) : ""}
                           </p>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${e.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                        <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${e.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                           {e.status === "ACTIVE" ? t("modal.overview.enrollmentActive") : e.status}
                         </span>
                       </div>
@@ -455,11 +455,11 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
             <div className={`${TAB_BODY_CLASS} space-y-4`}>
               {profile.allGrades.length > 0 && (
                 <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3">
-                  <span className="text-xs font-semibold text-slate-500">{t("modal.grades.filterLabel")}</span>
+                  <span className="text-sm font-semibold text-slate-500">{t("modal.grades.filterLabel")}</span>
                   <Select
                     value={yearFilter}
                     onChange={(e) => { setYearFilter(e.target.value); setTermFilter("ALL"); }}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
                     <option value="ALL">{t("modal.grades.allYears")}</option>
                     {academicYears.map((y) => (
@@ -469,7 +469,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                   <Select
                     value={termFilter}
                     onChange={(e) => setTermFilter(e.target.value)}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
                     <option value="ALL">{t("modal.grades.allTerms")}</option>
                     {termOptions.map((term) => (
@@ -480,7 +480,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     <button
                       type="button"
                       onClick={() => { setYearFilter("ALL"); setTermFilter("ALL"); }}
-                      className="text-xs text-brand-orange font-semibold hover:underline"
+                      className="text-sm text-brand-orange font-semibold hover:underline"
                     >
                       {t("modal.grades.clearFilter")}
                     </button>
@@ -498,7 +498,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                   </div>
                 ) : (
                   <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                    <thead className="bg-slate-50 border-b border-slate-100 text-sm text-slate-500 font-medium">
                       <tr>
                         <th className="px-4 py-2.5">{t("modal.grades.columns.academicYear")}</th>
                         <th className="px-4 py-2.5">{t("modal.grades.columns.term")}</th>
@@ -512,19 +512,19 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     <tbody className="divide-y divide-slate-100">
                       {filteredGrades.map((g) => (
                         <tr key={g.id} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3 text-slate-500 text-xs">{g.academicYear ?? "—"}</td>
+                          <td className="px-4 py-3 text-slate-500 text-sm">{g.academicYear ?? "—"}</td>
                           <td className="px-4 py-3 text-slate-700">
                             {g.academicTermName}
-                            {g.className && <span className="block text-[11px] text-slate-400">{g.className}</span>}
+                            {g.className && <span className="block text-[13px] text-slate-400">{g.className}</span>}
                           </td>
-                          <td className="px-4 py-3 text-slate-500 text-xs">
+                          <td className="px-4 py-3 text-slate-500 text-sm">
                             {g.evaluationType === "MID_TERM" ? t("modal.grades.evaluationType.midTerm") : t("modal.grades.evaluationType.endTerm")}
                           </td>
                           <td className="px-4 py-3"><span className="text-lg font-bold text-slate-800">{g.overallScore ?? "—"}</span></td>
                           <td className="px-4 py-3 text-slate-500">{g.level ?? "—"}</td>
-                          <td className="px-4 py-3 text-slate-500 text-xs max-w-xs">{g.comment || "—"}</td>
+                          <td className="px-4 py-3 text-slate-500 text-sm max-w-xs">{g.comment || "—"}</td>
                           <td className="px-4 py-3">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${g.status === "OFFICIAL" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                            <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${g.status === "OFFICIAL" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                               {resultStatusLabel(t, g.status)}
                             </span>
                           </td>
@@ -557,18 +557,18 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     <Select
                       value={compareA}
                       onChange={(e) => setCompareA(e.target.value)}
-                      className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                      className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                     >
                       <option value="">{t("modal.grades.compareAPlaceholder")}</option>
                       {comparableTerms.map((term) => (
                         <option key={term} value={term}>{term}</option>
                       ))}
                     </Select>
-                    <span className="text-xs text-slate-400">{t("modal.grades.compareVs")}</span>
+                    <span className="text-sm text-slate-400">{t("modal.grades.compareVs")}</span>
                     <Select
                       value={compareB}
                       onChange={(e) => setCompareB(e.target.value)}
-                      className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                      className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                     >
                       <option value="">{t("modal.grades.compareBPlaceholder")}</option>
                       {comparableTerms.map((term) => (
@@ -577,12 +577,12 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     </Select>
                   </div>
                   {!compareA || !compareB ? (
-                    <p className="text-xs text-slate-400">{t("modal.grades.compareSelectPrompt")}</p>
+                    <p className="text-sm text-slate-400">{t("modal.grades.compareSelectPrompt")}</p>
                   ) : comparisonRows.length === 0 ? (
-                    <p className="text-xs text-slate-400">{t("modal.grades.compareNoData")}</p>
+                    <p className="text-sm text-slate-400">{t("modal.grades.compareNoData")}</p>
                   ) : (
                     <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                      <thead className="bg-slate-50 border-b border-slate-100 text-sm text-slate-500 font-medium">
                         <tr>
                           <th className="px-3 py-2">{t("modal.grades.compareColumns.skill")}</th>
                           <th className="px-3 py-2 text-right">{compareA}</th>
@@ -623,11 +623,11 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
             <div className={`${TAB_BODY_CLASS} space-y-3`}>
               {profile.allComments.length > 0 && (
                 <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3 sticky top-0 z-10">
-                  <span className="text-xs font-semibold text-slate-500">{t("modal.comments.filterLabel")}</span>
+                  <span className="text-sm font-semibold text-slate-500">{t("modal.comments.filterLabel")}</span>
                   <Select
                     value={commentYearFilter}
                     onChange={(e) => { setCommentYearFilter(e.target.value); setCommentTermFilter("ALL"); }}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
                     <option value="ALL">{t("modal.comments.all")}</option>
                     {commentYears.map((y) => (
@@ -637,7 +637,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                   <Select
                     value={commentTermFilter}
                     onChange={(e) => setCommentTermFilter(e.target.value)}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
                     <option value="ALL">{t("modal.comments.all")}</option>
                     {commentTermOptions.map((term) => (
@@ -648,7 +648,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     <Select
                       value={commentSessionFilter}
                       onChange={(e) => setCommentSessionFilter(e.target.value)}
-                      className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                      className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                     >
                       <option value="ALL">{t("modal.comments.all")}</option>
                       {commentSessionOptions.map((s) => (
@@ -660,17 +660,17 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     <div className="w-32">
                       <DatePicker value={commentDateFrom} onChange={setCommentDateFrom} max={commentDateTo || undefined} placeholder={t("modal.comments.dateFromPlaceholder")} />
                     </div>
-                    <span className="text-xs text-slate-400">—</span>
+                    <span className="text-sm text-slate-400">—</span>
                     <div className="w-32">
                       <DatePicker value={commentDateTo} onChange={setCommentDateTo} min={commentDateFrom || undefined} placeholder={t("modal.comments.dateToPlaceholder")} />
                     </div>
                   </div>
                   {hasCommentFilter && (
-                    <button type="button" onClick={clearCommentFilters} className="text-xs text-brand-orange font-semibold hover:underline">
+                    <button type="button" onClick={clearCommentFilters} className="text-sm text-brand-orange font-semibold hover:underline">
                       {t("modal.comments.clearFilter")}
                     </button>
                   )}
-                  <span className="text-xs text-slate-400 ml-auto">{t("modal.comments.countSuffix", { count: filteredComments.length })}</span>
+                  <span className="text-sm text-slate-400 ml-auto">{t("modal.comments.countSuffix", { count: filteredComments.length })}</span>
                 </div>
               )}
 
@@ -683,18 +683,18 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                   <div key={c.id} className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-slate-500">{c.commentDate}</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">{t("modal.comments.dailyBadge")}</span>
-                        {commentSessionLabel(c) && <span className="text-xs text-slate-400">{commentSessionLabel(c)}</span>}
-                        {c.academicTermName && <span className="text-xs text-slate-400">{c.academicTermName}{c.academicYear ? ` · ${c.academicYear}` : ""}</span>}
+                        <span className="text-sm text-slate-500">{c.commentDate}</span>
+                        <span className="text-sm px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">{t("modal.comments.dailyBadge")}</span>
+                        {commentSessionLabel(c) && <span className="text-sm text-slate-400">{commentSessionLabel(c)}</span>}
+                        {c.academicTermName && <span className="text-sm text-slate-400">{c.academicTermName}{c.academicYear ? ` · ${c.academicYear}` : ""}</span>}
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.status === "APPROVED" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                      <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${c.status === "APPROVED" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                         {resultStatusLabel(t, c.status)}
                       </span>
                     </div>
                     <p className="text-sm text-slate-700">{c.content || t("modal.comments.noContent")}</p>
-                    {c.attitude && <p className="text-xs text-slate-400 mt-1">{t("modal.comments.attitudePrefix")}{attitudeLabel(t, c.attitude)}</p>}
-                    {c.note && <p className="text-xs text-slate-400 mt-1">{t("modal.comments.notePrefix")}{c.note}</p>}
+                    {c.attitude && <p className="text-sm text-slate-400 mt-1">{t("modal.comments.attitudePrefix")}{attitudeLabel(t, c.attitude)}</p>}
+                    {c.note && <p className="text-sm text-slate-400 mt-1">{t("modal.comments.notePrefix")}{c.note}</p>}
                   </div>
                 ))
               )}
@@ -706,11 +706,11 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
             <div className={`${TAB_BODY_CLASS} space-y-4`}>
               {profile.attendance.length > 0 && (
                 <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3 sticky top-0 z-10">
-                  <span className="text-xs font-semibold text-slate-500">{t("modal.attendance.filterLabel")}</span>
+                  <span className="text-sm font-semibold text-slate-500">{t("modal.attendance.filterLabel")}</span>
                   <Select
                     value={attYearFilter}
                     onChange={(e) => { setAttYearFilter(e.target.value); setAttTermFilter("ALL"); }}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
                     <option value="ALL">{t("modal.attendance.all")}</option>
                     {attYears.map((y) => (
@@ -720,7 +720,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                   <Select
                     value={attTermFilter}
                     onChange={(e) => setAttTermFilter(e.target.value)}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
                     <option value="ALL">{t("modal.attendance.all")}</option>
                     {attTermOptions.map((term) => (
@@ -731,17 +731,17 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     <div className="w-32">
                       <DatePicker value={attDateFrom} onChange={setAttDateFrom} max={attDateTo || undefined} placeholder={t("modal.attendance.dateFromPlaceholder")} />
                     </div>
-                    <span className="text-xs text-slate-400">—</span>
+                    <span className="text-sm text-slate-400">—</span>
                     <div className="w-32">
                       <DatePicker value={attDateTo} onChange={setAttDateTo} min={attDateFrom || undefined} placeholder={t("modal.attendance.dateToPlaceholder")} />
                     </div>
                   </div>
                   {hasAttFilter && (
-                    <button type="button" onClick={clearAttFilters} className="text-xs text-brand-orange font-semibold hover:underline">
+                    <button type="button" onClick={clearAttFilters} className="text-sm text-brand-orange font-semibold hover:underline">
                       {t("modal.attendance.clearFilter")}
                     </button>
                   )}
-                  <span className="text-xs text-slate-400 ml-auto">
+                  <span className="text-sm text-slate-400 ml-auto">
                     {t("modal.attendance.countSuffix", { filtered: filteredAttendance.length, total: profile.attendance.length })}
                   </span>
                 </div>
@@ -750,15 +750,15 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-emerald-700">{filteredAttendanceStats.present}</p>
-                  <p className="text-xs text-emerald-600 mt-1">{t("modal.attendance.presentStat")}</p>
+                  <p className="text-sm text-emerald-600 mt-1">{t("modal.attendance.presentStat")}</p>
                 </div>
                 <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-rose-700">{filteredAttendanceStats.absent}</p>
-                  <p className="text-xs text-rose-600 mt-1">{t("modal.attendance.absentStat")}</p>
+                  <p className="text-sm text-rose-600 mt-1">{t("modal.attendance.absentStat")}</p>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-amber-700">{filteredAttendanceStats.excused}</p>
-                  <p className="text-xs text-amber-600 mt-1">{t("modal.attendance.excusedStat")}</p>
+                  <p className="text-sm text-amber-600 mt-1">{t("modal.attendance.excusedStat")}</p>
                 </div>
               </div>
 
@@ -781,14 +781,14 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                               {` — ${entry.sessionDate}`}
                             </span>
                             {(entry.className || entry.academicTermName) && (
-                              <p className="text-[11px] text-slate-400">
+                              <p className="text-[13px] text-slate-400">
                                 {[entry.className, entry.academicTermName, entry.academicYear].filter(Boolean).join(" · ")}
                               </p>
                             )}
                           </div>
                         </div>
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${
+                          className={`text-sm px-2 py-0.5 rounded-full font-semibold shrink-0 ${
                             isPresent ? "bg-emerald-100 text-emerald-700" : isAbsent ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
                           }`}
                         >
@@ -807,11 +807,11 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
             <div className={`${TAB_BODY_CLASS} space-y-3`}>
               {profile.homeworkResults.length > 0 && (
                 <div className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3 sticky top-0 z-10">
-                  <span className="text-xs font-semibold text-slate-500">{t("modal.homework.filterLabel")}</span>
+                  <span className="text-sm font-semibold text-slate-500">{t("modal.homework.filterLabel")}</span>
                   <Select
                     value={hwClassFilter}
                     onChange={(e) => setHwClassFilter(e.target.value)}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
                     <option value="ALL">{t("modal.homework.allClasses")}</option>
                     {hwClasses.map((c) => (
@@ -821,7 +821,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                   <Select
                     value={hwResultFilter}
                     onChange={(e) => setHwResultFilter(e.target.value)}
-                    className="border border-slate-300 rounded-lg text-xs px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    className="border border-slate-300 rounded-lg text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
                     <option value="ALL">{t("modal.homework.allResults")}</option>
                     <option value="PASSED">{t("modal.homework.resultPassed")}</option>
@@ -829,11 +829,11 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                     <option value="UNGRADED">{t("modal.homework.resultUngraded")}</option>
                   </Select>
                   {hasHwFilter && (
-                    <button type="button" onClick={clearHwFilters} className="text-xs text-brand-orange font-semibold hover:underline">
+                    <button type="button" onClick={clearHwFilters} className="text-sm text-brand-orange font-semibold hover:underline">
                       {t("modal.homework.clearFilter")}
                     </button>
                   )}
-                  <span className="text-xs text-slate-400 ml-auto">{t("modal.homework.countSuffix", { count: filteredHomework.length })}</span>
+                  <span className="text-sm text-slate-400 ml-auto">{t("modal.homework.countSuffix", { count: filteredHomework.length })}</span>
                 </div>
               )}
 
@@ -854,7 +854,7 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                         >
                           <div>
                             <p className="text-sm font-medium text-slate-700">{h.exerciseTitle}</p>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-[13px] text-slate-400">
                               {h.className}
                               {h.attemptNumber > 1 ? t("modal.homework.attemptNumberSuffix", { number: h.attemptNumber }) : ""}
                               {h.submittedAt
@@ -865,10 +865,10 @@ export default function StudentProfileModal({ studentId, onClose }: { studentId:
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="text-sm font-bold text-slate-800">
                               {h.totalScore ?? "—"}/{h.totalPoints}
-                              {h.percentage !== null && <span className="text-xs text-slate-400 font-normal"> ({h.percentage}%)</span>}
+                              {h.percentage !== null && <span className="text-sm text-slate-400 font-normal"> ({h.percentage}%)</span>}
                             </span>
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                              className={`text-sm px-2 py-0.5 rounded-full font-semibold ${
                                 h.passed === true
                                   ? "bg-emerald-100 text-emerald-700"
                                   : h.passed === false

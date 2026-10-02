@@ -167,13 +167,13 @@ export default function Select({ value, onChange, children, className, disabled,
                   onChange={(e) => setQuery(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
                   placeholder={t("select.searchPlaceholder")}
-                  className="w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-brand-orange"
+                  className="w-full text-sm px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-brand-orange"
                 />
               </div>
             )}
             <div className="flex-1 min-h-0 overflow-y-auto py-1">
               {filteredOptions.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-slate-400 italic">{t("select.noResults")}</p>
+                <p className="px-3 py-2 text-sm text-slate-400 italic">{t("select.noResults")}</p>
               ) : (
                 filteredOptions.map((opt, i) => (
                   <button
@@ -184,7 +184,7 @@ export default function Select({ value, onChange, children, className, disabled,
                       onChange({ target: { value: opt.value } });
                       setOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2 text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    className={`w-full text-left px-3 py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                       opt.value === String(value ?? "") ? "bg-brand-orange/10 text-brand-orange font-semibold" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >

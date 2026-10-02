@@ -17,8 +17,8 @@ const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam",
 
 const row = (label: string, value: React.ReactNode) => (
   <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
-    <span className="text-[11px] font-bold text-slate-500 uppercase">{label}</span>
-    <span className="text-xs text-slate-800 text-right">{value}</span>
+    <span className="text-[13px] font-bold text-slate-500 uppercase">{label}</span>
+    <span className="text-sm text-slate-800 text-right">{value}</span>
   </div>
 );
 
@@ -46,7 +46,7 @@ export default function SessionInfoModal({ session, isPendingCreate, onClose }: 
     >
       <div className="space-y-3">
         {isPendingCreate && (
-          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
+          <div className="text-sm text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
             Buổi này mới thêm trên lưới, <b>chưa lưu</b> — bấm "Lưu" ở đầu lưới để ghi thật.
           </div>
         )}
@@ -66,7 +66,7 @@ export default function SessionInfoModal({ session, isPendingCreate, onClose }: 
             "GV chính",
             <span className="flex flex-col items-end gap-0.5">
               {hasSubstitution && (
-                <span className="text-[10px] font-bold line-through bg-amber-100 text-amber-700 px-1 rounded">{session.originalTeacherName}</span>
+                <span className="text-[12px] font-bold line-through bg-amber-100 text-amber-700 px-1 rounded">{session.originalTeacherName}</span>
               )}
               <span className="flex items-center gap-1 justify-end font-bold text-green-600">
                 <User className="w-3 h-3 text-green-500" />
@@ -102,8 +102,8 @@ export default function SessionInfoModal({ session, isPendingCreate, onClose }: 
 
         {session.lessonContent && (
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-            <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Bài học hôm nay</p>
-            <p className="text-xs text-slate-700 whitespace-pre-wrap">{session.lessonContent}</p>
+            <p className="text-[13px] font-bold text-slate-500 uppercase mb-1">Bài học hôm nay</p>
+            <p className="text-sm text-slate-700 whitespace-pre-wrap">{session.lessonContent}</p>
           </div>
         )}
       </div>

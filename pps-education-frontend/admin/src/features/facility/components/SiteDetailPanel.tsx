@@ -33,8 +33,8 @@ import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "manager" | "teachers" | "contracts" | "periods" | "academic";
 
@@ -55,7 +55,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {site.code}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{site.name}</h2>
@@ -77,7 +77,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -176,7 +176,7 @@ function ProfileTab({
 
       {form.siteType === "PARTNER" && (
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("siteDetail.profile.partnerContactTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("siteDetail.profile.partnerContactTitle")}</span>
           <div className="grid grid-cols-2 gap-3">
             <input
               value={form.partnerInfo?.contactPersonName ?? ""}
@@ -276,16 +276,16 @@ function ManagerTab({
       <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">
-        <span className="text-[10px] uppercase font-bold text-slate-500">{t("siteDetail.manager.currentManagerTitle")}</span>
+        <span className="text-[12px] uppercase font-bold text-slate-500">{t("siteDetail.manager.currentManagerTitle")}</span>
         {site.currentManagerFullName ? (
           <p className="text-sm font-bold text-slate-800">{site.currentManagerFullName}</p>
         ) : (
-          <p className="text-xs text-slate-400 italic">{t("siteDetail.manager.noManager")}</p>
+          <p className="text-sm text-slate-400 italic">{t("siteDetail.manager.noManager")}</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <span className="text-[10px] uppercase font-bold text-slate-500">{t("siteDetail.manager.assignTitle")}</span>
+        <span className="text-[12px] uppercase font-bold text-slate-500">{t("siteDetail.manager.assignTitle")}</span>
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
           <input
@@ -298,7 +298,7 @@ function ManagerTab({
           {results.length > 0 && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
               {results.map((u) => (
-                <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs">
+                <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">
                   {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
                 </button>
               ))}
@@ -377,7 +377,7 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("siteDetail.teachers.sectionTitle", { count: items.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("siteDetail.teachers.sectionTitle", { count: items.length })}</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           {t("siteDetail.teachers.assignButton")}
@@ -387,16 +387,16 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("siteDetail.teachers.loading")}</p>
+        <p className="text-sm text-slate-500">{t("siteDetail.teachers.loading")}</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("siteDetail.teachers.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("siteDetail.teachers.empty")}</p>
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-bold text-slate-800">{item.teacherFullName}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-sm font-bold text-slate-800">{item.teacherFullName}</p>
+                <p className="text-[12px] text-slate-400 mt-0.5">
                   {t("siteDetail.teachers.fromLabel", { date: item.assignedFrom })}
                   {item.assignedTo ? t("siteDetail.teachers.toSuffix", { date: item.assignedTo }) : ""}
                   {item.notes ? ` · ${item.notes}` : ""}
@@ -428,7 +428,7 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
               {results.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
                   {results.map((u) => (
-                    <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs">
+                    <button key={u.id} type="button" onClick={() => handleAssign(u.id)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">
                       {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
                     </button>
                   ))}
@@ -444,7 +444,7 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
             <label className={labelClass}>{t("siteDetail.teachers.notesLabel")}</label>
             <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder={t("siteDetail.teachers.notesPlaceholder")} />
           </div>
-          <p className="text-[10px] text-slate-400 italic">{t("siteDetail.teachers.hint")}</p>
+          <p className="text-[12px] text-slate-400 italic">{t("siteDetail.teachers.hint")}</p>
         </div>
       </Modal>
     </div>
@@ -522,7 +522,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("siteDetail.contracts.sectionTitle", { count: items.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("siteDetail.contracts.sectionTitle", { count: items.length })}</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           {t("siteDetail.contracts.addButton")}
@@ -562,13 +562,13 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("siteDetail.contracts.loading")}</p>
+        <p className="text-sm text-slate-500">{t("siteDetail.contracts.loading")}</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("siteDetail.contracts.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("siteDetail.contracts.empty")}</p>
       ) : (
         <div className="space-y-2">
           {items.map((c) => (
-            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+            <div key={c.id} className="border border-slate-200 rounded-lg p-3 text-sm space-y-1">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono font-bold text-slate-800">{c.contractNumber}</span>
@@ -577,7 +577,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
                 </div>
                 <div className="flex gap-2">
                   {c.status === "ACTIVE" && (
-                    <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold">
+                    <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-[13px] font-semibold">
                       {t("siteDetail.contracts.terminateButton")}
                     </button>
                   )}

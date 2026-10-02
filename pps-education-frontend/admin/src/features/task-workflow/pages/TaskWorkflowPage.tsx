@@ -149,7 +149,7 @@ export default function TaskWorkflowPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("page.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("page.subtitle")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("page.subtitle")}</p>
       </div>
 
       <div className="flex items-center justify-between gap-4">
@@ -163,7 +163,7 @@ export default function TaskWorkflowPage() {
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 transition-all ${
+              className={`pb-2.5 text-sm font-bold border-b-2 transition-all ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -192,7 +192,7 @@ export default function TaskWorkflowPage() {
         ) : (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 bg-brand-red hover:bg-brand-red/90 text-white text-xs font-bold px-3.5 py-2 rounded-lg shrink-0"
+            className="flex items-center gap-1.5 bg-brand-red hover:bg-brand-red/90 text-white text-sm font-bold px-3.5 py-2 rounded-lg shrink-0"
           >
             <Plus className="w-4 h-4" /> {t("page.newTaskButton")}
           </button>
@@ -204,11 +204,11 @@ export default function TaskWorkflowPage() {
           <FloatingError message={error} onClose={() => setError(null)} />
 
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] uppercase font-bold text-slate-400">{t("page.filterByDate")}</span>
+            <span className="text-[12px] uppercase font-bold text-slate-400">{t("page.filterByDate")}</span>
             <div className="w-36">
               <DatePicker value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
             </div>
-            <span className="text-xs text-slate-400">{t("page.to")}</span>
+            <span className="text-sm text-slate-400">{t("page.to")}</span>
             <div className="w-36">
               <DatePicker value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
             </div>
@@ -218,18 +218,18 @@ export default function TaskWorkflowPage() {
                   setDateFrom("");
                   setDateTo("");
                 }}
-                className="text-[11px] font-semibold text-brand-red hover:underline"
+                className="text-[13px] font-semibold text-brand-red hover:underline"
               >
                 {t("page.clearFilter")}
               </button>
             )}
-            <span className="text-[11px] text-slate-400 ml-auto">
+            <span className="text-[13px] text-slate-400 ml-auto">
               {t("page.filteredCount", { filtered: filteredAssignments.length, total: assignments.length })}
             </span>
           </div>
 
           {loading ? (
-            <p className="text-xs text-slate-500">{t("page.loading")}</p>
+            <p className="text-sm text-slate-500">{t("page.loading")}</p>
           ) : view === "kanban" ? (
             <AssignmentKanbanBoard assignments={filteredAssignments} onSelect={setSelected} />
           ) : (
@@ -241,15 +241,15 @@ export default function TaskWorkflowPage() {
           <FloatingError message={createdError} onClose={() => setCreatedError(null)} />
 
           {!createdLoading && (
-            <p className="text-[11px] text-slate-400 italic">
+            <p className="text-[13px] text-slate-400 italic">
               {isOverviewScope ? t("page.overviewScopeNote") : t("page.ownScopeNote")}
             </p>
           )}
 
           {createdLoading ? (
-            <p className="text-xs text-slate-500">{t("page.loading")}</p>
+            <p className="text-sm text-slate-500">{t("page.loading")}</p>
           ) : createdTasks.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-xs text-slate-400 italic">
+            <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-sm text-slate-400 italic">
               {t("page.emptyCreated")}
             </div>
           ) : (
@@ -265,10 +265,10 @@ export default function TaskWorkflowPage() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-slate-800 text-sm">{task.title}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeClass}`}>{t(`taskStatus.${task.status}`)}</span>
+                        <span className={`text-[12px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeClass}`}>{t(`taskStatus.${task.status}`)}</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 font-mono">{task.taskCode}</p>
-                      {task.dueAt && <p className="text-[11px] text-slate-500">{t("page.dueLabel", { date: formatDateTime(task.dueAt, i18n.language) })}</p>}
+                      <p className="text-[13px] text-slate-400 font-mono">{task.taskCode}</p>
+                      {task.dueAt && <p className="text-[13px] text-slate-500">{t("page.dueLabel", { date: formatDateTime(task.dueAt, i18n.language) })}</p>}
                     </button>
                   );
                 })}

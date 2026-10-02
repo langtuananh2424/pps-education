@@ -45,8 +45,8 @@ const statusVariants: Record<string, BadgeVariant> = {
   SUSPENDED: "danger"
 };
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 const LOGIN_HISTORY_PAGE_SIZE = 10;
 
 export default function UsersPage() {
@@ -129,8 +129,8 @@ export default function UsersPage() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">{t("usersPage.title")}</h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">{t("usersPage.description")}</p>
+          <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider block">{t("usersPage.title")}</h2>
+          <p className="text-[12px] text-slate-400 mt-0.5">{t("usersPage.description")}</p>
         </div>
       </div>
 
@@ -141,10 +141,10 @@ export default function UsersPage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder={t("usersPage.search.placeholder")}
-            className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
           />
         </div>
-        <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
+        <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none">
           <option value="">{t("usersPage.search.allStatuses")}</option>
           <option value="ACTIVE">{userStatusLabel(t, "ACTIVE")}</option>
           <option value="INACTIVE">{userStatusLabel(t, "INACTIVE")}</option>
@@ -153,7 +153,7 @@ export default function UsersPage() {
         <Select
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value)}
-          className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+          className="w-48 bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
         >
           <option value="">{t("usersPage.search.allDepartments")}</option>
           {departments.map((d) => (
@@ -165,7 +165,7 @@ export default function UsersPage() {
         <Select
           value={roleCode}
           onChange={(e) => setRoleCode(e.target.value)}
-          className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+          className="w-48 bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
         >
           <option value="">{t("usersPage.search.allRoles")}</option>
           {roles.map((r) => (
@@ -231,7 +231,7 @@ export default function UsersPage() {
         )}
 
         {rows.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[13px] text-slate-500">
             <div className="flex items-center gap-2">
               <span>{t("usersPage.pagination.total", { count: totalElements })}</span>
               <span className="text-slate-300">|</span>
@@ -243,7 +243,7 @@ export default function UsersPage() {
                     setPageSize(Number(e.target.value));
                     setPage(0);
                   }}
-                  className="bg-slate-50 border border-slate-200 text-[11px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
+                  className="bg-slate-50 border border-slate-200 text-[13px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
                 >
                   {PAGE_SIZE_OPTIONS.map((size) => (
                     <option key={size} value={size}>
@@ -446,7 +446,7 @@ function UserDetailModal({
 
   return (
     <Modal open={userId != null} onClose={onClose} title={detail ? t("usersPage.detail.titleWithUsername", { username: detail.username }) : t("usersPage.detail.titleFallback")} size="lg">
-      {loading && <p className="text-xs text-slate-500">{t("usersPage.detail.loading")}</p>}
+      {loading && <p className="text-sm text-slate-500">{t("usersPage.detail.loading")}</p>}
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {detail && (
@@ -461,7 +461,7 @@ function UserDetailModal({
             {detail.googleLinked && <Badge variant="brand">{t("usersPage.detail.googleLinked")}</Badge>}
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-500">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[13px] text-slate-500">
             <span>{t("usersPage.detail.lastLogin")} <span className="font-mono text-slate-700">{detail.lastLoginAt ?? t("usersPage.detail.neverLoggedIn")}</span></span>
             <span>{t("usersPage.detail.failedLoginCount")} <span className="font-mono text-slate-700">{detail.failedLoginCount}</span></span>
             {detail.lockedUntil && <span>{t("usersPage.detail.lockedUntil")} <span className="font-mono text-slate-700">{detail.lockedUntil}</span></span>}
@@ -472,14 +472,14 @@ function UserDetailModal({
               {t("usersPage.detail.attendanceExempt")} <span className="font-mono text-slate-700">{detail.isManagement ? t("usersPage.detail.yes") : t("usersPage.detail.no")}</span>
             </span>
           </div>
-          <p className="text-[10px] text-slate-400 italic -mt-3">
+          <p className="text-[12px] text-slate-400 italic -mt-3">
             {t("usersPage.detail.hint")}
           </p>
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">{t("usersPage.detail.profile.sectionTitle")}</span>
-              <p className="text-[10px] text-slate-400">{t("usersPage.detail.profile.sectionDescription")}</p>
+              <span className="text-[12px] font-bold uppercase text-slate-500">{t("usersPage.detail.profile.sectionTitle")}</span>
+              <p className="text-[12px] text-slate-400">{t("usersPage.detail.profile.sectionDescription")}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -498,8 +498,8 @@ function UserDetailModal({
 
           <form onSubmit={handleChangeEmail} className="space-y-2 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">{t("usersPage.detail.email.sectionTitle")}</span>
-              <p className="text-[10px] text-slate-400">
+              <span className="text-[12px] font-bold uppercase text-slate-500">{t("usersPage.detail.email.sectionTitle")}</span>
+              <p className="text-[12px] text-slate-400">
                 {t("usersPage.detail.email.sectionDescription")}
               </p>
             </div>
@@ -526,10 +526,10 @@ function UserDetailModal({
 
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+              <span className="text-[12px] font-bold uppercase text-slate-500 flex items-center gap-1">
                 <KeyRound className="w-3 h-3" /> {t("usersPage.detail.password.sectionTitle")}
               </span>
-              <p className="text-[10px] text-slate-400">{t("usersPage.detail.password.sectionDescription")}</p>
+              <p className="text-[12px] text-slate-400">{t("usersPage.detail.password.sectionDescription")}</p>
             </div>
             <div className="flex gap-2">
               <input
@@ -547,8 +547,8 @@ function UserDetailModal({
 
           <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
             <div className="w-full">
-              <span className="text-[10px] font-bold uppercase text-slate-500">{t("usersPage.detail.status.sectionTitle")}</span>
-              <p className="text-[10px] text-slate-400">{t("usersPage.detail.status.sectionDescription")}</p>
+              <span className="text-[12px] font-bold uppercase text-slate-500">{t("usersPage.detail.status.sectionTitle")}</span>
+              <p className="text-[12px] text-slate-400">{t("usersPage.detail.status.sectionDescription")}</p>
             </div>
             {detail.status !== "ACTIVE" && (
               <Button size="sm" variant="secondary" disabled={changingStatus} onClick={() => handleToggleStatus("ACTIVE")}>
@@ -571,13 +571,13 @@ function UserDetailModal({
 
           <div className="border-t border-slate-100 pt-4 space-y-2">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">{t("usersPage.detail.loginHistory.sectionTitle")}</span>
-              <p className="text-[10px] text-slate-400">{t("usersPage.detail.loginHistory.sectionDescription")}</p>
+              <span className="text-[12px] font-bold uppercase text-slate-500">{t("usersPage.detail.loginHistory.sectionTitle")}</span>
+              <p className="text-[12px] text-slate-400">{t("usersPage.detail.loginHistory.sectionDescription")}</p>
             </div>
             {loginHistoryLoading ? (
-              <p className="text-xs text-slate-500">{t("usersPage.detail.loginHistory.loading")}</p>
+              <p className="text-sm text-slate-500">{t("usersPage.detail.loginHistory.loading")}</p>
             ) : loginHistory.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">{t("usersPage.detail.loginHistory.empty")}</p>
+              <p className="text-sm text-slate-400 italic">{t("usersPage.detail.loginHistory.empty")}</p>
             ) : (
               <>
                 <TableContainer>

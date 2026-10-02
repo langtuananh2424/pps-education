@@ -9,8 +9,8 @@ import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 const SCOPES: DataScope[] = ["ALL", "SITE", "CLASS"];
 
 interface CreateRolePanelProps {
@@ -69,7 +69,7 @@ export default function CreateRolePanel({ roles, onCancel, onCreated }: CreateRo
         <label className={labelClass}>{t("createRolePanel.nameLabel")}</label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("createRolePanel.namePlaceholder")} className={inputClass} autoFocus />
         {code && (
-          <p className="text-[10px] text-slate-400 mt-1">
+          <p className="text-[12px] text-slate-400 mt-1">
             {t("createRolePanel.codeHint")} <code className="font-mono font-bold text-brand-red">{code}</code>
           </p>
         )}
@@ -89,7 +89,7 @@ export default function CreateRolePanel({ roles, onCancel, onCreated }: CreateRo
             </option>
           ))}
         </Select>
-        <p className="text-[10px] text-slate-400 mt-1">{t("createRolePanelV202.templateHint")}</p>
+        <p className="text-[12px] text-slate-400 mt-1">{t("createRolePanelV202.templateHint")}</p>
       </div>
 
       <div>
@@ -102,8 +102,8 @@ export default function CreateRolePanel({ roles, onCancel, onCreated }: CreateRo
             >
               <input type="radio" name="create-role-scope" value={value} checked={scope === value} onChange={() => setScope(value)} className="mt-0.5 accent-brand-red" />
               <span>
-                <span className="block text-xs font-bold text-slate-800">{t(`roleAccessEditor.scopes.${value}.title`)}</span>
-                <span className="block text-[10px] text-slate-500">{t(`roleAccessEditor.scopes.${value}.description`)}</span>
+                <span className="block text-sm font-bold text-slate-800">{t(`roleAccessEditor.scopes.${value}.title`)}</span>
+                <span className="block text-[12px] text-slate-500">{t(`roleAccessEditor.scopes.${value}.description`)}</span>
               </span>
             </label>
           ))}

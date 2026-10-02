@@ -860,6 +860,42 @@ UC-48: Xếp lịch buổi học
 > **Hậu điều kiện bổ sung:** báo cáo "Số tiết thực tế theo lớp" chỉ đếm tiết
 > của buổi `COMPLETED`.
 
+> **Tự gán giáo viên theo lịch dạy (bổ sung ngoài SDD gốc, xác nhận với
+> người dùng 2026-10-02, V209):** từ khi giáo viên của buổi được chọn tay
+> (2026-08-13), xếp lịch không còn ghi `class_teachers` → giáo viên mới chỉ
+> được xếp lịch thì không thấy lớp (danh sách lớp, sổ điểm, nhận xét, bài
+> tập… đều kiểm tra `class_teachers`) và không có điểm trường
+> (`site_teachers`). Giáo viên — nhất là giáo viên nước ngoài — thay đổi
+> liên tục nên không thể bắt giáo vụ gán tay mỗi lần. Quy tắc:
+>
+> 1. **Hậu điều kiện bổ sung của Main Flow bước 3, A3 (dời lịch), UC-56,
+>    UC-57 và "Sửa nhanh tại chỗ":** mỗi giáo viên chính/phụ/CM của buổi
+>    vừa lưu mà chưa có phân công nào đang hiệu lực ở lớp → hệ thống tự tạo
+>    phân công vai trò `SCHEDULED` ("Dạy theo lịch") + gán giáo viên vào
+>    điểm trường của lớp nếu chưa có.
+> 2. **Tự thu hồi:** job hằng đêm kết thúc phân công `SCHEDULED` khi giáo
+>    viên không còn buổi học nào (không hủy/không dời) ở lớp từ (hôm nay −
+>    `academic.scheduled_teacher_revoke_days`) trở đi — mặc định **30 ngày**,
+>    chỉnh ở Cài đặt hệ thống. Khoảng chờ để giáo viên nhập nốt điểm/nhận
+>    xét buổi đã dạy.
+> 3. **"GV phụ trách lớp" khác "GV đứng lớp":** phân công gán tay ở tab
+>    Giáo viên (UC-18) là người phụ trách (in trên phiếu điểm/học bạ), đổi
+>    hiếm; không bao giờ bị tự thu hồi. Vai trò `SCHEDULED` không gán tay
+>    được; giáo vụ gán tay giáo viên đang "Dạy theo lịch" thì dòng
+>    `SCHEDULED` kết thúc ngay. Đổi giáo viên luân phiên (VD giáo viên nước
+>    ngoài) nên làm trên Lịch làm việc, không dùng "Đổi giáo viên" ở tab
+>    Giáo viên (thao tác đó đổi người phụ trách và cascade mọi buổi sắp tới).
+>
+> **Báo cáo "Thống kê giảng dạy theo giáo viên" (V203; V209 bổ sung, xác
+> nhận 2026-10-02):** số tiết tách theo vai trò của giáo viên trong buổi học
+> — Tiết GV chính (tiết có `session_periods.teacher_id` tính cho giáo viên
+> đó, còn lại cho `primary_teacher_id`), Tiết GV phụ (`assistant_teacher_id`)
+> và Tiết CM (`cm_teacher_id`) tính mọi tiết của buổi đã diễn ra — cùng
+> Tổng tiết và cột Vai trò. Số lớp/buổi/nhận lớp/báo cáo vẫn chỉ tính theo
+> vai trò GV chính. Báo cáo đọc thẳng `class_sessions`/`session_periods`,
+> không phụ thuộc `class_teachers` — tự gán/thu hồi ở trên không làm đổi
+> số tiết.
+
 ---
 
 UC-56: Sinh lịch học hàng loạt theo mẫu lặp

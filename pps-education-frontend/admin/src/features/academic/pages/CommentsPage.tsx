@@ -84,7 +84,7 @@ export default function CommentsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("commentsPage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("commentsPage.subtitle")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("commentsPage.subtitle")}</p>
       </div>
 
       <FloatingError message={error} onClose={() => setError(null)} />
@@ -102,14 +102,14 @@ export default function CommentsPage() {
               <button
                 key={key}
                 onClick={() => setSiteManagerTab(key)}
-                className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+                className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
                   siteManagerTab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {label}
                 {key === "pending" && pending.length > 0 && (
-                  <span className="bg-brand-red text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pending.length}</span>
+                  <span className="bg-brand-red text-white text-[12px] font-bold px-1.5 py-0.5 rounded-full">{pending.length}</span>
                 )}
               </button>
             ))}

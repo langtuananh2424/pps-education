@@ -135,11 +135,17 @@ export interface TeacherTeachingStatsRow {
   teacherUserId: number | null;
   teacherName: string;
   employeeCode: string | null;
+  /** V209 — vai trò của giáo viên trong các buổi học của khoảng ngày (rỗng ở dòng tổng). */
+  roles: ("PRIMARY" | "ASSISTANT" | "CM")[];
   classCount: number;
   scheduledSessions: number;
   heldSessions: number;
   cancelledSessions: number;
+  /** Tiết dạy với vai trò GV chính (V209 tách thêm tiết GV phụ / CM). */
   taughtPeriods: number;
+  assistantPeriods: number;
+  cmPeriods: number;
+  totalPeriods: number;
   onTimeCheckIns: number;
   lateCheckIns: number;
   missingCheckIns: number;

@@ -158,14 +158,14 @@ export default function ExerciseStudentPreviewModal({ exercise, onClose }: Exerc
       description={t("studentPreviewModal.modalDescription")}
       size="xl"
     >
-      <div className="mb-4 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+      <div className="mb-4 text-[13px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
         {t("studentPreviewModal.disclaimer")}
       </div>
 
       {loading ? (
-        <p className="text-xs text-slate-500 text-center py-6">{t("exercisePreviewModal.loading")}</p>
+        <p className="text-sm text-slate-500 text-center py-6">{t("exercisePreviewModal.loading")}</p>
       ) : questions.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-6">{t("exercisePreviewModal.empty")}</p>
+        <p className="text-sm text-slate-400 italic text-center py-6">{t("exercisePreviewModal.empty")}</p>
       ) : (
         <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
           {blocks.map((block, i) =>
@@ -210,7 +210,7 @@ function ChoiceButtons({
             <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
               <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
             </div>
-            <span className="flex items-center gap-1 px-2 py-1.5 text-[11px] font-bold text-slate-700">
+            <span className="flex items-center gap-1 px-2 py-1.5 text-[13px] font-bold text-slate-700">
               <span className="text-slate-400 mr-1">{c.choiceLabel}.</span>
               {hasMeaningfulCaption(c.choiceLabel, c.content) && c.content}
             </span>
@@ -226,7 +226,7 @@ function ChoiceButtons({
           key={c.id}
           type="button"
           onClick={() => onToggle(c.id)}
-          className={`w-full text-left text-xs font-bold px-3 py-2.5 rounded-xl border transition-colors ${
+          className={`w-full text-left text-sm font-bold px-3 py-2.5 rounded-xl border transition-colors ${
             selected.has(c.id) ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700"
           }`}
         >
@@ -275,7 +275,7 @@ function QuestionImages({ imageUrl }: { imageUrl: string }) {
       {urls.map((url, i) => (
         <div key={i} className="space-y-1">
           <img src={url} alt="" className="w-full aspect-square object-contain rounded-lg border border-slate-200 bg-white" />
-          <p className="text-center text-[10px] font-bold text-slate-400">{i + 1}</p>
+          <p className="text-center text-[12px] font-bold text-slate-400">{i + 1}</p>
         </div>
       ))}
     </div>
@@ -297,12 +297,12 @@ function QuestionPreview({ question, displayNumber }: { question: ExerciseQuesti
          * lần. Ẩn span nội dung cho riêng WORD_BANK, chỉ giữ số thứ tự.
          */}
         <p className="text-sm font-bold text-slate-800">
-          <span className="block text-slate-400 text-xs uppercase tracking-wider mb-1">
+          <span className="block text-slate-400 text-sm uppercase tracking-wider mb-1">
             {t("studentPreviewModal.questionNumberPrefix", { number: displayNumber })}
           </span>
           {question.questionType !== "WORD_BANK" && <span className="whitespace-pre-line">{question.questionContent}</span>}
         </p>
-        <span className="text-[10px] text-slate-400 font-bold shrink-0">{t("studentPreviewModal.pointsSuffix", { points: question.points })}</span>
+        <span className="text-[12px] text-slate-400 font-bold shrink-0">{t("studentPreviewModal.pointsSuffix", { points: question.points })}</span>
       </div>
 
       {question.skill === "LISTENING" && question.audioUrl && (
@@ -332,7 +332,7 @@ function QuestionPreview({ question, displayNumber }: { question: ExerciseQuesti
         <textarea
           rows={question.questionType === "FILL_IN_BLANK" ? 1 : 3}
           placeholder={t("studentPreviewModal.answerPlaceholder")}
-          className="w-full bg-slate-50 border border-slate-200 text-xs p-3 rounded-xl focus:outline-none"
+          className="w-full bg-slate-50 border border-slate-200 text-sm p-3 rounded-xl focus:outline-none"
         />
       )}
     </div>
@@ -343,14 +343,14 @@ function SpeakingInputPreview() {
   const { t } = useTranslation("lms-question-authoring");
   return (
     <div className="space-y-1">
-      <p className="text-[10px] text-slate-400 font-bold uppercase">{t("studentPreviewModal.recordAnswerLabel")}</p>
+      <p className="text-[12px] text-slate-400 font-bold uppercase">{t("studentPreviewModal.recordAnswerLabel")}</p>
       <input
         type="file"
         accept="audio/*"
         disabled
-        className="text-xs font-bold text-slate-400 file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-slate-200 file:text-slate-500 file:text-xs file:font-extrabold opacity-70"
+        className="text-sm font-bold text-slate-400 file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-slate-200 file:text-slate-500 file:text-sm file:font-extrabold opacity-70"
       />
-      <p className="text-[10px] text-slate-400 italic">{t("studentPreviewModal.previewInputDisabledNote")}</p>
+      <p className="text-[12px] text-slate-400 italic">{t("studentPreviewModal.previewInputDisabledNote")}</p>
     </div>
   );
 }
@@ -399,13 +399,13 @@ function WordBankPreview({ content, wordPool, inputMode = "select" }: { content:
                   type="text"
                   value={selections[idx]}
                   onChange={(e) => handleSelect(idx, e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-xs font-bold px-2 py-1 mx-1 rounded-lg align-middle focus:outline-none w-24"
+                  className="bg-slate-50 border border-slate-200 text-sm font-bold px-2 py-1 mx-1 rounded-lg align-middle focus:outline-none w-24"
                 />
               ) : (
                 <select
                   value={selections[idx]}
                   onChange={(e) => handleSelect(idx, e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-xs font-bold px-2 py-1 mx-1 rounded-lg align-middle focus:outline-none"
+                  className="bg-slate-50 border border-slate-200 text-sm font-bold px-2 py-1 mx-1 rounded-lg align-middle focus:outline-none"
                 >
                   <option value="">{t("studentPreviewModal.wordBankChoosePlaceholder")}</option>
                   {wordPool
@@ -423,7 +423,7 @@ function WordBankPreview({ content, wordPool, inputMode = "select" }: { content:
       {inputMode === "text" && wordPool.length > 0 && (
         <div className="flex flex-wrap gap-1.5 bg-slate-50 border border-slate-200 rounded-lg p-2">
           {wordPool.map((w, wIdx) => (
-            <span key={`${w}-${wIdx}`} className="text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-md px-2 py-1">
+            <span key={`${w}-${wIdx}`} className="text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-md px-2 py-1">
               {w}
             </span>
           ))}
@@ -453,13 +453,13 @@ function SentenceBuildingPreview({ chunkPool }: { chunkPool: string[] }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5 min-h-[38px] p-2 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-        {built.length === 0 && <span className="text-[11px] text-slate-400 italic px-1">{t("studentPreviewModal.sentenceBuildingInstructions")}</span>}
+        {built.length === 0 && <span className="text-[13px] text-slate-400 italic px-1">{t("studentPreviewModal.sentenceBuildingInstructions")}</span>}
         {built.map((text, position) => (
           <button
             key={position}
             type="button"
             onClick={() => setUsedIndices((prev) => prev.filter((_, i) => i !== position))}
-            className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-400 text-xs font-bold text-emerald-700"
+            className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-400 text-sm font-bold text-emerald-700"
           >
             {text}
           </button>
@@ -471,7 +471,7 @@ function SentenceBuildingPreview({ chunkPool }: { chunkPool: string[] }) {
             key={s.idx}
             type="button"
             onClick={() => setUsedIndices((prev) => [...prev, s.idx])}
-            className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
+            className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50"
           >
             {s.text}
           </button>
@@ -492,11 +492,11 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
         <div className="bg-slate-50 rounded-xl p-3 space-y-2">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
             <div key={i}>
-              {p.name && <p className="text-xs font-black text-slate-800">{p.name}</p>}
+              {p.name && <p className="text-sm font-black text-slate-800">{p.name}</p>}
               {p.isTitle ? (
-                <p className="text-xs font-black text-slate-800 text-center">{p.content}</p>
+                <p className="text-sm font-black text-slate-800 text-center">{p.content}</p>
               ) : (
-                <p className="text-xs text-slate-600 whitespace-pre-line">{p.content}</p>
+                <p className="text-sm text-slate-600 whitespace-pre-line">{p.content}</p>
               )}
             </div>
           ))}
@@ -504,7 +504,7 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
       )}
 
       {block.wordBox && block.wordBox.length > 0 && (
-        <table className="w-full border-collapse text-xs text-slate-800">
+        <table className="w-full border-collapse text-sm text-slate-800">
           <tbody>
             {chunkArray(block.wordBox, 4).map((row, ri) => (
               <tr key={ri}>
@@ -534,10 +534,10 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
           {block.questions.map((q, qIndex) => (
             <div key={q.id} className="space-y-1.5">
               <img src={q.imageUrl ?? undefined} alt="" className="w-full aspect-square object-contain rounded-xl border border-slate-200 bg-white" />
-              <p className="text-center text-[10px] font-bold text-slate-400">{startNumber + qIndex}</p>
+              <p className="text-center text-[12px] font-bold text-slate-400">{startNumber + qIndex}</p>
               <input
                 placeholder={t("studentPreviewModal.answerPlaceholder")}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-xl text-center focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-xl text-center focus:outline-none"
               />
             </div>
           ))}
@@ -562,7 +562,7 @@ function GridQuestionRowPreview({ question, displayNumber }: { question: Exercis
 
   return (
     <div className="py-2.5 space-y-2">
-      <span className="text-xs font-bold text-slate-800">
+      <span className="text-sm font-bold text-slate-800">
         {displayNumber}. {question.questionContent}
       </span>
 
@@ -573,7 +573,7 @@ function GridQuestionRowPreview({ question, displayNumber }: { question: Exercis
       {isFillInBlankRow && (
         <input
           placeholder={t("studentPreviewModal.answerPlaceholder")}
-          className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-xl focus:outline-none"
+          className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-xl focus:outline-none"
         />
       )}
 

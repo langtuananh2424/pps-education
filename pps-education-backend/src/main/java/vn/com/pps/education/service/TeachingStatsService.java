@@ -35,6 +35,9 @@ import java.util.Set;
  * mà không nhận lớp. Tính trực tiếp từ class_sessions/session_periods/class_session_check_ins (không
  * có bảng snapshot riêng), cùng dáng báo cáo dẫn xuất như ActualPeriodsReportService.
  *
+ * V209 (xác nhận với người dùng 2026-10-02): số tiết tách theo vai trò trong buổi — GV chính / GV phụ /
+ * CM — kèm cột vai trò; xem TeacherTeachingStatsRow.
+ *
  * Phạm vi dữ liệu theo DataScopeService#resolveAllowedSiteIds; siteId = null là mọi điểm trường trong
  * phạm vi. "Đã diễn ra" = buổi không huỷ/không dời và đã tới giờ bắt đầu (giờ Việt Nam).
  */
@@ -94,6 +97,15 @@ public class TeachingStatsService {
                 fromDate, toDate, now, siteFilter, restrictSites, siteIdsForQuery)) {
             periodsByTeacher.put(row.getTeacherUserId(), row.getPeriodCount());
         }
+        // V209 — vai trò giáo viên phụ / CM của buổi học: [buổi phụ, tiết phụ, buổi CM, tiết CM].
+        Map<Long, long[]> supportByTeacher = new HashMap<>();
+        for (ClassSessionRepository.TeacherSupportRoleStats row : classSessionRepository.aggregateSupportRoleStats(
+                fromDate, toDate, now, siteFilter, restrictSites, siteIdsForQuery)) {
+            long[] v = supportByTeacher.computeIfAbsent(row.getTeacherUserId(), k -> new long[4]);
+            int offset = "CM".equals(row.getRole()) ? 2 : 0;
+            v[offset] += row.getScheduledSessions();
+            v[offset + 1] += row.getPeriodCount();
+        }
 
         // V207 — nộp báo cáo (gửi duyệt nhận xét) theo giáo viên; bỏ qua khi khoảng ngày quá dài.
         boolean withReports = ChronoUnit.DAYS.between(fromDate, toDate) < SessionReportTrackingService.MAX_RANGE_DAYS;
@@ -112,6 +124,7 @@ public class TeachingStatsService {
 
         Set<Long> teacherIds = new HashSet<>(sessionStatsByTeacher.keySet());
         teacherIds.addAll(periodsByTeacher.keySet());
+        teacherIds.addAll(supportByTeacher.keySet());
         Map<Long, String> nameById = new HashMap<>();
         for (User user : userRepository.findAllById(teacherIds)) {
             nameById.put(user.getId(), user.getFullName());
@@ -124,12 +137,24 @@ public class TeachingStatsService {
         List<TeacherTeachingStatsRow> rows = new ArrayList<>();
         for (Long teacherId : teacherIds) {
             ClassSessionRepository.TeacherSessionStats s = sessionStatsByTeacher.get(teacherId);
-            rows.add(buildRow(teacherId, nameById.getOrDefault(teacherId, "—"), codeById.get(teacherId),
+            long primaryPeriods = periodsByTeacher.getOrDefault(teacherId, 0L);
+            long[] support = supportByTeacher.getOrDefault(teacherId, new long[4]);
+            List<String> roles = new ArrayList<>();
+            if ((s != null && s.getScheduledSessions() > 0) || primaryPeriods > 0) {
+                roles.add("PRIMARY");
+            }
+            if (support[0] > 0) {
+                roles.add("ASSISTANT");
+            }
+            if (support[2] > 0) {
+                roles.add("CM");
+            }
+            rows.add(buildRow(teacherId, nameById.getOrDefault(teacherId, "—"), codeById.get(teacherId), roles,
                     s == null ? 0 : s.getClassCount(),
                     s == null ? 0 : s.getScheduledSessions(),
                     s == null ? 0 : s.getHeldSessions(),
                     s == null ? 0 : s.getCancelledSessions(),
-                    periodsByTeacher.getOrDefault(teacherId, 0L),
+                    primaryPeriods, support[1], support[3],
                     s == null ? 0 : s.getOnTimeCheckIns(),
                     s == null ? 0 : s.getLateCheckIns(),
                     s == null ? 0 : s.getMissingCheckIns(),
@@ -138,12 +163,14 @@ public class TeachingStatsService {
         rows.sort(Comparator.comparing(TeacherTeachingStatsRow::teacherName, String.CASE_INSENSITIVE_ORDER));
 
         // Số lớp ở dòng tổng là tổng theo từng giáo viên (1 lớp nhiều giáo viên được đếm nhiều lần).
-        TeacherTeachingStatsRow totals = buildRow(null, "Tổng cộng", null,
+        TeacherTeachingStatsRow totals = buildRow(null, "Tổng cộng", null, List.of(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::classCount).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::scheduledSessions).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::heldSessions).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::cancelledSessions).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::taughtPeriods).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::assistantPeriods).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::cmPeriods).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::onTimeCheckIns).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::lateCheckIns).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::missingCheckIns).sum(),
@@ -158,8 +185,8 @@ public class TeachingStatsService {
     @Transactional(readOnly = true)
     public byte[] exportStatsExcel(Long siteId, LocalDate fromDate, LocalDate toDate, Long actorUserId) {
         TeachingStatsResponse stats = getStats(siteId, fromDate, toDate, actorUserId);
-        List<String> headers = List.of("Mã nhân sự", "Giáo viên", "Số lớp", "Buổi đã xếp", "Buổi đã diễn ra",
-                "Buổi bị huỷ", "Số tiết đã dạy", "Nhận lớp đúng giờ", "Nhận lớp trễ", "Không nhận lớp",
+        List<String> headers = List.of("Mã nhân sự", "Giáo viên", "Vai trò", "Số lớp", "Buổi đã xếp", "Buổi đã diễn ra",
+                "Buổi bị huỷ", "Tiết GV chính", "Tiết GV phụ", "Tiết CM", "Tổng tiết", "Nhận lớp đúng giờ", "Nhận lớp trễ", "Không nhận lớp",
                 "Tỷ lệ đúng giờ (%)", "Báo cáo đúng hạn", "Báo cáo nộp muộn", "Báo cáo chưa nộp");
         List<List<Object>> rows = new ArrayList<>();
         for (TeacherTeachingStatsRow r : stats.teachers()) {
@@ -171,7 +198,10 @@ public class TeachingStatsService {
                 "Điểm trường: " + (stats.siteName() == null ? "Tất cả điểm trường trong phạm vi" : stats.siteName()),
                 "Buổi đã xếp: không tính buổi đã dời (buổi dời sang được tính riêng).",
                 "Buổi đã diễn ra: buổi không huỷ/không dời và đã tới giờ bắt đầu.",
-                "Số tiết đã dạy: tiết có giáo viên riêng tính cho giáo viên đó, còn lại tính cho giáo viên phụ trách buổi.",
+                "Vai trò: vai trò của giáo viên trong các buổi học của khoảng thời gian (GV chính / GV phụ / CM).",
+                "Tiết GV chính: tiết có giáo viên riêng tính cho giáo viên đó, còn lại tính cho giáo viên chính của buổi.",
+                "Tiết GV phụ / Tiết CM: mọi tiết của buổi đã diễn ra mà giáo viên được xếp làm GV phụ / CM.",
+                "Số lớp, buổi, nhận lớp và báo cáo chỉ tính theo vai trò GV chính.",
                 "Không nhận lớp: buổi đã diễn ra nhưng giáo viên chưa bấm Nhận lớp.",
                 "Tỷ lệ đúng giờ = Nhận lớp đúng giờ / Buổi đã diễn ra.",
                 "Báo cáo = gửi duyệt nhận xét của buổi, so với hạn nộp trong Cài đặt hệ thống (để trống nếu khoảng ngày quá "
@@ -183,11 +213,15 @@ public class TeachingStatsService {
         List<Object> row = new ArrayList<>();
         row.add(r.employeeCode());
         row.add(r.teacherName());
+        row.add(String.join(", ", r.roles().stream().map(TeachingStatsService::roleLabel).toList()));
         row.add(r.classCount());
         row.add(r.scheduledSessions());
         row.add(r.heldSessions());
         row.add(r.cancelledSessions());
         row.add(r.taughtPeriods());
+        row.add(r.assistantPeriods());
+        row.add(r.cmPeriods());
+        row.add(r.totalPeriods());
         row.add(r.onTimeCheckIns());
         row.add(r.lateCheckIns());
         row.add(r.missingCheckIns());
@@ -198,13 +232,25 @@ public class TeachingStatsService {
         return row;
     }
 
+    private static String roleLabel(String role) {
+        return switch (role) {
+            case "PRIMARY" -> "GV chính";
+            case "ASSISTANT" -> "GV phụ";
+            case "CM" -> "CM";
+            default -> role;
+        };
+    }
+
     private static TeacherTeachingStatsRow buildRow(Long teacherUserId, String teacherName, String employeeCode,
+                                                    List<String> roles,
                                                     long classCount, long scheduled, long held, long cancelled,
-                                                    long periods, long onTime, long late, long missing,
+                                                    long primaryPeriods, long assistantPeriods, long cmPeriods,
+                                                    long onTime, long late, long missing,
                                                     int[] reportCounts) {
         Double onTimeRate = held == 0 ? null : Math.round(onTime * 1000.0 / held) / 10.0;
-        return new TeacherTeachingStatsRow(teacherUserId, teacherName, employeeCode, classCount, scheduled, held,
-                cancelled, periods, onTime, late, missing, onTimeRate,
+        return new TeacherTeachingStatsRow(teacherUserId, teacherName, employeeCode, roles, classCount, scheduled, held,
+                cancelled, primaryPeriods, assistantPeriods, cmPeriods, primaryPeriods + assistantPeriods + cmPeriods,
+                onTime, late, missing, onTimeRate,
                 reportCounts == null ? null : reportCounts[0],
                 reportCounts == null ? null : reportCounts[1],
                 reportCounts == null ? null : reportCounts[2]);

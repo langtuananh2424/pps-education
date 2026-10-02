@@ -205,7 +205,7 @@ export default function ActualPeriodsStatsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Số tiết thực tế theo lớp</h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           Số tiết đã dạy thực tế (không tính buổi đã huỷ/đã dời) của từng lớp — xem theo tuần, tháng, học kỳ hoặc năm.
         </p>
       </div>
@@ -217,7 +217,7 @@ export default function ActualPeriodsStatsPage() {
               key={pt}
               onClick={() => setPeriodType(pt)}
               className={cn(
-                "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
+                "px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors",
                 periodType === pt ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
               )}
             >
@@ -229,7 +229,7 @@ export default function ActualPeriodsStatsPage() {
           <button
             onClick={() => setDisplayMode("detail")}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
+              "px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors",
               displayMode === "detail" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
             )}
           >
@@ -240,7 +240,7 @@ export default function ActualPeriodsStatsPage() {
             disabled={periodType === "WEEK"}
             title={periodType === "WEEK" ? "Lưới tổng quan không áp dụng cho Tuần" : "Lưới tổng quan — hàng đầu là tháng/kỳ/năm, cột đầu là lớp"}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+              "px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
               displayMode === "grid" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
             )}
           >
@@ -251,7 +251,7 @@ export default function ActualPeriodsStatsPage() {
           <button
             onClick={handleExport}
             disabled={!canExport || exporting || loadingGrid || loadingStats}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-brand-gradient text-white shadow-glow disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-bold bg-brand-gradient text-white shadow-glow disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-3.5 h-3.5" /> {exporting ? "Đang xuất..." : "Xuất Excel"}
           </button>
@@ -259,7 +259,7 @@ export default function ActualPeriodsStatsPage() {
       </div>
 
       {!canView ? (
-        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">
+        <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">
           Bạn không có quyền xem trang này.
         </div>
       ) : !hasSite ? (
@@ -270,12 +270,12 @@ export default function ActualPeriodsStatsPage() {
       ) : displayMode === "grid" ? (
         <>
           <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
               <Filter className="w-3.5 h-3.5" /> Lưới tổng quan — hàng đầu là {PERIOD_TYPE_LABELS[periodType].toLowerCase()}, cột đầu là lớp
             </div>
             {periodType === "MONTH" ? (
               <div className="max-w-[220px]">
-                <label className="block text-xs text-slate-500 mb-1">Năm (hiển thị đủ 12 tháng)</label>
+                <label className="block text-sm text-slate-500 mb-1">Năm (hiển thị đủ 12 tháng)</label>
                 <Select
                   value={gridYear}
                   onChange={(e) => setGridYear(Number(e.target.value))}
@@ -287,9 +287,9 @@ export default function ActualPeriodsStatsPage() {
                 </Select>
               </div>
             ) : periodType === "YEAR" ? (
-              <p className="text-xs text-slate-400">Hiển thị 6 năm gần nhất ({new Date().getFullYear() - 5} — {new Date().getFullYear()}).</p>
+              <p className="text-sm text-slate-400">Hiển thị 6 năm gần nhất ({new Date().getFullYear() - 5} — {new Date().getFullYear()}).</p>
             ) : (
-              <p className="text-xs text-slate-400">Hiển thị toàn bộ kỳ học của điểm trường này, sắp theo thời gian.</p>
+              <p className="text-sm text-slate-400">Hiển thị toàn bộ kỳ học của điểm trường này, sắp theo thời gian.</p>
             )}
           </div>
 
@@ -319,7 +319,7 @@ export default function ActualPeriodsStatsPage() {
                         <col key={c.key} />
                       ))}
                     </colgroup>
-                    <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                    <thead className="bg-slate-50 border-b border-slate-100 text-sm text-slate-500 font-medium">
                       <tr>
                         <th className="sticky left-0 bg-slate-50 px-4 py-2.5 z-10">Lớp</th>
                         {grid.columns.map((c) => (
@@ -335,7 +335,7 @@ export default function ActualPeriodsStatsPage() {
                             title={`${row.className} (${row.classCode})`}
                           >
                             {row.className}
-                            <span className="text-xs text-slate-400 ml-1.5">{row.classCode}</span>
+                            <span className="text-sm text-slate-400 ml-1.5">{row.classCode}</span>
                           </td>
                           {grid.columns.map((c) => (
                             <td key={c.key} className="px-3 py-2.5 text-right text-slate-700">{row.actualPeriodsByColumnKey[c.key] ?? 0}</td>
@@ -352,25 +352,25 @@ export default function ActualPeriodsStatsPage() {
       ) : (
         <>
           <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
               <Filter className="w-3.5 h-3.5" /> Chọn {PERIOD_TYPE_LABELS[periodType].toLowerCase()}
             </div>
             <div className="max-w-[260px]">
               {periodType === "WEEK" && (
                 <>
-                  <label className="block text-xs text-slate-500 mb-1">Chọn 1 ngày trong tuần</label>
+                  <label className="block text-sm text-slate-500 mb-1">Chọn 1 ngày trong tuần</label>
                   <DatePicker value={weekAnchor} onChange={setWeekAnchor} />
                 </>
               )}
               {periodType === "MONTH" && (
                 <>
-                  <label className="block text-xs text-slate-500 mb-1">Tháng</label>
+                  <label className="block text-sm text-slate-500 mb-1">Tháng</label>
                   <MonthPicker value={selectedMonth} onChange={setSelectedMonth} />
                 </>
               )}
               {periodType === "TERM" && (
                 <>
-                  <label className="block text-xs text-slate-500 mb-1">Kỳ học</label>
+                  <label className="block text-sm text-slate-500 mb-1">Kỳ học</label>
                   <Select
                     value={selectedTermId}
                     onChange={(e) => setSelectedTermId(e.target.value ? Number(e.target.value) : "")}
@@ -385,13 +385,13 @@ export default function ActualPeriodsStatsPage() {
                     ))}
                   </Select>
                   {!loadingTerms && terms.length === 0 && (
-                    <p className="text-xs text-slate-400 mt-2">Điểm trường này chưa có kỳ học nào — tạo ở màn "Quản lý Kỳ học".</p>
+                    <p className="text-sm text-slate-400 mt-2">Điểm trường này chưa có kỳ học nào — tạo ở màn "Quản lý Kỳ học".</p>
                   )}
                 </>
               )}
               {periodType === "YEAR" && (
                 <>
-                  <label className="block text-xs text-slate-500 mb-1">Năm</label>
+                  <label className="block text-sm text-slate-500 mb-1">Năm</label>
                   <Select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -417,20 +417,20 @@ export default function ActualPeriodsStatsPage() {
             <>
               <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-5 text-white flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs opacity-75">{stats.siteName}</p>
+                  <p className="text-sm opacity-75">{stats.siteName}</p>
                   <h2 className="text-lg font-bold mt-1">{stats.periodLabel}</h2>
-                  <p className="text-xs opacity-70 mt-1">{stats.startDate} — {stats.endDate}</p>
+                  <p className="text-sm opacity-70 mt-1">{stats.startDate} — {stats.endDate}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-bold">{stats.totalActualPeriods}</p>
-                  <p className="text-xs opacity-75">Tổng số tiết thực tế</p>
+                  <p className="text-sm opacity-75">Tổng số tiết thực tế</p>
                 </div>
               </div>
 
               <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
                   <h3 className="text-sm font-semibold text-slate-700">Số tiết thực tế theo lớp</h3>
-                  <span className="text-xs text-slate-400">{stats.classes.length} lớp</span>
+                  <span className="text-sm text-slate-400">{stats.classes.length} lớp</span>
                 </div>
                 {stats.classes.length === 0 ? (
                   <div className="px-4 py-10 text-center">
@@ -439,7 +439,7 @@ export default function ActualPeriodsStatsPage() {
                   </div>
                 ) : (
                   <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                    <thead className="bg-slate-50 border-b border-slate-100 text-sm text-slate-500 font-medium">
                       <tr>
                         <th className="px-4 py-2.5">Lớp</th>
                         <th className="px-4 py-2.5 text-right">Số tiết thực tế</th>
@@ -450,7 +450,7 @@ export default function ActualPeriodsStatsPage() {
                         <tr key={row.classId} className="hover:bg-slate-50/50 transition-colors">
                           <td className="px-4 py-3">
                             <span className="font-medium text-slate-800">{row.className}</span>
-                            <span className="text-xs text-slate-400 ml-2">{row.classCode}</span>
+                            <span className="text-sm text-slate-400 ml-2">{row.classCode}</span>
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-slate-800">{row.actualPeriods}</td>
                         </tr>

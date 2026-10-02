@@ -115,7 +115,7 @@ export default function MonthPicker({ value, onChange, min, max, placeholder, di
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "w-full bg-slate-50 border border-slate-200 hover:border-slate-300 text-xs p-2.5 rounded-lg focus:outline-none flex items-center justify-between gap-2 disabled:opacity-50",
+          "w-full bg-slate-50 border border-slate-200 hover:border-slate-300 text-sm p-2.5 rounded-lg focus:outline-none flex items-center justify-between gap-2 disabled:opacity-50",
           className
         )}
       >
@@ -142,7 +142,7 @@ export default function MonthPicker({ value, onChange, min, max, placeholder, di
               <select
                 value={viewYear}
                 onChange={(e) => setViewYear(Number(e.target.value))}
-                className="flex-1 bg-slate-50 border border-slate-200 text-xs font-bold text-brand-red px-2 py-1.5 rounded-lg focus:outline-none text-center"
+                className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold text-brand-red px-2 py-1.5 rounded-lg focus:outline-none text-center"
               >
                 {yearRange.map((y) => (
                   <option key={y} value={y}>
@@ -171,7 +171,7 @@ export default function MonthPicker({ value, onChange, min, max, placeholder, di
                     disabled={disabledCell}
                     onClick={() => pick(month)}
                     className={cn(
-                      "text-[11px] font-semibold rounded-lg py-2 transition-colors",
+                      "text-[13px] font-semibold rounded-lg py-2 transition-colors",
                       !isSelected && "text-slate-700 hover:bg-orange-50",
                       isSelected && "bg-brand-red text-white shadow-sm hover:bg-brand-red",
                       disabledCell && "opacity-30 cursor-not-allowed hover:bg-transparent"
@@ -190,7 +190,7 @@ export default function MonthPicker({ value, onChange, min, max, placeholder, di
                   onChange("");
                   setOpen(false);
                 }}
-                className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition-colors"
+                className="text-[13px] font-semibold text-slate-400 hover:text-rose-600 transition-colors"
               >
                 Xoá
               </button>
@@ -200,7 +200,7 @@ export default function MonthPicker({ value, onChange, min, max, placeholder, di
                   setViewYear(now.getFullYear());
                   pick(now.getMonth() + 1);
                 }}
-                className="text-[11px] font-bold text-brand-red hover:underline"
+                className="text-[13px] font-bold text-brand-red hover:underline"
               >
                 Tháng này
               </button>

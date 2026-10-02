@@ -8,9 +8,9 @@ import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface CurriculumFormModalProps {
   onClose: () => void;
@@ -74,7 +74,7 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
               onBlur={() => setTouched((t2) => ({ ...t2, code: true }))}
               className={`${invalid.code ? inputErrorClass : inputClass} font-mono`}
             />
-            {invalid.code && <p className="text-[10px] text-rose-600 mt-1">{t("form.codeRequiredError")}</p>}
+            {invalid.code && <p className="text-[12px] text-rose-600 mt-1">{t("form.codeRequiredError")}</p>}
           </div>
           <div>
             <label className={labelClass}>{t("form.classCategoryLabel")}</label>
@@ -93,7 +93,7 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
               onBlur={() => setTouched((t2) => ({ ...t2, name: true }))}
               className={invalid.name ? inputErrorClass : inputClass}
             />
-            {invalid.name && <p className="text-[10px] text-rose-600 mt-1">{t("form.nameRequiredError")}</p>}
+            {invalid.name && <p className="text-[12px] text-rose-600 mt-1">{t("form.nameRequiredError")}</p>}
           </div>
           <div>
             <label className={labelClass}>{t("form.levelLabel")}</label>

@@ -63,13 +63,13 @@ export default function PeriodMultiSelect({
 
   return (
     <div>
-      <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+      <label className="text-[12px] uppercase font-bold text-slate-500 block mb-1">
         {label} {required && "*"}
       </label>
       {loading ? (
-        <p className="text-[11px] text-slate-400 italic">Đang tải tiết học...</p>
+        <p className="text-[13px] text-slate-400 italic">Đang tải tiết học...</p>
       ) : periods.length === 0 ? (
-        <p className="text-[11px] text-rose-500 italic">
+        <p className="text-[13px] text-rose-500 italic">
           Điểm trường này chưa cấu hình tiết học — vào Cơ sở vật chất &amp; Đối tác &gt; Điểm trường &gt; tab "Tiết học" để thêm.
         </p>
       ) : (
@@ -83,7 +83,7 @@ export default function PeriodMultiSelect({
                   type="button"
                   onClick={() => switchDayPart(dp)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+                    "px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors",
                     dayPart === dp ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
                   )}
                 >
@@ -92,7 +92,7 @@ export default function PeriodMultiSelect({
               ))}
           </div>
           {periodsInDayPart.length === 0 ? (
-            <p className="text-[11px] text-rose-500 italic">Điểm trường chưa cấu hình tiết cho buổi {dayPartLabels[dayPart]}.</p>
+            <p className="text-[13px] text-rose-500 italic">Điểm trường chưa cấu hình tiết cho buổi {dayPartLabels[dayPart]}.</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {periodsInDayPart.map((p) => (
@@ -101,7 +101,7 @@ export default function PeriodMultiSelect({
                   type="button"
                   onClick={() => toggle(p.periodNumber)}
                   className={cn(
-                    "text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all",
+                    "text-[13px] font-bold px-2.5 py-1.5 rounded-lg border transition-all",
                     selected.has(p.periodNumber) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                   )}
                 >
