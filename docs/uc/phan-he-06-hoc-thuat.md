@@ -2447,6 +2447,28 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     cụm sáo mòn thực sự vượt ngưỡng ở dòng đó. Đã chốt với người dùng các
     ngưỡng: BTVN tăng/giảm rõ 20 điểm, lặp kiểu câu 30% lớp, trùng lặp cả
     đoạn 50%, danh sách cụm sáo mòn hiện tại.
+-   **Bổ sung 2026-10-01 (đã xác nhận với người dùng):** (1) bước VIẾT câu
+    nhận xét (soạn nháp, "Viết lại toàn bộ", viết lại do trùng lặp) gọi AI
+    ở nhiệt độ `app.ai-comment-draft.write-temperature` (mặc định 0.7) để
+    câu chữ giữa các học sinh đa dạng hơn; tách ý, sửa theo yêu cầu, trợ lý
+    duyệt UC-75 và chấm bài vẫn giữ nhiệt độ 0. (2) Rubric chỉ gửi đúng các
+    mục mỗi bước cần (theo tiêu đề `## N.`): tách ý ← mục 1; viết câu ← mục
+    2–6; sửa theo yêu cầu giáo viên ← cả rubric; soát lỗi / lý do từ chối ←
+    mục 1–4; đề xuất sửa / sửa theo yêu cầu Quản lý ← mục 2–4. Thiếu mục
+    nào thì gửi cả rubric (không bỏ mất quy tắc). (3) Hàng đợi chạy nền tách
+    2 làn: soạn nháp của giáo viên (`worker-threads`, mặc định 2) và trợ lý
+    duyệt UC-75 (`review-worker-threads`, mặc định 1) — 2 bên không chờ
+    nhau. (4) Sửa theo yêu cầu (bước 9): dòng vừa sửa mà trùng câu chữ với
+    bạn khác/nhận xét cũ hoặc lặp kiểu câu thì nhờ AI diễn đạt lại đúng 1
+    lần (giữ ý, giữ Thái độ, chỉ nhận thay đổi của các dòng đó); AI lỗi thì
+    giữ bản đã sửa, cảnh báo trên dòng vẫn như cũ. (5) Cột mới
+    `student_comments.ai_draft_content` (V208): Lưu nháp dòng áp dụng từ
+    trợ lý gửi kèm nguyên văn bản AI; `scripts/comment-ai-approved-metrics.sql`
+    thêm % giữ nguyên, độ giống trung bình với bản AI, % sửa nhiều. (6) Thêm
+    "mới vào lớp" vào danh sách cụm sáo mòn (`OVERUSED_PHRASES`) và rubric
+    mục 4–5: lớp mới mở thì chỉ 1–2 bạn mỗi lượt được nhắc "mới vào lớp",
+    vượt ngưỡng thì viết lại / cảnh báo `REPEATED_PATTERN` (gặp khi test thật
+    2026-10-01: cả 6 nhận xét đều nhắc "mới vào lớp").
 
 ---
 

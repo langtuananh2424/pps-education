@@ -521,6 +521,10 @@ public class StudentCommentService {
                 comment.setStatus(StudentComment.Status.DRAFT);
                 if (Boolean.TRUE.equals(row.aiDrafted())) {
                     comment.setAiDrafted(true);
+                    // V208 — giữ bản AI của lần áp dụng gần nhất để đo mức giáo viên sửa (không ghi đè bằng rỗng).
+                    if (row.aiDraftContent() != null && !row.aiDraftContent().isBlank()) {
+                        comment.setAiDraftContent(row.aiDraftContent().trim());
+                    }
                 }
                 actionByStudentId.put(student.getId(), existing != null ? StudentCommentHistory.Action.UPDATED : StudentCommentHistory.Action.CREATED);
                 toSave.add(comment);

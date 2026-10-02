@@ -13,6 +13,7 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -32,8 +33,11 @@ import java.util.function.Supplier;
  * chỉ là bản xem trước/gợi ý, không phải dữ liệu nghiệp vụ; backend chạy 1 instance/stack. Restart backend
  * thì mất job đang chạy — người dùng gửi lại.</p>
  *
- * <p>Số luồng nhỏ (mặc định 2) + hàng đợi có giới hạn: mọi lệnh gọi AI còn đi qua semaphore chung của
- * {@link NineRouterAiClient}, không để trợ lý chiếm hết suất của luồng chấm bài học sinh.</p>
+ * <p>Số luồng nhỏ + hàng đợi có giới hạn: mọi lệnh gọi AI còn đi qua semaphore chung của
+ * {@link NineRouterAiClient}, không để trợ lý chiếm hết suất của luồng chấm bài học sinh. Bổ sung 2026-10-01 (đã
+ * xác nhận với người dùng): tách 2 làn {@link Lane} — giáo viên soạn nháp cuối ca và Quản lý soát duyệt không còn
+ * xếp chung 1 hàng đợi (1 lượt soạn nháp giữ luồng vài phút). Mặc định 2 + 1 luồng: tổng 3, vẫn dưới trần 5 lệnh
+ * gọi đồng thời của semaphore chung.</p>
  *
  * <p>Kết quả lưu dạng {@code Object}; service gọi tự kiểm kiểu khi đọc ({@link #get}) để job của loại này
  * không đọc được qua endpoint của loại khác.</p>
@@ -49,29 +53,41 @@ public class AiJobRegistry {
     }
 
     private final Map<String, Job> jobs = new ConcurrentHashMap<>();
-    private final ThreadPoolExecutor executor;
+    private final Map<Lane, ThreadPoolExecutor> executors = new EnumMap<>(Lane.class);
     private final Clock clock;
     private final Duration ttl;
 
-    public AiJobRegistry(@Value("${app.ai-comment-draft.worker-threads:2}") int workerThreads,
+    /** Làn chạy job: {@code DRAFT} — trợ lý soạn nháp của giáo viên (UC-74); {@code REVIEW} — trợ lý duyệt của Quản lý (UC-75). */
+    public enum Lane {
+        DRAFT, REVIEW
+    }
+
+    public AiJobRegistry(@Value("${app.ai-comment-draft.worker-threads:2}") int draftWorkerThreads,
+                         @Value("${app.ai-comment-draft.review-worker-threads:1}") int reviewWorkerThreads,
                          @Value("${app.ai-comment-draft.job-ttl-minutes:30}") long ttlMinutes,
                          Clock clock) {
-        AtomicInteger threadCounter = new AtomicInteger();
-        this.executor = new ThreadPoolExecutor(workerThreads, workerThreads, 0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(MAX_QUEUED_JOBS), runnable -> {
-                    Thread thread = new Thread(runnable, "ai-assistant-job-" + threadCounter.incrementAndGet());
-                    thread.setDaemon(true);
-                    return thread;
-                });
+        executors.put(Lane.DRAFT, newExecutor("ai-draft-job-", draftWorkerThreads));
+        executors.put(Lane.REVIEW, newExecutor("ai-review-job-", reviewWorkerThreads));
         this.clock = clock;
         this.ttl = Duration.ofMinutes(ttlMinutes);
     }
 
-    public <T> Snapshot<T> submit(Long ownerUserId, Supplier<T> task) {
+    private static ThreadPoolExecutor newExecutor(String threadPrefix, int threads) {
+        int size = Math.max(1, threads);
+        AtomicInteger threadCounter = new AtomicInteger();
+        return new ThreadPoolExecutor(size, size, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(MAX_QUEUED_JOBS), runnable -> {
+                    Thread thread = new Thread(runnable, threadPrefix + threadCounter.incrementAndGet());
+                    thread.setDaemon(true);
+                    return thread;
+                });
+    }
+
+    public <T> Snapshot<T> submit(Long ownerUserId, Lane lane, Supplier<T> task) {
         Job job = new Job(UUID.randomUUID().toString(), ownerUserId, clock.instant());
         jobs.put(job.id, job);
         try {
-            executor.execute(() -> run(job, task));
+            executors.get(lane).execute(() -> run(job, task));
         } catch (RejectedExecutionException e) {
             jobs.remove(job.id);
             throw new CommentAiDraftRejectedException(
@@ -100,7 +116,7 @@ public class AiJobRegistry {
 
     @PreDestroy
     public void shutdown() {
-        executor.shutdownNow();
+        executors.values().forEach(ThreadPoolExecutor::shutdownNow);
     }
 
     private boolean isExpired(Job job) {

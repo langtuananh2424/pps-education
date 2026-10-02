@@ -27,6 +27,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
@@ -69,7 +70,7 @@ class CommentAiReviewServiceTest {
     }
 
     private void stubAi(String prompt, String response) {
-        when(aiClient.chatWithFinishReason(eq(prompt), anyString(), anyString()))
+        when(aiClient.chatWithFinishReason(eq(prompt), anyString(), anyString(), anyDouble()))
                 .thenReturn(new NineRouterAiClient.ChatResult(response, "stop", null));
     }
 
@@ -148,7 +149,7 @@ class CommentAiReviewServiceTest {
 
         assertThatThrownBy(() -> service.startReview(new CommentAiReviewRequest(List.of(1L)), ACTOR_ID))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -158,12 +159,12 @@ class CommentAiReviewServiceTest {
 
         assertThatThrownBy(() -> service.startReview(new CommentAiReviewRequest(List.of(1L)), ACTOR_ID))
                 .isInstanceOf(ApprovalAlreadyDecidedException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
     void review_UC75_A4_aiFailureKeepsRuleResultsAndMarksIncomplete() {
-        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.REVIEW_PROMPT), anyString(), anyString())).thenReturn(null);
+        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.REVIEW_PROMPT), anyString(), anyString(), anyDouble())).thenReturn(null);
         CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "FAIR", "Chi làm đúng 8 câu.", List.of());
 
         CommentAiReviewResult result = service.review(List.of(chi));
@@ -188,13 +189,13 @@ class CommentAiReviewServiceTest {
         assertThat(result.originalContent()).isEqualTo("Cô thấy Bình nói chuyện với Nguyễn Văn An suốt giờ.");
         assertThat(result.explanation()).isEqualTo("Bỏ tên bạn khác.");
         assertThat(result.warnings()).isEmpty();
-        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.SUGGEST_PROMPT), contains("\"teacherPronoun\":\"cô\""), anyString());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.SUGGEST_PROMPT), contains("\"teacherPronoun\":\"cô\""), anyString(), anyDouble());
         verify(studentCommentService, never()).updatePendingCommentContent(any(), any(), any());
     }
 
     @Test
     void suggest_UC75_A4_failsWhenAiReturnsNothing() {
-        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.SUGGEST_PROMPT), anyString(), anyString())).thenReturn(null);
+        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.SUGGEST_PROMPT), anyString(), anyString(), anyDouble())).thenReturn(null);
         CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", null, "Bình học ổn.", List.of());
 
         assertThatThrownBy(() -> service.suggest(binh, List.of("x"))).isInstanceOf(CommentAiDraftFailedException.class);
@@ -248,14 +249,14 @@ class CommentAiReviewServiceTest {
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("quá lớn");
         assertThatThrownBy(() -> service.startInstruction(List.of(1L), notAudio, null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("không phải audio");
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
     void instruct_UC75_A4_failsWhenTranscriptionOrAiFails() {
         CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", null, "Bình học ổn.", List.of());
         when(aiClient.transcribe(any(byte[].class), any(), any(), any(), any())).thenReturn(null);
-        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.INSTRUCTION_PROMPT), anyString(), anyString())).thenReturn(null);
+        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.INSTRUCTION_PROMPT), anyString(), anyString(), anyDouble())).thenReturn(null);
 
         assertThatThrownBy(() -> service.instruct(List.of(binh), new byte[]{1}, "audio/webm", null))
                 .isInstanceOf(CommentAiDraftFailedException.class).hasMessageContaining("Không chuyển được audio");
@@ -278,7 +279,7 @@ class CommentAiReviewServiceTest {
 
         service.review(List.of(an));
 
-        verify(aiClient, never()).chatWithFinishReason(anyString(), contains("lessonContent"), anyString());
+        verify(aiClient, never()).chatWithFinishReason(anyString(), contains("lessonContent"), anyString(), anyDouble());
     }
 
     @Test
@@ -399,7 +400,7 @@ class CommentAiReviewServiceTest {
         assertThat(result.summary().homeworkMismatchCount()).isEqualTo(1);
         assertThat(result.message()).contains("ngược dữ liệu điểm");
         verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.REVIEW_PROMPT),
-                contains("\"homework\":\"BTVN buổi trước: chưa hoàn thành (bài tập).\""), anyString());
+                contains("\"homework\":\"BTVN buổi trước: chưa hoàn thành (bài tập).\""), anyString(), anyDouble());
     }
 
     @Test
@@ -432,7 +433,7 @@ class CommentAiReviewServiceTest {
 
         assertThat(result.commentId()).isEqualTo(3L);
         assertThat(result.reason()).startsWith("Nhờ thầy/cô bỏ");
-        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.REJECTION_REASON_PROMPT), contains("Nhận xét có chữ số"), anyString());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.REJECTION_REASON_PROMPT), contains("Nhận xét có chữ số"), anyString(), anyDouble());
         verify(studentCommentService, never()).decideComments(any(), any());
     }
 

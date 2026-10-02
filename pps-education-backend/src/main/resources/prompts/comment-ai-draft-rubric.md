@@ -4,6 +4,10 @@ File này được chèn nguyên văn vào prompt của cả 3 bước (tách ý
 Học vụ/giáo viên cứ bổ sung trực tiếp tại đây — sửa xong cần build và deploy lại backend mới có hiệu lực.
 Giữ file NGẮN GỌN (dưới ~1–2 trang): rubric đi kèm MỌI lượt gọi AI, càng dài càng tốn token.
 Phần trong thẻ comment này KHÔNG gửi cho AI.
+Mỗi bước chỉ nhận các mục nó cần (bổ sung 2026-10-01) — vì vậy GIỮ NGUYÊN dạng tiêu đề "## 1." … "## 6."
+và đặt quy tắc mới vào đúng mục: tách ý ← mục 1; viết câu ← mục 2–6; sửa theo yêu cầu của giáo viên ← cả rubric;
+soát lỗi / lý do từ chối (Quản lý) ← mục 1–4; đề xuất sửa / sửa theo yêu cầu của Quản lý ← mục 2–4.
+Thêm mục mới (## 7.) thì phải khai báo thêm trong code (CommentAiDraftService / CommentAiReviewService) mới được gửi đi.
 Những việc code đã tự chặn, KHÔNG cần viết vào đây: AI chỉ điền Thái độ + Nhận xét; không ghi chữ số;
 đại từ thầy/cô; chống trùng lặp giữa các học sinh và với các buổi trước.
 -->
@@ -75,7 +79,7 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
   Tên tiêu chí trong ngoặc kép (VD "Fluency and Coherence") thì diễn đạt lại bằng tiếng Việt dễ hiểu cho phụ huynh (độ trôi chảy, phát âm, ngữ pháp, từ vựng…).
 - Điểm danh & chuyên cần: trường "attendance" (nếu có) — VD "hôm nay đến lớp muộn", "hay đến lớp muộn trong các buổi gần đây", "nghỉ học không phép nhiều buổi gần đây", "đi học đầy đủ, đúng giờ nhiều buổi liên tiếp". Viết TỐI ĐA 1 CÂU, nhẹ nhàng, không trách móc, không suy đoán lý do, không ghi số buổi/số phút: "Con chú ý đến lớp đúng giờ hơn nhé." / "Con đi học rất chuyên cần, đáng khen." Không có trường này thì KHÔNG nhắc chuyện đi học/đi muộn.
 - Gợi ý giọng văn: trường "toneHints" (nếu có) CHỈ để điều chỉnh cách viết, TUYỆT ĐỐI KHÔNG đưa nội dung của nó vào nhận xét — không nhắc chuyện trung tâm mời họp/trao đổi với phụ huynh, không ghi tuổi. VD học sinh nhỏ tuổi → câu ngắn, từ ngữ đơn giản, ấm áp; đang có trao đổi với phụ huynh về BTVN → không khen phần BTVN đó, nhắc nhở nhẹ nhàng mang tính đồng hành.
-- Thông tin học sinh: trường "studentInfo" (nếu có, VD "mới vào lớp gần đây") được nhắc tối đa 1 vế và phải dùng đúng cụm "mới vào lớp" (VD "Con mới vào lớp nhưng đã bắt nhịp rất nhanh."). Dữ liệu này có thể chưa chính xác nên hệ thống sẽ gắn cảnh báo để giáo viên kiểm tra. Không có trường này thì KHÔNG tự suy ra học sinh mới/cũ.
+- Thông tin học sinh: trường "studentInfo" (nếu có, VD "mới vào lớp gần đây") được nhắc tối đa 1 vế và phải dùng đúng cụm "mới vào lớp" (VD "Con mới vào lớp nhưng đã bắt nhịp rất nhanh."). Nhiều bạn cùng có trường này (lớp mới mở) thì chỉ nhắc cho 1–2 bạn mỗi lượt viết, các bạn khác bỏ qua ý này. Dữ liệu này có thể chưa chính xác nên hệ thống sẽ gắn cảnh báo để giáo viên kiểm tra. Không có trường này thì KHÔNG tự suy ra học sinh mới/cũ.
 - Nhận xét buổi khác loại giáo viên: trường "otherTeacherComment" (nếu có) là nhận xét gần nhất ở buổi của loại giáo viên kia (VD buổi giáo viên nước ngoài). CHỈ dùng để giữ nhận xét nhất quán và KHÔNG lặp lại câu chữ của nó; không chép ý, không nhắc tới giáo viên/buổi học đó (xem quy tắc không nhắc giáo viên khác ở trên).
 - Giới hạn chung cho BTVN (gộp cả "homework" và "homeworkDetails"): vẫn giữ nguyên các ý giáo viên đã nói, THÊM TỐI ĐA 2 CÂU về BTVN. Chọn theo thứ tự ưu tiên: (1) bỏ bài / nộp muộn, (2) điểm yếu cụ thể và kỹ năng "cần cố gắng"/"chưa hoàn thành" trong "homework", (3) xu hướng, (4) lời khen. Có thể gộp 2 ý vào 1 câu (VD "Con làm bài đọc tốt nhưng cần luyện thêm kỹ năng nghe."). Không cần dùng hết mọi ý. Nếu giáo viên có nói riêng về BTVN của đúng kỹ năng đó mà khác dữ liệu thì theo lời giáo viên.
 - Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple", "bài Friendship") hay số trang/tên dạng bài cụ thể ("trang 18 phần B", "đề cương ôn tập") — kể cả khi giáo viên đọc tên bài trong lời nói.
@@ -87,7 +91,7 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 ## 5. Gợi ý đa dạng câu mở đầu và câu kết
 Trong mỗi lượt viết: không dùng cùng 1 kiểu mở đầu (hoặc câu kết) cho 2 học sinh LIỀN KỀ; có ít nhất 4 kiểu mở đầu và 3 kiểu kết khác nhau. Chọn luân phiên, diễn đạt lại theo ý giáo viên — không chép nguyên câu gợi ý.
 
-Cụm sáo mòn hay bị lặp cho cả lớp — mỗi cụm dùng tối đa 1–2 lần mỗi lượt viết: "Hơn thế nữa", "Về nhà (con) luyện nói…", "…mong con…", "Con ngoan…", "…rất vui…", "…rất ấn tượng…", "Con đã nắm được…", "Con có cố gắng…", "Con cần chú ý…", "…nhờ bố mẹ…", "Tiếp tục phát huy…".
+Cụm sáo mòn hay bị lặp cho cả lớp — mỗi cụm dùng tối đa 1–2 lần mỗi lượt viết: "Hơn thế nữa", "Về nhà (con) luyện nói…", "…mong con…", "Con ngoan…", "…rất vui…", "…rất ấn tượng…", "Con đã nắm được…", "Con có cố gắng…", "Con cần chú ý…", "…nhờ bố mẹ…", "Tiếp tục phát huy…", "…mới vào lớp…".
 
 Mở đầu:
 1. Tên + hành động: "An tập trung nghe giảng suốt buổi."

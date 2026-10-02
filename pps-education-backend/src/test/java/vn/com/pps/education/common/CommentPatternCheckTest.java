@@ -55,6 +55,24 @@ class CommentPatternCheckTest {
     }
 
     @Test
+    void check_UC74_flagsNewStudentPhraseRepeatedAcrossNewClass() {
+        // Lớp mới mở (bổ sung 2026-10-01): cả 6 bạn đều nhắc "mới vào lớp" → ngưỡng max(2, floor(0.3*6)=1) = 2 lần,
+        // từ bạn thứ 3 trở đi bị đánh dấu để viết lại.
+        List<CommentPatternCheck.Entry> entries = List.of(
+                new CommentPatternCheck.Entry(1L, "A An", "An tập trung tốt. Con mới vào lớp mà đã tự tin."),
+                new CommentPatternCheck.Entry(2L, "B Bình", "Phần Speaking Bình phát biểu sôi nổi, con mới vào lớp nhưng bắt nhịp nhanh."),
+                new CommentPatternCheck.Entry(3L, "C Châu", "Cô ghi nhận Châu xung phong nhiều. Con mới vào lớp mà đã hòa nhập tốt."),
+                new CommentPatternCheck.Entry(4L, "D Duy", "Duy mới vào lớp nhưng cần chú ý hơn trong giờ."),
+                new CommentPatternCheck.Entry(5L, "E Hân", "Điểm đáng khen là Hân giúp bạn sửa phát âm, dù mới vào lớp."),
+                new CommentPatternCheck.Entry(6L, "F Khang", "Khang hợp tác tốt với nhóm."));
+
+        CommentPatternCheck.Result result = CommentPatternCheck.check(entries, 0.3);
+
+        assertThat(result.phraseIds()).containsExactly(3L, 4L, 5L);
+        assertThat(result.phrasesById().get(3L)).containsExactly("mới vào lớp");
+    }
+
+    @Test
     void check_UC74_flagsOverusedPhraseBeyondMaxShare() {
         // 5 dòng, ngưỡng 30% → mỗi cụm tối đa max(2, 1) = 2 lần; mở đầu khác nhau để chỉ dính luật cụm.
         List<CommentPatternCheck.Entry> entries = List.of(
