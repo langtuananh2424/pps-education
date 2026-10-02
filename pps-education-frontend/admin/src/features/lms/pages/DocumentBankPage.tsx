@@ -22,13 +22,14 @@ import FileUploadField from "@/components/ui/FileUploadField";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Khớp DOCUMENT_CONTENT_TYPES + audio/image/video của module CURRICULUM_DOCUMENT (xem MediaStorageService.java). */
 const DOCUMENT_UPLOAD_ACCEPT =
   "image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 /**
  * Nhãn dịch qua i18next namespace "lms-documents" (key `documentType.<Type>` / `status.<Status>`) —
@@ -87,10 +88,10 @@ export default function DocumentBankPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("page.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("page.subtitle")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("page.subtitle")}</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card className="flex flex-wrap items-center gap-3">
         <Select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-72`}>
@@ -108,11 +109,11 @@ export default function DocumentBankPage() {
       </Card>
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("list.loading")}</p>
+        <p className="text-sm text-slate-500">{t("list.loading")}</p>
       ) : !selectedCurriculumId ? (
-        <p className="text-xs text-slate-400 italic text-center py-10">{t("list.selectCurriculumPrompt")}</p>
+        <p className="text-sm text-slate-400 italic text-center py-10">{t("list.selectCurriculumPrompt")}</p>
       ) : documents.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-10">{t("list.empty")}</p>
+        <p className="text-sm text-slate-400 italic text-center py-10">{t("list.empty")}</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {documents.map((doc) => (
@@ -129,13 +130,13 @@ export default function DocumentBankPage() {
                   <Badge variant={statusVariants[doc.status]}>{statusLabel(t, doc.status)}</Badge>
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800 leading-normal">{doc.title}</h4>
-                  {doc.description && <p className="text-[11px] text-slate-500 mt-1">{doc.description}</p>}
+                  <h4 className="text-sm font-bold text-slate-800 leading-normal">{doc.title}</h4>
+                  {doc.description && <p className="text-[13px] text-slate-500 mt-1">{doc.description}</p>}
                 </div>
-                <p className="text-[11px] text-slate-400 break-all bg-slate-50 p-2 rounded border">{doc.fileUrl}</p>
+                <p className="text-[13px] text-slate-400 break-all bg-slate-50 p-2 rounded border">{doc.fileUrl}</p>
               </div>
               <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-brand-orange">{documentTypeLabel(t, doc.documentType)}</span>
+                <span className="text-[12px] font-bold text-brand-orange">{documentTypeLabel(t, doc.documentType)}</span>
                 <Button size="sm" variant="secondary" onClick={() => setEditingDocument(doc)}>
                   {t("list.editButton")}
                 </Button>
@@ -209,7 +210,7 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
   return (
     <Modal open onClose={onClose} title={t("createModal.title")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t("createModal.fields.title")}</label>
@@ -254,7 +255,7 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
           <label className={labelClass}>{t("createModal.fields.displayOrder")}</label>
           <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={`${inputClass} w-32`} />
         </div>
-        <p className="text-[10px] text-slate-400 italic">{t("createModal.draftHint")}</p>
+        <p className="text-[12px] text-slate-400 italic">{t("createModal.draftHint")}</p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             {t("createModal.cancel")}
@@ -316,7 +317,7 @@ function EditDocumentModal({
   return (
     <Modal open onClose={onClose} title={t("editModal.title", { title: doc.title })} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div>
           <label className={labelClass}>{t("editModal.fields.title")}</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputClass} required />
@@ -351,7 +352,7 @@ function EditDocumentModal({
             </Select>
           </div>
         </div>
-        <p className="text-[10px] text-slate-400 italic">{t("editModal.immutableHint")}</p>
+        <p className="text-[12px] text-slate-400 italic">{t("editModal.immutableHint")}</p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             {t("editModal.cancel")}

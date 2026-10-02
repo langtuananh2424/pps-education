@@ -79,21 +79,21 @@ export default function DailyCommentCardGrid({
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <StudentNameLink studentId={r.studentId} name={r.studentFullName} className="font-bold text-sm text-slate-900 hover:text-brand-red hover:underline text-left" />
-                <div className="text-[10px] font-mono text-slate-400">{r.studentCode}</div>
+                <div className="text-[12px] font-mono text-slate-400">{r.studentCode}</div>
               </div>
               <div className="flex flex-wrap justify-end gap-1 shrink-0">
                 {aiAppliedStudentIds.has(r.studentId) && !locked && (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase bg-violet-50 text-violet-600 border border-violet-100 px-1.5 py-0.5 rounded">
+                  <span className="inline-flex items-center gap-0.5 text-[11px] font-bold uppercase bg-violet-50 text-violet-600 border border-violet-100 px-1.5 py-0.5 rounded">
                     <Sparkles className="w-3 h-3" />
                     {t("dailyCommentPanel.cardView.aiBadge")}
                   </span>
                 )}
                 {isAbsentLocked ? (
-                  <span className="text-[9px] font-bold uppercase bg-red-100 text-red-600 px-1.5 py-0.5 rounded">
+                  <span className="text-[11px] font-bold uppercase bg-red-100 text-red-600 px-1.5 py-0.5 rounded">
                     {t(`shared.attendanceStatus.${attendanceStatus}`, { defaultValue: attendanceStatus })}
                   </span>
                 ) : sent ? (
-                  <span className="text-[9px] font-bold uppercase bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                  <span className="text-[11px] font-bold uppercase bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
                     {t(`dailyCommentPanel.cardView.status.${sent.status}`)}
                   </span>
                 ) : null}
@@ -101,21 +101,21 @@ export default function DailyCommentCardGrid({
             </div>
 
             {isAbsentLocked && (
-              <p className="text-[10px] font-bold text-red-600">{t("dailyCommentPanel.cardView.absentHint")}</p>
+              <p className="text-[12px] font-bold text-red-600">{t("dailyCommentPanel.cardView.absentHint")}</p>
             )}
 
             {sent?.status === "REJECTED" && sent.rejectionReason && (
-              <p className="text-[10px] font-bold text-rose-600">{t("dailyCommentPanel.rejectionReasonHint", { reason: sent.rejectionReason })}</p>
+              <p className="text-[12px] font-bold text-rose-600">{t("dailyCommentPanel.rejectionReasonHint", { reason: sent.rejectionReason })}</p>
             )}
 
-            <label className="text-[10px] font-bold uppercase text-slate-400">{t("dailyCommentPanel.columns.attitude")}</label>
+            <label className="text-[12px] font-bold uppercase text-slate-400">{t("dailyCommentPanel.columns.attitude")}</label>
             {locked ? (
-              <div className="text-xs text-slate-700">{sent?.attitude ? t(`shared.attitudeWithPercent.${sent.attitude}`) : "—"}</div>
+              <div className="text-sm text-slate-700">{sent?.attitude ? t(`shared.attitudeWithPercent.${sent.attitude}`) : "—"}</div>
             ) : (
               <Select
                 value={r.attitude}
                 onChange={(e) => onUpdateRow(r.studentId, { attitude: e.target.value as DailyCommentCardRow["attitude"] })}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
               >
                 <option value="">{t("dailyCommentPanel.attitudePlaceholder")}</option>
                 {ATTITUDES.map((value) => (
@@ -126,23 +126,23 @@ export default function DailyCommentCardGrid({
               </Select>
             )}
 
-            <label className="text-[10px] font-bold uppercase text-slate-400">{t("dailyCommentPanel.columns.studentComment")}</label>
+            <label className="text-[12px] font-bold uppercase text-slate-400">{t("dailyCommentPanel.columns.studentComment")}</label>
             {locked ? (
-              <div className="text-xs text-slate-700 whitespace-pre-wrap min-h-[3rem]">{content || "—"}</div>
+              <div className="text-sm text-slate-700 whitespace-pre-wrap min-h-[3rem]">{content || "—"}</div>
             ) : (
               <textarea
                 value={r.content}
                 onChange={(e) => onUpdateRow(r.studentId, { content: e.target.value })}
                 placeholder={t("dailyCommentPanel.contentPlaceholder")}
                 rows={4}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none resize-y"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none resize-y"
               />
             )}
 
             {!locked && aiWarnings.length > 0 && (
               <ul className="space-y-0.5">
                 {aiWarnings.map((w, i) => (
-                  <li key={i} className="flex items-start gap-1 text-[10px] text-amber-700">
+                  <li key={i} className="flex items-start gap-1 text-[12px] text-amber-700">
                     <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                     {w.message}
                   </li>
@@ -150,19 +150,19 @@ export default function DailyCommentCardGrid({
               </ul>
             )}
 
-            <label className="text-[10px] font-bold uppercase text-slate-400">{t("dailyCommentPanel.columns.note")}</label>
+            <label className="text-[12px] font-bold uppercase text-slate-400">{t("dailyCommentPanel.columns.note")}</label>
             {locked ? (
-              <div className="text-xs text-slate-700">{sent?.note || "—"}</div>
+              <div className="text-sm text-slate-700">{sent?.note || "—"}</div>
             ) : (
               <input
                 value={r.note}
                 onChange={(e) => onUpdateRow(r.studentId, { note: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
               />
             )}
 
             <div className="mt-auto border-t border-slate-100 pt-2">
-              <div className="flex items-center justify-between gap-2 text-[10px] font-bold uppercase text-slate-400">
+              <div className="flex items-center justify-between gap-2 text-[12px] font-bold uppercase text-slate-400">
                 <span className="flex items-center gap-1">
                   <History className="w-3 h-3" />
                   {t("dailyCommentPanel.cardView.previousComment")}
@@ -174,12 +174,12 @@ export default function DailyCommentCardGrid({
                 )}
               </div>
               {latestPrevious ? (
-                <p className="text-[11px] text-slate-500 mt-1 line-clamp-3" title={latestPrevious.content}>
+                <p className="text-[13px] text-slate-500 mt-1 line-clamp-3" title={latestPrevious.content}>
                   <span className="font-semibold">{latestPrevious.commentDate}: </span>
                   {latestPrevious.content}
                 </p>
               ) : (
-                <p className="text-[11px] text-slate-400 italic mt-1">{t("dailyCommentPanel.cardView.noPreviousComment")}</p>
+                <p className="text-[13px] text-slate-400 italic mt-1">{t("dailyCommentPanel.cardView.noPreviousComment")}</p>
               )}
             </div>
           </div>

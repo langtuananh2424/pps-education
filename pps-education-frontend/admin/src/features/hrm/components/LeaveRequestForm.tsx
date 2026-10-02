@@ -11,6 +11,7 @@ import SubstituteTeacherCombobox from "./SubstituteTeacherCombobox";
 import type { ClassSessionResponse } from "@/features/academic/api";
 import { CreateLeaveRequestRequest, listTeachingSessionsForSubstitution, submitLeaveRequest, TeacherLookupResponse } from "../api";
 import { useLeaveTypes } from "../hooks/useLeaveTypes";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface LeaveRequestFormProps {
   onSubmitted: () => void;
@@ -130,21 +131,21 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="p-5 space-y-4">
-        <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
+        <h3 className="text-sm font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
           {t("leaveRequestForm.title")}
         </h3>
-        <p className="text-xs text-slate-500">{t("leaveRequestForm.description")}</p>
+        <p className="text-sm text-slate-500">{t("leaveRequestForm.description")}</p>
 
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <form id="leave-request-form" onSubmit={handleSubmit} className="space-y-3.5">
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.leaveTypeLabel")}</label>
+          <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.leaveTypeLabel")}</label>
           <Select
             value={leaveType}
             onChange={(e) => setLeaveType(e.target.value as CreateLeaveRequestRequest["leaveType"])}
             disabled={loadingLeaveTypes}
-            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none disabled:opacity-50"
+            className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none disabled:opacity-50"
           >
             {loadingLeaveTypes ? (
               <option>{t("leaveRequestForm.loadingLeaveTypes")}</option>
@@ -160,11 +161,11 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.startDateLabel")}</label>
+            <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.startDateLabel")}</label>
             <DatePicker value={startDate} onChange={setStartDate} max={partialDay ? startDate : endDate || undefined} />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.endDateLabel")}</label>
+            <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.endDateLabel")}</label>
             <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} disabled={partialDay} />
           </div>
         </div>
@@ -172,40 +173,40 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
         {partialDay && (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.startTimeLabel")}</label>
-              <Time24Input value={startTime} onChange={setStartTime} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none" />
+              <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.startTimeLabel")}</label>
+              <Time24Input value={startTime} onChange={setStartTime} className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.endTimeLabel")}</label>
-              <Time24Input value={endTime} onChange={setEndTime} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none" />
+              <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.endTimeLabel")}</label>
+              <Time24Input value={endTime} onChange={setEndTime} className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none" />
             </div>
           </div>
         )}
 
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.reasonLabel")}</label>
+          <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.reasonLabel")}</label>
           <textarea
             required
             rows={2}
             placeholder={t("leaveRequestForm.reasonPlaceholder")}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
           />
         </div>
 
-        {isTeacher && loadingSessions && <p className="text-[11px] text-slate-400 italic">{t("leaveRequestForm.checkingSchedule")}</p>}
+        {isTeacher && loadingSessions && <p className="text-[13px] text-slate-400 italic">{t("leaveRequestForm.checkingSchedule")}</p>}
 
         {isTeacher && !loadingSessions && needsSubstituteSelection && (
           <div className="space-y-2.5 border border-amber-200 bg-amber-50/60 rounded-lg p-3">
-            <p className="text-[11px] font-bold text-amber-800">{t("leaveRequestForm.substituteNotice")}</p>
+            <p className="text-[13px] font-bold text-amber-800">{t("leaveRequestForm.substituteNotice")}</p>
 
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.selectClassLabel")}</label>
+              <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.selectClassLabel")}</label>
               <Select
                 value={selectedClassId ?? ""}
                 onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                className="w-full bg-white border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
               >
                 <option value="">{t("leaveRequestForm.selectClassPlaceholder")}</option>
                 {Array.from(sessionsByClass.entries()).map(([classId, { className, sessions }]) => (
@@ -215,7 +216,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
                 ))}
               </Select>
               {sessionsByClass.size > 1 && (
-                <p className="text-[10px] text-amber-700 italic">
+                <p className="text-[12px] text-amber-700 italic">
                   {t("leaveRequestForm.multiClassWarning", { count: sessionsByClass.size })}
                 </p>
               )}
@@ -224,21 +225,21 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
             {selectedClassId != null && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.substituteTeacherLabel")}</label>
+                  <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("leaveRequestForm.substituteTeacherLabel")}</label>
                   <button
                     type="button"
                     onClick={() => {
                       const first = Object.values(substitutes).find((u): u is TeacherLookupResponse => !!u);
                       if (first) applySameSubstituteToAll(first);
                     }}
-                    className="text-[10px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                    className="text-[12px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
                   >
                     <Repeat className="w-3 h-3" /> {t("leaveRequestForm.applyToAll")}
                   </button>
                 </div>
                 {selectedClassSessions.map((s) => (
                   <div key={s.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1.5">
-                    <p className="text-[11px] text-slate-600 font-semibold">
+                    <p className="text-[13px] text-slate-600 font-semibold">
                       {t("leaveRequestForm.sessionTime", {
                         date: s.sessionDate,
                         startTime: s.startTime.slice(0, 5),
@@ -265,7 +266,7 @@ export default function LeaveRequestForm({ onSubmitted }: LeaveRequestFormProps)
           type="submit"
           form="leave-request-form"
           disabled={submitting}
-          className="bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-glow transition-all"
+          className="bg-brand-gradient hover:opacity-95 disabled:opacity-60 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-glow transition-all"
         >
           <PlusCircle className="w-4 h-4 text-white" />
           {submitting ? t("leaveRequestForm.submitting") : t("leaveRequestForm.submitButton")}

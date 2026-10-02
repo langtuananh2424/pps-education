@@ -29,6 +29,7 @@ import {
   getSessionReportTimeline,
   getSessionReportTracking
 } from "@/features/academic/oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 type TabId = "sessions" | "teachers" | "approvers";
 type RowFilter = "all" | "problems" | "missing" | "approvalOverdue" | "resubmitOverdue";
@@ -188,7 +189,7 @@ export default function SessionReportsPage() {
     <div className="space-y-0.5">
       <Badge variant={STATE_BADGES[state]}>{t(`sessionReports.states.${state}`)}</Badge>
       {lateMinutes > 0 && (state === "LATE" || state === "OVERDUE" || state === "MISSING") && (
-        <p className="text-[10px] text-rose-600">{t("sessionReports.lateBy", { duration: formatDuration(lateMinutes) })}</p>
+        <p className="text-[12px] text-rose-600">{t("sessionReports.lateBy", { duration: formatDuration(lateMinutes) })}</p>
       )}
     </div>
   );
@@ -207,7 +208,7 @@ export default function SessionReportsPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("sessionReports.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1 max-w-3xl">{t("sessionReports.description")}</p>
+          <p className="text-sm text-slate-500 mt-1 max-w-3xl">{t("sessionReports.description")}</p>
         </div>
         <Button variant="primary" onClick={handleExport} disabled={exporting || loading || sessions.length === 0}>
           <Download className="w-3.5 h-3.5" /> {exporting ? t("sessionReports.exporting") : t("sessionReports.export")}
@@ -217,11 +218,11 @@ export default function SessionReportsPage() {
       <Card>
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-[180px]">
-            <label className="block text-xs text-slate-500 mb-1">{t("sessionReports.fromDate")}</label>
+            <label className="block text-sm text-slate-500 mb-1">{t("sessionReports.fromDate")}</label>
             <DatePicker value={fromDate} onChange={setFromDate} max={toDate || undefined} />
           </div>
           <div className="w-[180px]">
-            <label className="block text-xs text-slate-500 mb-1">{t("sessionReports.toDate")}</label>
+            <label className="block text-sm text-slate-500 mb-1">{t("sessionReports.toDate")}</label>
             <DatePicker value={toDate} onChange={setToDate} min={fromDate || undefined} />
           </div>
           <div className="w-[220px]">
@@ -235,10 +236,10 @@ export default function SessionReportsPage() {
               ))}
             </Select>
           </div>
-          <p className="text-xs text-slate-500 pb-2">{data?.siteName ?? t("sessionReports.allSites")}</p>
+          <p className="text-sm text-slate-500 pb-2">{data?.siteName ?? t("sessionReports.allSites")}</p>
         </div>
         {data && (
-          <p className="flex items-start gap-1.5 text-[11px] text-slate-500 mt-3">
+          <p className="flex items-start gap-1.5 text-[13px] text-slate-500 mt-3">
             <Info className="w-3 h-3 mt-0.5 shrink-0" />
             {t("sessionReports.deadlines", {
               submitHours: data.submitDeadlineHours,
@@ -249,12 +250,12 @@ export default function SessionReportsPage() {
         )}
       </Card>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {summaryTiles.map(({ key, tone }) => (
           <Card key={key} padded={false} className="p-4">
-            <p className="text-[11px] text-slate-500">{t(`sessionReports.summary.${key}`)}</p>
+            <p className="text-[13px] text-slate-500">{t(`sessionReports.summary.${key}`)}</p>
             <p className={cn("text-2xl font-bold font-display mt-1", tone)}>{data ? summary[key] : "—"}</p>
           </Card>
         ))}
@@ -288,14 +289,14 @@ export default function SessionReportsPage() {
                 <tr key={r.sessionId} className="align-top hover:bg-slate-50/50">
                   <Td>
                     <p className="font-semibold text-slate-800">{r.className}</p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[13px] text-slate-500">
                       {formatDay(r.sessionDate)} · {r.startTime.slice(0, 5)}–{r.endTime.slice(0, 5)} · {r.siteName}
                     </p>
                   </Td>
                   <Td className="whitespace-nowrap">{r.teacherName}</Td>
                   <Td>
                     {stateBadge(r.submitState, r.submitLateMinutes)}
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[12px] text-slate-400 mt-0.5">
                       {r.firstSubmittedAt
                         ? formatDateTime(r.firstSubmittedAt)
                         : t("sessionReports.deadlineAt", { deadline: formatDateTime(r.submitDeadline) })}
@@ -303,18 +304,18 @@ export default function SessionReportsPage() {
                   </Td>
                   <Td>
                     {stateBadge(r.approvalState, r.approvalLateMinutes)}
-                    {r.approverNames.length > 0 && <p className="text-[10px] text-slate-400 mt-0.5">{r.approverNames.join(", ")}</p>}
+                    {r.approverNames.length > 0 && <p className="text-[12px] text-slate-400 mt-0.5">{r.approverNames.join(", ")}</p>}
                   </Td>
                   <Td>
                     {stateBadge(r.resubmitState, r.resubmitLateMinutes)}
                     {r.rejectionCount > 0 && (
-                      <p className="text-[10px] text-slate-400 mt-0.5">{t("sessionReports.rejectedTimes", { count: r.rejectionCount })}</p>
+                      <p className="text-[12px] text-slate-400 mt-0.5">{t("sessionReports.rejectedTimes", { count: r.rejectionCount })}</p>
                     )}
                   </Td>
                   <Td className="text-right">
                     <button
                       onClick={() => setTimelineSession({ sessionId: r.sessionId, className: r.className })}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-red hover:underline whitespace-nowrap"
+                      className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-red hover:underline whitespace-nowrap"
                     >
                       <History className="w-3.5 h-3.5" /> {t("sessionReports.viewTimeline")}
                     </button>
@@ -387,7 +388,7 @@ export default function SessionReportsPage() {
         size="lg"
       >
         {timelineError ? (
-          <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{timelineError}</div>
+          <FloatingError message={timelineError} />
         ) : timeline == null ? (
           <div className="py-10 text-center text-slate-300"><History className="w-10 h-10 mx-auto animate-pulse" /></div>
         ) : timeline.length === 0 ? (
@@ -402,18 +403,18 @@ export default function SessionReportsPage() {
                     ev.type === "APPROVED" ? "bg-emerald-500" : ev.type === "REJECTED" ? "bg-rose-500" : "bg-sky-500"
                   )}
                 />
-                <p className="text-xs font-semibold text-slate-800">
+                <p className="text-sm font-semibold text-slate-800">
                   {t(`sessionReports.events.${ev.type}`, { actor: ev.actorName ?? "—", count: ev.commentCount })}
                 </p>
-                <p className="text-[11px] text-slate-500">{formatDateTime(ev.at)}</p>
+                <p className="text-[13px] text-slate-500">{formatDateTime(ev.at)}</p>
                 {ev.timeliness && (
-                  <p className={cn("text-[11px]", ev.timeliness === "LATE" ? "text-amber-700" : "text-emerald-700")}>
+                  <p className={cn("text-[13px]", ev.timeliness === "LATE" ? "text-amber-700" : "text-emerald-700")}>
                     {ev.timeliness === "LATE"
                       ? t("sessionReportEvent.late", { duration: formatDuration(ev.lateMinutes), deadline: formatDateTime(ev.deadline) })
                       : t("sessionReportEvent.onTime", { deadline: formatDateTime(ev.deadline) })}
                   </p>
                 )}
-                {ev.reason && <p className="text-[11px] text-slate-600 italic">{t("sessionReports.reason", { reason: ev.reason })}</p>}
+                {ev.reason && <p className="text-[13px] text-slate-600 italic">{t("sessionReports.reason", { reason: ev.reason })}</p>}
               </li>
             ))}
           </ol>

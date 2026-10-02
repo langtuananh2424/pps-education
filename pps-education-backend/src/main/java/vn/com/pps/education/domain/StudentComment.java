@@ -250,6 +250,14 @@ public class StudentComment {
     @Column(name = "ai_drafted", nullable = false)
     private boolean aiDrafted;
 
+    /**
+     * V208 (UC-74, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-01) — nguyên văn bản AI soạn lúc giáo
+     * viên áp dụng (lần gần nhất), để đo mức giáo viên sửa bản AI (scripts/comment-ai-approved-metrics.sql). Không
+     * trả ra API, không dùng trong luồng duyệt.
+     */
+    @Column(name = "ai_draft_content", columnDefinition = "TEXT")
+    private String aiDraftContent;
+
     // ===== BTVN buổi sau CHƯA giao (còn DRAFT/REJECTED) — V127 =====
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19 — trước V127,
     // homeworkNextExerciseAssignment/homeworkNextReviewVideoAssignment ở trên vừa lưu

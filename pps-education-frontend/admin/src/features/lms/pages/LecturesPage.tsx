@@ -60,9 +60,10 @@ import ReviewVideoCatalogImportModal from "../components/ReviewVideoCatalogImpor
 import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
 import ReflexQuestionFormatFields, { EMPTY_REFLEX_FORMAT, ReflexFormatValue, toFormatRequest } from "../components/ReflexQuestionFormatFields";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 const VIDEO_TYPES: ReviewVideoType[] = ["CONNECTION", "REFLEX"];
 const videoTypeIcons: Record<ReviewVideoType, React.ReactNode> = {
@@ -327,7 +328,7 @@ export function ReflexQuestionsBuilder({
       {value.length > 0 && (
         <div className="space-y-1.5">
           {value.map((q, i) => (
-            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px]">
+            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[13px]">
               <span className="text-slate-700">
                 {t("lectures.reflexBuilder.itemSummary", {
                   index: i + 1,
@@ -354,7 +355,7 @@ export function ReflexQuestionsBuilder({
         </div>
       )}
 
-      {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+      <FloatingError message={draftError} onClose={() => setDraftError(null)} />
 
       <ReflexQuestionFormatFields
         curriculumId={curriculumId}
@@ -475,7 +476,7 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
       {value.length > 0 && (
         <div className="space-y-1.5">
           {value.map((q, i) => (
-            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px]">
+            <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[13px]">
               <span className="text-slate-700">
                 {t("lectures.connectionBuilder.itemSummary", { index: i + 1, prompt: q.prompt, count: q.choices.length })}
               </span>
@@ -487,7 +488,7 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
         </div>
       )}
 
-      {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+      <FloatingError message={draftError} onClose={() => setDraftError(null)} />
 
       <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t("lectures.common.promptPlaceholder")} className={inputClass} />
 
@@ -603,14 +604,14 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
           <button
             type="button"
             onClick={() => updateValue({ sourceType: "R2_VIDEO", fileUrl: "", fileSizeBytes: undefined, durationSeconds: null })}
-            className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "upload" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
+            className={`text-[12px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "upload" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
           >
             {t("lectures.contentSource.uploadFile")}
           </button>
           <button
             type="button"
             onClick={() => updateValue({ sourceType: "YOUTUBE_URL", fileUrl: "", durationSeconds: null })}
-            className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "youtube" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
+            className={`text-[12px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "youtube" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
           >
             {t("lectures.contentSource.pasteYoutube")}
           </button>
@@ -630,7 +631,7 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
                 {detecting ? t("lectures.contentSource.detecting") : t("lectures.contentSource.detectDuration")}
               </Button>
             </div>
-            {detectError && <p className="text-[10px] text-rose-600 font-semibold">{detectError}</p>}
+            {detectError && <p className="text-[12px] text-rose-600 font-semibold">{detectError}</p>}
             {previewYoutubeVideoId && (
               <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-video max-w-sm">
                 <iframe
@@ -663,7 +664,7 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
         )}
       </div>
 
-      <p className="text-[10px] text-slate-400">
+      <p className="text-[12px] text-slate-400">
         {t("lectures.contentSource.durationDetectedLabel")}{" "}
         <span className="font-bold text-slate-600">
           {value.durationSeconds
@@ -796,7 +797,7 @@ export default function LecturesPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("lectures.page.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("lectures.page.subtitle")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("lectures.page.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
@@ -810,7 +811,7 @@ export default function LecturesPage() {
         </div>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -872,11 +873,11 @@ export default function LecturesPage() {
           </div>
 
           {loadingSets ? (
-            <p className="text-xs text-slate-500 p-6 text-center">{t("lectures.common.loading")}</p>
+            <p className="text-sm text-slate-500 p-6 text-center">{t("lectures.common.loading")}</p>
           ) : unitFilteredSets.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">{curriculumFilter ? t("lectures.list.emptyInCurriculum") : t("lectures.list.empty")}</p>
+              <p className="text-sm text-slate-400">{curriculumFilter ? t("lectures.list.emptyInCurriculum") : t("lectures.list.empty")}</p>
             </div>
           ) : (
             <>
@@ -888,21 +889,21 @@ export default function LecturesPage() {
                     className={`w-full text-left px-4 py-3 hover:bg-slate-50/60 ${selectedSetId === set.id ? "bg-brand-red/5 border-l-2 border-brand-red" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <p className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                         <span className="text-brand-orange">{videoTypeIcons[set.videoType]}</span>
                         {set.title}
                       </p>
                       <Badge variant={statusVariants[set.status]}>{setStatusLabel(t, set.status)}</Badge>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{set.code} · {set.curriculumCode}</p>
+                    <p className="text-[12px] text-slate-400 mt-0.5 font-mono">{set.code} · {set.curriculumCode}</p>
                     {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: mirror ExerciseAssignPage.tsx
                         (Kho đề) — Bộ đánh tên dễ trùng lặp giữa nhiều Unit/SubTopic, tách riêng dòng nổi bật. */}
                     {(set.unitTitle || set.subTopicTitle) && (
-                      <p className="text-[10px] text-brand-red font-semibold mt-0.5">
+                      <p className="text-[12px] text-brand-red font-semibold mt-0.5">
                         {[set.unitTitle, set.subTopicTitle].filter(Boolean).join(" · ")}
                       </p>
                     )}
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[12px] text-slate-400 mt-0.5">
                       {teacherTypeLabel(t, set.teacherType)} · {videoTypeLabel(t, set.videoType)}
                     </p>
                   </button>
@@ -927,7 +928,7 @@ export default function LecturesPage() {
           {!selectedSet ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <ClipboardList className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">{t("lectures.detail.selectPrompt")}</p>
+              <p className="text-sm text-slate-400">{t("lectures.detail.selectPrompt")}</p>
             </div>
           ) : (
             <SetDetailPanel
@@ -1017,15 +1018,15 @@ function SetDetailPanel({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-sm font-bold text-slate-800">{set.title}</p>
-            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{set.code} · {set.curriculumCode}</p>
+            <p className="text-[12px] text-slate-400 font-mono mt-0.5">{set.code} · {set.curriculumCode}</p>
           </div>
           <Badge variant={statusVariants[set.status]}>{setStatusLabel(t, set.status)}</Badge>
         </div>
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
             onClick={() => setAssignClassOpen(true)}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-brand-red hover:underline"
+            className="flex items-center gap-1.5 text-[13px] font-bold text-brand-red hover:underline"
           >
             <Users className="w-3.5 h-3.5" />
             {assignedClassCount == null ? t("lectures.detail.assignedClassesPending") : t("lectures.detail.assignedClassesCount", { count: assignedClassCount })}
@@ -1121,16 +1122,16 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
 
   return (
     <Modal open onClose={onClose} title={t("lectures.assignClass.title")} size="md">
-      <p className="text-[11px] text-slate-500 mb-3">{t("lectures.assignClass.description")}</p>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <p className="text-[13px] text-slate-500 mb-3">{t("lectures.assignClass.description")}</p>
+      <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
-        <p className="text-xs text-slate-500 p-3 text-center">{t("lectures.common.loading")}</p>
+        <p className="text-sm text-slate-500 p-3 text-center">{t("lectures.common.loading")}</p>
       ) : classes.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-3 text-center">{t("lectures.assignClass.empty")}</p>
+        <p className="text-sm text-slate-400 italic p-3 text-center">{t("lectures.assignClass.empty")}</p>
       ) : (
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
           {classes.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
+            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
               <input
                 type="checkbox"
                 checked={assignedIds.has(c.id)}
@@ -1138,7 +1139,7 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
                 onChange={() => toggle(c.id)}
               />
               <span className="flex-1">{c.classCode} — {c.name}</span>
-              {pendingId === c.id && <span className="text-[10px] text-slate-400">{t("lectures.common.saving")}</span>}
+              {pendingId === c.id && <span className="text-[12px] text-slate-400">{t("lectures.common.saving")}</span>}
             </label>
           ))}
         </div>
@@ -1299,7 +1300,7 @@ function CreateSetModal({
     return (
       <Modal open onClose={() => onCreated(createdSetForImport)} title={t("lectures.createSet.importStage.title")} size="lg">
         <div className="space-y-4">
-          <p className="text-xs text-slate-500">{t("lectures.createSet.importStage.description")}</p>
+          <p className="text-sm text-slate-500">{t("lectures.createSet.importStage.description")}</p>
           <ReviewVideoQuestionImportPanel
             videoId={createdVideoIdForImport}
             videoType={form.videoType}
@@ -1318,7 +1319,7 @@ function CreateSetModal({
   return (
     <Modal open onClose={onClose} title={t("lectures.createSet.title")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t("lectures.createSet.fields.code")}</label>
@@ -1332,7 +1333,7 @@ function CreateSetModal({
                   key={vt}
                   type="button"
                   onClick={() => setForm({ ...form, videoType: vt })}
-                  className={`flex-1 text-xs font-bold py-2.5 rounded-lg border ${
+                  className={`flex-1 text-sm font-bold py-2.5 rounded-lg border ${
                     form.videoType === vt ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
                   }`}
                 >
@@ -1389,7 +1390,7 @@ function CreateSetModal({
                 key={m}
                 type="button"
                 onClick={() => setQuestionSourceMode(m)}
-                className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+                className={`text-[13px] font-bold px-3 py-1.5 rounded-md transition-all ${
                   questionSourceMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -1412,7 +1413,7 @@ function CreateSetModal({
           />
         )}
         {questionSourceMode === "excel" && (
-          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+          <p className="text-[13px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
             {t("lectures.createSet.excelHint")}
           </p>
         )}
@@ -1502,7 +1503,7 @@ function EditSetModal({
   return (
     <Modal open onClose={onClose} title={t("lectures.editSet.title", { code: set.code })} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div>
           <label className={labelClass}>{t("lectures.editSet.fields.title")}</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputClass} required />
@@ -1545,7 +1546,7 @@ function EditSetModal({
           <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={inputClass} />
         </div>
         <UnitSubTopicPicker curriculumId={set.curriculumId} value={subTopicId} currentLabel={set.subTopicTitle} onChange={setSubTopicId} />
-        <p className="text-[10px] text-slate-400 italic">
+        <p className="text-[12px] text-slate-400 italic">
           {t("lectures.editSet.hint", { code: set.code, curriculumCode: set.curriculumCode })}
         </p>
         <div className="flex justify-end gap-2 pt-2">
@@ -1702,18 +1703,18 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
 
   return (
     <div className="px-5 py-4 border-b border-slate-100 space-y-4">
-      <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">{t("lectures.videoList.heading")}</p>
+      <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">{t("lectures.videoList.heading")}</p>
       <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {loading ? (
-          <p className="text-xs text-slate-500">{t("lectures.common.loading")}</p>
+          <p className="text-sm text-slate-500">{t("lectures.common.loading")}</p>
         ) : videos.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">{t("lectures.videoList.empty")}</p>
+          <p className="text-sm text-slate-400 italic">{t("lectures.videoList.empty")}</p>
         ) : (
           <div className="space-y-2">
             {videos.map((v) => (
-              <div key={v.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+              <div key={v.id} className="border border-slate-200 rounded-lg p-3 text-sm space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     {v.sourceType === "R2_AUDIO" ? <Music className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
@@ -1804,7 +1805,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
         }
       >
         <div className="space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <ConnectionThresholdFields value={editThresholds} onChange={setEditThresholds} videoType={set.videoType} />
         </div>
       </Modal>
@@ -2002,7 +2003,7 @@ function VideoQuestionsPanel({ videoId, curriculumId, video }: { videoId: number
 
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
         <p className="text-slate-400">{t("lectures.common.loadingQuestions")}</p>
       ) : questions.length === 0 ? (
@@ -2016,7 +2017,7 @@ function VideoQuestionsPanel({ videoId, curriculumId, video }: { videoId: number
                 onSubmit={(e) => handleUpdate(e, q.id, q.displayOrder)}
                 className="bg-white border border-brand-red/30 rounded-lg p-2.5 space-y-2"
               >
-                {editError && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{editError}</div>}
+                <FloatingError message={editError} onClose={() => setEditError(null)} />
                 <ReflexQuestionFields value={editForm} onChange={setEditForm} curriculumId={curriculumId} video={video} />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
@@ -2089,7 +2090,7 @@ function VideoQuestionsPanel({ videoId, curriculumId, video }: { videoId: number
       ) : showImportPanel ? (
         <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-slate-600">{t("lectures.common.importFromExcelTitle")}</p>
+            <p className="text-[13px] font-bold text-slate-600">{t("lectures.common.importFromExcelTitle")}</p>
             <Button type="button" variant="secondary" size="sm" onClick={() => setShowImportPanel(false)}>
               {t("lectures.common.close")}
             </Button>
@@ -2238,7 +2239,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
 
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
         <p className="text-slate-400">{t("lectures.common.loadingQuestions")}</p>
       ) : questions.length === 0 ? (
@@ -2252,7 +2253,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
                 onSubmit={(e) => handleUpdate(e, q.id, q.displayOrder)}
                 className="bg-white border border-brand-red/30 rounded-lg p-2.5 space-y-2"
               >
-                {editError && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{editError}</div>}
+                <FloatingError message={editError} onClose={() => setEditError(null)} />
                 <input value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} placeholder={t("lectures.common.promptPlaceholder")} className={inputClass} />
                 <div className="space-y-1.5">
                   {editChoices.map((c, idx) => (
@@ -2275,7 +2276,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-slate-400 italic">{t("lectures.connectionQuestions.choiceUnchangeableHint")}</p>
+                <p className="text-[12px] text-slate-400 italic">{t("lectures.connectionQuestions.choiceUnchangeableHint")}</p>
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
                     {t("lectures.common.cancel")}
@@ -2370,7 +2371,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
       ) : showImportPanel ? (
         <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-slate-600">{t("lectures.common.importFromExcelTitle")}</p>
+            <p className="text-[13px] font-bold text-slate-600">{t("lectures.common.importFromExcelTitle")}</p>
             <Button type="button" variant="secondary" size="sm" onClick={() => setShowImportPanel(false)}>
               {t("lectures.common.close")}
             </Button>
@@ -2433,10 +2434,10 @@ function StatsModal({
   return (
     <Modal open onClose={onClose} title={t("lectures.stats.title", { title: set.title })} size="lg">
       <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {assignedClasses.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">{t("lectures.stats.notAssigned")}</p>
+          <p className="text-sm text-slate-400 italic">{t("lectures.stats.notAssigned")}</p>
         ) : (
           <div>
             <label className={labelClass}>{t("lectures.stats.selectClassLabel")}</label>
@@ -2452,19 +2453,19 @@ function StatsModal({
         )}
 
         {loading ? (
-          <p className="text-xs text-slate-500">{t("lectures.common.loading")}</p>
+          <p className="text-sm text-slate-500">{t("lectures.common.loading")}</p>
         ) : !stats || enrollments.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">{t("lectures.stats.empty")}</p>
+          <p className="text-sm text-slate-400 italic">{t("lectures.stats.empty")}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
+            <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50">
                   <th className="text-left p-2 border border-slate-200 sticky left-0 bg-slate-50">{t("lectures.stats.studentColumn")}</th>
                   {stats.videos.map((v) => (
                     <th key={v.videoId} className="text-center p-2 border border-slate-200 font-semibold whitespace-nowrap">
                       {v.title}
-                      <span className="block text-[10px] font-normal text-slate-400">{t("lectures.stats.requiredViewsLabel", { count: v.requiredViewCount })}</span>
+                      <span className="block text-[12px] font-normal text-slate-400">{t("lectures.stats.requiredViewsLabel", { count: v.requiredViewCount })}</span>
                     </th>
                   ))}
                 </tr>
@@ -2473,7 +2474,7 @@ function StatsModal({
                 {enrollments.map((enr) => (
                   <tr key={enr.studentId}>
                     <td className="p-2 border border-slate-200 font-semibold sticky left-0 bg-white whitespace-nowrap">
-                      {enr.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({enr.studentCode})</span>
+                      {enr.studentFullName} <span className="text-slate-400 font-mono text-[12px]">({enr.studentCode})</span>
                     </td>
                     {stats.videos.map((v) => {
                       const cell = stats.cells.find((c) => c.studentId === enr.studentId && c.videoId === v.videoId);
@@ -2483,7 +2484,7 @@ function StatsModal({
                       return (
                         <td key={v.videoId} className={`text-center p-2 border border-slate-200 ${completed ? "bg-emerald-50 text-emerald-700 font-bold" : "text-slate-500"}`}>
                           {percent}%
-                          <span className="block text-[10px] font-normal">{t("lectures.stats.viewsFraction", { viewCount, required: v.requiredViewCount })}</span>
+                          <span className="block text-[12px] font-normal">{t("lectures.stats.viewsFraction", { viewCount, required: v.requiredViewCount })}</span>
                         </td>
                       );
                     })}

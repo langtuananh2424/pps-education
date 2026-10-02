@@ -33,6 +33,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
 import Time24Input from "@/components/ui/Time24Input";
 import Modal from "@/components/ui/Modal";
+import FloatingError from "@/components/ui/FloatingError";
 
 const studentStatusVariants: Record<string, any> = {
   CHUA_LAM: "neutral",
@@ -196,7 +197,7 @@ export default function AssignmentStatsDetailPage() {
         </button>
         <Card>
           {error ? (
-            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
+            <FloatingError message={error} />
           ) : loading ? (
             <p className="text-sm text-slate-500">{t("shared.loadingDetail")}</p>
           ) : (
@@ -226,14 +227,14 @@ export default function AssignmentStatsDetailPage() {
 
       <div>
         <h1 className="text-2xl font-bold font-display text-slate-900">{studentStats.assignment.exerciseTitle}</h1>
-        <p className="text-xs text-slate-500 mt-1">{studentStats.assignment.exerciseCode}</p>
+        <p className="text-sm text-slate-500 mt-1">{studentStats.assignment.exerciseCode}</p>
         <div className="flex items-center gap-3 mt-2">
           {studentStats.assignment.dueAt && (
-            <span className="text-xs text-slate-500">
+            <span className="text-sm text-slate-500">
               {t("exerciseDetail.dueAtLabel")}: {formatDateTime(studentStats.assignment.dueAt, i18n.language)}
             </span>
           )}
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
             <input
               type="checkbox"
               checked={studentStats.assignment.lateSubmissionAllowed}
@@ -248,7 +249,7 @@ export default function AssignmentStatsDetailPage() {
             chỉ hiện khi đang bật "Cho phép nộp muộn". Trống = nộp muộn không giới hạn thời gian. */}
         {studentStats.assignment.lateSubmissionAllowed && canConfirmDeadline && (
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs font-semibold text-slate-500">{t("exerciseDetail.lateSubmissionDeadlineLabel")}</span>
+            <span className="text-sm font-semibold text-slate-500">{t("exerciseDetail.lateSubmissionDeadlineLabel")}</span>
             <DatePicker
               value={deadlineDate}
               min={studentStats.assignment.dueAt ? studentStats.assignment.dueAt.slice(0, 10) : undefined}
@@ -267,7 +268,7 @@ export default function AssignmentStatsDetailPage() {
               value={deadlineTime}
               disabled={!deadlineDate || togglingLateSubmission}
               onChange={setDeadlineTime}
-              className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
+              className="bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
             />
             {hasPendingDeadlineChange && (
               <Button variant="primary" size="sm" onClick={() => setConfirmDeadlineOpen(true)} disabled={togglingLateSubmission}>
@@ -289,7 +290,7 @@ export default function AssignmentStatsDetailPage() {
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
@@ -327,7 +328,7 @@ export default function AssignmentStatsDetailPage() {
                   {studentStats.students.map((s) => (
                     <tr key={s.studentId}>
                       <Td className="font-semibold text-slate-900">
-                        {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
+                        {s.studentFullName} <span className="text-slate-400 font-mono text-[12px]">({s.studentCode})</span>
                       </Td>
                       <Td>
                         <Badge variant={studentStatusVariants[s.status]}>{studentStatusLabels[s.status]}</Badge>
@@ -348,7 +349,7 @@ export default function AssignmentStatsDetailPage() {
                         )}
                       </Td>
                       <Td className="text-center">{s.numberOfAttempts ?? "—"}</Td>
-                      <Td className="text-center text-xs">
+                      <Td className="text-center text-sm">
                         {s.selectedAttemptStoppedByViolation ? (
                           <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded">
                             <ShieldAlert className="w-3 h-3" /> {t("exerciseDetail.table.violation")}
@@ -437,14 +438,14 @@ export default function AssignmentStatsDetailPage() {
           <>
             <button
               onClick={handleCancelDeadlineChange}
-              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm px-4 py-2 rounded-lg transition-all"
             >
               {t("exerciseDetail.confirmDeadline.cancel")}
             </button>
             <button
               onClick={handleConfirmDeadlineChange}
               disabled={togglingLateSubmission}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-all disabled:opacity-50"
             >
               {t("exerciseDetail.confirmDeadline.confirmButton")}
             </button>
@@ -453,7 +454,7 @@ export default function AssignmentStatsDetailPage() {
       >
         <div className="flex items-start gap-3">
           <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
-          <div className="text-xs text-slate-600 leading-relaxed">
+          <div className="text-sm text-slate-600 leading-relaxed">
             {pendingDeadlineIso &&
               t("exerciseDetail.confirmDeadline.description", { deadline: formatDateTime(pendingDeadlineIso, i18n.language) })}
           </div>
@@ -481,7 +482,7 @@ export function QuestionRow({
       >
         <div className="flex items-center gap-2 min-w-0">
           {expanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-400" />}
-          <span className="text-xs text-slate-700 truncate">
+          <span className="text-sm text-slate-700 truncate">
             {t("shared.questionRow.questionLabel", { order: question.displayOrder, text: question.content })}
           </span>
         </div>
@@ -507,9 +508,9 @@ export function QuestionRow({
       {expanded && (
         <div className="px-4 pb-3 pl-11">
           {question.wrongStudents.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">{t("shared.questionRow.noWrongStudents")}</p>
+            <p className="text-[13px] text-slate-400 italic">{t("shared.questionRow.noWrongStudents")}</p>
           ) : (
-            <ul className="text-[11px] text-slate-600 space-y-1">
+            <ul className="text-[13px] text-slate-600 space-y-1">
               {question.wrongStudents.map((s) => (
                 <li key={s.studentId}>
                   {s.studentFullName} <span className="text-slate-400 font-mono">({s.studentCode})</span>
@@ -665,9 +666,7 @@ export function StudentDetailModal({
         )}
 
         <div className="p-6 space-y-6">
-          {studentError && (
-            <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{studentError}</div>
-          )}
+          <FloatingError message={studentError} />
           {loadingStudent || !student ? (
             <p className="text-sm text-slate-500">{t("shared.loading")}</p>
           ) : (
@@ -677,29 +676,29 @@ export function StudentDetailModal({
             <h3 className="font-semibold text-sm mb-3 text-slate-900">{t("exerciseDetail.studentModal.attemptInfo.title")}</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.status")}</p>
+                <p className="text-sm text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.status")}</p>
                 <p className="font-semibold text-sm mt-1">{studentStatusLabels[student.status]}</p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.score")}</p>
+                <p className="text-sm text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.score")}</p>
                 <p className="font-semibold text-sm mt-1">{student.totalScore ?? "—"}/{student.totalPoints}</p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.percentage")}</p>
+                <p className="text-sm text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.percentage")}</p>
                 <p className="font-semibold text-sm mt-1">{student.percentage ?? "—"}%</p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.attemptNumber")}</p>
+                <p className="text-sm text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.attemptNumber")}</p>
                 <p className="font-semibold text-sm mt-1">{student.attemptNumber ?? "—"}</p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.submittedAt")}</p>
+                <p className="text-sm text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.submittedAt")}</p>
                 <p className="font-semibold text-sm mt-1 text-[12px]">
                   {student.submittedAt ? formatDateTime(student.submittedAt, i18n.language) : "—"}
                 </p>
               </div>
               <div className="border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.result")}</p>
+                <p className="text-sm text-slate-500">{t("exerciseDetail.studentModal.attemptInfo.result")}</p>
                 <p className="font-semibold text-sm mt-1">
                   {student.passed == null ? "—" : student.passed ? t("shared.passed") : t("shared.notPassed")}
                 </p>
@@ -716,14 +715,12 @@ export function StudentDetailModal({
                   ? t("exerciseDetail.studentModal.history.titleMultiple")
                   : t("exerciseDetail.studentModal.history.titleSingle")}
               </h3>
-              {attemptsError && (
-                <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{attemptsError}</div>
-              )}
+              <FloatingError message={attemptsError} />
               {loadingAttempts ? (
                 <p className="text-sm text-slate-500">{t("shared.loading")}</p>
               ) : (
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-sm">
                     <thead className="bg-slate-50">
                       <tr>
                         <th className="text-center p-2 border-b border-slate-200 w-14">{t("exerciseDetail.studentModal.history.columns.attempt")}</th>
@@ -766,16 +763,14 @@ export function StudentDetailModal({
                 </span>
               )}
             </h3>
-            {answerError && (
-              <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{answerError}</div>
-            )}
+            <FloatingError message={answerError} />
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               {loadingAnswers ? (
                 <div className="text-center p-4 text-sm text-slate-500">{t("shared.loading")}</div>
               ) : answers.length === 0 ? (
                 <div className="text-center p-4 text-sm text-slate-500">{t("exerciseDetail.studentModal.answerHistory.noData")}</div>
               ) : (
-                <table className="w-full text-xs">
+                <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="text-center p-2 border-b border-slate-200 w-12">{t("exerciseDetail.studentModal.answerHistory.columns.questionNumber")}</th>
@@ -813,7 +808,7 @@ export function StudentDetailModal({
                             <span className="text-slate-400">—</span>
                           )}
                           {answer.explanation && (
-                            <p className="text-[10px] text-slate-500 mt-1 italic">
+                            <p className="text-[12px] text-slate-500 mt-1 italic">
                               {answer.explanation}
                             </p>
                           )}
@@ -906,8 +901,8 @@ function AttemptHistoryRow({
     <React.Fragment>
       <tr className={viewing ? "bg-blue-50/60" : undefined}>
         <td className="text-center p-2 font-semibold text-slate-900">#{attempt.attemptNumber}</td>
-        <td className="p-2 text-slate-600 text-[11px]">{formatDateTime(attempt.startedAt, i18n.language)}</td>
-        <td className="p-2 text-slate-600 text-[11px]">
+        <td className="p-2 text-slate-600 text-[13px]">{formatDateTime(attempt.startedAt, i18n.language)}</td>
+        <td className="p-2 text-slate-600 text-[13px]">
           {attempt.submittedAt ? formatDateTime(attempt.submittedAt, i18n.language) : "—"}
         </td>
         <td className="text-center p-2">
@@ -926,7 +921,7 @@ function AttemptHistoryRow({
           {attempt.stoppedByIntegrityViolation ? (
             <button
               onClick={toggleSummary}
-              className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md hover:bg-amber-100"
+              className="inline-flex items-center gap-1 text-[12px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md hover:bg-amber-100"
             >
               <ShieldAlert className="w-3 h-3" /> {t("exerciseDetail.studentModal.history.stoppedByViolation")}
             </button>
@@ -937,32 +932,30 @@ function AttemptHistoryRow({
         <td className="text-center p-2">
           <div className="flex flex-col items-center gap-1">
             {attempt.selectedForGrading ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
+              <span className="inline-flex items-center gap-1 text-[12px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
                 <CheckCircle2 className="w-3 h-3" /> {t("exerciseDetail.studentModal.history.selected")}
               </span>
             ) : (
               <button
                 onClick={handleSelectForGrading}
                 disabled={selecting}
-                className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
+                className="text-[12px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100 disabled:opacity-50"
               >
                 {selecting ? t("exerciseDetail.studentModal.history.selecting") : t("exerciseDetail.studentModal.history.selectForGrading")}
               </button>
             )}
-            {selectError && (
-              <span className="text-[9px] text-red-600 font-medium">{selectError}</span>
-            )}
+            <FloatingError message={selectError} />
           </div>
         </td>
         <td className="text-center p-2">
           {viewing ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700">
+            <span className="inline-flex items-center gap-1 text-[12px] font-bold text-blue-700">
               <Eye className="w-3 h-3" /> {t("exerciseDetail.studentModal.history.viewing")}
             </span>
           ) : (
             <button
               onClick={onView}
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md hover:bg-slate-100"
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md hover:bg-slate-100"
             >
               <Eye className="w-3 h-3" /> {t("exerciseDetail.studentModal.history.viewAnswersAction")}
             </button>
@@ -971,7 +964,7 @@ function AttemptHistoryRow({
       </tr>
       {showSummary && (
         <tr>
-          <td colSpan={8} className="p-2 bg-amber-50/60 text-[11px] text-amber-900">
+          <td colSpan={8} className="p-2 bg-amber-50/60 text-[13px] text-amber-900">
             {loadingSummary ? (
               t("shared.loading")
             ) : summary ? (
@@ -1006,7 +999,7 @@ export function QuestionAnalysisChart({ questions }: { questions: ExerciseAssign
         {questions.map((q) => (
           <div key={q.questionId} className="flex flex-col items-center gap-2 shrink-0" style={{ minWidth: "60px" }}>
             {/* Tỉ lệ % ở trên cùng */}
-            <div className="text-xs font-bold text-slate-700 h-6 flex items-center">
+            <div className="text-sm font-bold text-slate-700 h-6 flex items-center">
               {q.wrongRatePercent}%
             </div>
 
@@ -1028,12 +1021,12 @@ export function QuestionAnalysisChart({ questions }: { questions: ExerciseAssign
             />
 
             {/* Nhãn câu hỏi */}
-            <div className="text-xs font-semibold text-slate-700 text-center">
+            <div className="text-sm font-semibold text-slate-700 text-center">
               {t("exerciseDetail.chart.questionLabel", { order: q.displayOrder })}
             </div>
 
             {/* Chi tiết số lượng */}
-            <div className="text-[10px] text-slate-500 text-center whitespace-nowrap">
+            <div className="text-[12px] text-slate-500 text-center whitespace-nowrap">
               {q.wrongCount}/{q.answeredCount}
             </div>
           </div>
@@ -1041,7 +1034,7 @@ export function QuestionAnalysisChart({ questions }: { questions: ExerciseAssign
       </div>
 
       {/* Chú thích màu sắc */}
-      <div className="mt-3 flex items-center justify-center gap-4 text-xs text-slate-600">
+      <div className="mt-3 flex items-center justify-center gap-4 text-sm text-slate-600">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-red-500" />
           <span>{t("exerciseDetail.chart.legend.hard")}</span>

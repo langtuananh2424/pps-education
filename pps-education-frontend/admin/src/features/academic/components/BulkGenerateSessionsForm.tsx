@@ -9,9 +9,10 @@ import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 /** Giá trị enum DayOfWeek theo đúng thứ tự hiển thị cũ (Thứ 2 → Chủ nhật) — nhãn dịch qua
  * `enums.weekday.<value>` (namespace "academic-classes"), dùng chung với enums.weekday ở MyTeachingSchedulePage.tsx. */
@@ -109,7 +110,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
 
   return (
     <form onSubmit={handleSubmit} className="bg-purple-50/40 border border-purple-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -130,7 +131,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
               key={day}
               type="button"
               onClick={() => toggleDay(day)}
-              className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
+              className={`text-[13px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
                 selectedDays.has(day) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -211,7 +212,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       />
 
       {result && (
-        <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1.5">
+        <div className="p-3 bg-white border border-slate-200 rounded-lg text-sm space-y-1.5">
           <p className="font-bold text-slate-700">
             {t("bulkGenerateSessions.resultSummary", { created: result.createdCount, total: result.totalDates })}
             {result.skippedCount > 0 && (
@@ -221,7 +222,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
           {result.skipped.length > 0 && (
             <div className="space-y-0.5 max-h-24 overflow-y-auto">
               {result.skipped.map((s, i) => (
-                <p key={i} className="text-[10px] text-rose-500">
+                <p key={i} className="text-[12px] text-rose-500">
                   {t("bulkGenerateSessions.skippedReason", { date: s.date, reason: s.reason })}
                 </p>
               ))}

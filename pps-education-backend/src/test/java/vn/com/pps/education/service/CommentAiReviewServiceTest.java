@@ -27,6 +27,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
@@ -69,7 +70,7 @@ class CommentAiReviewServiceTest {
     }
 
     private void stubAi(String prompt, String response) {
-        when(aiClient.chatWithFinishReason(eq(prompt), anyString(), anyString()))
+        when(aiClient.chatWithFinishReason(eq(prompt), anyString(), anyString(), anyDouble()))
                 .thenReturn(new NineRouterAiClient.ChatResult(response, "stop", null));
     }
 
@@ -92,12 +93,13 @@ class CommentAiReviewServiceTest {
         CommentAiReviewResult result = service.review(items);
 
         assertThat(result.checkedCount()).isEqualTo(3);
-        assertThat(result.flaggedCount()).isEqualTo(2);
+        assertThat(result.flaggedCount()).isEqualTo(1);
         assertThat(result.aiCheckComplete()).isTrue();
         assertThat(types(result, 1)).isEmpty();
         assertThat(types(result, 2)).containsExactly("ATTITUDE_MISMATCH");
-        assertThat(types(result, 3)).containsExactly("CONTAINS_DIGITS");
-        assertThat(result.message()).contains("2 dòng có cảnh báo");
+        // 2026-10-02: giáo viên được tự ghi điểm/số liệu vào nhận xét — chữ số không còn bị báo.
+        assertThat(types(result, 3)).isEmpty();
+        assertThat(result.message()).contains("1 dòng có cảnh báo");
     }
 
     @Test
@@ -148,7 +150,7 @@ class CommentAiReviewServiceTest {
 
         assertThatThrownBy(() -> service.startReview(new CommentAiReviewRequest(List.of(1L)), ACTOR_ID))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -158,18 +160,18 @@ class CommentAiReviewServiceTest {
 
         assertThatThrownBy(() -> service.startReview(new CommentAiReviewRequest(List.of(1L)), ACTOR_ID))
                 .isInstanceOf(ApprovalAlreadyDecidedException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
     void review_UC75_A4_aiFailureKeepsRuleResultsAndMarksIncomplete() {
-        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.REVIEW_PROMPT), anyString(), anyString())).thenReturn(null);
+        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.REVIEW_PROMPT), anyString(), anyString(), anyDouble())).thenReturn(null);
         CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "FAIR", "Chi làm đúng 8 câu.", List.of());
 
         CommentAiReviewResult result = service.review(List.of(chi));
 
         assertThat(result.aiCheckComplete()).isFalse();
-        assertThat(types(result, 3)).containsExactly("CONTAINS_DIGITS");
+        assertThat(types(result, 3)).isEmpty();
         assertThat(result.message()).contains("chỉ có kết quả kiểm tra tự động");
     }
 
@@ -188,26 +190,26 @@ class CommentAiReviewServiceTest {
         assertThat(result.originalContent()).isEqualTo("Cô thấy Bình nói chuyện với Nguyễn Văn An suốt giờ.");
         assertThat(result.explanation()).isEqualTo("Bỏ tên bạn khác.");
         assertThat(result.warnings()).isEmpty();
-        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.SUGGEST_PROMPT), contains("\"teacherPronoun\":\"cô\""), anyString());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.SUGGEST_PROMPT), contains("\"teacherPronoun\":\"cô\""), anyString(), anyDouble());
         verify(studentCommentService, never()).updatePendingCommentContent(any(), any(), any());
     }
 
     @Test
     void suggest_UC75_A4_failsWhenAiReturnsNothing() {
-        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.SUGGEST_PROMPT), anyString(), anyString())).thenReturn(null);
+        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.SUGGEST_PROMPT), anyString(), anyString(), anyDouble())).thenReturn(null);
         CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", null, "Bình học ổn.", List.of());
 
         assertThatThrownBy(() -> service.suggest(binh, List.of("x"))).isInstanceOf(CommentAiDraftFailedException.class);
     }
 
     @Test
-    void suggest_UC75_warnsWhenSuggestionHasDigitsOrIsUnchanged() {
+    void suggest_UC75_warnsWhenSuggestionIsUnchanged() {
         stubAi(CommentAiReviewService.SUGGEST_PROMPT, "{\"content\": \"Bình làm đúng 9 câu.\", \"explanation\": \"\"}");
         CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", null, "Bình làm đúng 9 câu.", List.of());
 
         CommentAiSuggestionResult result = service.suggest(binh, List.of("x"));
 
-        assertThat(result.warnings()).hasSize(2);
+        assertThat(result.warnings()).hasSize(1);
     }
 
     // ---- Yêu cầu sửa bằng audio/chữ (bước 9) ----
@@ -248,14 +250,14 @@ class CommentAiReviewServiceTest {
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("quá lớn");
         assertThatThrownBy(() -> service.startInstruction(List.of(1L), notAudio, null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("không phải audio");
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
     void instruct_UC75_A4_failsWhenTranscriptionOrAiFails() {
         CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", null, "Bình học ổn.", List.of());
         when(aiClient.transcribe(any(byte[].class), any(), any(), any(), any())).thenReturn(null);
-        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.INSTRUCTION_PROMPT), anyString(), anyString())).thenReturn(null);
+        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.INSTRUCTION_PROMPT), anyString(), anyString(), anyDouble())).thenReturn(null);
 
         assertThatThrownBy(() -> service.instruct(List.of(binh), new byte[]{1}, "audio/webm", null))
                 .isInstanceOf(CommentAiDraftFailedException.class).hasMessageContaining("Không chuyển được audio");
@@ -278,7 +280,7 @@ class CommentAiReviewServiceTest {
 
         service.review(List.of(an));
 
-        verify(aiClient, never()).chatWithFinishReason(anyString(), contains("lessonContent"), anyString());
+        verify(aiClient, never()).chatWithFinishReason(anyString(), contains("lessonContent"), anyString(), anyDouble());
     }
 
     @Test
@@ -290,7 +292,7 @@ class CommentAiReviewServiceTest {
         CommentAiSuggestionResult result = service.suggest(binh, List.of("x"));
 
         assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("Nguyễn Văn An"));
-        assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("chữ số"));
+        assertThat(result.warnings()).noneSatisfy(w -> assertThat(w).contains("chữ số"));
     }
 
     // ---- Bổ sung 2026-09-29: lưu ý BTVN, nhắc chuỗi Thái độ, tóm tắt lô, lý do từ chối ----
@@ -399,7 +401,7 @@ class CommentAiReviewServiceTest {
         assertThat(result.summary().homeworkMismatchCount()).isEqualTo(1);
         assertThat(result.message()).contains("ngược dữ liệu điểm");
         verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.REVIEW_PROMPT),
-                contains("\"homework\":\"BTVN buổi trước: chưa hoàn thành (bài tập).\""), anyString());
+                contains("\"homework\":\"BTVN buổi trước: chưa hoàn thành (bài tập).\""), anyString(), anyDouble());
     }
 
     @Test
@@ -408,17 +410,17 @@ class CommentAiReviewServiceTest {
         CommentAiReviewService.ReviewItem an = withExtras(item(1, "Nguyễn Văn An", "WEAK",
                 "An chưa hoàn thành nhiệm vụ trên lớp, mong con cố gắng hơn.", List.of()), null,
                 new CommentAttitudeAlertPreviewResponse.Item(1L, 3, true, "Buổi Yếu thứ 3 liên tiếp"));
-        CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", "GOOD", "Bình làm đúng 9 câu.", List.of());
-        CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "GOOD", "Chi đạt 10 điểm.", List.of());
+        CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", "GOOD", "Bình học tốt trên lớp. " + "chăm chỉ ".repeat(60), List.of());
+        CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "GOOD", "Chi phát biểu sôi nổi. " + "tích cực ".repeat(60), List.of());
 
         CommentAiReviewResult result = service.review(List.of(an, binh, chi));
 
         assertThat(result.summary().cleanCount()).isEqualTo(1);
-        assertThat(result.summary().issueCounts()).containsExactly(new CommentAiReviewResult.IssueCount("CONTAINS_DIGITS", 2));
+        assertThat(result.summary().issueCounts()).containsExactly(new CommentAiReviewResult.IssueCount("TOO_LONG", 2));
         assertThat(result.summary().parentAlertCount()).isEqualTo(1);
         assertThat(result.summary().escalationCount()).isEqualTo(1);
         assertThat(result.reviews().get(0).notices()).extracting(CommentAiReviewResult.Notice::type).containsExactly("ATTITUDE_ALERT");
-        assertThat(result.message()).contains("2 dòng có cảnh báo").contains("2 có chữ số")
+        assertThat(result.message()).contains("2 dòng có cảnh báo").contains("2 quá dài")
                 .contains("1 dòng Yếu/Trung bình sẽ báo phụ huynh").contains("chạm mốc cảnh báo 3 buổi");
     }
 
@@ -426,13 +428,13 @@ class CommentAiReviewServiceTest {
     void rejectionReason_UC75_returnsAiReasonWithoutDecidingAnything() {
         stubAi(CommentAiReviewService.REJECTION_REASON_PROMPT,
                 "{\"reason\": \"Nhờ thầy/cô bỏ \\\"8 câu\\\" khỏi nhận xét vì điểm đã có ô riêng.\"}");
-        CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "FAIR", "Chi làm đúng 8 câu.", List.of());
+        CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "FAIR", "Chi " + "chăm chỉ ".repeat(70), List.of());
 
         CommentAiRejectionReasonResult result = service.rejectionReason(chi, List.of());
 
         assertThat(result.commentId()).isEqualTo(3L);
         assertThat(result.reason()).startsWith("Nhờ thầy/cô bỏ");
-        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.REJECTION_REASON_PROMPT), contains("Nhận xét có chữ số"), anyString());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.REJECTION_REASON_PROMPT), contains("Nhận xét dài"), anyString(), anyDouble());
         verify(studentCommentService, never()).decideComments(any(), any());
     }
 

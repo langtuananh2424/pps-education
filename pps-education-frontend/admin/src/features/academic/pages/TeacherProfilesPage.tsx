@@ -21,6 +21,7 @@ import {
   getTeacherProfile,
   listTeacherProfiles
 } from "../oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 const STATUS_BADGES: Record<TeacherProfileSummary["status"], BadgeVariant> = {
   ACTIVE: "success",
@@ -141,7 +142,7 @@ export default function TeacherProfilesPage() {
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
         {rows.map(([label, value]) => (
           <div key={label}>
-            <dt className="text-[11px] text-slate-500">{label}</dt>
+            <dt className="text-[13px] text-slate-500">{label}</dt>
             <dd className="font-medium text-slate-800 mt-0.5">{value}</dd>
           </div>
         ))}
@@ -232,7 +233,7 @@ export default function TeacherProfilesPage() {
             <tr key={`${c.classId}-${c.teacherRole}-${c.teacherType ?? ""}`}>
               <Td>
                 <p className="font-medium text-slate-800">{c.className}</p>
-                <p className="text-[11px] text-slate-400">{c.classCode}</p>
+                <p className="text-[13px] text-slate-400">{c.classCode}</p>
               </Td>
               <Td>{c.siteName}</Td>
               <Td>
@@ -249,7 +250,7 @@ export default function TeacherProfilesPage() {
 
   const renderSchedule = () => {
     if (!canViewSchedule) {
-      return <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">{t("teacherProfiles.noSchedulePermission")}</p>;
+      return <p className="text-sm text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">{t("teacherProfiles.noSchedulePermission")}</p>;
     }
     return (
       <div className="space-y-3">
@@ -257,7 +258,7 @@ export default function TeacherProfilesPage() {
           <Button size="sm" variant="secondary" onClick={() => setScheduleFrom(addDays(scheduleFrom, -SCHEDULE_WINDOW_DAYS))}>
             <ChevronLeft className="w-3.5 h-3.5" /> {t("teacherProfiles.previousWeeks")}
           </Button>
-          <span className="text-xs font-semibold text-slate-600">
+          <span className="text-sm font-semibold text-slate-600">
             {t("teacherProfiles.scheduleRange", { from: formatDate(scheduleFrom), to: formatDate(scheduleTo) })}
           </span>
           <Button size="sm" variant="secondary" onClick={() => setScheduleFrom(addDays(scheduleFrom, SCHEDULE_WINDOW_DAYS))}>
@@ -300,8 +301,8 @@ export default function TeacherProfilesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("teacherProfiles.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("teacherProfiles.description")}</p>
-        <p className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-2">
+        <p className="text-sm text-slate-500 mt-1">{t("teacherProfiles.description")}</p>
+        <p className="flex items-center gap-1.5 text-[13px] text-slate-400 mt-2">
           <ShieldCheck className="w-3.5 h-3.5" /> {t("teacherProfiles.privacyNote")}
         </p>
       </div>
@@ -316,7 +317,7 @@ export default function TeacherProfilesPage() {
         />
       </div>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         {loading && teachers.length === 0 ? (
@@ -347,13 +348,13 @@ export default function TeacherProfilesPage() {
                       )}
                       <div>
                         <p className="font-semibold text-slate-800">{p.fullName}</p>
-                        <p className="text-[11px] text-slate-400">{p.employeeCode}</p>
+                        <p className="text-[13px] text-slate-400">{p.employeeCode}</p>
                       </div>
                     </div>
                   </Td>
                   <Td>
                     <p>{p.email ?? "—"}</p>
-                    <p className="text-[11px] text-slate-400">{p.phone ?? ""}</p>
+                    <p className="text-[13px] text-slate-400">{p.phone ?? ""}</p>
                   </Td>
                   <Td>{p.siteNames.length ? p.siteNames.join(", ") : "—"}</Td>
                   <Td>{p.positionName ?? "—"}</Td>
@@ -376,7 +377,7 @@ export default function TeacherProfilesPage() {
         size="lg"
       >
         {detailError ? (
-          <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{detailError}</div>
+          <FloatingError message={detailError} />
         ) : !detail ? (
           <div className="py-12 text-center text-slate-300"><IdCard className="w-10 h-10 mx-auto animate-pulse" /></div>
         ) : (

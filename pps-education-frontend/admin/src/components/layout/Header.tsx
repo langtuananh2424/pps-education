@@ -27,9 +27,9 @@ import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import Modal from "@/components/ui/Modal";
 import ProfileModal from "@/features/auth/components/ProfileModal";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
-import { useDialog } from "@/components/ui/DialogProvider";
 import { formatDateLong, formatDateTime, formatTimeHm } from "@/lib/i18nFormat";
 import { toISODate } from "@/lib/calendarDates";
+import { notifyInfo } from "@/components/ui/FloatingBanner";
 
 const NOTIFICATION_PAGE_SIZE = 15;
 
@@ -66,7 +66,6 @@ export default function Header() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
-  const { alertDialog } = useDialog();
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
@@ -301,7 +300,7 @@ export default function Header() {
   // không nhét thêm vào đó -- render lại đúng 2 selector này ở 1 hàng RIÊNG ngay dưới (sm:hidden),
   // mỗi pill co giãn chia đôi chiều rộng. compact=true: bỏ nhãn "Điểm trường"/"Lớp" (icon đã đủ
   // nghĩa) để còn chỗ cho tên, panel dropdown đẩy xuống dưới hàng này để không che trigger.
-  const pillBase = "flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border";
+  const pillBase = "flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full shadow-soft border";
   const mobilePanelTop = "top-[116px]";
 
   const renderSiteSelector = (compact: boolean) => {
@@ -353,7 +352,7 @@ export default function Header() {
           {!lockToManagedSites && (
             <button
               onClick={() => setSelectedCampusId("ALL")}
-              className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              className={`w-full px-3 py-2.5 text-left text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
                 selectedCampusId === "ALL" ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
               }`}
             >
@@ -364,7 +363,7 @@ export default function Header() {
             <button
               key={site.id}
               onClick={() => setSelectedCampusId(String(site.id))}
-              className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              className={`w-full px-3 py-2.5 text-left text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
                 selectedCampusId === String(site.id) ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
               }`}
             >
@@ -404,7 +403,7 @@ export default function Header() {
       <div className="p-1.5">
         <button
           onClick={() => setSelectedClassId(null)}
-          className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+          className={`w-full px-3 py-2.5 text-left text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
             !selectedClassId ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
           }`}
         >
@@ -414,7 +413,7 @@ export default function Header() {
           <button
             key={cls.id}
             onClick={() => setSelectedClassId(cls.id)}
-            className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            className={`w-full px-3 py-2.5 text-left text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
               selectedClassId === cls.id ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
             }`}
           >
@@ -476,7 +475,7 @@ export default function Header() {
             // 2026-08-18: luôn hiện trên mọi kích thước màn hình, chỉ thu gọn còn icon/chấm trạng
             // thái + ẩn phần chữ mô tả (span "hidden sm:inline" bên dưới) trên mobile để không vỡ
             // layout Header (đã chật chỗ với nút menu + các pill khác) — chạm vào vẫn mở modal đầy đủ.
-            className={`flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 text-sm font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
               attendanceMissing
                 ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
                 : !attendanceCheckedIn
@@ -517,7 +516,7 @@ export default function Header() {
           <button
             onClick={() => setCheckInModalOpen(true)}
             aria-label={t("header.classCheckIn.ariaLabel")}
-            className={`flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 text-sm font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
               pendingCheckInCount > 0
                 ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
                 : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
@@ -539,7 +538,7 @@ export default function Header() {
           </button>
         )}
 
-        <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-[11px]">
+        <div className="hidden lg:flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200/50 shadow-soft px-3.5 py-2 rounded-full font-mono text-[13px]">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           <span>{formatDateLong(new Date(), i18n.language)}</span>
         </div>
@@ -564,15 +563,15 @@ export default function Header() {
           {(closeNotifications) => (
           <>
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
-            <span className="text-xs font-semibold text-slate-700">{t("header.notifications.title")}</span>
+            <span className="text-sm font-semibold text-slate-700">{t("header.notifications.title")}</span>
             {unreadNotificationCount > 0 && (
-              <span className="text-[10px] bg-brand-gradient text-white px-2 py-0.5 rounded-full font-bold">
+              <span className="text-[12px] bg-brand-gradient text-white px-2 py-0.5 rounded-full font-bold">
                 {t("header.notifications.newCount", { count: unreadNotificationCount })}
               </span>
             )}
           </div>
           {notifications.length === 0 ? (
-            <p className="text-xs text-slate-400 italic p-4">{t("header.notifications.empty")}</p>
+            <p className="text-sm text-slate-400 italic p-4">{t("header.notifications.empty")}</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {notifications.map((notif) => {
@@ -594,10 +593,10 @@ export default function Header() {
                         }`}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className={`text-xs leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
+                        <p className={`text-sm leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
+                        <p className="text-[13px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
                         <div className="flex items-center justify-between gap-2 mt-1">
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[12px] text-slate-400 font-mono">
                             {formatDateTime(notif.createdAt, i18n.language)}
                           </span>
                           {/* Chỉ hiện nút "Xem chi tiết" khi thông báo có đích điều hướng — đã xác nhận
@@ -610,7 +609,7 @@ export default function Header() {
                                 handleViewNotificationDetail(notif, e);
                                 closeNotifications();
                               }}
-                              className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-brand-red hover:underline"
+                              className="shrink-0 flex items-center gap-1 text-[12px] font-bold text-brand-red hover:underline"
                             >
                               {t("header.notifications.viewDetail")}
                               <ArrowRight className="w-3 h-3" />
@@ -633,8 +632,8 @@ export default function Header() {
           trigger={
             <button className="flex items-center gap-3 pl-4 pr-2.5 py-2 bg-white border border-slate-200/50 hover:bg-slate-50 rounded-2xl transition-all shadow-soft">
               <div className="hidden md:block text-left leading-tight">
-                <p className="text-xs font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || t("header.profileMenu.fallbackName")}</p>
-                <p className="text-[10px] text-slate-500 truncate max-w-[130px]">{currentRoleLabel}</p>
+                <p className="text-sm font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.fullName || t("header.profileMenu.fallbackName")}</p>
+                <p className="text-[12px] text-slate-500 truncate max-w-[130px]">{currentRoleLabel}</p>
               </div>
               <Avatar name={currentUser?.fullName || "U"} size="sm" />
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -644,21 +643,21 @@ export default function Header() {
           <div className="p-1.5">
             <button
               onClick={() => setProfileOpen(true)}
-              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+              className="w-full px-2.5 py-2 flex items-center gap-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <User className="w-4 h-4 text-slate-400 shrink-0" />
               <span>{t("header.profileMenu.profile")}</span>
             </button>
             <button
               onClick={() => setChangePasswordOpen(true)}
-              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+              className="w-full px-2.5 py-2 flex items-center gap-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <KeyRound className="w-4 h-4 text-slate-400 shrink-0" />
               <span>{t("header.profileMenu.changePassword")}</span>
             </button>
             <button
-              onClick={() => alertDialog(t("header.profileMenu.settingsComingSoon"))}
-              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+              onClick={() => notifyInfo(t("header.profileMenu.settingsComingSoon"))}
+              className="w-full px-2.5 py-2 flex items-center gap-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <Settings className="w-4 h-4 text-slate-400 shrink-0" />
               <span>{t("header.profileMenu.settings")}</span>
@@ -667,7 +666,7 @@ export default function Header() {
           <div className="p-1.5 border-t border-slate-100">
             <button
               onClick={logout}
-              className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+              className="w-full px-2.5 py-2 flex items-center gap-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4 shrink-0" />
               <span>{t("header.profileMenu.logout")}</span>

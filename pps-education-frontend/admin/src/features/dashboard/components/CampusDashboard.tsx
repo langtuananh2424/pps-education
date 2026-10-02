@@ -26,12 +26,12 @@ function SectionHead({
       <div className="flex items-center gap-3 min-w-0">
         <Icon className="w-[18px] h-[18px] text-slate-400 shrink-0" />
         <div className="min-w-0">
-          <span className="text-xs font-bold text-slate-800 font-display block">{title}</span>
-          <p className="text-xs text-slate-400 truncate mt-0.5">{subtitle}</p>
+          <span className="text-sm font-bold text-slate-800 font-display block">{title}</span>
+          <p className="text-sm text-slate-400 truncate mt-0.5">{subtitle}</p>
         </div>
       </div>
       {action && (
-        <button onClick={action.onClick} className="text-xs font-bold text-brand-red shrink-0 hover:underline">
+        <button onClick={action.onClick} className="text-sm font-bold text-brand-red shrink-0 hover:underline">
           {action.label}
         </button>
       )}
@@ -45,8 +45,8 @@ function InlineEmpty({ icon: Icon, title, description }: { icon: React.Component
       <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2.5 bg-slate-100 text-slate-400">
         <Icon className="w-5 h-5" />
       </div>
-      <p className="text-xs font-bold text-slate-600">{title}</p>
-      {description && <p className="text-xs text-slate-400 mt-1 max-w-xs">{description}</p>}
+      <p className="text-sm font-bold text-slate-600">{title}</p>
+      {description && <p className="text-sm text-slate-400 mt-1 max-w-xs">{description}</p>}
     </div>
   );
 }
@@ -84,7 +84,7 @@ export default function CampusDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("campus.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("campus.subtitle")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("campus.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -127,8 +127,8 @@ export default function CampusDashboard() {
               <div className="p-4 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-800">{t("campus.pendingApproval.pendingGrades", { count: data.pendingGradeCount })}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{t("campus.pendingApproval.pendingGradesDesc")}</p>
+                  <p className="text-sm font-bold text-slate-800">{t("campus.pendingApproval.pendingGrades", { count: data.pendingGradeCount })}</p>
+                  <p className="text-sm text-slate-400 mt-0.5">{t("campus.pendingApproval.pendingGradesDesc")}</p>
                 </div>
               </div>
             )}
@@ -136,10 +136,10 @@ export default function CampusDashboard() {
               <div key={r.id} className="p-4 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-sky-500 mt-2 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-slate-800 truncate">
+                  <p className="text-sm font-bold text-slate-800 truncate">
                     {t("campus.pendingApproval.leaveDaysLabel", { name: r.employeeFullName, days: r.totalDays })}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-sm text-slate-400 mt-0.5">
                     {r.startDate} → {r.endDate} {r.departmentName ? `· ${r.departmentName}` : ""}
                   </p>
                 </div>
@@ -158,10 +158,10 @@ export default function CampusDashboard() {
               <div key={c.contractId} className="p-4 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-rose-500 mt-2 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-slate-800 truncate">
+                  <p className="text-sm font-bold text-slate-800 truncate">
                     {c.siteName} · {c.contractNumber}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">{t("campus.expiringContracts.expiresOn", { date: c.endDate })}</p>
+                  <p className="text-sm text-slate-400 mt-0.5">{t("campus.expiringContracts.expiresOn", { date: c.endDate })}</p>
                 </div>
               </div>
             ))}
@@ -196,7 +196,7 @@ export default function CampusDashboard() {
             <tbody className="divide-y divide-slate-100">
               {data.myClasses.map((c) => (
                 <tr key={c.classId}>
-                  <Td className="font-bold text-xs text-slate-800">{c.className}</Td>
+                  <Td className="font-bold text-sm text-slate-800">{c.className}</Td>
                   <Td>{c.siteName}</Td>
                   <Td className="font-mono">{c.studentCount}</Td>
                   <Td>
@@ -219,7 +219,7 @@ export default function CampusDashboard() {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-bold text-slate-800 font-display">{t("campus.feedbackInbox.title")}</h3>
-          <button onClick={goToFeedback} className="text-xs text-brand-orange hover:text-brand-red font-bold">
+          <button onClick={goToFeedback} className="text-sm text-brand-orange hover:text-brand-red font-bold">
             {t("campus.feedbackInbox.viewAll")}
           </button>
         </div>
@@ -232,10 +232,10 @@ export default function CampusDashboard() {
               >
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-slate-800">{tkt.siteName}</span>
+                    <span className="text-sm font-bold text-slate-800">{tkt.siteName}</span>
                     <Badge variant={feedbackPriorityVariant[tkt.priority]}>{t(`campus.feedbackPriority.${tkt.priority}`)}</Badge>
                   </div>
-                  <p className="text-xs text-slate-600 line-clamp-2">{tkt.content}</p>
+                  <p className="text-sm text-slate-600 line-clamp-2">{tkt.content}</p>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">

@@ -17,6 +17,7 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.Student;
+import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
@@ -409,8 +410,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         SaveDraftCommentsResponse response = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
                 new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
-                        new SaveDraftCommentsRequest.Row(student.getId(), "Nội dung HS1.", null, null, false, null, null, null, null, null, null, null, null, null, null),
-                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null, null)
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Nội dung HS1.", null, null, false, null, null, null, null, null, null, null, null, null, null, null),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null, null, null)
                 )),
                 teacher.getId());
 
@@ -429,8 +430,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         SaveDraftCommentsResponse first = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
                 new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
-                        new SaveDraftCommentsRequest.Row(student.getId(), "Bản AI soạn.", null, null, false, null, null, null, null, null, null, null, null, null, true),
-                        new SaveDraftCommentsRequest.Row(student2.getId(), "Giáo viên tự viết.", null, null, false, null, null, null, null, null, null, null, null, null, null)
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Bản AI soạn.", null, null, false, null, null, null, null, null, null, null, null, null, true, " Bản AI soạn. "),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Giáo viên tự viết.", null, null, false, null, null, null, null, null, null, null, null, null, null, null)
                 )),
                 teacher.getId());
         Long aiCommentId = first.saved().stream().filter(c -> c.studentId().equals(student.getId())).findFirst().orElseThrow().id();
@@ -438,12 +439,17 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
                 new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
-                        new SaveDraftCommentsRequest.Row(student.getId(), "Giáo viên sửa lại bản AI.", null, null, false, null, null, null, null, null, null, null, null, null, null)
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Giáo viên sửa lại bản AI.", null, null, false, null, null, null, null, null, null, null, null, null, null, null)
                 )),
                 teacher.getId());
 
         assertThat(studentCommentRepository.findById(aiCommentId).orElseThrow().isAiDrafted()).isTrue();
         assertThat(studentCommentRepository.findById(manualCommentId).orElseThrow().isAiDrafted()).isFalse();
+        // V208 — bản AI gốc được giữ (đã trim) dù giáo viên sửa nội dung ở lần Lưu nháp sau; dòng tự viết không có.
+        StudentComment aiComment = studentCommentRepository.findById(aiCommentId).orElseThrow();
+        assertThat(aiComment.getAiDraftContent()).isEqualTo("Bản AI soạn.");
+        assertThat(aiComment.getContent()).isEqualTo("Giáo viên sửa lại bản AI.");
+        assertThat(studentCommentRepository.findById(manualCommentId).orElseThrow().getAiDraftContent()).isNull();
     }
 
     /** Mirror writeComment_boSung_rejectsWhenSessionAlreadyHasPendingComment — nhưng ở đây học sinh khác trong CÙNG lô vẫn phải lưu được, không bị chặn theo. */
@@ -456,8 +462,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         SaveDraftCommentsResponse response = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
                 new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
-                        new SaveDraftCommentsRequest.Row(student.getId(), "Sửa nội dung khác.", null, null, false, null, null, null, null, null, null, null, null, null, null),
-                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null, null)
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Sửa nội dung khác.", null, null, false, null, null, null, null, null, null, null, null, null, null, null),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null, null, null)
                 )),
                 teacher.getId());
 

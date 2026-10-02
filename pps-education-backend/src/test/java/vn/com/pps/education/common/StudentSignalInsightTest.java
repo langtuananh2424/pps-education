@@ -54,13 +54,6 @@ class StudentSignalInsightTest {
     }
 
     @Test
-    void newStudent_UC74_withinThirtyDays() {
-        assertThat(StudentSignalInsight.newStudent(SESSION.minusDays(30), SESSION)).isPresent();
-        assertThat(StudentSignalInsight.newStudent(SESSION.minusDays(31), SESSION)).isEmpty();
-        assertThat(StudentSignalInsight.newStudent(null, SESSION)).isEmpty();
-    }
-
-    @Test
     void ageTone_UC74_underTenOnly() {
         assertThat(StudentSignalInsight.ageTone(SESSION.minusYears(9), SESSION)).isPresent();
         assertThat(StudentSignalInsight.ageTone(SESSION.minusYears(10), SESSION)).isEmpty();
@@ -68,9 +61,8 @@ class StudentSignalInsightTest {
     }
 
     @Test
-    void mentionsStudentInfo_UC74_detectsNewStudentAndAgePhrases() {
-        assertThat(StudentSignalInsight.mentionsStudentInfo("Con mới vào lớp nhưng đã bắt nhịp nhanh.")).isTrue();
-        assertThat(StudentSignalInsight.mentionsStudentInfo("Dù mới tham gia lớp, con rất tự tin.")).isTrue();
+    void mentionsStudentInfo_UC74_detectsAgePhrasesOnly() {
+        assertThat(StudentSignalInsight.mentionsStudentInfo("Con mới vào lớp nhưng đã bắt nhịp nhanh.")).isFalse();
         assertThat(StudentSignalInsight.mentionsStudentInfo("Ở tuổi này con đã rất tự lập.")).isTrue();
         assertThat(StudentSignalInsight.mentionsStudentInfo("Con mới học xong bài và làm rất tốt.")).isFalse();
         assertThat(StudentSignalInsight.mentionsStudentInfo("Con tuổi trẻ tài cao")).isTrue();

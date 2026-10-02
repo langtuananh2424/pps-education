@@ -25,6 +25,7 @@ import Toast from "@/components/ui/Toast";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { cn } from "@/lib/cn";
+import FloatingError from "@/components/ui/FloatingError";
 
 function StatCard({ icon, label, value, sub, color = "text-brand-orange" }: {
   icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string;
@@ -34,8 +35,8 @@ function StatCard({ icon, label, value, sub, color = "text-brand-orange" }: {
       <div className="p-2.5 bg-orange-50 rounded-lg">{icon}</div>
       <div>
         <p className={`text-2xl font-bold ${color}`}>{value}</p>
-        <p className="text-xs text-slate-500">{label}</p>
-        {sub && <p className="text-xs text-slate-400">{sub}</p>}
+        <p className="text-sm text-slate-500">{label}</p>
+        {sub && <p className="text-sm text-slate-400">{sub}</p>}
       </div>
     </div>
   );
@@ -80,7 +81,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <h3 className="text-sm font-semibold text-slate-700">{t("enrollmentMovementStatsPage.trendChart.title")}</h3>
         {series.length > 1 && (
-          <div className="flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-4 text-sm text-slate-500">
             {series.map((s) => (
               <span key={s.label} className="flex items-center gap-1.5">
                 <span className={`w-2.5 h-2.5 rounded-full ${SERIES_COLORS[s.color].dot}`} /> {s.label}
@@ -405,7 +406,7 @@ export default function EnrollmentMovementStatsPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("enrollmentMovementStatsPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             {t("enrollmentMovementStatsPage.description")}
           </p>
         </div>
@@ -430,7 +431,7 @@ export default function EnrollmentMovementStatsPage() {
               key={pt}
               onClick={() => setPeriodType(pt)}
               className={cn(
-                "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
+                "px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors",
                 periodType === pt ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
               )}
             >
@@ -442,7 +443,7 @@ export default function EnrollmentMovementStatsPage() {
           <button
             onClick={() => setDisplayMode("detail")}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
+              "px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors",
               displayMode === "detail" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
             )}
           >
@@ -452,7 +453,7 @@ export default function EnrollmentMovementStatsPage() {
             onClick={() => setDisplayMode("grid")}
             title={t("enrollmentMovementStatsPage.displayMode.gridTitle")}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
+              "px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors",
               displayMode === "grid" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
             )}
           >
@@ -469,13 +470,13 @@ export default function EnrollmentMovementStatsPage() {
         </div>
       ) : displayMode === "grid" ? (
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
             <Filter className="w-3.5 h-3.5" />{" "}
             {t("enrollmentMovementStatsPage.gridMode.sectionHint", { period: periodTypeLabels[periodType].toLowerCase() })}
           </div>
           {periodType === "MONTH" ? (
             <div className="max-w-[220px]">
-              <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.gridMode.yearLabel")}</label>
+              <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.gridMode.yearLabel")}</label>
               <Select
                 value={gridYear}
                 onChange={(e) => setGridYear(Number(e.target.value))}
@@ -487,16 +488,16 @@ export default function EnrollmentMovementStatsPage() {
               </Select>
             </div>
           ) : periodType === "YEAR" ? (
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-slate-400">
               {t("enrollmentMovementStatsPage.gridMode.yearRangeHint", { start: new Date().getFullYear() - 5, end: new Date().getFullYear() })}
             </p>
           ) : (
-            <p className="text-xs text-slate-400">{t("enrollmentMovementStatsPage.gridMode.allTermsHint")}</p>
+            <p className="text-sm text-slate-400">{t("enrollmentMovementStatsPage.gridMode.allTermsHint")}</p>
           )}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
             <Filter className="w-3.5 h-3.5" />{" "}
             {t("enrollmentMovementStatsPage.filters.selectPeriodTitle", { period: periodTypeLabels[periodType].toLowerCase() })}
           </div>
@@ -504,7 +505,7 @@ export default function EnrollmentMovementStatsPage() {
             {periodType === "TERM" && (
               <>
                 <div className="flex-1 min-w-[260px]">
-                  <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.termLabel")}</label>
+                  <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.termLabel")}</label>
                   <Select
                     value={selectedTermId}
                     onChange={(e) => setSelectedTermId(e.target.value ? Number(e.target.value) : "")}
@@ -521,7 +522,7 @@ export default function EnrollmentMovementStatsPage() {
                 </div>
                 {selectedTermId && comparableTerms.length > 0 && (
                   <div className="flex-1 min-w-[260px]">
-                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonLabel")}</label>
+                    <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonLabel")}</label>
                     <Select
                       value={comparisonTermId}
                       onChange={(e) => setComparisonTermId(e.target.value ? Number(e.target.value) : "")}
@@ -543,17 +544,17 @@ export default function EnrollmentMovementStatsPage() {
               <>
                 <div className="flex-1 min-w-[220px] flex gap-2">
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.monthFromLabel")}</label>
+                    <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.monthFromLabel")}</label>
                     <MonthPicker value={selectedMonthFrom} onChange={setSelectedMonthFrom} />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.monthToLabel")}</label>
+                    <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.monthToLabel")}</label>
                     <MonthPicker value={selectedMonthTo} onChange={setSelectedMonthTo} />
                   </div>
                 </div>
                 <div className="flex-1 min-w-[220px] flex gap-2">
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonMonthFromLabel")}</label>
+                    <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonMonthFromLabel")}</label>
                     <MonthPicker
                       value={comparisonMonthFrom}
                       onChange={(v) => {
@@ -566,7 +567,7 @@ export default function EnrollmentMovementStatsPage() {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonMonthToLabel")}</label>
+                    <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonMonthToLabel")}</label>
                     <MonthPicker
                       value={comparisonMonthTo}
                       onChange={setComparisonMonthTo}
@@ -581,7 +582,7 @@ export default function EnrollmentMovementStatsPage() {
             {periodType === "YEAR" && (
               <>
                 <div className="flex-1 min-w-[220px]">
-                  <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.yearLabel")}</label>
+                  <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.yearLabel")}</label>
                   <Select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -593,7 +594,7 @@ export default function EnrollmentMovementStatsPage() {
                   </Select>
                 </div>
                 <div className="flex-1 min-w-[220px]">
-                  <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonYearLabel")}</label>
+                  <label className="block text-sm text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonYearLabel")}</label>
                   <Select
                     value={comparisonYear}
                     onChange={(e) => setComparisonYear(e.target.value ? Number(e.target.value) : "")}
@@ -609,23 +610,21 @@ export default function EnrollmentMovementStatsPage() {
             )}
           </div>
           {periodType === "TERM" && !loadingTerms && terms.length === 0 && (
-            <p className="text-xs text-slate-400 mt-2">{t("enrollmentMovementStatsPage.filters.noTerms")}</p>
+            <p className="text-sm text-slate-400 mt-2">{t("enrollmentMovementStatsPage.filters.noTerms")}</p>
           )}
         </div>
       )}
 
-      {error && (
-        <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>
-      )}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {displayMode === "detail" && stats && !loadingStats && (
         <>
           {/* Thẻ thông tin kỳ */}
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-5 text-white flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs opacity-75">{stats.siteName}</p>
+              <p className="text-sm opacity-75">{stats.siteName}</p>
               <h2 className="text-lg font-bold mt-1">{stats.periodLabel}</h2>
-              <p className="text-xs opacity-70 mt-1">{stats.startDate} — {stats.endDate}</p>
+              <p className="text-sm opacity-70 mt-1">{stats.startDate} — {stats.endDate}</p>
             </div>
           </div>
 
@@ -655,7 +654,7 @@ export default function EnrollmentMovementStatsPage() {
           <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
               <h3 className="text-sm font-semibold text-slate-700">{t("enrollmentMovementStatsPage.table.title")}</h3>
-              <span className="text-xs text-slate-400">{t("enrollmentMovementStatsPage.table.classCount", { count: stats.classes.length })}</span>
+              <span className="text-sm text-slate-400">{t("enrollmentMovementStatsPage.table.classCount", { count: stats.classes.length })}</span>
             </div>
             {stats.classes.length === 0 ? (
               <div className="px-4 py-10 text-center">
@@ -664,7 +663,7 @@ export default function EnrollmentMovementStatsPage() {
               </div>
             ) : (
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                <thead className="bg-slate-50 border-b border-slate-100 text-sm text-slate-500 font-medium">
                   <tr>
                     <th className="px-4 py-2.5">{t("enrollmentMovementStatsPage.table.columns.class")}</th>
                     <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.opening")}</th>
@@ -683,7 +682,7 @@ export default function EnrollmentMovementStatsPage() {
                       <tr key={row.classId} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3">
                           <span className="font-medium text-slate-800">{row.className}</span>
-                          <span className="text-xs text-slate-400 ml-2">{row.classCode}</span>
+                          <span className="text-sm text-slate-400 ml-2">{row.classCode}</span>
                         </td>
                         <td className="px-4 py-3 text-right">{row.openingHeadcount}</td>
                         <td className="px-4 py-3 text-right text-emerald-600 font-medium">{row.newEnrollments}</td>
@@ -772,7 +771,7 @@ export default function EnrollmentMovementStatsPage() {
                     <col key={c.key} />
                   ))}
                 </colgroup>
-                <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                <thead className="bg-slate-50 border-b border-slate-100 text-sm text-slate-500 font-medium">
                   <tr>
                     <th className="sticky left-0 bg-slate-50 px-4 py-2.5 z-10">{t("enrollmentMovementStatsPage.gridMode.classColumn")}</th>
                     {grid.columns.map((c) => (
@@ -788,7 +787,7 @@ export default function EnrollmentMovementStatsPage() {
                         title={`${row.className} (${row.classCode})`}
                       >
                         {row.className}
-                        <span className="text-xs text-slate-400 ml-1.5">{row.classCode}</span>
+                        <span className="text-sm text-slate-400 ml-1.5">{row.classCode}</span>
                       </td>
                       {grid.columns.map((c) => (
                         <td key={c.key} className="px-3 py-2.5 text-right text-slate-700">{row.headcountByColumnKey[c.key] ?? 0}</td>

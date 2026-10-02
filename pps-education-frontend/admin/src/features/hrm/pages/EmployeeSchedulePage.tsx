@@ -26,6 +26,7 @@ import {
   getEmployeeScheduleOverview,
   listDepartments
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 function dayTypeLabel(t: (key: string) => string, dayType: WorkCalendarResponse["dayType"]): string {
   return t(`employeeSchedulePage.dayType.${dayType}`);
@@ -142,10 +143,10 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
   const containerHeight = ((endMin - startMin) / 60) * TIMELINE_PIXELS_PER_HOUR;
 
   if (loading) {
-    return <p className="text-xs text-slate-400 text-center py-10">{t("employeeSchedulePage.timeline.loading")}</p>;
+    return <p className="text-sm text-slate-400 text-center py-10">{t("employeeSchedulePage.timeline.loading")}</p>;
   }
   if (sessions.length === 0) {
-    return <p className="text-xs text-slate-400 text-center py-10">{t("employeeSchedulePage.timeline.empty")}</p>;
+    return <p className="text-sm text-slate-400 text-center py-10">{t("employeeSchedulePage.timeline.empty")}</p>;
   }
 
   return (
@@ -155,7 +156,7 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
           {hourMarks.map((m) => (
             <div
               key={m}
-              className="absolute left-0 right-2 text-right text-[10px] font-mono text-slate-400 -translate-y-1/2"
+              className="absolute left-0 right-2 text-right text-[12px] font-mono text-slate-400 -translate-y-1/2"
               style={{ top: ((m - startMin) / 60) * TIMELINE_PIXELS_PER_HOUR }}
             >
               {String(Math.floor(m / 60)).padStart(2, "0")}:00
@@ -199,13 +200,13 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
                   width: `calc(${100 / laneCount}% - 4px)`
                 }}
               >
-                <p className="text-[10px] font-mono font-bold leading-tight">{s.startTime}–{s.endTime}</p>
-                <p className="text-[10px] font-bold truncate leading-tight">{s.primaryTeacherName}</p>
-                <p className="text-[10px] truncate leading-tight">{s.className}{siteName && ` · ${siteName}`}</p>
+                <p className="text-[12px] font-mono font-bold leading-tight">{s.startTime}–{s.endTime}</p>
+                <p className="text-[12px] font-bold truncate leading-tight">{s.primaryTeacherName}</p>
+                <p className="text-[12px] truncate leading-tight">{s.className}{siteName && ` · ${siteName}`}</p>
                 {isCancelled ? (
-                  <p className="text-[9px] italic truncate leading-tight">{statusLabel}</p>
+                  <p className="text-[13px] italic truncate leading-tight">{statusLabel}</p>
                 ) : (
-                  <p className="text-[9px] font-semibold truncate leading-tight">{statusLabel}</p>
+                  <p className="text-[13px] font-semibold truncate leading-tight">{statusLabel}</p>
                 )}
               </div>
             );
@@ -446,12 +447,12 @@ export default function EmployeeSchedulePage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("employeeSchedulePage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("employeeSchedulePage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("employeeSchedulePage.description")}</p>
         </div>
       </div>
 
       {!canView ? (
-        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">
+        <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">
           {t("employeeSchedulePage.noPermission")}
         </div>
       ) : (
@@ -476,7 +477,7 @@ export default function EmployeeSchedulePage() {
                     disabled={disabledInClassGrid}
                     title={disabledInClassGrid ? t("employeeSchedulePage.quickRangeDisabledInClassGrid") : undefined}
                     className={cn(
-                      "px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+                      "px-2.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors",
                       disabledInClassGrid
                         ? "text-slate-300 cursor-not-allowed"
                         : quickRange === key
@@ -492,14 +493,14 @@ export default function EmployeeSchedulePage() {
             <div className="w-36">
               <DatePicker value={from} onChange={setFrom} max={to || undefined} />
             </div>
-            <span className="text-[10px] text-slate-400">{t("employeeSchedulePage.rangeSeparator")}</span>
+            <span className="text-[12px] text-slate-400">{t("employeeSchedulePage.rangeSeparator")}</span>
             <div className="w-36">
               <DatePicker value={to} onChange={setTo} min={from || undefined} />
             </div>
 
             {/* Phòng ban không lọc được gì ở "Theo lớp học" (lưới chỉ theo điểm trường/lớp) — ẩn thay vì để vô tác dụng, xác nhận với người dùng 2026-08-20. */}
             {viewMode === "employee" && (
-              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
+              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none max-w-[160px]">
                 <option value="">{t("employeeSchedulePage.filters.allDepartments")}</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
@@ -510,7 +511,7 @@ export default function EmployeeSchedulePage() {
                 dropdown "Điểm trường"/"Lớp" đã có sẵn ở Header, đỡ chọn trùng 2 chỗ. */}
             {/* Nhân viên không lọc được gì ở "Theo lớp học" (lưới không lọc theo GV) — ẩn thay vì để vô tác dụng. */}
             {viewMode === "employee" && (
-              <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
+              <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none max-w-[160px]">
                 <option value="">{t("employeeSchedulePage.filters.allEmployees")}</option>
                 {allEmployees.map((e) => (
                   <option key={e.id} value={e.id}>{e.fullName}</option>
@@ -527,7 +528,7 @@ export default function EmployeeSchedulePage() {
                   ref={siteFilterTriggerRef}
                   type="button"
                   onClick={() => setSiteFilterOpen((v) => !v)}
-                  className="flex items-center gap-1.5 bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg hover:bg-slate-50"
+                  className="flex items-center gap-1.5 bg-white border border-slate-200 text-sm px-3 py-2 rounded-lg hover:bg-slate-50"
                 >
                   <Building2 className="w-3.5 h-3.5 text-slate-400" />
                   {selectedGridSiteIds.length === 0
@@ -549,16 +550,16 @@ export default function EmployeeSchedulePage() {
                       className="z-[200] w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-2 flex flex-col animate-in fade-in slide-in-from-top-1 duration-150"
                     >
                       <div className="shrink-0 flex justify-between items-center px-1 pb-1.5 mb-1.5 border-b border-slate-100">
-                        <button type="button" className="text-[10px] font-bold text-brand-red" onClick={() => setSelectedGridSiteIds(sites.map((s) => s.id))}>
+                        <button type="button" className="text-[12px] font-bold text-brand-red" onClick={() => setSelectedGridSiteIds(sites.map((s) => s.id))}>
                           {t("employeeSchedulePage.classGrid.siteFilter.selectAll")}
                         </button>
-                        <button type="button" className="text-[10px] font-bold text-slate-400" onClick={() => setSelectedGridSiteIds([])}>
+                        <button type="button" className="text-[12px] font-bold text-slate-400" onClick={() => setSelectedGridSiteIds([])}>
                           {t("employeeSchedulePage.classGrid.siteFilter.clearAll")}
                         </button>
                       </div>
                       <div className="min-h-0 overflow-y-auto space-y-0.5">
                         {sites.map((s) => (
-                          <label key={s.id} className="flex items-center gap-2 text-xs px-1.5 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                          <label key={s.id} className="flex items-center gap-2 text-sm px-1.5 py-1 rounded hover:bg-slate-50 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={selectedGridSiteIds.includes(s.id)}
@@ -587,7 +588,7 @@ export default function EmployeeSchedulePage() {
               <button
                 onClick={() => setViewMode("employee")}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors",
                   viewMode === "employee" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
                 )}
               >
@@ -601,7 +602,7 @@ export default function EmployeeSchedulePage() {
                   if (quickRange === "month" || quickRange === "year") applyQuickRange("week");
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors",
                   viewMode === "classGrid" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
                 )}
               >
@@ -611,15 +612,15 @@ export default function EmployeeSchedulePage() {
             </div>
           </div>
 
-          {error && <div className="m-4 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           {viewMode === "classGrid" ? (
             dateRange.length > MAX_CLASS_GRID_DAYS ? (
-              <p className="text-xs text-slate-400 italic text-center py-12">
+              <p className="text-sm text-slate-400 italic text-center py-12">
                 {t("employeeSchedulePage.classGrid.rangeTooWideHint")}
               </p>
             ) : selectedGridSiteIds.length === 0 ? (
-              <p className="text-xs text-slate-400 italic text-center py-12">{t("employeeSchedulePage.classGrid.selectSiteHint")}</p>
+              <p className="text-sm text-slate-400 italic text-center py-12">{t("employeeSchedulePage.classGrid.selectSiteHint")}</p>
             ) : (
               <div className="divide-y divide-slate-200">
                 {/* Nhãn điểm trường dạng cột dọc bên trái, xoay chữ — giống bố cục file Excel quản lý thủ công hiện tại (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-12). */}
@@ -629,7 +630,7 @@ export default function EmployeeSchedulePage() {
                     <div key={siteId} className="flex items-stretch">
                       <div className="w-9 shrink-0 bg-brand-gradient flex items-center justify-center py-3">
                         <span
-                          className="text-[11px] font-bold uppercase tracking-wide text-white whitespace-nowrap"
+                          className="text-[13px] font-bold uppercase tracking-wide text-white whitespace-nowrap"
                           style={{ writingMode: "vertical-rl" }}
                         >
                           {site?.name ?? `Điểm trường #${siteId}`}
@@ -682,7 +683,7 @@ export default function EmployeeSchedulePage() {
                       <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
                         <Td className="font-bold text-slate-800">
                           {emp.fullName}
-                          <div className="text-[11px] text-slate-400 font-normal">{emp.employeeCode}</div>
+                          <div className="text-[13px] text-slate-400 font-normal">{emp.employeeCode}</div>
                         </Td>
                         <Td>{employeeTypeLabel(t, emp.employeeType)}</Td>
                         <Td>{shiftDayCount}</Td>
@@ -842,22 +843,22 @@ function ScheduleDayDetail({
     <div className="space-y-3">
       {override && (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("employeeSchedulePage.detail.overrideLabel")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("employeeSchedulePage.detail.overrideLabel")}</span>
           <Badge variant={dayTypeVariants[override.dayType]}>{dayTypeLabel(t, override.dayType)}</Badge>
-          {override.description && <span className="text-[11px] text-slate-500">{override.description}</span>}
+          {override.description && <span className="text-[13px] text-slate-500">{override.description}</span>}
         </div>
       )}
 
       <div>
-        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1.5">
+        <span className="text-[12px] font-bold uppercase text-slate-500 block mb-1.5">
           {t("employeeSchedulePage.detail.fixedShiftsTitle", { count: shifts.length })}
         </span>
         {shifts.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">{t("employeeSchedulePage.detail.noFixedShifts")}</p>
+          <p className="text-sm text-slate-400 italic">{t("employeeSchedulePage.detail.noFixedShifts")}</p>
         ) : (
           <div className="space-y-1.5">
             {shifts.map(({ shift, es }) => (
-              <div key={es.id} className="border border-slate-150 rounded-lg p-2 text-xs flex items-center gap-2">
+              <div key={es.id} className="border border-slate-150 rounded-lg p-2 text-sm flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span className="font-bold text-slate-700">{shift.name}</span>
                 <span className="text-slate-400 font-mono ml-auto">{shift.checkInTime}–{shift.checkOutTime}</span>
@@ -868,17 +869,17 @@ function ScheduleDayDetail({
       </div>
 
       <div>
-        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1.5">
+        <span className="text-[12px] font-bold uppercase text-slate-500 block mb-1.5">
           {t("employeeSchedulePage.detail.sessionsTitle", { count: sessions.length })}
         </span>
         {sessions.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">{t("employeeSchedulePage.detail.noSessions")}</p>
+          <p className="text-sm text-slate-400 italic">{t("employeeSchedulePage.detail.noSessions")}</p>
         ) : (
           <div className="space-y-1.5">
             {sessions.map((s) => {
               const checkInStatus = checkInStatusBySessionId.get(s.id);
               return (
-                <div key={s.id} className="border border-slate-150 rounded-lg p-2 text-xs space-y-1">
+                <div key={s.id} className="border border-slate-150 rounded-lg p-2 text-sm space-y-1">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-mono text-slate-500">{s.startTime}–{s.endTime}</span>
                     <div className="flex items-center gap-1.5 flex-wrap justify-end">

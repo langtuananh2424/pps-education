@@ -15,6 +15,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import Pagination from "@/components/ui/Pagination";
 import type { Page } from "@/types";
 import { ChangeHistoryEntityType, ChangeHistoryItem, searchChangeHistory } from "../oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 const ENTITY_TYPES: ChangeHistoryEntityType[] = [
   "CLASS",
@@ -166,7 +167,7 @@ export default function ChangeHistoryPage() {
           <div>
             <p className="font-medium text-slate-800">{classLabel}</p>
             {item.sessionDate && (
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[13px] text-slate-500">
                 {t("changeHistory.sessionOf", {
                   date: new Date(`${item.sessionDate}T00:00:00`).toLocaleDateString(toLocaleTag(i18n.language))
                 })}
@@ -179,7 +180,7 @@ export default function ChangeHistoryPage() {
         return (
           <div>
             <p className="font-medium text-slate-800">{personLabel}</p>
-            <p className="text-[11px] text-slate-500">{classLabel}</p>
+            <p className="text-[13px] text-slate-500">{classLabel}</p>
           </div>
         );
       default:
@@ -199,7 +200,7 @@ export default function ChangeHistoryPage() {
         ? t("sessionReports.hours", { hours: Math.floor(lateMinutes / 60), minutes: lateMinutes % 60 })
         : t("sessionReports.days", { days: Math.floor(lateMinutes / 1440), hours: Math.floor((lateMinutes % 1440) / 60) });
     return (
-      <div className="space-y-0.5 text-[11px] leading-5">
+      <div className="space-y-0.5 text-[13px] leading-5">
         <p>
           <span className="text-slate-500">{t("fields.commentCount")}: </span>
           <span className="font-semibold text-slate-700">{String(d.commentCount ?? "—")}</span>
@@ -226,9 +227,9 @@ export default function ChangeHistoryPage() {
     if (changes.length === 0) return <span className="text-slate-400">—</span>;
     return (
       <div className="space-y-0.5">
-        {nothingChanged && <p className="text-[11px] italic text-slate-400">{t("changeHistory.unchanged")}</p>}
+        {nothingChanged && <p className="text-[13px] italic text-slate-400">{t("changeHistory.unchanged")}</p>}
         {changes.map((c) => (
-          <p key={c.key} className="text-[11px] leading-5">
+          <p key={c.key} className="text-[13px] leading-5">
             <span className="text-slate-500">{t(`fields.${c.key}`, { defaultValue: c.key })}: </span>
             {c.previous !== undefined && c.changed && (
               <>
@@ -252,7 +253,7 @@ export default function ChangeHistoryPage() {
 
   if (!canView) {
     return (
-      <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">
+      <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">
         {t("changeHistory.noPermission")}
       </div>
     );
@@ -262,9 +263,9 @@ export default function ChangeHistoryPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("changeHistory.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("changeHistory.description")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("changeHistory.description")}</p>
         {departmentScoped && (
-          <p className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-2">
+          <p className="flex items-center gap-1.5 text-[13px] text-slate-400 mt-2">
             <Users className="w-3.5 h-3.5" /> {t("changeHistory.departmentScopeHint")}
           </p>
         )}
@@ -273,7 +274,7 @@ export default function ChangeHistoryPage() {
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">{t("changeHistory.filters.entityType")}</label>
+            <label className="block text-sm text-slate-500 mb-1">{t("changeHistory.filters.entityType")}</label>
             <Select
               value={entityType}
               onChange={(e) => setEntityType(e.target.value as ChangeHistoryEntityType | "")}
@@ -286,11 +287,11 @@ export default function ChangeHistoryPage() {
             </Select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">{t("changeHistory.filters.fromDate")}</label>
+            <label className="block text-sm text-slate-500 mb-1">{t("changeHistory.filters.fromDate")}</label>
             <DatePicker value={fromDate} onChange={setFromDate} max={toDate || undefined} />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">{t("changeHistory.filters.toDate")}</label>
+            <label className="block text-sm text-slate-500 mb-1">{t("changeHistory.filters.toDate")}</label>
             <DatePicker value={toDate} onChange={setToDate} min={fromDate || undefined} />
           </div>
           <div className="flex items-center gap-2">
@@ -307,13 +308,13 @@ export default function ChangeHistoryPage() {
           </div>
         </div>
         {(selectedCampusId !== "ALL" || selectedClassId) && (
-          <p className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-3">
+          <p className="flex items-center gap-1.5 text-[13px] text-slate-500 mt-3">
             <Filter className="w-3 h-3" /> {t("changeHistory.scopeHint")}
           </p>
         )}
       </Card>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         {loading && !data ? (

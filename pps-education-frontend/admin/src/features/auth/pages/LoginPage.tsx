@@ -40,7 +40,7 @@ export default function LoginPage() {
                   P
                 </div>
               </div>
-              <span className="font-display font-extrabold text-xs text-slate-800 tracking-wider uppercase">{t("brand")}</span>
+              <span className="font-display font-extrabold text-sm text-slate-800 tracking-wider uppercase">{t("brand")}</span>
             </div>
             <LanguageSwitcher />
           </div>
@@ -55,7 +55,7 @@ export default function LoginPage() {
             )}
           </div>
 
-          <div className="text-[10px] text-slate-400 font-medium font-sans text-center">{t("footer")}</div>
+          <div className="text-[12px] text-slate-400 font-medium font-sans text-center">{t("footer")}</div>
         </div>
 
         <LoginHeroPanel />

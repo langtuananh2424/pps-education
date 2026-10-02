@@ -6,9 +6,10 @@ import { createSite, CreateSiteRequest } from "../api";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface SiteFormModalProps {
   onClose: () => void;
@@ -73,7 +74,7 @@ export default function SiteFormModal({ onClose, onCreated }: SiteFormModalProps
   return (
     <Modal open onClose={onClose} title={t("siteForm.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t("siteForm.codeLabel")}</label>
@@ -106,7 +107,7 @@ export default function SiteFormModal({ onClose, onCreated }: SiteFormModalProps
 
         {form.siteType === "PARTNER" && (
           <div className="space-y-3 border-t border-slate-100 pt-4">
-            <span className="text-[10px] font-bold uppercase text-slate-500">{t("siteForm.partnerContactTitle")}</span>
+            <span className="text-[12px] font-bold uppercase text-slate-500">{t("siteForm.partnerContactTitle")}</span>
             <div className="grid grid-cols-2 gap-3">
               <input value={form.contactPersonName} onChange={(e) => setForm({ ...form, contactPersonName: e.target.value })} placeholder={t("siteForm.contactNamePlaceholder")} className={inputClass} />
               <input value={form.contactPersonTitle} onChange={(e) => setForm({ ...form, contactPersonTitle: e.target.value })} placeholder={t("siteForm.contactTitlePlaceholder")} className={inputClass} />

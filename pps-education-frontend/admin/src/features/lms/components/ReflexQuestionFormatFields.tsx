@@ -15,9 +15,11 @@ import {
   getReflexQuestionFormats,
   uploadMedia
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
+import FloatingBanner from "@/components/ui/FloatingBanner";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 /** V200 — phần dạng đề + dữ liệu tranh của 1 câu hỏi Video phản xạ (dùng chung form tạo bộ / thêm / sửa câu hỏi). */
 export interface ReflexFormatValue {
@@ -92,10 +94,10 @@ export default function ReflexQuestionFormatFields({
   const [pictureOpen, setPictureOpen] = useState(false);
 
   if (options === null) {
-    return <p className="text-[11px] text-slate-400">{t("lectures.reflexFormat.loading")}</p>;
+    return <p className="text-[13px] text-slate-400">{t("lectures.reflexFormat.loading")}</p>;
   }
   if (options.length === 0) {
-    return <p className="text-[11px] text-slate-400 italic">{t("lectures.reflexFormat.notSupported")}</p>;
+    return <p className="text-[13px] text-slate-400 italic">{t("lectures.reflexFormat.notSupported")}</p>;
   }
 
   const handleFormatChange = (format: ReflexQuestionFormat | "") => {
@@ -127,7 +129,7 @@ export default function ReflexQuestionFormatFields({
           {value.pictureImageUrl && (
             <img src={value.pictureImageUrl} alt="" className="w-20 h-14 object-cover rounded border border-slate-200 shrink-0" />
           )}
-          <div className="flex-1 min-w-0 text-[11px]">
+          <div className="flex-1 min-w-0 text-[13px]">
             {value.pictureBrief ? (
               <p className="text-slate-700 whitespace-pre-line">{value.pictureBrief}</p>
             ) : (
@@ -277,8 +279,8 @@ function ReflexPictureModal({
           activeId={tab}
           onChange={(id) => setTab(id as "image" | "brief")}
         />
-        {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-        {notice && <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">{notice}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
+        <FloatingBanner variant="warning" message={notice} onClose={() => setNotice(null)} />
 
         {tab === "image" ? (
           <div className="space-y-3">
@@ -294,11 +296,11 @@ function ReflexPictureModal({
                 </Button>
               </div>
             ) : (
-              <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+              <p className="text-[13px] text-slate-500 bg-slate-50 border border-slate-200 p-2 rounded-lg">
                 {t("lectures.reflexPicture.captureUnavailable")}
               </p>
             )}
-            <p className="text-[11px] text-slate-500">{t("lectures.reflexPicture.captureHint")}</p>
+            <p className="text-[13px] text-slate-500">{t("lectures.reflexPicture.captureHint")}</p>
             <div>
               <label className={labelClass}>{t("lectures.reflexPicture.uploadLabel")}</label>
               <input
@@ -306,9 +308,9 @@ function ReflexPictureModal({
                 accept="image/jpeg,image/png,image/webp"
                 disabled={busy !== null}
                 onChange={(e) => handleUpload(e.target.files?.[0])}
-                className="text-xs"
+                className="text-sm"
               />
-              {busy === "upload" && <span className="text-[11px] text-slate-500 ml-2">{t("lectures.reflexPicture.uploading")}</span>}
+              {busy === "upload" && <span className="text-[13px] text-slate-500 ml-2">{t("lectures.reflexPicture.uploading")}</span>}
             </div>
             {imageUrl && <img src={imageUrl} alt="" className="max-h-72 rounded-lg border border-slate-200" />}
           </div>
@@ -318,7 +320,7 @@ function ReflexPictureModal({
               {imageUrl ? (
                 <img src={imageUrl} alt="" className="w-full rounded-lg border border-slate-200" />
               ) : (
-                <p className="text-[11px] text-slate-400 italic">{t("lectures.reflexPicture.noImage")}</p>
+                <p className="text-[13px] text-slate-400 italic">{t("lectures.reflexPicture.noImage")}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -330,7 +332,7 @@ function ReflexPictureModal({
                 placeholder={t("lectures.reflexPicture.briefPlaceholder")}
                 className={inputClass}
               />
-              <p className="text-[11px] text-amber-700">{t("lectures.reflexPicture.reviewWarning")}</p>
+              <p className="text-[13px] text-amber-700">{t("lectures.reflexPicture.reviewWarning")}</p>
               <Button type="button" variant="secondary" size="sm" disabled={!imageUrl || busy !== null} onClick={() => imageUrl && requestDraft(imageUrl)}>
                 <Sparkles className="w-3.5 h-3.5" />
                 {busy === "draft" ? t("lectures.reflexPicture.drafting") : t("lectures.reflexPicture.draftButton")}

@@ -49,7 +49,7 @@ export default function TimetableSessionCard({ session, style, onClick, onContex
       )}
     >
       {pendingKind && (
-        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded w-fit bg-purple-100 text-purple-700">
+        <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded w-fit bg-purple-100 text-purple-700">
           {pendingKind === "create" ? "Mới · chưa lưu" : pendingKind === "cancel" ? "Hủy · chưa lưu" : "Sửa · chưa lưu"}
         </span>
       )}
@@ -79,7 +79,7 @@ export default function TimetableSessionCard({ session, style, onClick, onContex
           {session.teacherType && (
             <span
               className={cn(
-                "text-[10px] font-bold px-1.5 py-0.5 rounded w-fit",
+                "text-[12px] font-bold px-1.5 py-0.5 rounded w-fit",
                 session.teacherType === "FOREIGN" ? "bg-sky-100 text-sky-700" : "bg-orange-100 text-brand-red"
               )}
             >

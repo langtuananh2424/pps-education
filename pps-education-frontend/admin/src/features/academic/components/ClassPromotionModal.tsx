@@ -15,10 +15,11 @@ import {
   listCurriculums,
   promoteClass
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface ClassPromotionModalProps {
   classes: ClassResponse[];
@@ -111,7 +112,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
     return (
       <Modal open onClose={onClose} title={t("classPromotion.resultModalTitle")} size="lg">
         <div className="space-y-4">
-          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-xs text-emerald-700">
+          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-sm text-emerald-700">
             {t("classPromotion.resultSummary", {
               classCode: result.newClass.classCode,
               name: result.newClass.name,
@@ -121,16 +122,16 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
 
           {result.skippedStudentCount > 0 && (
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">
+              <p className="text-[12px] uppercase font-bold text-slate-500 mb-2">
                 {t("classPromotion.skippedTitle", { count: result.skippedStudentCount })}
               </p>
               <div className="space-y-1.5 max-h-64 overflow-y-auto">
                 {result.skippedStudents.map((s) => (
-                  <div key={s.studentId} className="border border-amber-100 bg-amber-50 rounded-lg p-2.5 text-xs">
+                  <div key={s.studentId} className="border border-amber-100 bg-amber-50 rounded-lg p-2.5 text-sm">
                     <div className="font-bold text-slate-800">
                       {s.studentCode} — {s.studentFullName}
                     </div>
-                    <div className="text-[10px] text-amber-700 mt-0.5">{s.reason}</div>
+                    <div className="text-[12px] text-amber-700 mt-0.5">{s.reason}</div>
                   </div>
                 ))}
               </div>
@@ -150,7 +151,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
   return (
     <Modal open onClose={onClose} title={t("classPromotion.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div>
           <label className={labelClass}>{t("classPromotion.sourceClassLabel")}</label>
@@ -162,19 +163,19 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                   value={sourceQuery}
                   onChange={(e) => setSourceQuery(e.target.value)}
                   placeholder={t("classPromotion.sourceSearchPlaceholder")}
-                  className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-sm pl-8 pr-3 py-2 rounded-lg focus:outline-none"
                 />
               </div>
               <div className="max-h-40 overflow-y-auto divide-y divide-slate-100">
                 {filteredSourceClasses.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-3 text-center">{t("classPromotion.noSourceMatch")}</p>
+                  <p className="text-sm text-slate-400 p-3 text-center">{t("classPromotion.noSourceMatch")}</p>
                 ) : (
                   filteredSourceClasses.map((c) => (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => setSourceClassId(c.id)}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
                     >
                       <span className="font-mono font-bold text-brand-red">{c.classCode}</span> — {c.name}
                       <span className="text-slate-400"> · {c.siteName}</span>
@@ -184,14 +185,14 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between border border-slate-200 rounded-lg p-3 text-xs bg-slate-50">
+            <div className="flex items-center justify-between border border-slate-200 rounded-lg p-3 text-sm bg-slate-50">
               <div>
                 <span className="font-mono font-bold text-brand-red">{sourceClass.classCode}</span> — {sourceClass.name}
-                <div className="text-[10px] text-slate-500 mt-0.5">
+                <div className="text-[12px] text-slate-500 mt-0.5">
                   {sourceClass.siteName} · {sourceClass.classType === "LINKED" ? t("enums.classType.LINKED") : t("enums.classType.OPEN")}
                 </div>
               </div>
-              <button type="button" onClick={() => setSourceClassId(null)} className="text-brand-red font-bold text-[11px] hover:underline shrink-0">
+              <button type="button" onClick={() => setSourceClassId(null)} className="text-brand-red font-bold text-[13px] hover:underline shrink-0">
                 {t("classPromotion.changeSourceLink")}
               </button>
             </div>
@@ -208,7 +209,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                 onBlur={() => markTouched("classCode")}
                 className={`${invalid.classCode ? inputErrorClass : inputClass} font-mono`}
               />
-              {invalid.classCode && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newClassCodeRequired")}</p>}
+              {invalid.classCode && <p className="text-[12px] text-rose-600 mt-1">{t("classPromotion.newClassCodeRequired")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("classPromotion.newNameLabel")}</label>
@@ -218,7 +219,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                 onBlur={() => markTouched("name")}
                 className={invalid.name ? inputErrorClass : inputClass}
               />
-              {invalid.name && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newNameRequired")}</p>}
+              {invalid.name && <p className="text-[12px] text-rose-600 mt-1">{t("classPromotion.newNameRequired")}</p>}
             </div>
 
             <div className="col-span-2">
@@ -236,7 +237,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                   </option>
                 ))}
               </Select>
-              {invalid.curriculumId && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newCurriculumRequired")}</p>}
+              {invalid.curriculumId && <p className="text-[12px] text-rose-600 mt-1">{t("classPromotion.newCurriculumRequired")}</p>}
             </div>
 
             <div>
@@ -254,7 +255,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                   </option>
                 ))}
               </Select>
-              {invalid.academicYearId && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newAcademicYearRequired")}</p>}
+              {invalid.academicYearId && <p className="text-[12px] text-rose-600 mt-1">{t("classPromotion.newAcademicYearRequired")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("classPromotion.newMaxStudentsLabel")}</label>
@@ -266,7 +267,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                 onBlur={() => markTouched("maxStudents")}
                 className={invalid.maxStudents ? inputErrorClass : inputClass}
               />
-              {invalid.maxStudents && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newMaxStudentsRequired")}</p>}
+              {invalid.maxStudents && <p className="text-[12px] text-rose-600 mt-1">{t("classPromotion.newMaxStudentsRequired")}</p>}
             </div>
 
             <div>
@@ -280,8 +281,8 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                 max={form.endDate || undefined}
                 hasError={invalid.startDate}
               />
-              {invalid.startDate && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newStartDateRequired")}</p>}
-              <p className="text-[10px] text-slate-400 mt-1">{t("classPromotion.newStartDateHint")}</p>
+              {invalid.startDate && <p className="text-[12px] text-rose-600 mt-1">{t("classPromotion.newStartDateRequired")}</p>}
+              <p className="text-[12px] text-slate-400 mt-1">{t("classPromotion.newStartDateHint")}</p>
             </div>
             <div>
               <label className={labelClass}>{t("classPromotion.newEndDateLabel")}</label>
@@ -293,7 +294,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
             </div>
           </div>
 
-          <p className="text-[10px] text-slate-400">{t("classPromotion.footNote")}</p>
+          <p className="text-[12px] text-slate-400">{t("classPromotion.footNote")}</p>
         </fieldset>
 
         <div className="flex justify-end gap-2 pt-2">

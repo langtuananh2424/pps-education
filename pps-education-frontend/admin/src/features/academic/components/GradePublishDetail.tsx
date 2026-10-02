@@ -17,6 +17,7 @@ import GradeSheetTable from "./GradeSheetTable";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface GradePublishDetailProps {
   classId: number | null;
@@ -116,7 +117,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         <ClipboardList className="w-12 h-12 text-slate-300" />
         <div>
           <h3 className="text-sm font-bold text-slate-700">{t("publishDetail.emptyTitle")}</h3>
-          <p className="text-xs text-slate-400 mt-1">{t("publishDetail.emptyDescription")}</p>
+          <p className="text-sm text-slate-400 mt-1">{t("publishDetail.emptyDescription")}</p>
         </div>
       </div>
     );
@@ -126,14 +127,14 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display">{t("publishDetail.detailTitle", { classLabel })}</span>
-          <p className="text-[10px] text-slate-400 mt-0.5">{t("publishDetail.teacherPrefix", { teacherName: teacherName ?? t("common.unknownTeacher") })}</p>
+          <span className="text-sm font-bold text-slate-700 font-display">{t("publishDetail.detailTitle", { classLabel })}</span>
+          <p className="text-[12px] text-slate-400 mt-0.5">{t("publishDetail.teacherPrefix", { teacherName: teacherName ?? t("common.unknownTeacher") })}</p>
         </div>
         {setups.length > 1 && (
           <Select
             value={selectedSetupId ?? ""}
             onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : null)}
-            className="bg-white border border-slate-200 text-xs p-1.5 rounded-lg focus:outline-none"
+            className="bg-white border border-slate-200 text-sm p-1.5 rounded-lg focus:outline-none"
           >
             {setups.map((s) => (
               <option key={s.id} value={s.id}>
@@ -144,7 +145,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-4 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {selectedSetupId && components.length > 0 ? (
         <GradeSheetTable
@@ -160,7 +161,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
           }}
         />
       ) : (
-        <p className="text-xs text-slate-400 italic p-6 text-center">{t("publishDetail.noComponents")}</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">{t("publishDetail.noComponents")}</p>
       )}
 
       <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
@@ -190,15 +191,15 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         }
       >
         <div className="space-y-2">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t("publishDetail.rejectReasonLabel")}</label>
+          <label className="text-[13px] font-bold text-slate-500 uppercase tracking-wide">{t("publishDetail.rejectReasonLabel")}</label>
           <textarea
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             rows={3}
             placeholder={t("publishDetail.rejectReasonPlaceholder")}
-            className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
           />
-          <p className="text-[10px] text-slate-400">{t("publishDetail.rejectReasonHint")}</p>
+          <p className="text-[12px] text-slate-400">{t("publishDetail.rejectReasonHint")}</p>
         </div>
       </Modal>
     </div>

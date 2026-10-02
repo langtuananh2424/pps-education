@@ -11,6 +11,7 @@ import CurriculumFormModal from "../components/CurriculumFormModal";
 import CurriculumApprovalPanel from "../components/CurriculumApprovalPanel";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 export default function SyllabusPage() {
   const { t } = useTranslation("academic-curriculum");
@@ -47,12 +48,12 @@ export default function SyllabusPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("page.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           {t("page.description")}
         </p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <CurriculumListPanel
@@ -72,7 +73,7 @@ export default function SyllabusPage() {
             <BookOpen className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">{t("page.emptyTitle")}</h3>
-              <p className="text-xs text-slate-400 mt-1">{t("page.emptyDescription")}</p>
+              <p className="text-sm text-slate-400 mt-1">{t("page.emptyDescription")}</p>
             </div>
           </div>
         )}
@@ -80,7 +81,7 @@ export default function SyllabusPage() {
 
       {canApproveCurriculum && (
         <Card className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
+          <h3 className="text-sm font-bold text-slate-400 block uppercase tracking-wider font-display border-b border-slate-100 pb-2">
             {t("page.approvalSectionTitle")}
           </h3>
           <CurriculumApprovalPanel />

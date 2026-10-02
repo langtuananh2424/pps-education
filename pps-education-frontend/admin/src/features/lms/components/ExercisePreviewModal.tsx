@@ -47,7 +47,7 @@ function QuestionImages({ imageUrl }: { imageUrl: string }) {
       {urls.map((url, i) => (
         <div key={i} className="space-y-1">
           <img src={url} alt="" className="w-full aspect-square object-contain rounded-lg border border-slate-200 bg-white" />
-          <p className="text-center text-[10px] font-bold text-slate-400">{i + 1}</p>
+          <p className="text-center text-[12px] font-bold text-slate-400">{i + 1}</p>
         </div>
       ))}
     </div>
@@ -117,7 +117,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
       description={t("exercisePreviewModal.modalDescription")}
       size="lg"
     >
-      <div className="space-y-3 text-xs text-slate-600 mb-4 pb-3 border-b border-slate-100">
+      <div className="space-y-3 text-sm text-slate-600 mb-4 pb-3 border-b border-slate-100">
         <div className="flex gap-4">
           <span>
             {t("exercisePreviewModal.totalPoints")} <strong>{exercise.totalPoints}</strong>
@@ -135,9 +135,9 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
       </div>
 
       {loading ? (
-        <p className="text-xs text-slate-500 text-center py-6">{t("exercisePreviewModal.loading")}</p>
+        <p className="text-sm text-slate-500 text-center py-6">{t("exercisePreviewModal.loading")}</p>
       ) : exerciseQuestions.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-6">{t("exercisePreviewModal.empty")}</p>
+        <p className="text-sm text-slate-400 italic text-center py-6">{t("exercisePreviewModal.empty")}</p>
       ) : (
         <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
           {exerciseQuestions.map((eq, index) => {
@@ -152,23 +152,23 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                    * với "Câu N." gây nhìn nhầm thành 2 số dính nhau ("Câu 1. 1. Tom is...").
                    */}
                   <p className="text-sm font-bold text-slate-800">
-                    <span className="block text-slate-500 text-xs uppercase tracking-wider mb-1">
+                    <span className="block text-slate-500 text-sm uppercase tracking-wider mb-1">
                       {t("exercisePreviewModal.questionNumber", { index: index + 1 })}
                     </span>
                     <span className="whitespace-pre-line">{q?.content ?? eq.questionContent}</span>
                   </p>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">{eq.points} {t("common.pointsSuffix")}</span>
+                  <span className="text-[12px] font-bold uppercase text-slate-400 shrink-0">{eq.points} {t("common.pointsSuffix")}</span>
                 </div>
-                <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">{t(`exercisePreviewModal.questionTypeLabels.${eq.questionType}`)}</p>
+                <p className="text-[12px] text-slate-400 uppercase font-bold mb-2">{t(`exercisePreviewModal.questionTypeLabels.${eq.questionType}`)}</p>
 
                 {q?.imageUrl && <QuestionImages imageUrl={q.imageUrl} />}
                 {q?.audioUrl && <audio controls src={q.audioUrl} className="mb-2 w-full" />}
                 {q?.referencePassage && (
-                  <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2 whitespace-pre-line">{normalizeReferencePassage(q.referencePassage)}</p>
+                  <p className="text-sm text-slate-500 bg-slate-50 p-2 rounded-lg mb-2 whitespace-pre-line">{normalizeReferencePassage(q.referencePassage)}</p>
                 )}
                 {/* Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng tham khảo tĩnh (FillInBlankGroupBuilder), xem cùng khái niệm ở TakeExerciseModal.tsx. Dựng bằng <table> để khớp đúng bảng trong đề giấy gốc. */}
                 {q?.structuredContent?.wordBox && q.structuredContent.wordBox.length > 0 && (
-                  <table className="w-full border-collapse text-[11px] mb-2">
+                  <table className="w-full border-collapse text-[13px] mb-2">
                     <tbody>
                       {chunkArray(q.structuredContent.wordBox, 4).map((row, ri) => (
                         <tr key={ri}>
@@ -188,12 +188,12 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                     {q.choices.map((c) => (
                       <div
                         key={c.id}
-                        className={`flex items-center gap-2 text-xs p-2 rounded-lg border ${
+                        className={`flex items-center gap-2 text-sm p-2 rounded-lg border ${
                           c.isCorrect ? "bg-emerald-50 border-emerald-200 text-emerald-700 font-bold" : "border-slate-100 text-slate-600"
                         }`}
                       >
                         {c.isCorrect && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-                        <span className="font-mono text-[10px] shrink-0">{c.choiceLabel}.</span>
+                        <span className="font-mono text-[12px] shrink-0">{c.choiceLabel}.</span>
                         {/* V143 — dạng Listening chọn đáp án bằng hình: hiện thumbnail để GV xem đúng những gì học sinh sẽ thấy. */}
                         {c.imageUrl && <img src={c.imageUrl} alt={c.content} className="w-8 h-8 object-cover rounded shrink-0" />}
                         {hasMeaningfulCaption(c.choiceLabel, c.content) && <span>{c.content}</span>}
@@ -203,29 +203,29 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 )}
 
                 {eq.questionType === "SPEAKING" && (
-                  <p className="text-[11px] text-slate-400 italic">{t("exercisePreviewModal.speakingHint")}</p>
+                  <p className="text-[13px] text-slate-400 italic">{t("exercisePreviewModal.speakingHint")}</p>
                 )}
                 {eq.questionType === "ESSAY" && (
-                  <p className="text-[11px] text-slate-400 italic">{t("exercisePreviewModal.essayHint")}</p>
+                  <p className="text-[13px] text-slate-400 italic">{t("exercisePreviewModal.essayHint")}</p>
                 )}
                 {eq.questionType === "FILL_IN_BLANK" && q?.correctAnswerText && (
-                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                  <p className="text-[13px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
                     {t("exercisePreviewModal.fillInBlankAnswer", { answer: q.correctAnswerText })}
                   </p>
                 )}
                 {eq.questionType === "WORD_BANK" && q?.structuredContent?.blanks && (
-                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                  <p className="text-[13px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
                     {t("exercisePreviewModal.wordBankAnswerOrder", { answers: q.structuredContent.blanks.join(" — ") })}
                   </p>
                 )}
                 {eq.questionType === "SENTENCE_BUILDING" && q?.structuredContent?.chunks && (
-                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                  <p className="text-[13px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
                     {t("exercisePreviewModal.sentenceBuildingOrder", { order: q.structuredContent.chunks.join(" ") })}
                   </p>
                 )}
 
                 {q?.explanation && (
-                  <p className="text-[11px] text-slate-500 mt-2 italic">{t("exercisePreviewModal.explanationPrefix", { text: q.explanation })}</p>
+                  <p className="text-[13px] text-slate-500 mt-2 italic">{t("exercisePreviewModal.explanationPrefix", { text: q.explanation })}</p>
                 )}
               </div>
             );

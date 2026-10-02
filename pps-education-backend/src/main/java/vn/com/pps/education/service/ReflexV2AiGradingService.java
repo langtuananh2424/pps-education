@@ -48,6 +48,10 @@ import java.util.Optional;
  *
  * Lỗi gọi AI/parse trả {@code null} (caller báo "AI chấm lỗi", học sinh nộp lại). Bản ghi bị từ chối
  * ném {@link ReflexAudioRejectedException} (HTTP 422, không trả điểm).
+ *
+ * Bản 1/10: thêm cổng độ dài cho đề NGẮN (SHORT, không chỉ PART2) và ép mọi điểm tiêu chí bài NÓI về lưới
+ * 10 làm tròn xuống (thầy cô chấm theo bội số 10) — xem {@link ReflexV2Scoring#lengthGate}/
+ * {@link ReflexV2Scoring#snapToGrid10}.
  */
 @Service
 public class ReflexV2AiGradingService {
@@ -295,7 +299,7 @@ public class ReflexV2AiGradingService {
                 }
             }
             double spokenSec = measured.map(m -> m.spanSec() > 0 ? m.spanSec() : m.speechSec()).orElse(0.0);
-            ReflexV2Scoring.LexicalEvidence lexical = noSpeech ? null : ReflexV2Scoring.lexicalCeiling(transcript, task.seconds());
+            ReflexV2Scoring.LexicalEvidence lexical = noSpeech ? null : ReflexV2Scoring.lexicalCeiling(transcript, task.lexicalSeconds());
             ReflexV2Scoring.FluencyEvidence fluency = noSpeech ? null : ReflexV2Scoring.fluencyCeiling(transcript, longestPause);
             ReflexV2Scoring.LengthEvidence length = ReflexV2Scoring.lengthGate(task, transcript, spokenSec);
             ReflexV2Scoring.Readback readback = noSpeech ? null : readbackRaw;
@@ -306,6 +310,8 @@ public class ReflexV2AiGradingService {
                 // Trần theo lỗi đã tô trên transcript không được đụng tới điểm đã giữ từ Bước 1.
                 capped = ReflexV2Scoring.keepGrammarFromStep1(grammar, capped, anchor.grammarPercent());
             }
+            // Bản 1/10 — ép lưới 10 là BƯỚC CUỐI, sau mọi trần/sàn khác (xem Javadoc snapToGrid10).
+            capped = ReflexV2Scoring.snapToGrid10(capped);
             // Quy trình phòng đào tạo 29/9: chỉ MỘT lượt phiên âm nên vài từ nghe nhầm có thể thành lỗi đỏ ngữ pháp
             // giả. Bài đi nhánh chấm lại mà có ≥2 lỗi đỏ ngữ pháp → điểm Ngữ pháp chỉ là tham khảo, giáo viên soát
             // lại (kể cả khi điểm chấm lại vốn đã ≤60% nên trần không đổi con số — nghe nhầm vẫn có thể đã kéo điểm).

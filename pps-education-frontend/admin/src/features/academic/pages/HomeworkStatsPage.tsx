@@ -15,6 +15,7 @@ import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
 import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
 import Pagination from "@/components/ui/Pagination";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — lọc theo GV Việt Nam/nước ngoài, dùng chung cho cả 2 nguồn (Exercise lấy qua exam.teacherType, review-video lấy trực tiếp từ set.teacherType). */
 type TeacherTypeFilter = "VIETNAMESE" | "FOREIGN";
@@ -121,7 +122,7 @@ function BatchGroupRows({
         members.map((m) => (
           <tr key={`exercise-${m.assignmentId}`} className="bg-white">
             <Td className="pl-8 text-slate-700">
-              {m.exerciseTitle} <span className="text-slate-400 font-mono text-[10px]">({m.exerciseCode})</span>
+              {m.exerciseTitle} <span className="text-slate-400 font-mono text-[12px]">({m.exerciseCode})</span>
             </Td>
             <Td>
               <Badge variant="neutral">{exerciseTypeLabels[m.exerciseType]}</Badge>
@@ -236,10 +237,10 @@ export default function HomeworkStatsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("list.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("list.subtitle")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("list.subtitle")}</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {!selectedClassId ? (
         <Card>
@@ -249,7 +250,7 @@ export default function HomeworkStatsPage() {
         <Card padded={false} className="overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-xs font-bold text-slate-700 font-display block">
+              <span className="text-sm font-bold text-slate-700 font-display block">
                 {selectedClass ? `${selectedClass.classCode} — ${selectedClass.name}` : t("list.selectedClassFallback")} (
                 {hasActiveFilters ? `${filteredRows.length}/${rows.length}` : rows.length} {t("shared.assignmentUnit")})
               </span>
@@ -267,7 +268,7 @@ export default function HomeworkStatsPage() {
                       type="button"
                       onClick={() => setTeacherTypeFilter(opt.value)}
                       title={opt.value ? teacherTypeLabels[opt.value] : t("list.teacherType.all")}
-                      className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-colors ${
+                      className={`px-3 py-1.5 rounded-md text-[13px] font-bold transition-colors ${
                         teacherTypeFilter === opt.value ? "bg-brand-gradient text-white" : "text-slate-500 hover:bg-slate-50"
                       }`}
                     >
@@ -285,7 +286,7 @@ export default function HomeworkStatsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={t("list.searchPlaceholder")}
-                    className="w-full bg-white border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
+                    className="w-full bg-white border border-slate-200 text-sm pl-8 pr-3 py-2 rounded-lg focus:outline-none"
                   />
                 </div>
                 <div className="sm:w-52">
@@ -299,7 +300,7 @@ export default function HomeworkStatsPage() {
                       setDateFilter("");
                       setTeacherTypeFilter(null);
                     }}
-                    className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-700 shrink-0"
+                    className="flex items-center gap-1 text-[13px] font-bold text-slate-500 hover:text-slate-700 shrink-0"
                   >
                     <X className="w-3.5 h-3.5" /> {t("list.clearFilters")}
                   </button>
@@ -308,7 +309,7 @@ export default function HomeworkStatsPage() {
             )}
           </div>
           {loading ? (
-            <p className="text-xs text-slate-500 p-5">{t("shared.loading")}</p>
+            <p className="text-sm text-slate-500 p-5">{t("shared.loading")}</p>
           ) : rows.length === 0 ? (
             <EmptyState icon={BarChart3} title={t("list.emptyNoRows.title")} description={t("list.emptyNoRows.description")} />
           ) : filteredRows.length === 0 ? (
@@ -353,7 +354,7 @@ export default function HomeworkStatsPage() {
                     ) : (
                     <tr key={`exercise-${r.data.assignmentId}`}>
                       <Td className="font-semibold text-slate-900">
-                        {r.data.exerciseTitle} <span className="text-slate-400 font-mono text-[10px]">({r.data.exerciseCode})</span>
+                        {r.data.exerciseTitle} <span className="text-slate-400 font-mono text-[12px]">({r.data.exerciseCode})</span>
                       </Td>
                       <Td>
                         <Badge variant="neutral">{exerciseTypeLabels[r.data.exerciseType]}</Badge>
@@ -385,7 +386,7 @@ export default function HomeworkStatsPage() {
                   ) : (
                     <tr key={`review-video-${r.data.assignmentId}`}>
                       <Td className="font-semibold text-slate-900">
-                        {r.data.reviewVideoSetTitle} <span className="text-slate-400 font-mono text-[10px]">({r.data.reviewVideoSetCode})</span>
+                        {r.data.reviewVideoSetTitle} <span className="text-slate-400 font-mono text-[12px]">({r.data.reviewVideoSetCode})</span>
                       </Td>
                       <Td>
                         <Badge variant="info">{reviewVideoTypeLabels[r.data.videoType]}</Badge>

@@ -69,7 +69,7 @@ export default function UserSearchCombobox({ value, onChange, placeholder, roleF
 
   if (value) {
     return (
-      <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
+      <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm font-semibold px-3 py-2 rounded-lg">
         <span className="flex items-center gap-1.5 truncate">
           <UserCheck className="w-3.5 h-3.5 shrink-0" />
           {value.fullName} ({value.username})
@@ -97,15 +97,15 @@ export default function UserSearchCombobox({ value, onChange, placeholder, roleF
             setOpen(true);
           }}
           placeholder={placeholder ?? t("userSearchCombobox.defaultPlaceholder")}
-          className="w-full bg-white border border-slate-200 text-xs p-2 pl-8 rounded-lg focus:outline-none"
+          className="w-full bg-white border border-slate-200 text-sm p-2 pl-8 rounded-lg focus:outline-none"
         />
       </div>
       {open && (
         <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
           {loading ? (
-            <p className="px-3 py-2 text-xs text-slate-400">{t("userSearchCombobox.loading")}</p>
+            <p className="px-3 py-2 text-sm text-slate-400">{t("userSearchCombobox.loading")}</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-400 italic">{t("userSearchCombobox.empty")}</p>
+            <p className="px-3 py-2 text-sm text-slate-400 italic">{t("userSearchCombobox.empty")}</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {results.map((u) => (
@@ -117,7 +117,7 @@ export default function UserSearchCombobox({ value, onChange, placeholder, roleF
                     setQuery("");
                     setOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
+                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
                 >
                   {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
                 </button>
@@ -125,7 +125,7 @@ export default function UserSearchCombobox({ value, onChange, placeholder, roleF
             </div>
           )}
           {!loading && truncated && (
-            <p className="px-3 py-1.5 text-[10px] text-amber-600 bg-amber-50 border-t border-amber-100 italic">
+            <p className="px-3 py-1.5 text-[12px] text-amber-600 bg-amber-50 border-t border-amber-100 italic">
               {t("userSearchCombobox.truncatedHint")}
             </p>
           )}

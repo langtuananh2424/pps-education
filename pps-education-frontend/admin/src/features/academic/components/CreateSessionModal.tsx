@@ -9,9 +9,10 @@ import { DayPart, listRoomsBySite, listSites, RoomResponse, SiteResponse } from 
 import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, ClassResponse, bulkCreateClassSessions, listClasses } from "../api";
 import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 const weekdays: { value: string; label: string }[] = [
   { value: "MONDAY", label: "Thứ 2" },
@@ -223,13 +224,13 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
   return (
     <Modal open onClose={onClose} title="Xếp lịch buổi học" size="lg">
       <form onSubmit={handleSubmit} className="space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Trường {!siteLocked && "*"}</label>
             {siteLocked ? (
-              <p className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 rounded-lg p-2.5">
+              <p className="text-sm font-bold text-slate-700 bg-slate-100 border border-slate-200 rounded-lg p-2.5">
                 {sites.find((s) => s.id === effectiveSiteId)?.name ?? "…"}
               </p>
             ) : (
@@ -253,7 +254,7 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
                 </option>
               ))}
             </Select>
-            {lockedClassId && <p className="text-[10px] text-slate-400 italic mt-1">Đã chọn theo bộ lọc "Lớp" trên trang.</p>}
+            {lockedClassId && <p className="text-[12px] text-slate-400 italic mt-1">Đã chọn theo bộ lọc "Lớp" trên trang.</p>}
           </div>
         </div>
 
@@ -276,7 +277,7 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
                 key={d.value}
                 type="button"
                 onClick={() => toggleDay(d.value)}
-                className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
+                className={`text-[13px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
                   selectedDays.has(d.value) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -287,7 +288,7 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
         </div>
 
         {effectiveSiteId == null ? (
-          <p className="text-[11px] text-slate-400 italic">Chọn điểm trường trước để xem tiết học.</p>
+          <p className="text-[13px] text-slate-400 italic">Chọn điểm trường trước để xem tiết học.</p>
         ) : (
           <PeriodMultiSelect siteId={effectiveSiteId} required dayPart={dayPart} onDayPartChange={setDayPart} selected={selectedPeriods} onChange={setSelectedPeriods} />
         )}
@@ -310,14 +311,14 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
             ))}
           </Select>
           {effectiveSiteId != null && rooms.length === 0 && (
-            <p className="text-[10px] text-slate-400 italic mt-1">Điểm trường chưa có phòng — thêm ở trang Phòng học &amp; Thiết bị.</p>
+            <p className="text-[12px] text-slate-400 italic mt-1">Điểm trường chưa có phòng — thêm ở trang Phòng học &amp; Thiết bị.</p>
           )}
           {roomId !== "" && (
-            <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer mt-2">
+            <label className="flex items-start gap-2 text-sm text-slate-600 cursor-pointer mt-2">
               <input type="checkbox" checked={allowRoomOverlap} onChange={(e) => setAllowRoomOverlap(e.target.checked)} className="mt-0.5" />
               <span>
                 Cho phép trùng phòng học với buổi khác
-                <span className="block text-[10px] text-slate-400 italic">
+                <span className="block text-[12px] text-slate-400 italic">
                   Dùng khi 2 nhóm lớp gộp lại học chung 1 phòng cùng khung giờ. Không tick thì ngày trùng phòng sẽ bị bỏ qua khi lưu.
                 </span>
               </span>
@@ -335,7 +336,7 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
         </div>
 
         <div className="flex flex-wrap gap-x-5 gap-y-1">
-          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
             <input
               type="checkbox"
               checked={hasAssistant}
@@ -349,7 +350,7 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
             />
             Có giáo viên phụ
           </label>
-          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
             <input
               type="checkbox"
               checked={hasCm}
@@ -409,14 +410,14 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
               placeholder="VD: Alex"
               className={inputClass}
             />
-            <p className="text-[10px] text-slate-400 italic mt-1">
+            <p className="text-[12px] text-slate-400 italic mt-1">
               GVNN không có tài khoản hệ thống — nhập tên thật để hiển thị trên lưới, khớp với "Tên giáo viên giảng
               dạy" ở Nhận xét học viên.
             </p>
           </div>
         )}
 
-        <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+        <label className="flex items-start gap-2 text-sm text-slate-600 cursor-pointer">
           <input
             type="checkbox"
             checked={allowTeacherOverlap}
@@ -425,13 +426,13 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
           />
           <span>
             Cho phép giáo viên chính trùng giờ với buổi dạy khác
-            <span className="block text-[10px] text-slate-400 italic">
+            <span className="block text-[12px] text-slate-400 italic">
               Dùng khi lớp tách nhóm (VD 7A4-1/7A4-2) dùng chung 1 giáo viên và dạy đồng thời cùng khung giờ.
             </span>
           </span>
         </label>
 
-        <p className="text-[11px] text-slate-400 italic">
+        <p className="text-[13px] text-slate-400 italic">
           {mode === "immediate"
             ? "Bấm \"Xếp lịch\" sẽ ghi thật ngay (server sẽ tự bỏ qua ngày bị trùng lịch)."
             : "Buổi vừa thêm sẽ hiện trên lưới ở dạng \"chưa lưu\" — bấm \"Lưu\" ở đầu lưới để ghi thật (server sẽ tự bỏ qua ngày bị trùng lịch)."}

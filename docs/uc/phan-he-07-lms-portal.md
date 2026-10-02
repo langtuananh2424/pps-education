@@ -1141,13 +1141,53 @@ UC-24: Làm bài kiểm tra trực tuyến
 > Bản ghi sạch (tín/tạp bình thường) không đổi số đo. Không liên quan tới bộ
 > lọc thu âm phía trình duyệt (`reflexRecordingFilter.ts`, V199) — đó là lọc
 > TRƯỚC khi nộp, còn đây là đo SAU khi nhận, hai cơ chế độc lập.
-> (c) Chưa làm (ngoài phạm vi đợt này, theo đúng báo cáo của người training):
-> điểm Trôi chảy (FC) vẫn chấm cao hơn thực tế 20–30 điểm ở nhiều bài — bốn
-> hướng sửa đã thử đều bị số đo bác bỏ (tốc độ nói, mật độ ngập ngừng, hạ
-> ngưỡng khoảng dừng, trần "FC ≤ Phát âm + 20") — xem `CALIBRATION.md` mục
-> "Điểm Trôi chảy (FC) rộng tay". Người training cũng nêu nghi vấn LMS và bộ
-> chấm tham chiếu của họ có thể đang cho điểm Phát âm NGƯỢC NHAU trên cùng 1
-> bài — CHƯA xác minh, cần đối chiếu lại nếu dùng dữ liệu hiệu chuẩn của họ.
+> (c) Cập nhật 1/10 — nguyên nhân THẬT của mục (c) cũ ("FC chấm cao hơn thực
+> tế") đã tìm ra, KHÔNG phải 1 trong 4 giả thuyết đã thử ngày 30/9 (xem bản
+> cập nhật ngay dưới đây, ĐÈ LÊN đoạn này).
+
+> **Cập nhật rubric v3 — bản bàn giao 1/10/2026 (đã xác nhận với người dùng
+> 2026-10-02), không có migration mới:**
+> (a) **Nguyên nhân thật của "FC chấm cao hơn thực tế"**: không một checkpoint
+> Trôi chảy/Từ vựng nào đo *lượng nói* trên đề NGẮN (25-30 giây) — chỉ đếm chỗ
+> ngắt/ý/từ nối/lặp — nên 1 câu duy nhất (VD 18 hoặc 23 từ) quét sạch mọi ô.
+> Khối 7 đã có cổng này (`<15 từ → trần 40%`); Khối 8-9 để trống. Thêm cổng
+> ngắn (`ReflexV2Scoring.SHORT_MIN_WORDS = 25`, chỉ xét SỐ TỪ, KHÔNG có nhánh
+> "nói đủ lâu thì cứu" như Part 2 — bài đã ngắn sẵn, nói hết giờ mà ít từ
+> chính là rề rà) cho mọi dạng bài có `rubricFormat = "SHORT"` (Khối 7-9
+> IELTS) — không ảnh hưởng Cambridge/Khối 6 vì cổng chỉ tác động tiêu chí FC/LR.
+> Mốc 25 lấy từ chính bộ điểm neo, không phải đoán (18-36 từ không có mẫu
+> hiệu chuẩn nào, nghiêng nhẹ tay).
+> (b) **Dải Phát âm: SÀN chỉ áp khi so được ≥30 từ** (`ReflexV2Scoring.
+> READBACK_MIN_FOR_FLOOR`), TRẦN vẫn áp ở mọi độ dài. Lỗi có từ trước: mẫu quá
+> nhỏ (VD chỉ so được 9 từ, lệch 2 = 22%) rơi vào dải cao thì sàn NÂNG oan một
+> bài rất yếu lên 75-85% (chấm tay 20-40%). Bất đối xứng có chủ đích: ít bằng
+> chứng chỉ dè dặt ở chiều NÂNG, không phải chiều HẠ (đọc lệch nhiều dù ít từ
+> vẫn là bằng chứng thật).
+> (c) **Khối 9 Part 2: tách mẫu số Từ vựng khỏi hạn ghi âm** — ngày 28/9 hạn
+> ghi âm được nới 90→120 giây để học sinh có thêm thời gian, nhưng mật độ Từ
+> vựng (`lexicalCeiling`) vô tình chia theo con số mới, tự siết trần Từ vựng
+> ~20 điểm dù không ai chủ ý sửa điểm Từ vựng. `ReflexV2Task#lexicalSeconds()`
+> tách riêng: Khối 9 Part 2 vẫn chia theo 90 giây (kỳ vọng lượng nói không đổi),
+> `seconds()` giữ 120 cho các ngưỡng khác (bài neo, cổng độ dài).
+> (d) **Ép mọi điểm tiêu chí BÀI NÓI về lưới 10, làm tròn XUỐNG**
+> (`ReflexV2Scoring.snapToGrid10`, gọi ở BƯỚC CUỐI sau mọi trần/sàn khác kể cả
+> sàn Ngữ pháp/giữ điểm Bước 1) — phòng đào tạo xác nhận thầy cô luôn chấm
+> theo bội số của 10; vài trần/sàn (dải đọc lệch 85/75, `fluencyCeiling` 85,
+> sàn nửa-điểm-Bước-1 khi Bước 1 lẻ 5 — VD 70→35) cho ra số lẻ chục mà không
+> thầy cô nào chấm, nên luôn lệch ít nhất 5 điểm dù chấm đúng mọi logic. KHÔNG
+> áp cho bài VIẾT (không có trần/sàn lẻ chục nào ở bước đó).
+> (e) Ghi thêm **cổng C4 — Dừng quá lâu** vào 5 rubric khối 7-9 có FC/DM
+> (hành vi KHÔNG đổi — đây là luật đã có trong `fluencyCeiling` từ 26/9,
+> trước nay chỉ nằm trong mã mà rubric không nhắc tới, nên model chấm không
+> biết luật và giáo viên đọc rubric cũng không thấy).
+> (f) Xác nhận lại: bộ giải mã webm/opus/m4a sang WAV trước khi đo tiếng nói
+> (`AudioTranscoder`) của hệ thống này ĐÃ dùng file tạm (không qua pipe) từ
+> đầu — không mắc lỗi "M4A/Safari-iPhone không tua được" mà người training vá
+> trong ngày (lỗi đó chỉ xảy ra ở bản tham chiếu của họ, dùng pipe). Không cần
+> sửa gì ở `AudioTranscoder`.
+> (g) Chưa làm (đúng theo báo cáo): nấc Từ vựng còn thiếu mốc 70% (hiện chỉ có
+> 60/80/90/100) — chờ phòng đào tạo điền `PHIEU-CHAM-TU-VUNG.md` (10/11 dòng
+> còn thiếu điểm thầy cô chấm) rồi mới đặt được nấc.
 
 > **Bổ sung V200 (2026-09-29, đã xác nhận với người dùng) — DẠNG ĐỀ tường minh
 > cho câu hỏi Video phản xạ.** Trước đây dạng đề được SUY từ khối/tuyến + thời

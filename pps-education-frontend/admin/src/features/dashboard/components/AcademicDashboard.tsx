@@ -16,6 +16,7 @@ import {
   getAcademicDashboard,
   getSessionReportTracking
 } from "@/features/academic/oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 const CHECK_IN_BADGES: Record<DashboardCheckInState, BadgeVariant> = {
   ON_TIME: "success",
@@ -115,10 +116,10 @@ export default function AcademicDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("academic.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("academic.subtitle")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("academic.subtitle")}</p>
       </div>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
@@ -145,7 +146,7 @@ export default function AcademicDashboard() {
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-800 font-display">{t("academic.todayTitle")}</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[13px] text-slate-500 mt-0.5">
                 {t("academic.todaySummary", {
                   total: activeSessionCount,
                   onTime: countState("ON_TIME"),
@@ -157,16 +158,16 @@ export default function AcademicDashboard() {
             <CalendarCheck className="w-5 h-5 text-slate-300" />
           </div>
           {sessions.length === 0 ? (
-            <p className="text-xs text-slate-400 py-6 text-center">{t("academic.noSessionsToday")}</p>
+            <p className="text-sm text-slate-400 py-6 text-center">{t("academic.noSessionsToday")}</p>
           ) : (
             <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
               {sessions.map((s) => (
                 <div key={s.sessionId} className="py-2.5 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-800 truncate">
+                    <p className="text-sm font-bold text-slate-800 truncate">
                       {s.startTime}–{s.endTime} · {s.className}
                     </p>
-                    <p className="text-[11px] text-slate-500 truncate">{s.teacherName} · {s.siteName}</p>
+                    <p className="text-[13px] text-slate-500 truncate">{s.teacherName} · {s.siteName}</p>
                   </div>
                   <Badge variant={CHECK_IN_BADGES[s.checkInState]}>{t(`academic.checkInStates.${s.checkInState}`)}</Badge>
                 </div>
@@ -182,14 +183,14 @@ export default function AcademicDashboard() {
                 <h3 className="text-sm font-bold text-slate-800 font-display">{tReports("sessionReports.dashboardTitle")}</h3>
                 <FileCheck2 className="w-5 h-5 text-slate-300 shrink-0" />
               </div>
-              <p className={`text-xs mt-2 ${reports && reports.missing + reports.approvalOverdue + reports.resubmitOverdue > 0 ? "text-rose-600 font-semibold" : "text-slate-500"}`}>
+              <p className={`text-sm mt-2 ${reports && reports.missing + reports.approvalOverdue + reports.resubmitOverdue > 0 ? "text-rose-600 font-semibold" : "text-slate-500"}`}>
                 {!reports
                   ? "—"
                   : reports.missing + reports.approvalOverdue + reports.resubmitOverdue === 0
                     ? tReports("sessionReports.dashboardNone")
                     : tReports("sessionReports.dashboardSummary", { ...reports })}
               </p>
-              <Link to="/reports/session-reports" className="inline-block text-[11px] font-semibold text-brand-red hover:underline mt-3">
+              <Link to="/reports/session-reports" className="inline-block text-[13px] font-semibold text-brand-red hover:underline mt-3">
                 {tReports("sessionReports.dashboardView")}
               </Link>
             </Card>
@@ -204,7 +205,7 @@ export default function AcademicDashboard() {
                 { label: t("academic.pendingLeaves"), value: pending?.leaves, to: "/hrm/leaves" }
               ].map((row) => (
                 <Link key={row.to} to={row.to} className="flex items-center justify-between rounded-lg px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors">
-                  <span className="text-xs text-slate-600">{row.label}</span>
+                  <span className="text-sm text-slate-600">{row.label}</span>
                   <span className={`text-sm font-bold ${row.value ? "text-brand-red" : "text-slate-400"}`}>{row.value ?? "—"}</span>
                 </Link>
               ))}
@@ -215,25 +216,25 @@ export default function AcademicDashboard() {
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 font-display">{t("academic.teacherAlertsTitle")}</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">{t("academic.teacherAlertsHint")}</p>
+                <p className="text-[13px] text-slate-500 mt-0.5">{t("academic.teacherAlertsHint")}</p>
               </div>
               <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
             </div>
             {!data || data.teacherAlerts.length === 0 ? (
-              <p className="text-xs text-slate-400 py-3">{t("academic.noTeacherAlerts")}</p>
+              <p className="text-sm text-slate-400 py-3">{t("academic.noTeacherAlerts")}</p>
             ) : (
               <div className="divide-y divide-slate-100">
                 {data.teacherAlerts.map((r) => (
                   <div key={r.teacherUserId ?? r.teacherName} className="py-2">
-                    <p className="text-xs font-semibold text-slate-800">{r.teacherName}</p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-sm font-semibold text-slate-800">{r.teacherName}</p>
+                    <p className="text-[13px] text-slate-500">
                       {t("academic.teacherAlertLine", { late: r.lateCheckIns, missing: r.missingCheckIns, held: r.heldSessions })}
                     </p>
                   </div>
                 ))}
               </div>
             )}
-            <Link to="/reports/teaching-stats" className="inline-block text-[11px] font-semibold text-brand-red hover:underline mt-3">
+            <Link to="/reports/teaching-stats" className="inline-block text-[13px] font-semibold text-brand-red hover:underline mt-3">
               {t("academic.viewTeachingStats")}
             </Link>
           </Card>
