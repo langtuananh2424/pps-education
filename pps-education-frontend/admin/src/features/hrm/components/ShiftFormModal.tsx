@@ -9,8 +9,8 @@ import Select from "@/components/ui/Select";
 import Time24Input from "@/components/ui/Time24Input";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 const WEEKDAY_VALUES = [1, 2, 3, 4, 5, 6, 7];
 
@@ -140,7 +140,7 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
         </div>
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("shiftForm.windowSectionTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("shiftForm.windowSectionTitle")}</span>
           <div className="grid grid-cols-4 gap-3">
             <div>
               <label className={labelClass}>{t("shiftForm.checkInBefore")}</label>
@@ -186,14 +186,14 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
         </div>
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("shiftForm.weekdaysSectionTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("shiftForm.weekdaysSectionTitle")}</span>
           <div className="flex flex-wrap gap-2">
             {WEEKDAY_VALUES.map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => toggleWeekday(value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors cursor-pointer ${
                   weekdays.has(value)
                     ? "bg-brand-orange/10 border-brand-orange text-brand-red"
                     : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"

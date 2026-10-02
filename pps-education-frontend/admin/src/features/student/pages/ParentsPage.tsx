@@ -96,7 +96,7 @@ export default function ParentsPage() {
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("parentsPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("parentsPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("parentsPage.description")}</p>
         </div>
         {hasPermission("student.parent.import") && (
           <ImportExcelButton
@@ -131,7 +131,7 @@ export default function ParentsPage() {
             <Users className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">{t("parentsPage.emptyTitle")}</h3>
-              <p className="text-xs text-slate-400 mt-1">{t("parentsPage.emptyDescription")}</p>
+              <p className="text-sm text-slate-400 mt-1">{t("parentsPage.emptyDescription")}</p>
             </div>
           </div>
         )}

@@ -43,7 +43,7 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
     <form onSubmit={handleSubmit} className="bg-emerald-50/40 border border-emerald-200 rounded-xl p-4 space-y-3">
       <FloatingError message={error} onClose={() => setError(null)} />
 
-      <p className="text-[10px] text-slate-500 bg-white border border-slate-200 rounded-lg p-2.5">
+      <p className="text-[12px] text-slate-500 bg-white border border-slate-200 rounded-lg p-2.5">
         Định dạng cột (dòng 1 = tiêu đề, dữ liệu từ dòng 2): <b>A</b>=Ngày (dd/MM/yyyy), <b>B</b>=Tiết (VD "1-2" hoặc "1,3"),{" "}
         <b>C</b>=Loại buổi (trống=REGULAR), <b>D</b>=Loại giáo viên (VIETNAMESE/FOREIGN, bắt buộc), <b>E</b>=Username GV chính (bắt buộc),{" "}
         <b>F</b>=Username GV phụ (tuỳ chọn), <b>G</b>=Username CM (tuỳ chọn), <b>H</b>=Mã phòng (tuỳ chọn).
@@ -53,14 +53,14 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
         <input type="file" accept=".xlsx" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         <Upload className="w-6 h-6 text-slate-500 mx-auto mb-1.5" />
         {file ? (
-          <p className="text-xs font-bold text-slate-800">{file.name}</p>
+          <p className="text-sm font-bold text-slate-800">{file.name}</p>
         ) : (
-          <p className="text-xs font-bold text-slate-600">{t("importSchedule.dropzoneText")}</p>
+          <p className="text-sm font-bold text-slate-600">{t("importSchedule.dropzoneText")}</p>
         )}
       </label>
 
       {result && (
-        <div className={`p-3 rounded-lg text-xs space-y-1.5 border ${result.failedRows === 0 ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}>
+        <div className={`p-3 rounded-lg text-sm space-y-1.5 border ${result.failedRows === 0 ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}>
           <div className="flex items-center gap-1.5 font-bold">
             {result.failedRows === 0 ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
             <span>
@@ -73,7 +73,7 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
           {result.errorSummary && result.errorSummary.length > 0 && (
             <div className="space-y-0.5 max-h-28 overflow-y-auto">
               {result.errorSummary.map((err, i) => (
-                <p key={i} className="text-[10px] text-rose-600">
+                <p key={i} className="text-[12px] text-rose-600">
                   {JSON.stringify(err)}
                 </p>
               ))}

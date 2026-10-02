@@ -191,7 +191,7 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
             key={f}
             type="button"
             onClick={() => setFormat(f)}
-            className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+            className={`text-[13px] font-bold px-3 py-1.5 rounded-md transition-all ${
               format === f ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -201,11 +201,11 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
       </div>
 
       <div>
-        <label className="block font-bold text-slate-600 mb-1 text-[10px] uppercase tracking-wider">{t("questionImportPanel.defaultKindLabel")}</label>
+        <label className="block font-bold text-slate-600 mb-1 text-[12px] uppercase tracking-wider">{t("questionImportPanel.defaultKindLabel")}</label>
         <Select
           value={defaultKind}
           onChange={(e) => setDefaultKind(e.target.value)}
-          className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
+          className="w-full bg-white border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
         >
           <option value="">{t("questionImportPanel.defaultKindNone")}</option>
           {defaultKindOptions.map((token) => (
@@ -214,14 +214,14 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
             </option>
           ))}
         </Select>
-        <p className="text-[9px] text-slate-400 mt-1">{t("questionImportPanel.defaultKindHint")}</p>
+        <p className="text-[13px] text-slate-400 mt-1">{t("questionImportPanel.defaultKindHint")}</p>
       </div>
 
       <button
         type="button"
         onClick={handleDownloadTemplate}
         disabled={downloadingTemplate}
-        className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
       >
         <Download className="w-4 h-4" />
         {downloadingTemplate ? t("common.loading") : t("questionImportPanel.downloadTemplate", { format })}
@@ -234,7 +234,7 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
         className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-8 text-slate-500 hover:border-brand-orange hover:bg-orange-50/30 transition-colors disabled:opacity-50"
       >
         <UploadCloud className="w-6 h-6 text-brand-orange" />
-        <span className="text-xs font-bold text-slate-700">
+        <span className="text-sm font-bold text-slate-700">
           {submitting ? t("common.creating") : t("questionImportPanel.clickToChooseFile", { format })}
         </span>
       </button>
@@ -247,24 +247,24 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-slate-50 border border-slate-100 rounded-lg py-2">
               <div className="text-sm font-bold text-slate-800">{result.totalRows ?? "—"}</div>
-              <div className="text-[10px] text-slate-400">{t("questionImportPanel.totalRows")}</div>
+              <div className="text-[12px] text-slate-400">{t("questionImportPanel.totalRows")}</div>
             </div>
             <div className="bg-emerald-50 border border-emerald-100 rounded-lg py-2">
               <div className="text-sm font-bold text-emerald-600">{result.successRows}</div>
-              <div className="text-[10px] text-emerald-500">{t("questionImportPanel.successRows")}</div>
+              <div className="text-[12px] text-emerald-500">{t("questionImportPanel.successRows")}</div>
             </div>
             <div className="bg-rose-50 border border-rose-100 rounded-lg py-2">
               <div className="text-sm font-bold text-rose-600">{result.failedRows}</div>
-              <div className="text-[10px] text-rose-500">{t("questionImportPanel.failedRows")}</div>
+              <div className="text-[12px] text-rose-500">{t("questionImportPanel.failedRows")}</div>
             </div>
           </div>
 
           {result.errorSummary.length > 0 && (
             <div className="border border-rose-100 rounded-lg overflow-hidden">
-              <div className="bg-rose-50 px-3 py-1.5 text-[10px] font-bold text-rose-600 uppercase">{t("questionImportPanel.errorDetailTitle")}</div>
+              <div className="bg-rose-50 px-3 py-1.5 text-[12px] font-bold text-rose-600 uppercase">{t("questionImportPanel.errorDetailTitle")}</div>
               <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                 {result.errorSummary.map((e, i) => (
-                  <div key={i} className="px-3 py-1.5 text-xs flex gap-2">
+                  <div key={i} className="px-3 py-1.5 text-sm flex gap-2">
                     <span className="font-mono font-bold text-slate-400 shrink-0">#{e.row}</span>
                     <span className="text-slate-600">{e.reason}</span>
                   </div>

@@ -42,9 +42,9 @@ import FloatingError from "@/components/ui/FloatingError";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "parents" | "transfer" | "status";
 
@@ -63,7 +63,7 @@ export default function StudentDetailPanel({ student, onChanged }: StudentDetail
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {student.studentCode}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{student.fullName}</h2>
@@ -83,7 +83,7 @@ export default function StudentDetailPanel({ student, onChanged }: StudentDetail
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -166,7 +166,7 @@ function ProfileTab({
             max={TODAY_ISO}
             hasError={dateOfBirthInvalid}
           />
-          {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("studentDetail.profile.dobRequired")}</p>}
+          {dateOfBirthInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("studentDetail.profile.dobRequired")}</p>}
         </div>
         <div>
           <label className={labelClass}>{t("studentDetail.profile.genderLabel")}</label>
@@ -190,7 +190,7 @@ function ProfileTab({
           <textarea value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={inputClass} />
         </div>
       </div>
-      <p className="text-[10px] text-slate-400 italic">{t("studentDetail.profile.hint")}</p>
+      <p className="text-[12px] text-slate-400 italic">{t("studentDetail.profile.hint")}</p>
       {hasPermission("student.profile.update") && (
         <Button type="submit" variant="primary" size="sm" disabled={saving}>
           <Save className="w-3.5 h-3.5" />
@@ -286,13 +286,13 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("studentDetail.parents.loading")}</p>
+        <p className="text-sm text-slate-500">{t("studentDetail.parents.loading")}</p>
       ) : links.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("studentDetail.parents.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("studentDetail.parents.empty")}</p>
       ) : (
         <div className="space-y-2">
           {links.map((l) => (
-            <div key={l.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div key={l.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-slate-800">{l.parentFullName}</span>
                 <Badge variant="info">{t(`relationship.${l.relationship}`, l.relationship)}</Badge>
@@ -326,11 +326,11 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
               <option value="GUARDIAN">{t("relationship.GUARDIAN")}</option>
               <option value="OTHER">{t("relationship.OTHER")}</option>
             </Select>
-            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={info.isPrimaryContact} onChange={(e) => setInfo({ ...info, isPrimaryContact: e.target.checked })} />
               {t("studentDetail.parents.primaryContactCheckbox")}
             </label>
-            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={info.isFinancialResponsible} onChange={(e) => setInfo({ ...info, isFinancialResponsible: e.target.checked })} />
               {t("studentDetail.parents.financialResponsibleCheckbox")}
             </label>
@@ -446,7 +446,7 @@ function TransferTab({ student, onChanged, showToast }: { student: StudentRespon
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentDetail.transfer.sectionTitle", { count: history.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("studentDetail.transfer.sectionTitle", { count: history.length })}</span>
         {hasPermission("student.transfer.create") && (
           <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
             <Plus className="w-3.5 h-3.5" />
@@ -520,13 +520,13 @@ function TransferTab({ student, onChanged, showToast }: { student: StudentRespon
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("studentDetail.transfer.loading")}</p>
+        <p className="text-sm text-slate-500">{t("studentDetail.transfer.loading")}</p>
       ) : history.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("studentDetail.transfer.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("studentDetail.transfer.empty")}</p>
       ) : (
         <div className="space-y-2">
           {history.map((h) => (
-            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-sm">
               <Badge variant="info">{t(TRANSFER_TYPE_KEYS[h.transferType] ?? "", h.transferType)}</Badge>
               <span className="text-slate-500 ml-2">{h.effectiveDate}</span>
               {h.reason && <span className="text-slate-400 ml-2">— {h.reason}</span>}
@@ -600,13 +600,13 @@ function StatusTab({ student, onChanged, showToast }: { student: StudentResponse
       )}
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("studentDetail.status.loading")}</p>
+        <p className="text-sm text-slate-500">{t("studentDetail.status.loading")}</p>
       ) : history.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("studentDetail.status.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("studentDetail.status.empty")}</p>
       ) : (
         <div className="space-y-2">
           {history.map((h) => (
-            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+            <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-sm">
               <Badge variant={studentStatusVariants[h.oldStatus]}>{studentStatusLabel(t, h.oldStatus)}</Badge>
               <span className="mx-1.5 text-slate-400">→</span>
               <Badge variant={studentStatusVariants[h.newStatus]}>{studentStatusLabel(t, h.newStatus)}</Badge>

@@ -95,10 +95,10 @@ export default function UserSessionsSection({ userId, username }: { userId: numb
     <div className="border-t border-slate-100 pt-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <span className="text-[10px] font-bold uppercase text-slate-500">
+          <span className="text-[12px] font-bold uppercase text-slate-500">
             {t("usersPage.detail.sessions.sectionTitle", { count: sessions.length })}
           </span>
-          <p className="text-[10px] text-slate-400">{t("usersPage.detail.sessions.sectionDescription")}</p>
+          <p className="text-[12px] text-slate-400">{t("usersPage.detail.sessions.sectionDescription")}</p>
         </div>
         {canRevoke && sessions.length > 1 && (
           <Button size="sm" variant="danger" disabled={busyId !== null} onClick={() => revoke("all")} className="whitespace-nowrap">
@@ -108,9 +108,9 @@ export default function UserSessionsSection({ userId, username }: { userId: numb
       </div>
       <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
-        <p className="text-xs text-slate-500">{t("usersPage.detail.sessions.loading")}</p>
+        <p className="text-sm text-slate-500">{t("usersPage.detail.sessions.loading")}</p>
       ) : sessions.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("usersPage.detail.sessions.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("usersPage.detail.sessions.empty")}</p>
       ) : (
         <TableContainer>
           <thead>

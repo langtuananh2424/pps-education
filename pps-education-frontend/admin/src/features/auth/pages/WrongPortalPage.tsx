@@ -22,7 +22,7 @@ export default function WrongPortalPage() {
 
         <div className="space-y-2">
           <h2 className="text-lg font-bold text-slate-900 font-display">{t("wrongPortal.title")}</h2>
-          <p className="text-xs text-slate-500 leading-relaxed">
+          <p className="text-sm text-slate-500 leading-relaxed">
             <Trans
               i18nKey="wrongPortal.description"
               t={t}

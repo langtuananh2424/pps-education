@@ -53,7 +53,7 @@ import { formatTimeHm, toLocaleTag } from "@/lib/i18nFormat";
 import Time24Input from "@/components/ui/Time24Input";
 import FloatingError from "@/components/ui/FloatingError";
 
-const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-xs p-2 rounded-lg text-slate-700 min-h-[34px]";
+const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-sm p-2 rounded-lg text-slate-700 min-h-[34px]";
 /**
  * Cố định 3 cột đầu (Mã học viên/Họ và tên/Ngày sinh, bổ sung ngoài SDD gốc, 2026-08-14) — cần width
  * CỐ ĐỊNH để tính đúng left offset cộng dồn cho position:sticky. Phải ép CẢ width/minWidth/maxWidth
@@ -133,7 +133,7 @@ function ExerciseSelectionChecklist({
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center justify-between gap-1 px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-50 rounded-lg"
+        className="w-full flex items-center justify-between gap-1 px-2 py-1 text-[13px] font-bold text-slate-600 hover:bg-slate-50 rounded-lg"
       >
         <span className={selectedIds.size === 0 ? "text-rose-600" : undefined}>
           {t("dailyCommentPanel.quickAssign.exerciseChecklistSummary", { selected: selectedIds.size, total: group.exercises.length })}
@@ -143,7 +143,7 @@ function ExerciseSelectionChecklist({
       {!collapsed && (
         <div className="border-t border-slate-100 divide-y divide-slate-100 max-h-28 overflow-y-auto">
           {group.exercises.map((ex) => (
-            <label key={ex.id} className="flex items-center gap-1.5 px-2 py-1 text-[11px] cursor-pointer hover:bg-slate-50">
+            <label key={ex.id} className="flex items-center gap-1.5 px-2 py-1 text-[13px] cursor-pointer hover:bg-slate-50">
               <input type="checkbox" checked={selectedIds.has(ex.id)} disabled={disabled} onChange={() => onToggle(ex.id)} />
               <span className="flex-1 truncate" title={ex.title}>
                 {ex.title}
@@ -153,7 +153,7 @@ function ExerciseSelectionChecklist({
         </div>
       )}
       {selectedIds.size === 0 && (
-        <p className="px-2 py-1 text-[10px] font-bold text-rose-600">{t("dailyCommentPanel.quickAssign.exerciseChecklistEmpty")}</p>
+        <p className="px-2 py-1 text-[12px] font-bold text-rose-600">{t("dailyCommentPanel.quickAssign.exerciseChecklistEmpty")}</p>
       )}
     </div>
   );
@@ -291,7 +291,7 @@ function PreviousProgressCell({ auto, manual, autoLabel }: { auto: string | null
     return (
       <div className={`${readOnlyFieldClass} flex items-center justify-between gap-1.5`}>
         <span>{auto}</span>
-        <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wide shrink-0">{autoLabel}</span>
+        <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wide shrink-0">{autoLabel}</span>
       </div>
     );
   }
@@ -1483,8 +1483,8 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 rounded-t-xl">
           <div>
-            <span className="text-xs font-bold text-slate-700 font-display">{t("dailyCommentPanel.title")}</span>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <span className="text-sm font-bold text-slate-700 font-display">{t("dailyCommentPanel.title")}</span>
+            <p className="text-[12px] text-slate-400 mt-0.5">
               {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : t("dailyCommentPanel.noClassSelected")}
             </p>
           </div>
@@ -1493,7 +1493,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
               <Select
                 value={selectedSessionId ?? ""}
                 onChange={(e) => setSelectedSessionId(e.target.value ? Number(e.target.value) : null)}
-                className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
+                className="bg-white border text-[12px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
               >
                 <option value="">{t("dailyCommentPanel.sessionSelectPlaceholder")}</option>
                 {selectableSessions.map((s) => {
@@ -1518,7 +1518,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                       disabled={savingTeacherType || sessionHasSentComment}
                       title={sessionHasSentComment ? t("dailyCommentPanel.teacherTypeLockedTitle") : undefined}
                       onClick={() => handleChangeTeacherType(type)}
-                      className={`px-2.5 py-1 text-[10px] font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`px-2.5 py-1 text-[12px] font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                         teacherType === type ? "bg-brand-orange text-white" : "text-slate-600 hover:bg-slate-50"
                       }`}
                     >
@@ -1532,13 +1532,13 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         </div>
 
         {selectedSessionId && !teacherType && (
-          <div className="px-5 py-2.5 border-b border-slate-100 bg-amber-50 text-[11px] text-amber-700">
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-amber-50 text-[13px] text-amber-700">
             {t("dailyCommentPanel.teacherTypeMissingWarning")}
           </div>
         )}
 
         {selectedSessionId && sessionHasSentComment && (
-          <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50 text-[11px] text-slate-500">
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50 text-[13px] text-slate-500">
             {t("dailyCommentPanel.sessionLockedNotice")}
           </div>
         )}
@@ -1553,7 +1553,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 2026-08-14) — dòng cảnh báo thiếu bài học tách RIÊNG ra bên dưới (w-full ở đây trước đây
                 nằm CHUNG hàng flex-wrap, tự ép 2 nhóm xuống 2 hàng khác nhau khi cảnh báo hiện ra). */}
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-[11px] font-bold text-slate-600 shrink-0">{t("dailyCommentPanel.lessonContentLabel")}</label>
+              <label className="text-[13px] font-bold text-slate-600 shrink-0">{t("dailyCommentPanel.lessonContentLabel")}</label>
               <input
                 ref={lessonContentInputRef}
                 value={lessonContentInput}
@@ -1563,7 +1563,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                   setLessonContentMissingError(false);
                 }}
                 placeholder={t("dailyCommentPanel.lessonContentPlaceholder")}
-                className={`flex-1 min-w-[220px] bg-white border text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
+                className={`flex-1 min-w-[220px] bg-white border text-sm p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
                   lessonContentMissingError ? "border-rose-400 ring-1 ring-rose-300" : "border-slate-200"
                 }`}
               />
@@ -1576,17 +1576,17 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                   !lessonContentInput.trim() ||
                   lessonContentInput.trim() === (selectedSession?.lessonContent ?? "")
                 }
-                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[13px] font-bold rounded-lg disabled:opacity-40"
               >
                 {savingLessonContent ? t("dailyCommentPanel.savingButton") : t("dailyCommentPanel.saveButton")}
               </button>
-              <label className="text-[11px] font-bold text-slate-600 shrink-0">{t("dailyCommentPanel.actualTeacherNameLabel")}</label>
+              <label className="text-[13px] font-bold text-slate-600 shrink-0">{t("dailyCommentPanel.actualTeacherNameLabel")}</label>
               <input
                 value={actualTeacherNameInput}
                 disabled={sessionHasSentComment}
                 onChange={(e) => setActualTeacherNameInput(e.target.value)}
                 placeholder={t("dailyCommentPanel.actualTeacherNamePlaceholder")}
-                className="flex-1 min-w-[220px] bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 min-w-[220px] bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <button
                 type="button"
@@ -1597,18 +1597,18 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                   !actualTeacherNameInput.trim() ||
                   actualTeacherNameInput.trim() === (selectedSession?.actualTeacherName ?? "")
                 }
-                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[13px] font-bold rounded-lg disabled:opacity-40"
               >
                 {savingActualTeacherName ? t("dailyCommentPanel.savingButton") : t("dailyCommentPanel.saveButton")}
               </button>
             </div>
             {lessonContentMissingError ? (
-              <p className="mt-1.5 text-[10px] text-rose-600 font-bold">
+              <p className="mt-1.5 text-[12px] text-rose-600 font-bold">
                 {t("dailyCommentPanel.lessonContentMissingError")}
               </p>
             ) : (
               !selectedSession?.lessonContent && (
-                <p className="mt-1.5 text-[10px] text-amber-700 italic">
+                <p className="mt-1.5 text-[12px] text-amber-700 italic">
                   {t("dailyCommentPanel.lessonContentMissingHint")}
                 </p>
               )
@@ -1617,40 +1617,40 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         )}
 
         {selectedSessionId && blockOnlineHomework && (
-          <div className="px-5 py-2.5 border-b border-slate-100 bg-rose-50/60 text-[11px] text-rose-700">
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-rose-50/60 text-[13px] text-rose-700">
             {t("dailyCommentPanel.blockOnlineHomeworkWarning", { grammarLabel, videoLabel })}
           </div>
         )}
 
         {selectedSessionId && teacherType && (
           <div className="px-5 py-3 border-b border-slate-100 bg-orange-50/40 space-y-2">
-            <span className="text-[11px] font-bold uppercase text-slate-500 mb-2">
+            <span className="text-[13px] font-bold uppercase text-slate-500 mb-2">
               {t("dailyCommentPanel.quickAssign.title")}
             </span>
             <div className="flex flex-wrap items-end gap-2">
               {isVietnamese ? (
                 <>
                   <div className="min-w-[140px]">
-                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.readingLabel")}</label>
+                    <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.readingLabel")}</label>
                     <input
                       value={quickReading}
                       onChange={(e) => setQuickReading(e.target.value)}
                       placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                      className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                     />
                   </div>
                   <div className="min-w-[140px]">
-                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.writingLabel")}</label>
+                    <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.writingLabel")}</label>
                     <input
                       value={quickWriting}
                       onChange={(e) => setQuickWriting(e.target.value)}
                       placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                      className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                     />
                   </div>
                   {/* V137 — kênh "BTVN online" Reading/Writing mới, mirror ô Ngữ pháp/Video TKN bên dưới. */}
                   <div className="w-[240px] shrink-0">
-                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</label>
+                    <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</label>
                     <Select
                       value={quickReadingExerciseId}
                       disabled={blockOnlineHomework}
@@ -1660,7 +1660,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                         const group = readingOptions.find((g) => g.examId === examId);
                         setQuickReadingExerciseIds(new Set(group?.exercises.map((ex) => ex.id) ?? []));
                       }}
-                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                      className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                     >
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {readingOptions.map((ex) => (
@@ -1671,7 +1671,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     </Select>
                   </div>
                   <div className="w-[240px] shrink-0">
-                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</label>
+                    <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</label>
                     <Select
                       value={quickWritingExerciseId}
                       disabled={blockOnlineHomework}
@@ -1681,7 +1681,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                         const group = writingOptions.find((g) => g.examId === examId);
                         setQuickWritingExerciseIds(new Set(group?.exercises.map((ex) => ex.id) ?? []));
                       }}
-                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                      className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                     >
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {writingOptions.map((ex) => (
@@ -1695,18 +1695,18 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
               ) : (
                 <>
                   <div className="min-w-[160px]">
-                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
+                    <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
                     <input
                       value={quickOffline}
                       onChange={(e) => setQuickOffline(e.target.value)}
                       placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                      className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                     />
                   </div>
                 </>
               )}
               <div className="w-[240px] shrink-0">
-                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">
+                <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">
                   {t("dailyCommentPanel.quickAssign.onlineGrammarLabel", { grammarLabel: onlineGrammarLabel })}
                 </label>
                 <Select
@@ -1718,7 +1718,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     const group = filteredGrammarOptions.find((g) => g.examId === examId);
                     setQuickGrammarExerciseIds(new Set(group?.exercises.map((ex) => ex.id) ?? []));
                   }}
-                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                  className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredGrammarOptions.map((ex) => (
@@ -1729,14 +1729,14 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 </Select>
               </div>
               <div className="w-[240px] shrink-0">
-                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">
+                <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">
                   {t("dailyCommentPanel.quickAssign.onlineVideoLabel", { videoLabel: onlineVideoLabel })}
                 </label>
                 <Select
                   value={quickVideoId}
                   disabled={blockOnlineHomework}
                   onChange={(e) => setQuickVideoId(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                  className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredVideoOptions.map((s) => (
@@ -1747,7 +1747,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 </Select>
               </div>
               <div className="min-w-[150px]">
-                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueDateLabel")}</label>
+                <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueDateLabel")}</label>
                 <DatePicker
                   value={dueDate}
                   min={selectedSession?.sessionDate}
@@ -1759,15 +1759,15 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 />
               </div>
               <div className="min-w-[110px]">
-                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueTimeLabel")}</label>
+                <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueTimeLabel")}</label>
                 <Time24Input
                   value={dueTime}
                   disabled={!dueDate}
                   onChange={setDueTime}
-                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                  className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 />
               </div>
-              <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 self-end pb-2">
+              <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 self-end pb-2">
                 <input
                   type="checkbox"
                   checked={lateSubmissionAllowed}
@@ -1787,7 +1787,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     ? !quickReading && !quickWriting && quickExerciseId === "" && quickVideoId === "" && quickReadingExerciseId === "" && quickWritingExerciseId === ""
                     : !quickOffline && quickExerciseId === "" && quickVideoId === "")
                 }
-                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
+                className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[13px] font-bold rounded-lg disabled:opacity-40"
               >
                 {applyingHomework || savingDraft ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
               </button>
@@ -1797,7 +1797,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
               <div className="flex flex-wrap items-start gap-3">
                 {quickExerciseId !== "" && (
                   <div className="w-[260px]">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                    <span className="text-[12px] font-bold uppercase text-slate-400 block">
                       {t("dailyCommentPanel.quickAssign.onlineGrammarLabel", { grammarLabel: onlineGrammarLabel })}
                     </span>
                     <ExerciseSelectionChecklist
@@ -1816,7 +1816,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 )}
                 {isVietnamese && quickReadingExerciseId !== "" && (
                   <div className="w-[260px]">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 block">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</span>
+                    <span className="text-[12px] font-bold uppercase text-slate-400 block">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</span>
                     <ExerciseSelectionChecklist
                       group={readingOptions.find((g) => g.examId === quickReadingExerciseId)}
                       selectedIds={quickReadingExerciseIds}
@@ -1833,7 +1833,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 )}
                 {isVietnamese && quickWritingExerciseId !== "" && (
                   <div className="w-[260px]">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 block">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</span>
+                    <span className="text-[12px] font-bold uppercase text-slate-400 block">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</span>
                     <ExerciseSelectionChecklist
                       group={writingOptions.find((g) => g.examId === quickWritingExerciseId)}
                       selectedIds={quickWritingExerciseIds}
@@ -1859,7 +1859,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
               type="button"
               onClick={handleDownloadTemplate}
               disabled={downloadingTemplate}
-              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[13px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
               {downloadingTemplate ? t("dailyCommentPanel.downloadingTemplate") : t("dailyCommentPanel.downloadTemplateButton")}
@@ -1868,7 +1868,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
-              className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
+              className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-2 text-[13px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
             >
               <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
               {importing ? t("dailyCommentPanel.importing") : t("dailyCommentPanel.importExcelButton")}
@@ -1881,7 +1881,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             <button
               type="button"
               onClick={() => setShowSessionHistory(true)}
-              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white"
+              className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[13px] font-semibold text-slate-600 hover:bg-white"
             >
               <History className="w-3.5 h-3.5" />
               {t("dailyCommentPanel.versionHistoryButton")}
@@ -1892,7 +1892,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 nhóm "nhập liệu" (trái) khỏi nhóm "lưu" (phải) theo đúng yêu cầu. */}
             <div className="ml-auto flex items-center gap-2">
               {lastSavedAt && (
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[12px] text-slate-400">
                   {t("dailyCommentPanel.savedAt", { time: formatTimeHm(lastSavedAt.toISOString(), i18n.language) })}
                 </span>
               )}
@@ -1903,7 +1903,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 // cũng lưu được, không bắt buộc đã gõ Nhận xét) — trước đây yêu cầu content khiến nút
                 // bị disable sai dù đã điền dữ liệu khác, không bấm "Lưu nháp" được (sửa 2026-08-19).
                 disabled={savingDraft || !rows.some(rowHasAnyData)}
-                className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+                className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-2 text-[13px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
                 {savingDraft ? t("dailyCommentPanel.savingDraft") : t("dailyCommentPanel.saveDraftButton")}
@@ -1911,7 +1911,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             </div>
 
             {importResult && (
-              <div className="w-full flex flex-wrap items-center gap-2 text-[11px] mt-1">
+              <div className="w-full flex flex-wrap items-center gap-2 text-[13px] mt-1">
                 <span className="bg-slate-100 border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg">
                   {t("dailyCommentPanel.importResult.total", { count: importResult.totalRows ?? "—" })}
                 </span>
@@ -1966,7 +1966,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     key={mode}
                     type="button"
                     onClick={() => changeViewMode(mode)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold ${
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[13px] font-semibold ${
                       viewMode === mode ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-700"
                     }`}
                   >
@@ -1975,7 +1975,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                   </button>
                 ))}
               </div>
-              {viewMode === "cards" && <span className="hidden md:inline text-[10px] text-slate-400">{t("dailyCommentPanel.viewMode.cardsHint")}</span>}
+              {viewMode === "cards" && <span className="hidden md:inline text-[12px] text-slate-400">{t("dailyCommentPanel.viewMode.cardsHint")}</span>}
             </div>
           </div>
         )}
@@ -2001,7 +2001,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
               table-layout vẫn giữ "auto" (không đổi sang "fixed") nên không ảnh hưởng cơ chế khoá
               width 3 cột sticky ở trên — w-full chỉ đặt SÀN 100% cho tổng bề rộng bảng, cột không
               sticky (đặc biệt "Ghi chú" cuối bảng) giãn ra hấp thụ phần dư. */}
-          <table className="w-full text-xs text-left border-separate border-spacing-0">
+          <table className="w-full text-sm text-left border-separate border-spacing-0">
           {/* sticky trực tiếp trên <thead> (thay vì tính top offset riêng cho từng <tr>) — trình duyệt tự
               ghim NGUYÊN CẢ 2 dòng header làm 1 khối, không cần đoán chiều cao dòng 1 để lệch dòng 2. 3 ô
               góc (Mã học viên/Họ và tên/Ngày sinh) cần thêm sticky left riêng (trục ngang, độc lập với
@@ -2073,19 +2073,19 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
           <tbody>
             {!selectedSessionId ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={12} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                   {selectedClass ? t("dailyCommentPanel.emptyNoSession") : t("dailyCommentPanel.emptyNoClass")}
                 </td>
               </tr>
             ) : loadingRows ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400">
+                <td colSpan={12} className="px-6 py-12 text-center text-sm text-slate-400">
                   {t("dailyCommentPanel.loadingRows")}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={12} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                   {t("dailyCommentPanel.emptyNoStudents")}
                 </td>
               </tr>
@@ -2143,7 +2143,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     <Td style={STICKY_COL_STYLE[1]} className={`sticky left-0 md:left-[110px] z-10 ${stickyBg} font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300`}>
                       <StudentNameLink studentId={r.studentId} name={r.studentFullName} />
                       {isAbsentLocked && (
-                        <div className="text-[9px] font-bold text-red-600 uppercase tracking-wide mt-0.5 whitespace-normal leading-snug">
+                        <div className="text-[11px] font-bold text-red-600 uppercase tracking-wide mt-0.5 whitespace-normal leading-snug">
                           {t(`shared.attendanceStatus.${attendanceStatus}`, { defaultValue: attendanceStatus })} · {t("dailyCommentPanel.attendanceLockedHint")}
                         </div>
                       )}
@@ -2151,7 +2151,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                           điền lại (loadHistory) mà không biết TẠI SAO bị từ chối, phải mò qua thông báo
                           quả chuông hoặc Lịch sử phiên bản (bổ sung theo yêu cầu người dùng 2026-09-23). */}
                       {sent?.status === "REJECTED" && sent.rejectionReason && (
-                        <div className="text-[9px] font-bold text-rose-600 mt-0.5 whitespace-normal leading-snug">
+                        <div className="text-[11px] font-bold text-rose-600 mt-0.5 whitespace-normal leading-snug">
                           {t("dailyCommentPanel.rejectionReasonHint", { reason: sent.rejectionReason })}
                         </div>
                       )}
@@ -2170,7 +2170,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                               value={r.homeworkPreviousReadingScore}
                               onChange={(e) => updateRow({ homeworkPreviousReadingScore: e.target.value })}
                               placeholder={t("dailyCommentPanel.homeworkPreviousOfflinePlaceholder")}
-                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                              className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                             />
                           )}
                         </Td>
@@ -2182,7 +2182,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                               value={r.homeworkPreviousWritingScore}
                               onChange={(e) => updateRow({ homeworkPreviousWritingScore: e.target.value })}
                               placeholder={t("dailyCommentPanel.homeworkPreviousOfflinePlaceholder")}
-                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                              className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                             />
                           )}
                         </Td>
@@ -2210,7 +2210,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                             value={r.homeworkPreviousScore}
                             onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
                             placeholder={t("dailyCommentPanel.homeworkPreviousOfflinePlaceholder")}
-                            className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                            className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                           />
                         )}
                       </Td>
@@ -2234,7 +2234,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                           value={r.homeworkPreviousSpeakingScore}
                           onChange={(e) => updateRow({ homeworkPreviousSpeakingScore: e.target.value })}
                           placeholder={t("dailyCommentPanel.homeworkPreviousSpeakingPlaceholder")}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
@@ -2251,7 +2251,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                               value={r.homeworkNextReading}
                               onChange={(e) => updateRow({ homeworkNextReading: e.target.value })}
                               placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                              className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                             />
                           )}
                         </Td>
@@ -2263,7 +2263,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                               value={r.homeworkNextWriting}
                               onChange={(e) => updateRow({ homeworkNextWriting: e.target.value })}
                               placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                              className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                             />
                           )}
                         </Td>
@@ -2285,7 +2285,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                             value={r.homeworkNext}
                             onChange={(e) => updateRow({ homeworkNext: e.target.value })}
                             placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                            className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                            className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                           />
                         )}
                       </Td>
@@ -2314,7 +2314,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                         <Select
                           value={r.attitude}
                           onChange={(e) => updateRow({ attitude: e.target.value as Row["attitude"] })}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         >
                           <option value="">{t("dailyCommentPanel.attitudePlaceholder")}</option>
                           {(["WEAK", "AVERAGE", "FAIR", "GOOD", "EXCELLENT"] as const).map((value) => (
@@ -2334,7 +2334,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                           onChange={(e) => updateRow({ content: e.target.value })}
                           placeholder={t("dailyCommentPanel.contentPlaceholder")}
                           rows={2}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
@@ -2345,7 +2345,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                         <input
                           value={r.note}
                           onChange={(e) => updateRow({ note: e.target.value })}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none"
                         />
                       )}
                     </Td>
@@ -2365,7 +2365,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             <button
               onClick={() => setConfirmingSend(true)}
               disabled={sending || !rows.some((r) => r.content.trim())}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
             >
               <Send className="w-4 h-4 text-white" />
               <span>
@@ -2389,7 +2389,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             <>
               <button
                 onClick={() => setConfirmingSend(false)}
-                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm px-4 py-2 rounded-lg transition-all"
               >
                 {t("dailyCommentPanel.confirmSend.cancel")}
               </button>
@@ -2399,7 +2399,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                   handleSend();
                 }}
                 disabled={sending}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5 text-white" />
                 {t("dailyCommentPanel.confirmSend.confirmButton")}
@@ -2409,7 +2409,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         >
           <div className="flex items-start gap-3">
             <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-sm text-slate-600 leading-relaxed">
               {t("dailyCommentPanel.confirmSend.description", { count: rows.filter((r) => r.content.trim()).length })}
             </p>
           </div>
@@ -2429,14 +2429,14 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             <>
               <button
                 onClick={() => setConfirmingApplyHomework(false)}
-                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm px-4 py-2 rounded-lg transition-all"
               >
                 {t("dailyCommentPanel.confirmApplyHomework.cancel")}
               </button>
               <button
                 onClick={() => void performApplyQuickAssign()}
                 disabled={applyingHomework || savingDraft}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5 text-white" />
                 {t("dailyCommentPanel.confirmApplyHomework.confirmButton")}
@@ -2446,7 +2446,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         >
           <div className="flex items-start gap-3">
             <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
-            <div className="text-xs text-slate-600 leading-relaxed space-y-2 w-full">
+            <div className="text-sm text-slate-600 leading-relaxed space-y-2 w-full">
               <p>{t("dailyCommentPanel.confirmApplyHomework.description", { count: rows.length })}</p>
               <ul className="space-y-1.5">
                 {quickExerciseId !== "" && (
@@ -2492,7 +2492,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             <button
               type="button"
               onClick={() => setShowHistory((v) => !v)}
-              className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-slate-500 hover:text-slate-700"
+              className="flex items-center gap-1.5 text-[12px] font-bold uppercase text-slate-500 hover:text-slate-700"
             >
               {showHistory ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               {!showHistory && history.length > 0
@@ -2500,7 +2500,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 : t("dailyCommentPanel.historyToggle")}
             </button>
             {showHistory && (loadingHistory ? (
-              <p className="text-xs text-slate-400">{t("dailyCommentPanel.loadingHistory")}</p>
+              <p className="text-sm text-slate-400">{t("dailyCommentPanel.loadingHistory")}</p>
             ) : (
               <CommentHistoryList
                 classId={selectedClassId}

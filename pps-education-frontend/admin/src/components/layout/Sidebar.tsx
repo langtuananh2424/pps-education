@@ -10,6 +10,11 @@ import CountBadge from "@/components/ui/CountBadge";
 import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
 
+/** Tiêu đề nhóm mục Sidebar — trước đây xám trung tính (text-slate-400), giờ tông cam thương hiệu
+ * (nhạt hơn active item để không lẫn với mục đang chọn) cho nổi bật hơn mà vẫn đồng nhất 1 màu
+ * xuyên suốt mọi khối, đúng theo yêu cầu (không chia nhiều màu khác nhau theo từng khối). */
+const SECTION_TITLE_CLASSES = "text-brand-orange";
+
 export default function Sidebar() {
   const { t } = useTranslation("layout");
   const {
@@ -151,7 +156,10 @@ export default function Sidebar() {
               <div key={section.id} className="space-y-1">
                 <button
                   onClick={() => toggleGroup(section.id)}
-                  className="w-full px-2 py-1.5 flex items-center justify-between text-[11px] font-bold font-display tracking-widest text-slate-400 hover:text-slate-600"
+                  className={cn(
+                    "w-full px-2 py-1.5 flex items-center justify-between text-[12px] font-bold font-display tracking-widest transition-colors",
+                    SECTION_TITLE_CLASSES
+                  )}
                 >
                   <span>{t(`nav.sections.${section.id}`, section.title)}</span>
                   {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -168,7 +176,7 @@ export default function Sidebar() {
                           onClick={(e) => handleNavClick(e, item.path)}
                           className={({ isActive }) =>
                             cn(
-                              "w-full px-3 py-2 flex items-center gap-2.5 rounded-md text-xs font-medium transition-all duration-150",
+                              "w-full px-3 py-2 flex items-center gap-2.5 rounded-md text-sm font-medium transition-all duration-150",
                               isActive
                                 ? "bg-brand-gradient text-white shadow-soft font-semibold"
                                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/80"
@@ -196,16 +204,16 @@ export default function Sidebar() {
           <div className="flex items-center gap-3">
             <Avatar name={currentUser?.fullName || "U"} />
             <div className="flex-1 min-w-0">
-              <span className="text-xs font-bold text-slate-900 block truncate leading-tight">
+              <span className="text-sm font-bold text-slate-900 block truncate leading-tight">
                 {currentUser?.fullName || t("sidebar.notLoggedIn")}
               </span>
-              <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">{currentRoleLabel}</span>
+              <span className="text-[12px] text-slate-500 block truncate mt-0.5 font-medium">{currentRoleLabel}</span>
             </div>
           </div>
 
           <button
             onClick={logout}
-            className="w-full bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-rose-500 hover:text-rose-600 font-bold text-[11px] py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+            className="w-full bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-rose-500 hover:text-rose-600 font-bold text-[13px] py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
             <span>{t("sidebar.logout")}</span>
@@ -224,14 +232,14 @@ export default function Sidebar() {
             <button
               type="button"
               onClick={closePendingPathModal}
-              className="px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+              className="px-3 py-2 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
             >
               {t("sidebar.unsavedModal.stay")}
             </button>
             <button
               type="button"
               onClick={leaveToPendingPath}
-              className="px-3 py-2 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg"
+              className="px-3 py-2 text-[13px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg"
             >
               {t("sidebar.unsavedModal.leaveWithoutSaving")}
             </button>
@@ -239,7 +247,7 @@ export default function Sidebar() {
               type="button"
               onClick={handleSaveAndLeave}
               disabled={savingBeforeLeave}
-              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
+              className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[13px] font-bold rounded-lg disabled:opacity-50"
             >
               {savingBeforeLeave ? t("sidebar.unsavedModal.saving") : t("sidebar.unsavedModal.saveAndLeave")}
             </button>
@@ -247,9 +255,9 @@ export default function Sidebar() {
         }
       >
         <div className="space-y-2.5">
-          <p className="text-[11px] text-slate-500">{t("sidebar.unsavedModal.warning")}</p>
+          <p className="text-[13px] text-slate-500">{t("sidebar.unsavedModal.warning")}</p>
           {saveFailureMessage && (
-            <div className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-2.5">
+            <div className="text-[13px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-2.5">
               {saveFailureMessage}
             </div>
           )}

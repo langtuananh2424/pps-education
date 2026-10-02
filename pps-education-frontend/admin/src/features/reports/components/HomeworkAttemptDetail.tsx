@@ -52,27 +52,27 @@ export default function HomeworkAttemptDetail({ attemptId, exerciseId }: { attem
   const wrongCount = answers.filter((a) => a.isCorrect === false).length;
   const visibleAnswers = showAll ? answers : answers.filter((a) => a.isCorrect === false);
 
-  if (loading) return <div className="text-center py-4 text-xs text-slate-400">{t("homeworkAttemptDetail.loading")}</div>;
-  if (error) return <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>;
-  if (answers.length === 0) return <div className="text-center py-4 text-xs text-slate-400">{t("homeworkAttemptDetail.noAnswers")}</div>;
+  if (loading) return <div className="text-center py-4 text-sm text-slate-400">{t("homeworkAttemptDetail.loading")}</div>;
+  if (error) return <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>;
+  if (answers.length === 0) return <div className="text-center py-4 text-sm text-slate-400">{t("homeworkAttemptDetail.noAnswers")}</div>;
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500">
+        <span className="text-sm text-slate-500">
           {t("homeworkAttemptDetail.wrongCountPrefix")}
           <span className="font-semibold text-rose-600">{wrongCount}</span>
           {t("homeworkAttemptDetail.wrongCountSuffix", { totalCount: answers.length })}
         </span>
-        <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs text-brand-orange font-semibold hover:underline">
+        <button type="button" onClick={() => setShowAll((v) => !v)} className="text-sm text-brand-orange font-semibold hover:underline">
           {showAll ? t("homeworkAttemptDetail.showWrongOnly") : t("homeworkAttemptDetail.showAll")}
         </button>
       </div>
       {visibleAnswers.length === 0 ? (
-        <div className="text-center py-4 text-xs text-emerald-600">{t("homeworkAttemptDetail.noWrongAnswers")}</div>
+        <div className="text-center py-4 text-sm text-emerald-600">{t("homeworkAttemptDetail.noWrongAnswers")}</div>
       ) : (
         <div className="border border-slate-200 rounded-lg overflow-hidden">
-          <table className="w-full text-xs">
+          <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
                 <th className="text-left p-2 border-b border-slate-200">{t("homeworkAttemptDetail.columns.question")}</th>
@@ -95,7 +95,7 @@ export default function HomeworkAttemptDetail({ attemptId, exerciseId }: { attem
                     </td>
                     <td className="p-2 text-slate-600 break-words max-w-[200px]">
                       {answer.correctAnswerText || correctLabel || <span className="text-slate-400">—</span>}
-                      {answer.explanation && <p className="text-[10px] text-slate-500 mt-1 italic">{answer.explanation}</p>}
+                      {answer.explanation && <p className="text-[12px] text-slate-500 mt-1 italic">{answer.explanation}</p>}
                     </td>
                     <td className="text-center p-2">
                       {answer.isCorrect == null ? (

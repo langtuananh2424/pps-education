@@ -91,12 +91,12 @@ export default function TeachingStatsPage() {
     <tr key={r.teacherUserId ?? "total"} className={isTotal ? "bg-slate-50 font-bold" : "hover:bg-slate-50/50"}>
       <Td>
         <p className={cn("text-slate-800", !isTotal && "font-semibold")}>{isTotal ? t("teachingStats.totals") : r.teacherName}</p>
-        {!isTotal && r.employeeCode && <p className="text-[11px] text-slate-400">{r.employeeCode}</p>}
+        {!isTotal && r.employeeCode && <p className="text-[13px] text-slate-400">{r.employeeCode}</p>}
       </Td>
       <Td>
         <div className="flex flex-wrap gap-1">
           {r.roles.map((role) => (
-            <span key={role} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 whitespace-nowrap">
+            <span key={role} className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-600 whitespace-nowrap">
               {t(`teachingStats.roleLabels.${role}`, { defaultValue: role })}
             </span>
           ))}
@@ -127,7 +127,7 @@ export default function TeachingStatsPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("teachingStats.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("teachingStats.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("teachingStats.description")}</p>
         </div>
         <Button variant="primary" onClick={handleExport} disabled={exporting || loading || !stats || stats.teachers.length === 0}>
           <Download className="w-3.5 h-3.5" /> {exporting ? t("teachingStats.exporting") : t("teachingStats.export")}
@@ -137,14 +137,14 @@ export default function TeachingStatsPage() {
       <Card>
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-[200px]">
-            <label className="block text-xs text-slate-500 mb-1">{t("teachingStats.fromDate")}</label>
+            <label className="block text-sm text-slate-500 mb-1">{t("teachingStats.fromDate")}</label>
             <DatePicker value={fromDate} onChange={setFromDate} max={toDate || undefined} />
           </div>
           <div className="w-[200px]">
-            <label className="block text-xs text-slate-500 mb-1">{t("teachingStats.toDate")}</label>
+            <label className="block text-sm text-slate-500 mb-1">{t("teachingStats.toDate")}</label>
             <DatePicker value={toDate} onChange={setToDate} min={fromDate || undefined} />
           </div>
-          <p className="text-xs text-slate-500 pb-2">{stats?.siteName ?? t("teachingStats.allSites")}</p>
+          <p className="text-sm text-slate-500 pb-2">{stats?.siteName ?? t("teachingStats.allSites")}</p>
         </div>
       </Card>
 
@@ -186,7 +186,7 @@ export default function TeachingStatsPage() {
         )}
       </Card>
 
-      <div className="text-[11px] text-slate-500 space-y-1">
+      <div className="text-[13px] text-slate-500 space-y-1">
         {(["held", "roles", "periods", "primaryOnly", "checkIn"] as const).map((key) => (
           <p key={key} className="flex items-start gap-1.5">
             <Info className="w-3 h-3 mt-0.5 shrink-0" /> {t(`teachingStats.notes.${key}`)}
