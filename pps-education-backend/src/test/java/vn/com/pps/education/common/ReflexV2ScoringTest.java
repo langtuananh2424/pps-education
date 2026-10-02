@@ -276,12 +276,31 @@ class ReflexV2ScoringTest {
     @Test
     void applyErrorCaps_pronunciationBandFollowsReadbackRatio_capsAndFloors() {
         List<String> none = List.of();
-        // 50% từ đọc lệch → dải [40,60]: kéo P 90 xuống 60
+        // 50% từ đọc lệch → dải [40,60]: kéo P 90 xuống 60 — TRẦN áp bất kể mẫu lớn/nhỏ (ở đây chỉ 20 từ).
         ReflexV2Scoring.ErrorEvidence bad = new ReflexV2Scoring.ErrorEvidence(null, null, null, new ReflexV2Scoring.Readback(20, 10, 0.5, none));
         assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS, List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 90)), List.of(), bad), "P")).isEqualTo(60);
-        // đọc gần như hoàn hảo (ratio < 0.12) → sàn 85: kéo P 40 LÊN 85
-        ReflexV2Scoring.ErrorEvidence good = new ReflexV2Scoring.ErrorEvidence(null, null, null, new ReflexV2Scoring.Readback(20, 1, 0.05, none));
+        // đọc gần như hoàn hảo (ratio < 0.12), đủ ≥30 từ so được → sàn 85: kéo P 40 LÊN 85.
+        // count=2 (không phải 0/1): tránh chạm luôn trần "không có bằng chứng" (weak = total≥30 && count≤1),
+        // vốn cũng đòi ≥30 từ nên dễ vô tình trùng điều kiện với sàn nếu chỉ đổi total mà không đổi count.
+        ReflexV2Scoring.ErrorEvidence good = new ReflexV2Scoring.ErrorEvidence(null, null, null, new ReflexV2Scoring.Readback(35, 2, 0.06, none));
         assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS, List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 40)), List.of(), good), "P")).isEqualTo(85);
+    }
+
+    /**
+     * Bản 1/10 — SÀN dải đọc lệch chỉ áp khi so được ≥30 từ. Bài thật: chỉ so được 9 từ, lệch 2 ("lai",
+     * "fren") = 22% → rơi dải [75,90] → sàn CŨ kéo một bài rất yếu lên 75% dù chấm tay 20-40%. Mẫu quá nhỏ
+     * không đủ tin để NÂNG điểm ai; TRẦN (hạ điểm) thì vẫn áp ở mọi độ dài vì đọc lệch nhiều là bằng chứng thật.
+     */
+    @Test
+    void applyErrorCaps_pronunciationFloor_requiresAtLeast30WordsReadback_ceilingStillAppliesOnSmallSample() {
+        ReflexV2Scoring.ErrorEvidence tinySample = new ReflexV2Scoring.ErrorEvidence(null, null, null,
+                new ReflexV2Scoring.Readback(9, 2, 2 / 9.0, List.of("lai→fren")));
+        // Checkpoint đã chấm P = 40%: dải [75,90] ứng với tỷ lệ 22% muốn NÂNG lên 75 nhưng mẫu <30 từ → giữ 40.
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
+                List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 40)), List.of(), tinySample), "P")).isEqualTo(40);
+        // Cùng mẫu nhỏ nhưng checkpoint chấm CAO hơn trần của dải (90) thì vẫn bị hạ — trần không cần mẫu lớn.
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
+                List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 95)), List.of(), tinySample), "P")).isEqualTo(90);
     }
 
     @Test
@@ -292,6 +311,24 @@ class ReflexV2ScoringTest {
         // bài ngắn (<30 từ) đọc sạch → có bằng chứng thật → giữ 90
         ReflexV2Scoring.ErrorEvidence shortClean = new ReflexV2Scoring.ErrorEvidence(null, null, null, new ReflexV2Scoring.Readback(15, 0, 0.0, List.of()));
         assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS, List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 100)), List.of(), shortClean), "P")).isEqualTo(90);
+    }
+
+    /**
+     * Bản 1/10 (thầy cô chấm theo bội số của 10) — làm tròn XUỐNG, không làm tròn gần nhất: mọi giá trị lệch
+     * lưới đều là kết quả của một trần hoặc sàn, nên tròn xuống là chiều dè dặt (trần cho ít hơn, sàn nâng
+     * ít hơn). Giá trị đã trên lưới giữ nguyên nguyên vẹn, không bị gắn ghi chú "ép lưới" không cần thiết.
+     */
+    @Test
+    void snapToGrid10_roundsDownOffGridValues_leavesOnGridValuesUntouched() {
+        List<ReflexV2Scoring.CriterionScore> out = ReflexV2Scoring.snapToGrid10(
+                List.of(cs("P", 85), cs("FC", 75), cs("GRA", 35), cs("LR", 80)));
+        assertThat(percentOf(out, "P")).isEqualTo(80);
+        assertThat(percentOf(out, "FC")).isEqualTo(70);
+        assertThat(percentOf(out, "GRA")).isEqualTo(30);
+        assertThat(percentOf(out, "LR")).isEqualTo(80);
+        assertThat(out.stream().filter(c -> c.code().equals("LR")).findFirst().orElseThrow().caps()).isEmpty();
+        assertThat(out.stream().filter(c -> c.code().equals("P")).findFirst().orElseThrow().caps())
+                .anyMatch(n -> n.contains("ép lưới 10"));
     }
 
     @Test
@@ -359,9 +396,12 @@ class ReflexV2ScoringTest {
     }
 
     @Test
-    void lengthGate_onlyForPart2_enoughByWordsOrBySpokenSeconds() {
+    void lengthGate_onlyForPart2OrShort_enoughByWordsOrBySpokenSeconds() {
         String tenWords = "I like my town because it is quiet and green";
-        assertThat(ReflexV2Scoring.lengthGate(G7_IELTS, tenWords, 10)).isNull();
+        // G7_IELTS có rubricFormat="SHORT" nên từ bản 1/10 KHÔNG còn null — xem test riêng dưới.
+        // Dạng không có cột ngưỡng (G6) mới thật sự không áp cổng này.
+        ReflexV2Task g6 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_6, null, 20).orElseThrow();
+        assertThat(ReflexV2Scoring.lengthGate(g6, tenWords, 10)).isNull();
         ReflexV2Scoring.LengthEvidence shortTalk = ReflexV2Scoring.lengthGate(G8_PART2, tenWords, 20);
         assertThat(shortTalk.enough()).isFalse();
         assertThat(shortTalk.fcCeil()).isEqualTo(60);
@@ -371,6 +411,20 @@ class ReflexV2ScoringTest {
         assertThat(ReflexV2Scoring.lengthGate(G8_PART2, "word ".repeat(60), 5).enough()).isTrue();
         // dấu khoảng dừng (...3s) không tính là từ
         assertThat(ReflexV2Scoring.lengthGate(G8_PART2, "hello (...3s) world", 0).words()).isEqualTo(2);
+    }
+
+    /**
+     * Bản 1/10 — cổng độ dài mới cho đề NGẮN (SHORT): mốc 25 từ, KHÔNG có nhánh "nói đủ lâu thì cứu" như
+     * Part 2 (bài đã ngắn sẵn, nói hết giờ mà vẫn ít từ chính là rề rà — xem DOI-MOI-1-10.md mục 1).
+     */
+    @Test
+    void lengthGate_shortForm_25WordMinimum_timeDoesNotRescue() {
+        String twentyFourWords = "word ".repeat(24).trim();
+        ReflexV2Scoring.LengthEvidence tooShort = ReflexV2Scoring.lengthGate(G7_IELTS, twentyFourWords, 30);
+        assertThat(tooShort.enough()).isFalse();
+        assertThat(tooShort.fcCeil()).isEqualTo(60);
+        assertThat(tooShort.lrCeil()).isEqualTo(80);
+        assertThat(ReflexV2Scoring.lengthGate(G7_IELTS, "word ".repeat(25).trim(), 1).enough()).isTrue();
     }
 
     @Test
@@ -419,9 +473,14 @@ class ReflexV2ScoringTest {
         assertThat(g8Cam.rubricFormat()).isEqualTo("PET4");
         assertThat(g8Cam.criteria()).containsExactly("GV", "DM", "P");
 
-        assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 90).orElseThrow().id())
-                .isEqualTo("g9-ielts-part2");
+        ReflexV2Task g9Part2 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 90).orElseThrow();
+        assertThat(g9Part2.id()).isEqualTo("g9-ielts-part2");
+        // Bản 1/10 — hạn ghi âm 120s (nới 28/9 để học sinh có thêm thời gian) KHÔNG phải mẫu số Từ vựng:
+        // kỳ vọng lượng nói vẫn 90s như trước, tách khỏi seconds() để không tự siết trần Từ vựng oan.
+        assertThat(g9Part2.seconds()).isEqualTo(120);
+        assertThat(g9Part2.lexicalSeconds()).isEqualTo(90);
         assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 30).orElseThrow().minWords()).isEqualTo(18);
+        assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 30).orElseThrow().lexicalSeconds()).isEqualTo(30);
         // Khối 9 CAMBRIDGE chưa có bộ v2 → luồng cũ
         assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.CAMBRIDGE, 60)).isEmpty();
         assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_8, null, 30)).isEmpty();

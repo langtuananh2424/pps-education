@@ -20,6 +20,7 @@
 |**C1 — Lạc đề / vô nghĩa**|Không trả lời câu hỏi, ghép từ không tạo thông điệp|**Phần lớn bài** không liên quan tới nội dung mô tả ảnh được gửi kèm (kể cả khi câu cú trôi chảy), nói đùa, ghép từ không tạo thông điệp|**DM trần 20%**|
 |**C2 — Không nghe ra**|>20% số từ là `[?]`/lằng nhằng/phát âm sai không nhận ra|>25% số từ|**P trần 40%**. PET4 >40% / PICTURE >50% → **P trần 20%**|
 |**C3 — Quá ngắn**|<30 từ tiếng Anh nhận ra được (số từ là căn cứ chính)|<18 từ tiếng Anh nhận ra được|**DM và P trần 40%**|
+|**C4 — Dừng quá lâu**|Im lặng dài nhất ≥3 giây|như cột trái|**DM trần 70%**. ≥5 giây → **50%**|
 ||<12 từ|<12 từ|**0%**|
 
 Không có cổng "đọc thuộc": nói trôi chảy, đều nhịp **không bị trừ điểm vì nghi đọc thuộc**.

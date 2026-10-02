@@ -53,7 +53,8 @@ public record ReflexV2Task(String id, List<String> criteria, List<String> writin
      * Bộ rubric bàn giao 29/9 (thư mục {@code rubrics-v3/}, §C.2 của quy tắc chung đã sửa theo người dùng
      * 2026-09-29). Khác v2 ở cấu hình: rubric khối 7 (IELTS SHORT/PART2, Cambridge SHORT/PICTURE) và khối 8
      * Cambridge (PET4/PICTURE) đều có hai cột ngưỡng nên phải khai cột ({@code "SHORT"}/{@code "PET4"}); khối 9
-     * Part 2 tối đa 120 giây (v2: 90).
+     * Part 2 tối đa 120 giây (v2: 90). Nội dung rubric được cập nhật tiếp theo bản 1/10 (ghi thêm cổng C4 —
+     * dừng quá lâu — vào 5 rubric khối 7-9 có FC/DM; không đổi cấu hình task ở trên).
      */
     public static final String RUBRIC_V3 = "v3";
     /** Version áp cho bài viết nộp mới; bước nói luôn dùng version đã lưu ở dòng tiến trình. */
@@ -195,6 +196,19 @@ public record ReflexV2Task(String id, List<String> criteria, List<String> writin
     /** Khối (6-9), đọc từ mã dạng bài ({@code "g8-cam-pet4"} → 8). */
     public int grade() {
         return Character.getNumericValue(id.charAt(1));
+    }
+
+    /**
+     * Bản 1/10 — mẫu số cho độ rộng Từ vựng ({@code ReflexV2Scoring#lexicalCeiling}), TÁCH khỏi
+     * {@link #seconds()}. Ngày 28/9, hạn ghi âm Khối 9 Part 2 được nới 90→120 giây để học sinh có thêm
+     * thời gian, nhưng KỲ VỌNG lượng nói không đổi (vẫn 45 giây/60 từ — xem {@link #PART2_MIN_SECONDS} và
+     * các hằng số PART2_MIN_* ở {@code ReflexV2Scoring}). Mật độ Từ vựng chia theo hạn ghi âm mới (120) thì
+     * cùng một bài 43 từ tự nhiên bị siết trần từ 80% xuống 60% — không ai chủ ý sửa điểm Từ vựng, chỉ là
+     * hai khái niệm (hạn ghi âm vs độ dài kỳ vọng) nằm chung một con số. {@link #seconds()} vẫn giữ 120 vì
+     * các ngưỡng khác (bài neo, cổng độ dài) đã hiệu chuẩn theo đúng con số đó.
+     */
+    public int lexicalSeconds() {
+        return "g9-ielts-part2".equals(id) ? 90 : seconds;
     }
 
     /** Thư mục classpath chứa bộ rubric của dạng bài này. */

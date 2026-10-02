@@ -264,6 +264,24 @@ class ReflexV2AiGradingServiceTest {
         assertThat(grade().hint()).isEmpty();
     }
 
+    /**
+     * Bản 1/10 — sàn nửa-điểm-Bước-1 có thể ra số lẻ chục (Bước 1 = 70% → sàn = 35%, không phải bội số 10 mà
+     * thầy cô chấm). Kết quả cuối cùng của bài NÓI phải bị ép lưới 10, làm tròn XUỐNG (35 → 30).
+     */
+    @Test
+    void gradeSpeaking_UC23b_MainFlow_oddHalfOfStep1Floor_isSnappedDownToNearestTenOnFinalResult() {
+        ReflexV2AiGradingService.Step1Anchor anchor70 = new ReflexV2AiGradingService.Step1Anchor(70, WRITTEN);
+        when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
+                .thenReturn(transcriptionResponse(SPOKEN_EXTENDED))
+                .thenReturn(gradingResponse("[]", 0, 1));
+
+        ReflexV2AiGradingService.SpeakingResult result = service.gradeSpeaking(
+                task, "What is your favourite sport?", new byte[]{1, 2, 3}, "audio/webm", anchor70, sink);
+
+        assertThat(result.criteria().get(0).percent()).isEqualTo(30);
+        assertThat(result.criteria().get(0).percent() % 10).isZero();
+    }
+
     private ReflexV2AiGradingService.SpeakingResult grade() {
         return service.gradeSpeaking(task, "What is your favourite sport?", new byte[]{1, 2, 3}, "audio/webm", locked, sink);
     }
