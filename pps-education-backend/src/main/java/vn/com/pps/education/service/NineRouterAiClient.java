@@ -562,27 +562,30 @@ public class NineRouterAiClient {
         return callWithConcurrencyLimit("transcribe", () -> doTranscribe(audioBytes, mimeType, resolvedModel, spellingHint, language));
     }
 
+    /**
+     * Fix 2026-10-02 (đã xác nhận với người dùng) — Groq Whisper (STT sau 9Router) trả HTTP 400 "prompt length must
+     * be 896 characters or fewer" khi gợi ý chính tả quá dài: lớp sĩ số đông (VD 8D) có danh sách họ tên vượt
+     * ngưỡng dù caller đã cắt ở 800 ký tự Java — Groq đếm khác Java với chữ tiếng Việt có dấu (log staging báo 938).
+     * Vì vậy cắt theo BYTE UTF-8 (luôn lớn hơn hoặc bằng mọi cách đếm ký tự), chừa biên dưới 896.
+     */
+    static final int MAX_STT_PROMPT_BYTES = 850;
+
     private String doTranscribe(byte[] audioBytes, String mimeType, String resolvedModel, String spellingHint,
                                 String language) {
+        String prompt = fitSttPrompt(spellingHint);
         try {
-            String boundary = "----ppsNineRouterBoundary" + UUID.randomUUID();
-            byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType, spellingHint, language);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl + "/audio/transcriptions"))
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("content-type", "multipart/form-data; boundary=" + boundary)
-                    .timeout(Duration.ofSeconds(60))
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                    .build();
-            long startedAtMillis = System.currentTimeMillis();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = postTranscription(audioBytes, mimeType, resolvedModel, prompt, language);
+            if (response.statusCode() == 400 && prompt != null) {
+                // Gợi ý chính tả chỉ là phụ trợ — provider từ chối thì phiên âm lại không gợi ý, thay vì báo lỗi cho giáo viên.
+                log.warn("NineRouterAiClient: 9Router (STT) từ chối request có prompt (HTTP 400): {} — thử lại không gửi prompt.",
+                        response.body());
+                response = postTranscription(audioBytes, mimeType, resolvedModel, null, language);
+            }
             if (response.statusCode() >= 300) {
                 log.warn("NineRouterAiClient: gọi 9Router (STT) lỗi (HTTP {}): {}", response.statusCode(), response.body());
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
-            logUsage("transcribe", resolvedModel, true, json, System.currentTimeMillis() - startedAtMillis);
             String text = json.path("text").asText(null);
             return (text == null || text.isBlank()) ? null : text.trim();
         } catch (IOException | InterruptedException e) {
@@ -592,6 +595,70 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: gọi 9Router (STT) thất bại. {}", e.getMessage());
             return null;
         }
+    }
+
+    /** Package-private để test giả lập phản hồi 9Router mà không gọi mạng. */
+    HttpResponse<String> postTranscription(byte[] audioBytes, String mimeType, String resolvedModel, String prompt,
+                                           String language) throws IOException, InterruptedException {
+        String boundary = "----ppsNineRouterBoundary" + UUID.randomUUID();
+        byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType, prompt, language);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/audio/transcriptions"))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("content-type", "multipart/form-data; boundary=" + boundary)
+                .timeout(Duration.ofSeconds(60))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                .build();
+        long startedAtMillis = System.currentTimeMillis();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 300) {
+            try {
+                logUsage("transcribe", resolvedModel, true, objectMapper.readTree(response.body()), System.currentTimeMillis() - startedAtMillis);
+            } catch (IOException ignored) {
+                // body không phải JSON — doTranscribe sẽ báo lỗi khi parse
+            }
+        }
+        return response;
+    }
+
+    /**
+     * Cắt gợi ý chính tả về tối đa {@link #MAX_STT_PROMPT_BYTES} byte UTF-8. Ưu tiên cắt tại ranh giới tên (", ")
+     * để không gửi nửa họ tên khiến STT viết sai; không có ranh giới phù hợp thì cắt theo ký tự (không cắt đôi
+     * code point). Trả {@code null} nếu gợi ý rỗng.
+     */
+    static String fitSttPrompt(String hint) {
+        if (hint == null || hint.isBlank()) {
+            return null;
+        }
+        if (utf8Length(hint) <= MAX_STT_PROMPT_BYTES) {
+            return hint;
+        }
+        int cut = hint.lastIndexOf(", ");
+        while (cut > 0) {
+            String candidate = hint.substring(0, cut) + ".";
+            if (utf8Length(candidate) <= MAX_STT_PROMPT_BYTES) {
+                return candidate;
+            }
+            cut = hint.lastIndexOf(", ", cut - 1);
+        }
+        StringBuilder out = new StringBuilder();
+        int bytes = 0;
+        for (int i = 0; i < hint.length(); ) {
+            int codePoint = hint.codePointAt(i);
+            int size = utf8Length(new String(Character.toChars(codePoint)));
+            if (bytes + size > MAX_STT_PROMPT_BYTES) {
+                break;
+            }
+            out.appendCodePoint(codePoint);
+            bytes += size;
+            i += Character.charCount(codePoint);
+        }
+        return out.toString();
+    }
+
+    private static int utf8Length(String s) {
+        return s.getBytes(StandardCharsets.UTF_8).length;
     }
 
     /**
