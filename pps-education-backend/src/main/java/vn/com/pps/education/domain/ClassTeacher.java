@@ -17,7 +17,14 @@ import java.time.LocalDate;
 @Table(name = "class_teachers")
 public class ClassTeacher {
 
-    public enum TeacherRole { PRIMARY, ASSISTANT, SUBSTITUTE, CM }
+    /**
+     * SCHEDULED = "Dạy theo lịch" (V209 — bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-02):
+     * hệ thống TỰ tạo khi giáo viên được xếp vào 1 buổi học (chính/phụ/CM) của lớp mà chưa có phân
+     * công nào đang hiệu lực, và tự kết thúc khi giáo viên không còn buổi nào trong khoảng
+     * system_settings.academic.scheduled_teacher_revoke_days ngày — xem ScheduledTeacherAssignmentService.
+     * Không gán tay được qua UC-18.
+     */
+    public enum TeacherRole { PRIMARY, ASSISTANT, SUBSTITUTE, CM, SCHEDULED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

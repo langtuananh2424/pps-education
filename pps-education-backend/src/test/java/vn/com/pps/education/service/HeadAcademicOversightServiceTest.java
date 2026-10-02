@@ -264,6 +264,52 @@ class HeadAcademicOversightServiceTest extends AbstractIntegrationTest {
         assertThat(stats.totals().heldSessions()).isEqualTo(1);
     }
 
+    /** V209: tiết tách theo vai trò GV chính / GV phụ / CM, kèm danh sách vai trò của từng giáo viên. */
+    @Test
+    void getTeachingStats_V209_splitsPeriodsByPrimaryAssistantAndCmRole() {
+        User primary = newUser("teacher.primary");
+        User assistant = newUser("teacher.assistant");
+        User cm = newUser("teacher.cm");
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        ClassSession held = newSession(primary, yesterday, ClassSession.Status.SCHEDULED);
+        held.setAssistantTeacher(assistant);
+        held.setCmTeacher(cm);
+        classSessionRepository.save(held);
+        newPeriod(held, 1);
+        newPeriod(held, 2);
+        // Buổi huỷ: tính vào vai trò nhưng không tính tiết.
+        ClassSession cancelled = newSession(primary, yesterday, ClassSession.Status.CANCELLED);
+        cancelled.setAssistantTeacher(assistant);
+        classSessionRepository.save(cancelled);
+        newPeriod(cancelled, 1);
+
+        TeachingStatsResponse stats = teachingStatsService.getStats(
+                site.getId(), yesterday.minusDays(1), yesterday, headAcademic.getId());
+
+        TeacherTeachingStatsRow primaryRow = rowOf(stats, primary);
+        assertThat(primaryRow.roles()).containsExactly("PRIMARY");
+        assertThat(primaryRow.taughtPeriods()).isEqualTo(2);
+        assertThat(primaryRow.totalPeriods()).isEqualTo(2);
+
+        TeacherTeachingStatsRow assistantRow = rowOf(stats, assistant);
+        assertThat(assistantRow.roles()).containsExactly("ASSISTANT");
+        assertThat(assistantRow.taughtPeriods()).isZero();
+        assertThat(assistantRow.assistantPeriods()).isEqualTo(2);
+        assertThat(assistantRow.totalPeriods()).isEqualTo(2);
+
+        TeacherTeachingStatsRow cmRow = rowOf(stats, cm);
+        assertThat(cmRow.roles()).containsExactly("CM");
+        assertThat(cmRow.cmPeriods()).isEqualTo(2);
+
+        assertThat(stats.totals().assistantPeriods()).isEqualTo(2);
+        assertThat(stats.totals().cmPeriods()).isEqualTo(2);
+        assertThat(stats.totals().totalPeriods()).isEqualTo(6);
+    }
+
+    private static TeacherTeachingStatsRow rowOf(TeachingStatsResponse stats, User teacher) {
+        return stats.teachers().stream().filter(r -> teacher.getId().equals(r.teacherUserId())).findFirst().orElseThrow();
+    }
+
     @Test
     void getTeachingStats_V203_rejectsFromDateAfterToDate() {
         assertThatThrownBy(() -> teachingStatsService.getStats(

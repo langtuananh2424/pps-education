@@ -252,7 +252,7 @@ export interface ClassTeacherResponse {
   classId: number;
   teacherUserId: number;
   teacherFullName: string;
-  teacherRole: "PRIMARY" | "ASSISTANT" | "SUBSTITUTE" | "CM";
+  teacherRole: "PRIMARY" | "ASSISTANT" | "SUBSTITUTE" | "CM" | "SCHEDULED";
   /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-13 — chỉ có ý nghĩa khi teacherRole=PRIMARY (1 lớp có tối đa 1 PRIMARY active loại VIETNAMESE + 1 PRIMARY active loại FOREIGN). */
   teacherType: "VIETNAMESE" | "FOREIGN" | null;
   subjectId: number | null;
