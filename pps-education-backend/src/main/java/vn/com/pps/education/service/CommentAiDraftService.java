@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio (mở rộng FR-ACA-04 — bổ sung ngoài SDD gốc, đã
@@ -709,13 +710,14 @@ public class CommentAiDraftService {
 
     /**
      * Chỉ giữ học sinh thuộc danh sách cần soạn (bước 4) và Thái độ hợp lệ; ý riêng gắn nhầm học sinh ngoài
-     * danh sách chuyển thành "chưa xác định" (A6) thay vì âm thầm bỏ hay gán bừa.
+     * danh sách chuyển thành "chưa xác định" (A6) thay vì âm thầm bỏ hay gán bừa. Bổ sung 2026-10-02: giáo viên nhắc
+     * 1 học sinh nhiều lần mà AI vẫn trả nhiều individual cho cùng học sinh thì GỘP ý (trước đây chỉ giữ lần đầu, mất
+     * ý của các lần sau); 2 lần có Thái độ khác nhau thì để trống cho giáo viên tự chọn.
      */
     private ExtractionOutcome sanitize(DraftContext context, CommentAiDraftResult.Extraction raw) {
         Set<Long> rosterIds = context.rosterById().keySet();
-        List<CommentAiDraftResult.IndividualPoints> individuals = new ArrayList<>();
+        Map<Long, CommentAiDraftResult.IndividualPoints> byStudent = new LinkedHashMap<>();
         List<CommentAiDraftResult.UnmatchedMention> unmatched = new ArrayList<>();
-        Set<Long> seen = new HashSet<>();
         for (CommentAiDraftResult.IndividualPoints item : raw.individuals() == null ? List.<CommentAiDraftResult.IndividualPoints>of() : raw.individuals()) {
             List<String> points = item.points() == null ? List.of() : item.points().stream().filter(p -> p != null && !p.isBlank()).toList();
             if (item.studentId() == null || !rosterIds.contains(item.studentId())) {
@@ -725,17 +727,30 @@ public class CommentAiDraftService {
                 }
                 continue;
             }
-            if (seen.add(item.studentId())) {
-                List<Long> sharedWith = item.sharedWith() == null ? List.of() : item.sharedWith().stream()
-                        .filter(id -> id != null && !id.equals(item.studentId()) && rosterIds.contains(id)).distinct().toList();
-                individuals.add(new CommentAiDraftResult.IndividualPoints(item.studentId(), normalizeAttitude(item.attitude()),
-                        points, item.evidence(), sharedWith));
-            }
+            List<Long> sharedWith = item.sharedWith() == null ? List.of() : item.sharedWith().stream()
+                    .filter(id -> id != null && !id.equals(item.studentId()) && rosterIds.contains(id)).distinct().toList();
+            CommentAiDraftResult.IndividualPoints current = new CommentAiDraftResult.IndividualPoints(item.studentId(),
+                    normalizeAttitude(item.attitude()), points, item.evidence(), sharedWith);
+            byStudent.merge(item.studentId(), current, CommentAiDraftService::mergeMentions);
         }
+        List<CommentAiDraftResult.IndividualPoints> individuals = new ArrayList<>(byStudent.values());
         List<String> classPoints = raw.classPoints() == null ? List.of()
                 : raw.classPoints().stream().filter(p -> p != null && !p.isBlank()).toList();
         return new ExtractionOutcome(new CommentAiDraftResult.Extraction(normalizeAttitude(raw.classAttitude()), classPoints,
                 individuals, normalizePronoun(raw.teacherPronoun())), unmatched);
+    }
+
+    /** Gộp 2 lần nhắc cùng 1 học sinh, giữ thứ tự giáo viên nói. */
+    private static CommentAiDraftResult.IndividualPoints mergeMentions(CommentAiDraftResult.IndividualPoints first,
+                                                                     CommentAiDraftResult.IndividualPoints next) {
+        String attitude = first.attitude() == null ? next.attitude()
+                : next.attitude() == null || next.attitude().equals(first.attitude()) ? first.attitude() : null;
+        List<String> points = Stream.concat(first.points().stream(), next.points().stream()).distinct().toList();
+        String evidence = Stream.of(first.evidence(), next.evidence()).filter(e -> e != null && !e.isBlank()).distinct()
+                .collect(Collectors.joining(" … "));
+        List<Long> sharedWith = Stream.concat(first.sharedWith().stream(), next.sharedWith().stream()).distinct().toList();
+        return new CommentAiDraftResult.IndividualPoints(first.studentId(), attitude, points,
+                evidence.isEmpty() ? null : evidence, sharedWith);
     }
 
     /**

@@ -4,7 +4,7 @@ Giáo viên thường nói 1 nhận xét CHUNG cho cả lớp, sau đó nhắc r
 
 Quy tắc bắt buộc:
 1. Chỉ dùng thông tin CÓ TRONG transcript hoặc ghi chú của giáo viên. Tuyệt đối không bịa thêm chi tiết.
-2. Gắn học sinh được nhắc tên với đúng "studentId" trong DANH SÁCH HỌC SINH được cung cấp. Chỉ gắn khi chắc chắn (tên/họ tên khớp, kể cả khi sai dấu nhẹ). Nếu tên có thể khớp nhiều học sinh, hoặc không khớp học sinh nào trong danh sách, KHÔNG đoán: đưa vào "unmatched" kèm câu trích nguyên văn và các studentId ứng viên: tối đa 3 ứng viên, xếp theo độ khớp, chỉ gồm học sinh có ít nhất 1 từ trong tên khớp với tên nghe được.
+2. Gắn học sinh được nhắc tên với đúng "studentId" trong DANH SÁCH HỌC SINH được cung cấp. Chỉ gắn khi chắc chắn (tên/họ tên khớp, kể cả khi sai dấu nhẹ). Nếu tên có thể khớp nhiều học sinh, hoặc không khớp học sinh nào trong danh sách, KHÔNG đoán: đưa vào "unmatched" kèm câu trích nguyên văn và các studentId ứng viên: tối đa 3 ứng viên, xếp theo độ khớp, chỉ gồm học sinh có ít nhất 1 từ trong tên khớp với tên nghe được; không có ứng viên nào như vậy thì "candidateStudentIds" = [] — KHÔNG tự gán cho học sinh gần giống nhất.
 2b. Giáo viên nhắc nhiều học sinh trong 1 câu hoặc 1 dòng ghi chú (VD nói "An và Bình rất ngoan", ghi "An / Bình: nói chuyện riêng", "An, Bình, Chi làm bài tốt"): tách thành từng individual riêng cho MỖI học sinh, không gộp 2 bạn vào 1 individual. Mỗi individual:
    - "points": chỉ ý của đúng học sinh đó, KHÔNG chứa tên học sinh kia (ghi "nói chuyện riêng trong giờ", KHÔNG ghi "nói chuyện riêng với Bình").
    - "evidence": câu trích nói về học sinh đó; nếu sau câu chung giáo viên có nói thêm riêng từng bạn thì evidence của bạn nào lấy phần của bạn đó.
@@ -14,6 +14,10 @@ Quy tắc bắt buộc:
 4. Nếu giáo viên nói điểm/số liệu của học sinh (VD điểm hoạt động nhóm, kiểm tra nhanh), giữ NGUYÊN con số đó trong "points" đúng như lời giáo viên. KHÔNG tự tính, làm tròn hay bịa con số không có trong transcript/ghi chú.
 5. "points" là danh sách ý ngắn gọn (mỗi ý 1 cụm), giữ nguyên nghĩa lời giáo viên.
 6. "teacherPronoun": đại từ giáo viên TỰ XƯNG trong lời nói/ghi chú ("thầy" hoặc "cô", VD "Thầy tuyên dương…", "cô rất vui…"). Không xác định được thì null — không đoán.
+7. Giáo viên nhắc cùng 1 học sinh nhiều lần (VD đầu giờ nói "An nói chuyện riêng", cuối giờ lại khen "An phát biểu tốt"): GỘP thành 1 individual duy nhất, "points" gồm đủ các ý theo đúng thứ tự giáo viên nói. "attitude" chọn theo bức tranh chung của các ý; nếu các ý MÂU THUẪN rõ (VD vừa "không làm bài" vừa "làm bài rất tốt") thì để null cho giáo viên tự chọn.
+8. Giáo viên nói rồi tự sửa (VD "An ngoan... à không, hôm nay An hơi mất tập trung", "Cả lớp ồn... à không, lớp khá trật tự"): CHỈ lấy ý CUỐI CÙNG giáo viên chốt, không đưa ý đã bị sửa vào "points"/"classPoints".
+9. Câu chung có loại trừ hoặc thêm 1 bạn (VD "Cả lớp tập trung tốt, chỉ có An nói chuyện riêng", "Cả lớp làm bài ổn, riêng Bình chưa xong"): phần chung vào "classPoints" (KHÔNG chứa ý về An/Bình), phần về bạn đó vào "individuals" của bạn đó. Không để 2 chỗ trùng nội dung.
+10. Giáo viên chỉ người bằng đại từ KHÔNG kèm tên ("bạn này", "bạn kia", "em đó", "bạn ngồi cạnh", "bạn áo đỏ"): KHÔNG đoán là ai — đưa vào "unmatched" với câu trích nguyên văn, "candidateStudentIds" = [], "reason": "pronoun".
 
 Rubric của trung tâm (dùng mục tiêu chí Thái độ để chọn mức):
 {{RUBRIC}}
@@ -27,6 +31,6 @@ Chỉ trả về DUY NHẤT 1 object JSON đúng cấu trúc sau, không kèm gi
     {"studentId": 123, "attitude": "AVERAGE" | null, "points": ["ý riêng"], "evidence": "câu trích nguyên văn từ transcript", "sharedWith": [124]}
   ],
   "unmatched": [
-    {"quote": "câu trích nguyên văn", "candidateStudentIds": [45, 67]}
+    {"quote": "câu trích nguyên văn", "candidateStudentIds": [45, 67], "reason": "ambiguous" | "name_not_found" | "pronoun"}
   ]
 }
