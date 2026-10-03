@@ -113,10 +113,19 @@ public class QuestionImportService {
     private static final String KIND_GRID_GROUP = "DOC_HIEU_LUOI";
     private static final String KIND_CLOZE_GROUP = "DOC_DIEN_TU";
 
+    /**
+     * Bổ sung 2026-10-03 (đã xác nhận với người dùng) — "Nghe điền phiếu thông tin" (form/note
+     * completion của IELTS Listening): 1 audio + 1 phiếu thông tin nhiều chỗ trống đánh số. Tái dùng
+     * questionType WORD_BANK (inputMode="text") + structuredContent.format="form" để chấm theo từng ô
+     * (nhiều đáp án "a/b" mỗi ô, chuẩn hóa số/giờ — xem FormAnswerMatcher), không thêm enum/migration.
+     */
+    private static final String KIND_FORM_COMPLETION = "NGHE_PHIEU_THONG_TIN";
+
     private static final Set<String> VALID_KINDS = Set.of(
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
             "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP, KIND_CLOZE_GROUP);
+            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION, KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP,
+            KIND_CLOZE_GROUP);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -272,7 +281,7 @@ public class QuestionImportService {
             "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", KIND_FILL_IN_BLANK_GROUP,
                     "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
             "WRITING", Set.of("TU_LUAN"),
-            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH"),
+            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION),
             // Bổ sung 2026-09-08 — trước đây READING không có entry (Cloze/Grid chưa import được), giờ
             // mở khóa cả 2 group kind mới.
             "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP));
@@ -439,6 +448,17 @@ public class QuestionImportService {
                 "Đáp án đúng: B",
                 "Giải thích: Mỗi ảnh 1 đáp án theo thứ tự A/B/C(/D), phân tách bằng dấu | trong \"URL Hình ảnh\" — \"Đáp án A/B/C/D\" tùy chọn để thêm chú thích chữ dưới ảnh, để trống thì tự dùng chữ cái làm nhãn.",
                 "---"));
+        blocks.put(KIND_FORM_COMPLETION, List.of(
+                "[NGHE_PHIEU_THONG_TIN]",
+                "Nội dung: The Sea Lady",
+                "- Built in: (14) ___",
+                "- Length of the ship: (15) ___ long",
+                "- Dinner time: (16) ___ p.m. to 9.30 p.m.",
+                "URL Audio: https://example-r2.dev/lms/questions/audio/mau-phieu-thong-tin.mp3",
+                "Đáp án đúng: 1999/nineteen ninety-nine|300 metres/300 m/300|7:30/7.30/7h30",
+                "Transcript: Điền MỖI chỗ trống một từ, một số, một ngày hoặc một giờ.",
+                "Giải thích: Mỗi chỗ trống \"___\" trong \"Nội dung\" (theo thứ tự xuất hiện) khớp 1 phần tử của \"Đáp án đúng\", phân tách bằng dấu |. Mỗi ô nhận nhiều đáp án đúng phân tách bằng dấu /; số/giờ được chuẩn hóa nên 7:30, 7.30, 7h30 và five/5 coi như nhau. Chấm theo tỉ lệ ô đúng. Cột Transcript (tùy chọn) = dòng hướng dẫn hiện phía trên phiếu.",
+                "---"));
         blocks.put(KIND_GRID_GROUP, List.of(
                 "[DOC_HIEU_LUOI]",
                 // 3 dòng riêng (KHÔNG gộp "\n" vào 1 chuỗi) — WordQuestionRowParser.LABEL_PATTERN dùng
@@ -491,7 +511,7 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
                     + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
                     + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/DIEN_TU_DOAN_VAN/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
-                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/DOC_HIEU_LUOI/DOC_DIEN_TU.");
+                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/DOC_HIEU_LUOI/DOC_DIEN_TU.");
         }
         return kind;
     }
@@ -673,6 +693,28 @@ public class QuestionImportService {
                 sc.put("inputMode", "text");
             }
             structuredContent = sc;
+        } else if (kind.equals(KIND_FORM_COMPLETION)) {
+            skill = "LISTENING";
+            if (isBlank(row.audioUrl())) {
+                throw new IllegalArgumentException("Nghe điền phiếu thông tin cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
+            }
+            if (isBlank(row.correctAnswer())) {
+                throw new IllegalArgumentException("Nghe điền phiếu thông tin cần danh sách đáp án đúng theo thứ tự chỗ trống, phân tách bằng dấu | (mỗi ô nhiều đáp án thì phân tách bằng /).");
+            }
+            audioUrl = row.audioUrl().trim();
+            List<String> blanks = splitPipeKeepBlanks(row.correctAnswer());
+            int blankMarkers = row.content().split("___", -1).length - 1;
+            if (blankMarkers != blanks.size()) {
+                throw new IllegalArgumentException("Số chỗ trống \"___\" trong Nội dung (" + blankMarkers
+                        + ") phải bằng số đáp án phân tách bằng dấu | (" + blanks.size() + ").");
+            }
+            Map<String, Object> sc = new LinkedHashMap<>();
+            sc.put("blanks", blanks);
+            sc.put("inputMode", "text");
+            sc.put("format", "form");
+            structuredContent = sc;
+            // Cột Transcript tái dùng làm dòng hướng dẫn hiện phía trên phiếu (KHÔNG phải hộp từ).
+            referencePassage = blankToNull(row.referencePassage());
         } else if (kind.equals("SAP_XEP_CAU") || kind.equals("SAP_XEP_CHU_CAI")) {
             // Cùng cơ chế tái dùng cột "Đáp án đúng" — mỗi khối/chữ cái phân tách bằng dấu |.
             List<String> chunks = isBlank(row.correctAnswer()) ? List.of() : splitOrdered(row.correctAnswer());
@@ -729,7 +771,7 @@ public class QuestionImportService {
         String questionType = kind.startsWith("TRAC_NGHIEM") || kind.equals("NGHE_CHON_HINH") ? "MULTIPLE_CHOICE"
                 : kind.equals("DIEN_TU") || kind.equals("NGHE_DIEN_TU") ? "FILL_IN_BLANK"
                 : kind.equals("TU_LUAN") ? "ESSAY"
-                : kind.startsWith("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_DOAN_VAN") ? "WORD_BANK"
+                : kind.startsWith("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_DOAN_VAN") || kind.equals(KIND_FORM_COMPLETION) ? "WORD_BANK"
                 : kind.startsWith("SAP_XEP") ? "SENTENCE_BUILDING"
                 : "SPEAKING";
 

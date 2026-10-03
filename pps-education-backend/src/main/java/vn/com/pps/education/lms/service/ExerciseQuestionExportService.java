@@ -36,7 +36,7 @@ import java.util.Objects;
  * <p>Ánh xạ ngược Question → kind (đối xứng với {@code QuestionImportService#mapToRequest}):
  * MULTIPLE_CHOICE → TRAC_NGHIEM / TRAC_NGHIEM_VOICE (có audio) / NGHE_CHON_HINH (có audio + ảnh theo đáp án);
  * FILL_IN_BLANK → DIEN_TU / NGHE_DIEN_TU (có audio); ESSAY → TU_LUAN; SPEAKING → SPEAKING / NGHE_NOP_AUDIO
- * (skill LISTENING); WORD_BANK → DIEN_TU_DOAN_VAN (inputMode=text) / DIEN_TU_HOP_TU_VUNG_ANH (có ảnh) /
+ * (skill LISTENING); WORD_BANK → NGHE_PHIEU_THONG_TIN (format=form + audio) / DIEN_TU_DOAN_VAN (inputMode=text) / DIEN_TU_HOP_TU_VUNG_ANH (có ảnh) /
  * DIEN_TU_HOP_TU_VUNG; SENTENCE_BUILDING → SAP_XEP_CAU / SAP_XEP_CHU_CAI (có ảnh).
  * Các câu FILL_IN_BLANK liên tiếp cùng groupKey (không audio) gộp lại thành 1 dòng DIEN_TU_NHOM như lúc import.
  * Câu đọc hiểu dùng chung đoạn văn/audio xuất thành các dòng liền nhau cùng giá trị — import tự gộp nhóm
@@ -171,10 +171,14 @@ public class ExerciseQuestionExportService {
                     return null;
                 }
                 boolean textMode = "text".equals(structured(q, "inputMode"));
-                kind = textMode ? "DIEN_TU_DOAN_VAN" : isPresent(image) ? "DIEN_TU_HOP_TU_VUNG_ANH" : "DIEN_TU_HOP_TU_VUNG";
+                boolean formMode = textMode && "form".equals(structured(q, "format")) && isPresent(audio);
+                kind = formMode ? "NGHE_PHIEU_THONG_TIN"
+                        : textMode ? "DIEN_TU_DOAN_VAN" : isPresent(image) ? "DIEN_TU_HOP_TU_VUNG_ANH" : "DIEN_TU_HOP_TU_VUNG";
                 correct = String.join("|", blanks);
                 List<String> options = stringList(structured(q, "wordBankOptions"));
-                if (!options.isEmpty()) {
+                if (formMode) {
+                    passage = q.getReferencePassage();
+                } else if (!options.isEmpty()) {
                     passage = String.join(", ", options);
                 }
             }
