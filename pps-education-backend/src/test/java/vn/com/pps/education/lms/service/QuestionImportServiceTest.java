@@ -807,6 +807,27 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(saved.questionType()).isEqualTo("FILL_IN_BLANK");
     }
 
+    /** NGHE_PHIEU_THONG_TIN: 1 audio + phiếu nhiều ô -> 1 Question WORD_BANK (format=form), số ô phải khớp số đáp án. */
+    @Test
+    void importQuestions_phieuThongTin_createsFormWordBankAndValidatesBlankCount() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"NGHE_PHIEU_THONG_TIN", null, "The Sea Lady\n\n- Built in: (14) ___\n- Dinner: (15) ___ p.m.", null, null, null, null,
+                        "1999/nineteen ninety-nine|7:30/7.30", "https://example-r2.dev/a.mp3", null, "Fill in each blank.", "1", null, null},
+                {"NGHE_PHIEU_THONG_TIN", null, "Only one blank ___ here", null, null, null, null,
+                        "a|b", "https://example-r2.dev/a.mp3", null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "phieu.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(result.failedRows()).isEqualTo(1);
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.questionType()).isEqualTo("WORD_BANK");
+        assertThat(saved.skill()).isEqualTo("LISTENING");
+        assertThat(saved.structuredContent()).containsEntry("format", "form").containsEntry("inputMode", "text");
+    }
+
     /** Cột "Loại câu hỏi" trống VÀ chưa chọn loại mặc định — lỗi rõ ràng, không phải NPE. */
     @Test
     void importQuestions_boSung_rejectsBlankRowKindWithoutDefaultKind() throws IOException {
@@ -825,7 +846,7 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
 
     /**
      * Round-trip: file mẫu Word tự sinh (buildWordTemplate) phải tự đọc lại
-     * được đúng cả 16 loại trong VALID_KINDS — bảo vệ khỏi mẫu và parser
+     * được đúng cả 17 loại (17 sau khi thêm NGHE_PHIEU_THONG_TIN 2026-10-03; 16 trước đó) trong VALID_KINDS — bảo vệ khỏi mẫu và parser
      * lệch cú pháp nhau (giống buildTemplate_roundTrip của
      * GradeImportServiceTest cho UC-53). Số lượng 16 khớp đúng
      * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung DIEN_TU_DOAN_VAN ngày
@@ -838,7 +859,7 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
      * đợt bổ sung.
      */
     @Test
-    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllSixteenKinds() {
+    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllSeventeenKinds() {
         byte[] template = questionImportService.buildWordTemplate();
 
         QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
@@ -846,10 +867,10 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", template), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.totalRows()).isEqualTo(16);
-        assertThat(result.successRows()).isEqualTo(16);
+        assertThat(result.totalRows()).isEqualTo(17);
+        assertThat(result.successRows()).isEqualTo(17);
         assertThat(result.failedRows()).isEqualTo(0);
-        assertThat(questionBankService.listQuestions(bank.id())).hasSize(22);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(23);
     }
 
     /**
