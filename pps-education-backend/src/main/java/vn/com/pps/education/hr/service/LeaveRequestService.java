@@ -1,0 +1,470 @@
+package vn.com.pps.education.hr.service;
+
+import vn.com.pps.education.notification.service.NotificationService;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.academic.domain.ClassSession;
+import vn.com.pps.education.academic.domain.ClassTeacher;
+import vn.com.pps.education.hr.domain.Department;
+import vn.com.pps.education.hr.domain.Employee;
+import vn.com.pps.education.hr.domain.LeaveRequest;
+import vn.com.pps.education.hr.domain.LeaveRequestApproval;
+import vn.com.pps.education.hr.domain.LeaveRequestHistory;
+import vn.com.pps.education.notification.domain.Notification;
+import vn.com.pps.education.auth.domain.User;
+import vn.com.pps.education.permission.domain.UserRole;
+import vn.com.pps.education.hr.dto.ClassSessionResponse;
+import vn.com.pps.education.hr.dto.CreateLeaveRequestRequest;
+import vn.com.pps.education.hr.dto.DecideLeaveRequestRequest;
+import vn.com.pps.education.hr.dto.LeaveRequestApprovalResponse;
+import vn.com.pps.education.hr.dto.LeaveRequestResponse;
+import vn.com.pps.education.hr.dto.SubstituteAssignmentRequest;
+import vn.com.pps.education.hr.dto.TeacherLookupResponse;
+import vn.com.pps.education.exception.ExecutiveExemptFromLeaveRequestException;
+import vn.com.pps.education.exception.LeaveRequestAlreadyFinalizedException;
+import vn.com.pps.education.exception.NotCurrentApproverException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.hr.repository.EmployeeRepository;
+import vn.com.pps.education.hr.repository.LeaveRequestApprovalRepository;
+import vn.com.pps.education.hr.repository.LeaveRequestHistoryRepository;
+import vn.com.pps.education.hr.repository.LeaveRequestRepository;
+import vn.com.pps.education.permission.repository.RoleRepository;
+import vn.com.pps.education.auth.repository.UserRepository;
+import vn.com.pps.education.permission.repository.UserRoleRepository;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * UC-10: Nộp đơn từ + UC-11: Duyệt đơn từ (FR-HRM-03).
+ * Xem docs/uc/phan-he-04-nhan-su.md và
+ * docs/diagrams/activity/ActivityDiagram-DuyetDonTu.mmd — 2 UC cùng 1
+ * workflow trạng thái, gộp 1 Service (giống AuthService gộp UC-01 login/
+ * refresh/logout).
+ *
+ * total_days: SDD ghi "Tính bởi service" không kèm công thức, đã xác nhận
+ * với PM — đếm ngày lịch (bao gồm cuối tuần) cho loại nghỉ cả ngày, cố định
+ * 0.5 ngày cho LATE/EARLY_LEAVE.
+ */
+@Service
+public class LeaveRequestService {
+
+    private static final Set<String> MANAGEMENT_ROLE_CODES =
+            Set.of("SITE_MANAGER", "HEAD_ACADEMIC", "OPS_MANAGER", "HR_MANAGER");
+
+    private final EmployeeRepository employeeRepository;
+    private final UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final RoleRepository roleRepository;
+    private final LeaveRequestRepository leaveRequestRepository;
+    private final LeaveRequestApprovalRepository leaveRequestApprovalRepository;
+    private final LeaveRequestHistoryRepository leaveRequestHistoryRepository;
+    private final NotificationService notificationService;
+    private final LeaveSubstitutionService leaveSubstitutionService;
+
+    public LeaveRequestService(EmployeeRepository employeeRepository,
+                                UserRepository userRepository,
+                                UserRoleRepository userRoleRepository,
+                                RoleRepository roleRepository,
+                                LeaveRequestRepository leaveRequestRepository,
+                                LeaveRequestApprovalRepository leaveRequestApprovalRepository,
+                                LeaveRequestHistoryRepository leaveRequestHistoryRepository,
+                                NotificationService notificationService,
+                                LeaveSubstitutionService leaveSubstitutionService) {
+        this.employeeRepository = employeeRepository;
+        this.userRepository = userRepository;
+        this.userRoleRepository = userRoleRepository;
+        this.roleRepository = roleRepository;
+        this.leaveRequestRepository = leaveRequestRepository;
+        this.leaveRequestApprovalRepository = leaveRequestApprovalRepository;
+        this.leaveRequestHistoryRepository = leaveRequestHistoryRepository;
+        this.notificationService = notificationService;
+        this.leaveSubstitutionService = leaveSubstitutionService;
+    }
+
+    /** UC-10 Main Flow bước 1-4, A1 (Ban giám đốc), A2 (phòng ban không có trưởng phòng). */
+    @Transactional
+    public LeaveRequestResponse submit(Long actorUserId, CreateLeaveRequestRequest request) {
+        User actor = getUserOrThrow(actorUserId);
+        Employee employee = employeeRepository.findByUserId(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.employeeProfileMissing", new Object[]{}, "Tài khoản chưa có hồ sơ nhân sự."));
+        Set<String> roleCodes = roleCodesOf(actorUserId);
+
+        // Main Flow bước 1 / A1 -- Ban giám đốc miễn trừ hoàn toàn.
+        if (roleCodes.contains("EXECUTIVE")) {
+            throw new ExecutiveExemptFromLeaveRequestException("error.executiveExemptFromLeaveRequest.default", new Object[]{}, "Ban giám đốc được miễn trừ, không thể nộp đơn từ.");
+        }
+
+        LeaveRequest.LeaveType leaveType = LeaveRequest.LeaveType.valueOf(request.leaveType());
+        boolean partialDay = leaveType == LeaveRequest.LeaveType.LATE || leaveType == LeaveRequest.LeaveType.EARLY_LEAVE;
+        if (partialDay) {
+            if (request.startTime() == null || request.endTime() == null || !request.endTime().isAfter(request.startTime())) {
+                throw new IllegalArgumentException("LATE/EARLY_LEAVE cần startTime/endTime hợp lệ (endTime sau startTime).");
+            }
+            if (!request.startDate().equals(request.endDate())) {
+                throw new IllegalArgumentException("LATE/EARLY_LEAVE chỉ áp dụng trong 1 ngày (startDate = endDate).");
+            }
+        } else if (request.endDate().isBefore(request.startDate())) {
+            throw new IllegalArgumentException("endDate không được trước startDate.");
+        }
+
+        // Main Flow bước 3 (Giáo viên) / A3 / A4 -- xác định buổi dạy trong khoảng nghỉ, validate lựa chọn dạy thay.
+        Map<Long, ClassSession> teachingSessionsById = Map.of();
+        List<SubstituteAssignmentRequest> substitutes = request.substitutes() == null ? List.of() : request.substitutes();
+        if (employee.getEmployeeType() == Employee.EmployeeType.TEACHER) {
+            List<ClassSession> teachingSessions = leaveSubstitutionService.findTeachingSessions(
+                    actorUserId, request.startDate(), request.endDate());
+            if (!teachingSessions.isEmpty()) {
+                teachingSessionsById = teachingSessions.stream()
+                        .collect(Collectors.toMap(ClassSession::getId, s -> s));
+                if (substitutes.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Bạn có buổi dạy trong khoảng nghỉ này, cần chọn giáo viên dạy thay.");
+                }
+
+                Long chosenClassId = null;
+                for (SubstituteAssignmentRequest sub : substitutes) {
+                    ClassSession session = teachingSessionsById.get(sub.classSessionId());
+                    if (session == null) {
+                        throw new IllegalArgumentException(
+                                "Buổi học này không thuộc lịch dạy của bạn trong khoảng nghỉ.");
+                    }
+                    if (chosenClassId == null) {
+                        chosenClassId = session.getSchoolClass().getId();
+                    } else if (!chosenClassId.equals(session.getSchoolClass().getId())) {
+                        // A3 -- 1 đơn chỉ xử lý dạy thay cho 1 lớp.
+                        throw new IllegalArgumentException(
+                                "1 đơn chỉ xử lý dạy thay cho 1 lớp; vui lòng nộp đơn riêng cho từng lớp còn lại.");
+                    }
+                }
+
+                Long finalChosenClassId = chosenClassId;
+                Set<Long> expectedSessionIds = teachingSessions.stream()
+                        .filter(s -> s.getSchoolClass().getId().equals(finalChosenClassId))
+                        .map(ClassSession::getId)
+                        .collect(Collectors.toSet());
+                Set<Long> providedSessionIds = substitutes.stream()
+                        .map(SubstituteAssignmentRequest::classSessionId)
+                        .collect(Collectors.toSet());
+                if (!providedSessionIds.equals(expectedSessionIds)) {
+                    throw new IllegalArgumentException(
+                            "Cần chọn giáo viên dạy thay cho TẤT CẢ buổi học của lớp trong khoảng nghỉ, không được bỏ trống.");
+                }
+            }
+            // A4 -- không có buổi dạy trong khoảng nghỉ: bỏ qua bước chọn dạy thay, xử lý như mẫu đơn thường.
+        }
+
+        LeaveRequest lr = new LeaveRequest();
+        lr.setEmployee(employee);
+        lr.setLeaveType(leaveType);
+        lr.setStartDate(request.startDate());
+        lr.setEndDate(request.endDate());
+        lr.setStartTime(partialDay ? request.startTime() : null);
+        lr.setEndTime(partialDay ? request.endTime() : null);
+        lr.setTotalDays(computeTotalDays(leaveType, request.startDate(), request.endDate()));
+        lr.setReason(request.reason());
+        lr.setAttachmentUrl(request.attachmentUrl());
+        lr.setStatus(LeaveRequest.Status.PENDING);
+        lr.setCurrentStep(1);
+        lr.setSubmittedAt(OffsetDateTime.now());
+
+        // Main Flow bước 3 -- xác định workflow duyệt.
+        List<LeaveRequestApproval.ApproverRole> steps;
+        Department department = employee.getDepartment();
+        if (!MANAGEMENT_ROLE_CODES.isEmpty() && roleCodes.stream().anyMatch(MANAGEMENT_ROLE_CODES::contains)) {
+            steps = List.of(LeaveRequestApproval.ApproverRole.EXECUTIVE);
+        } else if (department != null && department.getHeadUser() != null) {
+            steps = List.of(LeaveRequestApproval.ApproverRole.DEPARTMENT_HEAD,
+                    LeaveRequestApproval.ApproverRole.OPERATIONS_MANAGER);
+            lr.setCurrentApprover(department.getHeadUser());
+        } else {
+            // A2 -- phòng ban không có trưởng phòng, bỏ qua bước DEPARTMENT_HEAD.
+            steps = List.of(LeaveRequestApproval.ApproverRole.OPERATIONS_MANAGER);
+        }
+
+        lr = leaveRequestRepository.save(lr);
+        for (int i = 0; i < steps.size(); i++) {
+            LeaveRequestApproval approval = new LeaveRequestApproval();
+            approval.setLeaveRequest(lr);
+            approval.setStepOrder(i + 1);
+            approval.setApproverRole(steps.get(i));
+            leaveRequestApprovalRepository.save(approval);
+        }
+
+        // Bước 5 -- áp dụng dạy thay NGAY khi nộp đơn, không đợi duyệt (buổi dạy có thể diễn ra trước khi duyệt xong).
+        if (!substitutes.isEmpty()) {
+            Map<Long, ClassTeacher> classTeacherCache = new HashMap<>();
+            for (SubstituteAssignmentRequest sub : substitutes) {
+                ClassSession session = teachingSessionsById.get(sub.classSessionId());
+                User substituteTeacher = getUserOrThrow(sub.substituteTeacherId());
+                leaveSubstitutionService.apply(lr, session, substituteTeacher, actor, classTeacherCache);
+            }
+        }
+
+        writeHistory(lr, actor, LeaveRequestHistory.Action.CREATED);
+        notifyStepApprovers(lr, steps.get(0), lr.getCurrentApprover()); // Postcondition: người duyệt bước đầu nhận thông báo
+        return toResponse(lr);
+    }
+
+    /** UC-11 Main Flow bước 1: danh sách đơn chờ duyệt thuộc thẩm quyền người gọi. */
+    @Transactional(readOnly = true)
+    public List<LeaveRequestResponse> listPendingForApprover(Long actorUserId) {
+        Set<String> roleCodes = roleCodesOf(actorUserId);
+        List<LeaveRequest> direct = leaveRequestRepository
+                .findByStatusAndCurrentApproverId(LeaveRequest.Status.PENDING, actorUserId);
+        List<LeaveRequest> roleBased = leaveRequestRepository
+                .findByStatusAndCurrentApproverIsNull(LeaveRequest.Status.PENDING).stream()
+                .filter(lr -> currentApproverRoleMatches(lr, roleCodes))
+                .toList();
+        return java.util.stream.Stream.concat(direct.stream(), roleBased.stream())
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public LeaveRequestResponse getById(Long id) {
+        return toResponse(getLeaveRequestOrThrow(id));
+    }
+
+    /** Self-service: danh sách đơn từ đã nộp của chính người dùng, để xem lại trạng thái. */
+    @Transactional(readOnly = true)
+    public List<LeaveRequestResponse> listMine(Long actorUserId) {
+        return leaveRequestRepository.findByEmployeeUserIdOrderBySubmittedAtDesc(actorUserId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /** UC-11: các bước duyệt của 1 đơn, để FE hiển thị tiến trình duyệt. */
+    @Transactional(readOnly = true)
+    public List<LeaveRequestApprovalResponse> listApprovals(Long leaveRequestId) {
+        return leaveRequestApprovalRepository.findByLeaveRequestIdOrderByStepOrder(leaveRequestId).stream()
+                .map(a -> new LeaveRequestApprovalResponse(
+                        a.getId(), a.getStepOrder(), a.getApproverRole().name(),
+                        a.getApproverUser() == null ? null : a.getApproverUser().getId(),
+                        a.getApproverUser() == null ? null : a.getApproverUser().getFullName(),
+                        a.getDecision() == null ? null : a.getDecision().name(),
+                        a.getComment(),
+                        a.getDecidedAt()))
+                .toList();
+    }
+
+    /** UC-10 bước 3 (FE): buổi dạy của người nộp trong khoảng nghỉ, để chọn giáo viên dạy thay. */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> findTeachingSessions(
+            Long actorUserId, LocalDate startDate, LocalDate endDate) {
+        return leaveSubstitutionService.findTeachingSessionResponses(actorUserId, startDate, endDate);
+    }
+
+    /**
+     * UC-10 bước 3 (FE) — gợi ý giáo viên dạy thay khi nộp đơn. Bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07: không lọc theo
+     * site, hiển thị toàn bộ tài khoản ACTIVE mang role TEACHER (self-service,
+     * không đòi hỏi quyền user.view — khác UC-44 dành cho quản trị tài khoản).
+     */
+    @Transactional(readOnly = true)
+    public List<TeacherLookupResponse> listSubstituteTeacherCandidates(String keyword) {
+        String pattern = keyword == null || keyword.isBlank() ? null : keyword.trim().toLowerCase();
+        return userRoleRepository.findByRole_Code("TEACHER").stream()
+                .map(UserRole::getUser)
+                .filter(u -> u.getStatus() == User.Status.ACTIVE)
+                .filter(u -> pattern == null
+                        || u.getFullName().toLowerCase().contains(pattern)
+                        || u.getUsername().toLowerCase().contains(pattern)
+                        || u.getEmail().toLowerCase().contains(pattern))
+                .sorted(Comparator.comparing(User::getFullName))
+                .map(u -> new TeacherLookupResponse(u.getId(), u.getUsername(), u.getEmail(), u.getFullName()))
+                .toList();
+    }
+
+    /**
+     * UC-11 Main Flow bước 3-6, A1 (từ chối giữa chừng).
+     */
+    @Transactional
+    public LeaveRequestResponse decide(Long actorUserId, Long leaveRequestId, DecideLeaveRequestRequest request) {
+        User actor = getUserOrThrow(actorUserId);
+        LeaveRequest lr = getLeaveRequestOrThrow(leaveRequestId);
+        if (lr.getStatus() != LeaveRequest.Status.PENDING) {
+            throw new LeaveRequestAlreadyFinalizedException("error.leaveRequestAlreadyFinalized.default", new Object[]{}, "Đơn từ này đã ở trạng thái cuối.");
+        }
+        LeaveRequestApproval currentApproval = leaveRequestApprovalRepository
+                .findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.leaveRequest.approvalStepNotFound", new Object[]{leaveRequestId},
+                        "Không tìm thấy bước duyệt hiện tại cho đơn id=" + leaveRequestId));
+
+        Set<String> roleCodes = roleCodesOf(actorUserId);
+        boolean authorized = lr.getCurrentApprover() != null
+                ? lr.getCurrentApprover().getId().equals(actorUserId)
+                : approverRoleMatchesRoleCodes(currentApproval.getApproverRole(), roleCodes);
+        if (!authorized) {
+            throw new NotCurrentApproverException("error.notCurrentApprover.default", new Object[]{}, "Bạn không có thẩm quyền duyệt bước hiện tại của đơn từ này.");
+        }
+
+        LeaveRequestApproval.Decision decision = LeaveRequestApproval.Decision.valueOf(request.decision());
+        currentApproval.setApproverUser(actor);
+        currentApproval.setDecision(decision);
+        currentApproval.setComment(request.comment());
+        currentApproval.setDecidedAt(OffsetDateTime.now());
+        leaveRequestApprovalRepository.save(currentApproval);
+
+        Optional<LeaveRequestApproval> nextStep = Optional.empty();
+        if (decision == LeaveRequestApproval.Decision.REJECTED) {
+            // A1 -- từ chối giữa chừng, kết thúc ngay, không đi tiếp các bước còn lại.
+            OffsetDateTime now = OffsetDateTime.now();
+            lr.setStatus(LeaveRequest.Status.REJECTED);
+            lr.setFinalizedAt(now);
+            lr.setCurrentApprover(null);
+            // A2 -- đơn đã có giáo viên dạy thay (gán ngay từ lúc nộp, UC-10 bước 5) thì thu hồi ngay lập tức.
+            leaveSubstitutionService.revokeAllForLeaveRequest(lr.getId(), now);
+        } else {
+            nextStep = leaveRequestApprovalRepository
+                    .findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep() + 1);
+            if (nextStep.isPresent()) {
+                lr.setCurrentStep(lr.getCurrentStep() + 1);
+                lr.setCurrentApprover(null); // bước kế tiếp luôn role-based (OPERATIONS_MANAGER/EXECUTIVE)
+            } else {
+                lr.setStatus(LeaveRequest.Status.APPROVED);
+                lr.setFinalizedAt(OffsetDateTime.now());
+                lr.setCurrentApprover(null);
+            }
+        }
+        lr = leaveRequestRepository.save(lr);
+
+        writeHistory(lr, actor, LeaveRequestHistory.Action.UPDATED);
+        // Postcondition: người duyệt bước kế (nếu còn) hoặc người nộp đơn (nếu đã kết thúc) nhận thông báo.
+        if (nextStep.isPresent()) {
+            notifyStepApprovers(lr, nextStep.get().getApproverRole(), null);
+        } else {
+            notifySubmitterFinalized(lr);
+        }
+        return toResponse(lr);
+    }
+
+    private void notifyStepApprovers(LeaveRequest lr, LeaveRequestApproval.ApproverRole role, User specificApprover) {
+        String title = "Có đơn từ chờ duyệt";
+        String content = "Đơn từ #%d (%s) của %s đang chờ bạn duyệt."
+                .formatted(lr.getId(), lr.getLeaveType(), lr.getEmployee().getUser().getFullName());
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("leaveId", lr.getId());
+        metadata.put("leaveType", lr.getLeaveType());
+        metadata.put("employeeName", lr.getEmployee().getUser().getFullName());
+        if (specificApprover != null) {
+            notificationService.notify(specificApprover.getId(), Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content,
+                    metadata, "LEAVE_REQUEST", lr.getId(), Notification.Priority.NORMAL, null);
+            return;
+        }
+        String roleCode = role == LeaveRequestApproval.ApproverRole.EXECUTIVE ? "EXECUTIVE" : "OPS_MANAGER";
+        roleRepository.findByCode(roleCode).ifPresent(r ->
+                userRoleRepository.findByRoleId(r.getId()).forEach(ur ->
+                        notificationService.notify(ur.getUser().getId(),
+                                Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content,
+                                metadata, "LEAVE_REQUEST", lr.getId(), Notification.Priority.NORMAL, null)));
+    }
+
+    private void notifySubmitterFinalized(LeaveRequest lr) {
+        boolean approved = lr.getStatus() == LeaveRequest.Status.APPROVED;
+        String title = approved ? "Đơn từ đã được duyệt" : "Đơn từ bị từ chối";
+        String resultLabel = approved ? "được duyệt" : "bị từ chối";
+        String content = "Đơn từ #%d (%s, %s → %s) đã %s.".formatted(
+                lr.getId(), lr.getLeaveType(), lr.getStartDate(), lr.getEndDate(), resultLabel);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("leaveId", lr.getId());
+        metadata.put("leaveType", lr.getLeaveType());
+        metadata.put("startDate", lr.getStartDate());
+        metadata.put("endDate", lr.getEndDate());
+        metadata.put("resultLabel", resultLabel);
+        notificationService.notify(lr.getEmployee().getUser().getId(),
+                Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content,
+                metadata, "LEAVE_REQUEST", lr.getId(), Notification.Priority.NORMAL, null);
+    }
+
+    private boolean currentApproverRoleMatches(LeaveRequest lr, Set<String> roleCodes) {
+        return leaveRequestApprovalRepository.findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep())
+                .map(a -> approverRoleMatchesRoleCodes(a.getApproverRole(), roleCodes))
+                .orElse(false);
+    }
+
+    private boolean approverRoleMatchesRoleCodes(LeaveRequestApproval.ApproverRole role, Set<String> roleCodes) {
+        return switch (role) {
+            case OPERATIONS_MANAGER -> roleCodes.contains("OPS_MANAGER");
+            case EXECUTIVE -> roleCodes.contains("EXECUTIVE");
+            case DEPARTMENT_HEAD -> false; // luôn xác định qua current_approver_id, không qua role code
+        };
+    }
+
+    private BigDecimal computeTotalDays(LeaveRequest.LeaveType type, LocalDate startDate, LocalDate endDate) {
+        if (type == LeaveRequest.LeaveType.LATE || type == LeaveRequest.LeaveType.EARLY_LEAVE) {
+            return new BigDecimal("0.50");
+        }
+        long days = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        return BigDecimal.valueOf(days).setScale(2);
+    }
+
+    private Set<String> roleCodesOf(Long userId) {
+        return userRoleRepository.findByUserId(userId).stream()
+                .map(ur -> ur.getRole().getCode())
+                .collect(Collectors.toSet());
+    }
+
+    private void writeHistory(LeaveRequest lr, User actor, LeaveRequestHistory.Action action) {
+        LeaveRequestHistory history = new LeaveRequestHistory();
+        history.setLeaveRequest(lr);
+        history.setChangedBy(actor);
+        history.setAction(action);
+        history.setDetails(snapshot(lr));
+        leaveRequestHistoryRepository.save(history);
+    }
+
+    private Map<String, Object> snapshot(LeaveRequest lr) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("status", lr.getStatus().name());
+        details.put("currentStep", lr.getCurrentStep());
+        details.put("totalDays", lr.getTotalDays());
+        details.put("finalizedAt", lr.getFinalizedAt() == null ? null : lr.getFinalizedAt().toString());
+        return details;
+    }
+
+    private User getUserOrThrow(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.userNotFound", new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
+    }
+
+    private LeaveRequest getLeaveRequestOrThrow(Long id) {
+        return leaveRequestRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.notFoundById", new Object[]{id}, "Không tìm thấy đơn từ id=" + id));
+    }
+
+    private LeaveRequestResponse toResponse(LeaveRequest lr) {
+        Employee employee = lr.getEmployee();
+        return new LeaveRequestResponse(
+                lr.getId(),
+                employee.getId(),
+                employee.getUser().getFullName(),
+                employee.getEmployeeCode(),
+                employee.getDepartment() == null ? null : employee.getDepartment().getName(),
+                lr.getLeaveType().name(),
+                lr.getStartDate(),
+                lr.getEndDate(),
+                lr.getStartTime(),
+                lr.getEndTime(),
+                lr.getTotalDays(),
+                lr.getReason(),
+                lr.getAttachmentUrl(),
+                lr.getStatus().name(),
+                lr.getCurrentStep(),
+                lr.getCurrentApprover() == null ? null : lr.getCurrentApprover().getId(),
+                lr.getSubmittedAt(),
+                lr.getFinalizedAt());
+    }
+}

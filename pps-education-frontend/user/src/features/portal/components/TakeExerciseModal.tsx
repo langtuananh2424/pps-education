@@ -1406,6 +1406,8 @@ export function QuestionBlock({
               : (question.structuredContent.wordBankOptions ?? question.structuredContent.blanks)
           }
           inputMode={question.structuredContent.inputMode}
+          formMode={question.structuredContent.format === "form"}
+          instruction={question.structuredContent.format === "form" ? question.referencePassage : null}
           initialAnswer={answer?.structuredAnswer ?? undefined}
           readOnly={readOnly}
           saving={saving}
@@ -1793,6 +1795,13 @@ function ListeningHintButton({
   );
 }
 
+/** Hiện **chữ đậm** trong phiếu thông tin (chỉ cú pháp ** **, không phải Markdown đầy đủ). */
+function renderFormBold(text: string): React.ReactNode {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((seg, i) =>
+    seg.startsWith("**") && seg.endsWith("**") && seg.length > 4 ? <strong key={i}>{seg.slice(2, -2)}</strong> : seg
+  );
+}
+
 /**
  * V78 — Điền từ - Hộp từ vựng: content chứa marker "___" theo đúng số chỗ trống, mỗi dropdown liệt kê từ CÒN LẠI (chưa chọn ở chỗ trống khác).
  *
@@ -1807,6 +1816,8 @@ function WordBankBlock({
   content,
   wordPool,
   inputMode = "select",
+  formMode = false,
+  instruction = null,
   initialAnswer,
   readOnly,
   saving,
@@ -1815,6 +1826,8 @@ function WordBankBlock({
   content: string;
   wordPool: string[];
   inputMode?: "select" | "text";
+  formMode?: boolean;
+  instruction?: string | null;
   initialAnswer: string[] | undefined;
   readOnly: boolean;
   saving: boolean;
@@ -1863,11 +1876,12 @@ function WordBankBlock({
   // duyệt tự ngắt dòng theo TỪNG TỪ như văn bản thật (mirror ExerciseStudentPreviewModal#WordBankPreview).
   return (
     <div className="space-y-2">
+      {instruction && <p className="text-xs sm:text-sm italic text-muted">{instruction}</p>}
       {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{title}</p>}
-      <p className="text-sm sm:text-base lg:text-lg font-bold text-ink leading-8 lg:leading-10">
+      <p className={`text-sm sm:text-base lg:text-lg ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-ink leading-8 lg:leading-10`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
-            {part}
+            {formMode ? renderFormBold(part) : part}
             {idx < blankCount &&
               (inputMode === "text" ? (
                 <input

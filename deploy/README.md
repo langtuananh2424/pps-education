@@ -79,6 +79,11 @@ service khác (`minio`, `postgres`...) vẫn phải làm tay trên server, xem m
 DB_PASSWORD=...
 JWT_SECRET=...          # BẮT BUỘC ngẫu nhiên ≥32 byte: openssl rand -base64 48. Giá trị mẫu/ngắn -> backend staging/production từ chối khởi động
 BANK_WEBHOOK_SECRET=     # webhook ngân hàng UC-30; để trống = webhook TẮT. Khi tích hợp thật: openssl rand -hex 32
+PAYOS_CLIENT_ID=         # payOS (QR + webhook UC-30), lấy ở my.payos.vn > Kênh thanh toán; để trống = tắt thanh toán QR
+PAYOS_API_KEY=
+PAYOS_CHECKSUM_KEY=      # cũng dùng để xác thực chữ ký webhook; khai báo Webhook URL ở dashboard payOS: https://<domain>/api/webhooks/payment/payos
+PAYMENT_RETURN_URL=     # trang Portal sau khi thanh toán xong, VD https://portal.example.vn/?tab=billing&payment=success
+PAYMENT_CANCEL_URL=     # trang Portal khi Phụ huynh hủy, VD https://portal.example.vn/?tab=billing&payment=cancel
 GOOGLE_OAUTH_CLIENT_IDS=...
 S3_ACCESS_KEY=...        # dùng chung cho MinIO root user + R2_ACCESS_KEY_ID trong compose
 S3_SECRET_KEY=...        # dùng chung cho MinIO root password + R2_SECRET_ACCESS_KEY trong compose

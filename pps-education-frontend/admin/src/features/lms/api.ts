@@ -97,6 +97,8 @@ export interface QuestionStructuredContent {
   wordBox?: string[];
   /** Bổ sung 2026-09-17, đã xác nhận với người dùng — chỉ có ở WORD_BANK: "text" = mỗi chỗ trống hiện ô nhập chữ tự do (học sinh gõ tay) thay vì <select> chọn sẵn. Thiếu field này (undefined) = hành vi cũ (dropdown). */
   inputMode?: "select" | "text";
+  /** Bổ sung 2026-10-03 — "form" = Nghe điền phiếu thông tin (NGHE_PHIEU_THONG_TIN): giữ xuống dòng, hiện **chữ đậm**, mỗi ô nhận nhiều đáp án "a/b" và chuẩn hóa số/giờ khi chấm. */
+  format?: "form";
 }
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */
@@ -724,6 +726,14 @@ export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuest
 }
 
 /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — chỉ gỡ được khi Bài còn DRAFT (backend tự chặn 400 nếu đã Publish). */
+/**
+ * Xuất Excel toàn bộ câu hỏi của 1 Bài (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-03) —
+ * đúng định dạng file mẫu import nên import lại được, xem Javadoc ExerciseQuestionExportService (BE).
+ */
+export function exportExerciseQuestions(exerciseId: number): Promise<Blob> {
+  return apiRequestBlob(`/exercises/${exerciseId}/questions/export.xlsx`);
+}
+
 export function removeExerciseQuestion(exerciseId: number, exerciseQuestionId: number): Promise<void> {
   return apiRequest<void>(`/exercises/${exerciseId}/questions/${exerciseQuestionId}`, { method: "DELETE" });
 }

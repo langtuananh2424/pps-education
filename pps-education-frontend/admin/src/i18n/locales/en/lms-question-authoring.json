@@ -140,6 +140,7 @@
       "letterScramble": "1 letter per element, separated by | in the EXACT order that forms the correct word.",
       "listeningAudioSubmission": "Student submits audio; graded manually in the Grading queue.",
       "listeningFillInBlank": "Auto-graded against the correct answer.",
+      "listeningFormCompletion": "Each ___ blank maps to one answer in order (| separated); several accepted answers per blank use /, numbers/times are normalised. Scored by share of correct blanks.",
       "listeningPictureChoice": "Each image is 1 option in order A/B/C(/D), separated by | in Image URL — Option A/B/C/D are optional captions under each image, leave blank to default to the letter label.",
       "gridReading": "Each question in Content is separated by | and shares ONE reference passage + ONE shared A-D answer set (applies to EVERY question). Correct answer is the letter A/B/C/D in the EXACT order matching Content.",
       "clozeReading": "The number of blanks is inferred from the | count in Answer A (required) — Answer B/C/D (if present) must match that count, EACH blank has its own options. Content (optional) labels each blank; leave blank to auto-number them."
@@ -162,6 +163,7 @@
       "SAP_XEP_CHU_CAI": "Unscramble letters",
       "NGHE_NOP_AUDIO": "Listen & submit audio",
       "NGHE_DIEN_TU": "Listening fill in the blank",
+      "NGHE_PHIEU_THONG_TIN": "Listening form completion",
       "DOC_HIEU_LUOI": "Reading comprehension - Grid",
       "DOC_DIEN_TU": "Reading cloze"
     },
@@ -544,6 +546,8 @@
       "attachedPoints": " (attached {{points}})",
       "pointsInputDraftOnlyTitle": "This question's points within the exercise (editable only while still Draft)",
       "editExerciseTooltip": "Edit exercise",
+      "exportExcelTooltip": "Export exercise questions to Excel",
+      "exportExcelFailed": "Excel export failed.",
       "deleteExerciseTooltip": "Delete exercise",
       "addQuestions": "+ Add questions",
       "previewWithAnswers": "Preview (with answers)",

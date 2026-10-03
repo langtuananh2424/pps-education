@@ -1,8 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Calendar, CheckCircle2, Copy, CreditCard, QrCode, ShieldAlert } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Calendar, CheckCircle2, CreditCard, ExternalLink, Loader2, QrCode, ShieldAlert } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { InvoiceResponse, listMyInvoices } from "../api";
+import { createInvoicePaymentLink, InvoiceResponse, listMyInvoices, PaymentLinkResponse } from "../api";
+
+/** Chu kỳ hỏi lại trạng thái hóa đơn khi đang chờ payOS gọi webhook. */
+const PAYMENT_POLL_MS = 5000;
 
 const formatPrice = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value);
 
@@ -12,7 +16,12 @@ export default function BillingTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<InvoiceResponse | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [link, setLink] = useState<PaymentLinkResponse | null>(null);
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [paidNotice, setPaidNotice] = useState<"full" | "partial" | null>(null);
+  const linkRef = useRef<PaymentLinkResponse | null>(null);
+  linkRef.current = link;
 
   useEffect(() => {
     listMyInvoices()
@@ -25,12 +34,38 @@ export default function BillingTab() {
   const paid = invoices.filter((i) => i.status === "PAID");
   const totalOutstanding = unpaid.reduce((sum, i) => sum + i.outstandingAmount, 0);
 
-  const handleCopy = (data: string) => {
-    navigator.clipboard.writeText(data).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+  const handlePay = (inv: InvoiceResponse) => {
+    setSelected(inv);
+    setLink(null);
+    setLinkError(null);
+    setPaidNotice(null);
+    setLinkLoading(true);
+    createInvoicePaymentLink(inv.id)
+      .then(setLink)
+      .catch((err) => setLinkError(err instanceof ApiError ? err.message : t("billing.linkFailed")))
+      .finally(() => setLinkLoading(false));
   };
+
+  // Đang hiển thị QR: hỏi lại hóa đơn đều đặn; số còn nợ đổi nghĩa là webhook payOS đã gạch nợ.
+  useEffect(() => {
+    if (!link) return;
+    const timer = window.setInterval(() => {
+      listMyInvoices()
+        .then((latest) => {
+          const active = linkRef.current;
+          if (!active) return;
+          setInvoices(latest);
+          const current = latest.find((i) => i.id === active.invoiceId);
+          if (current && current.outstandingAmount !== active.amount) {
+            setPaidNotice(current.status === "PAID" ? "full" : "partial");
+            setLink(null);
+            setSelected(null);
+          }
+        })
+        .catch(() => undefined);
+    }, PAYMENT_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [link?.orderCode]);
 
   if (loading) return <p className="text-sm text-muted font-bold">{t("billing.loading")}</p>;
 
@@ -91,14 +126,13 @@ export default function BillingTab() {
                     </div>
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
                       <span className="text-lg font-extrabold text-coral">{formatPrice(inv.outstandingAmount)}</span>
-                      {inv.qrCodeData && (
-                        <button
-                          onClick={() => setSelected(inv)}
-                          className="bg-teal hover:bg-teal-deep text-white border border-teal-deep shadow-md px-4 py-2 rounded-xl font-extrabold text-xs transition-all flex items-center gap-1.5"
-                        >
-                          <QrCode size={14} /> {t("billing.viewTransfer")}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handlePay(inv)}
+                        disabled={linkLoading}
+                        className="bg-teal hover:bg-teal-deep disabled:opacity-60 text-white border border-teal-deep shadow-md px-4 py-2 rounded-xl font-extrabold text-xs transition-all flex items-center gap-1.5"
+                      >
+                        <QrCode size={14} /> {t("billing.payByQr")}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -127,22 +161,62 @@ export default function BillingTab() {
         <div className="lg:col-span-1">
           <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] sticky top-6 space-y-4">
             <h3 className="text-lg font-extrabold text-ink flex items-center gap-2">
-              <QrCode className="text-teal" /> {t("billing.transferContentTitle")}
+              <QrCode className="text-teal" /> {t("billing.payTitle")}
             </h3>
-            {selected ? (
-              <div className="space-y-3">
-                <p className="text-xs text-muted font-bold">{t("billing.amountToTransfer")}</p>
-                <p className="text-xl font-extrabold text-coral">{formatPrice(selected.outstandingAmount)}</p>
-                <div className="p-3 bg-sky rounded-xl border border-line font-mono text-xs break-all">{selected.qrCodeData}</div>
-                <button
-                  onClick={() => handleCopy(selected.qrCodeData ?? "")}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2"
-                >
-                  <Copy size={14} /> {copied ? t("billing.copied") : t("billing.copyContent")}
-                </button>
-                <p className="text-[11px] text-muted font-bold">{t("billing.transferHint")}</p>
+            {paidNotice && (
+              <div className="flex items-start gap-2 text-sm font-bold text-teal-deep bg-teal/10 border border-teal/20 p-3 rounded-xl">
+                <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+                {paidNotice === "full" ? t("billing.paidSuccess") : t("billing.paidSuccessPartial")}
               </div>
-            ) : (
+            )}
+            {linkLoading && (
+              <div className="flex items-center justify-center gap-2 py-10 text-muted font-bold text-sm">
+                <Loader2 size={18} className="animate-spin" /> {t("billing.creatingLink")}
+              </div>
+            )}
+            {linkError && !linkLoading && (
+              <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{linkError}</div>
+            )}
+            {link && selected && !linkLoading && (
+              <div className="space-y-3">
+                <p className="text-xl font-extrabold text-coral">{formatPrice(link.amount)}</p>
+                {link.qrCode && (
+                  <div className="flex justify-center p-3 bg-white rounded-xl border border-line">
+                    <QRCodeSVG value={link.qrCode} size={220} level="M" />
+                  </div>
+                )}
+                <dl className="text-xs space-y-1 font-bold">
+                  {link.accountName && (
+                    <div className="flex justify-between gap-2"><dt className="text-muted">{t("billing.accountName")}</dt><dd className="text-ink text-right">{link.accountName}</dd></div>
+                  )}
+                  {link.accountNumber && (
+                    <div className="flex justify-between gap-2"><dt className="text-muted">{t("billing.accountNumber")}</dt><dd className="text-ink font-mono">{link.accountNumber}</dd></div>
+                  )}
+                  {link.description && (
+                    <div className="flex justify-between gap-2"><dt className="text-muted">{t("billing.transferNote")}</dt><dd className="text-ink font-mono">{link.description}</dd></div>
+                  )}
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted">{t("billing.expiresAt")}</dt>
+                    <dd className="text-ink">{new Date(link.expiresAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</dd>
+                  </div>
+                </dl>
+                {link.checkoutUrl && (
+                  <a
+                    href={link.checkoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink size={14} /> {t("billing.openCheckout")}
+                  </a>
+                )}
+                <p className="text-[11px] text-muted font-bold flex items-center gap-1.5">
+                  <Loader2 size={12} className="animate-spin shrink-0" /> {t("billing.waiting")}
+                </p>
+                <p className="text-[11px] text-muted font-bold">{t("billing.scanHint")}</p>
+              </div>
+            )}
+            {!link && !linkLoading && !linkError && !paidNotice && (
               <div className="text-center py-10 text-muted bg-sky-2/40 rounded-[20px] border border-dashed border-line space-y-2">
                 <QrCode className="mx-auto text-muted/40" size={40} />
                 <p className="font-extrabold text-sm text-ink">{t("billing.selectInvoicePrompt")}</p>

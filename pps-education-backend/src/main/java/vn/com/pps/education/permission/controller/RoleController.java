@@ -1,0 +1,78 @@
+package vn.com.pps.education.permission.controller;
+
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.permission.dto.CreateRoleRequest;
+import vn.com.pps.education.permission.dto.RolePermissionMatrixResponse;
+import vn.com.pps.education.permission.dto.RoleResponse;
+import vn.com.pps.education.permission.dto.UpdateRoleDataScopeRequest;
+import vn.com.pps.education.permission.dto.UpdateRolePermissionsRequest;
+import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.permission.service.RoleService;
+
+import java.util.List;
+
+/** UC-03: Cấu hình nhóm quyền mặc định (FR-PER-02). */
+@RestController
+@RequestMapping("/api/roles")
+public class RoleController {
+
+    private final RoleService roleService;
+
+    public RoleController(RoleService roleService) {
+        this.roleService = roleService;
+    }
+
+    @PreAuthorize("hasPermission(null, 'permission.role.view')")
+    @GetMapping
+    public ResponseEntity<List<RoleResponse>> listRoles() {
+        return ResponseEntity.ok(roleService.listRoles());
+    }
+
+    @PreAuthorize("hasPermission(null, 'permission.role.create')")
+    @PostMapping
+    public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody CreateRoleRequest request,
+                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(roleService.createRole(request, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'permission.role.delete')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRole(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        roleService.deleteRole(id, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasPermission(null, 'permission.role.view')")
+    @GetMapping("/{id}/permissions")
+    public ResponseEntity<RolePermissionMatrixResponse> getPermissionMatrix(@PathVariable Long id) {
+        return ResponseEntity.ok(roleService.getPermissionMatrix(id));
+    }
+
+    @PreAuthorize("hasPermission(null, 'permission.role.update')")
+    @PutMapping("/{id}/permissions")
+    public ResponseEntity<Void> updatePermissions(@PathVariable Long id,
+                                                    @Valid @RequestBody UpdateRolePermissionsRequest request) {
+        roleService.updatePermissions(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** V202 — đổi phạm vi dữ liệu của vai trò (tất cả điểm trường / điểm trường mình phụ trách / lớp mình dạy). */
+    @PreAuthorize("hasPermission(null, 'permission.role.update')")
+    @PutMapping("/{id}/data-scope")
+    public ResponseEntity<RoleResponse> updateDataScope(@PathVariable Long id,
+                                                          @Valid @RequestBody UpdateRoleDataScopeRequest request,
+                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(roleService.updateDataScope(id, request, actor.userId()));
+    }
+}
