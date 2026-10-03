@@ -201,6 +201,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, ex);
     }
 
+    @ExceptionHandler(PaymentGatewayException.class)
+    public ResponseEntity<Object> handlePaymentGateway(PaymentGatewayException ex) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, ex);
+    }
+
     @ExceptionHandler(InvalidWebhookSecretException.class)
     public ResponseEntity<Object> handleInvalidWebhookSecret(InvalidWebhookSecretException ex) {
         return error(HttpStatus.UNAUTHORIZED, ex);

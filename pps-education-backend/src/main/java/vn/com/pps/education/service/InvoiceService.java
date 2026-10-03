@@ -429,6 +429,23 @@ public class InvoiceService {
 
     // ===================== Helpers =====================
 
+    /**
+     * Hóa đơn mà Phụ huynh liên kết được phép thanh toán online (payOS): còn nợ và chưa hủy. Dùng bởi
+     * PayosPaymentService khi sinh link/QR.
+     */
+    @Transactional(readOnly = true)
+    public Invoice requirePayableInvoice(Long invoiceId, Long actorUserId) {
+        Invoice invoice = invoiceOrThrow(invoiceId);
+        requireLinkedParent(invoice.getStudent().getId(), actorUserId);
+        if (invoice.getStatus() == Invoice.Status.CANCELLED || invoice.getStatus() == Invoice.Status.DRAFT) {
+            throw new IllegalArgumentException("Hóa đơn số=" + invoice.getInvoiceNumber() + " không thể thanh toán ở trạng thái " + invoice.getStatus() + ".");
+        }
+        if (invoice.getOutstandingAmount().signum() <= 0) {
+            throw new IllegalArgumentException("Hóa đơn số=" + invoice.getInvoiceNumber() + " đã thanh toán đủ.");
+        }
+        return invoice;
+    }
+
     private Invoice invoiceOrThrow(Long id) {
         return invoiceRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("error.invoice.notFoundById", new Object[]{id}, "Không tìm thấy hóa đơn id=" + id));

@@ -187,6 +187,18 @@ app:
     # tài chính hoàn toàn công khai. Đổi sang secret thật khi tích hợp
     # ngân hàng thật.
     bank-webhook-secret: ${BANK_WEBHOOK_SECRET:CHANGE_THIS_SECRET_IN_ENV}
+    # Cổng thanh toán payOS (QR VietQR + webhook, UC-30) - bổ sung ngoài SDD, đã thống nhất với người
+    # dùng 2026-10-03. Lấy 3 khoá ở my.payos.vn > Kênh thanh toán. Hiện dùng tài khoản cá nhân dùng
+    # thử, sau này đổi sang tài khoản công ty CHỈ cần đổi 3 biến môi trường này. Để trống = tắt thanh
+    # toán QR (API trả 503). Webhook URL khai báo trong dashboard payOS: https://<domain>/api/webhooks/payos
+    payos:
+      client-id: ${PAYOS_CLIENT_ID:}
+      api-key: ${PAYOS_API_KEY:}
+      checksum-key: ${PAYOS_CHECKSUM_KEY:}
+      base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
+      # Trang payOS chuyển hướng về sau khi thanh toán/hủy (Portal Học sinh/Phụ huynh).
+      return-url: ${PAYOS_RETURN_URL:http://localhost:3001/?tab=billing&payment=success}
+      cancel-url: ${PAYOS_CANCEL_URL:http://localhost:3001/?tab=billing&payment=cancel}
   seed:
     # DevUserSeeder - tạo 11 tài khoản demo (1/role) lúc khởi động app. Mặc định
     # false: KHÔNG gắn theo Spring profile "dev" vì Testcontainers cũng chạy
