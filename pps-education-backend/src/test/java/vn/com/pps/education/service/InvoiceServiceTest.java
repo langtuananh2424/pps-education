@@ -2,7 +2,12 @@ package vn.com.pps.education.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Invoice;
 import vn.com.pps.education.domain.Parent;
@@ -25,7 +30,10 @@ import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.GenerateInvoicesRequest;
 import vn.com.pps.education.dto.InvoiceResponse;
+import vn.com.pps.education.dto.PaymentLinkResponse;
 import vn.com.pps.education.dto.PaymentResponse;
+import vn.com.pps.education.exception.InvalidWebhookSecretException;
+import vn.com.pps.education.repository.InvoicePaymentLinkRepository;
 import vn.com.pps.education.dto.RecordManualPaymentRequest;
 import vn.com.pps.education.dto.TuitionPlanResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
@@ -48,6 +56,12 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * UC-30: Xem hóa đơn & thanh toán học phí — Main Flow (bước 1-7, sinh hóa
@@ -56,12 +70,34 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * FinanceSchedulerServiceTest.
  */
 @Transactional
+@TestPropertySource(properties = {
+        "app.finance.payos.client-id=test-client",
+        "app.finance.payos.api-key=test-api-key",
+        "app.finance.payos.checksum-key=" + InvoiceServiceTest.PAYOS_CHECKSUM,
+        "app.finance.payment-return-url=http://localhost:3001/?payment=success",
+        "app.finance.payment-cancel-url=http://localhost:3001/?payment=cancel"
+})
 class InvoiceServiceTest extends AbstractIntegrationTest {
+
+    static final String PAYOS_CHECKSUM = "test-checksum-key";
 
     private static final AtomicLong SEQ = new AtomicLong();
 
     @Autowired
     private InvoiceService invoiceService;
+
+    @Autowired
+    private InvoicePaymentLinkService linkService;
+
+    @Autowired
+    private InvoicePaymentLinkRepository invoicePaymentLinkRepository;
+
+    /** Giữ nguyên ký/verify chữ ký thật, chỉ chặn các lệnh gọi HTTP ra payOS. */
+    @SpyBean
+    private PayosGateway payosGateway;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private InvoiceRepository invoiceRepository;
@@ -341,6 +377,139 @@ class InvoiceServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(invoiceService.listPayments(invoice.id())).hasSize(1)
                 .first().satisfies(p -> assertThat(p.confirmedByName()).isEqualTo(accountant.getFullName()));
+    }
+
+    // ===================== payOS: link/QR + webhook (bổ sung 2026-10-03) =====================
+
+    private void stubPayosCreate() {
+        doReturn(new PaymentGateway.Link("link-" + SEQ.incrementAndGet(), "https://pay.payos.vn/web/x",
+                "00020101021238570010A000000727", "970422", "0123456789", "PPS ENGLISH", "PPS000001"))
+                .when(payosGateway).createPaymentLink(org.mockito.ArgumentMatchers.any());
+        doNothing().when(payosGateway).cancelPaymentLink(anyLong(), anyString());
+    }
+
+    private JsonNode payosWebhook(long orderCode, String amount, String reference, String code, String signKey) {
+        ObjectNode data = objectMapper.createObjectNode();
+        data.put("orderCode", orderCode);
+        data.put("amount", Long.parseLong(amount));
+        data.put("description", "PPS000001");
+        data.put("accountNumber", "0123456789");
+        data.put("reference", reference);
+        data.put("transactionDateTime", "2026-10-03 10:15:30");
+        data.put("currency", "VND");
+        data.put("paymentLinkId", "link-x");
+        data.put("code", code);
+        data.put("desc", "success");
+        data.putNull("counterAccountName");
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("code", code);
+        body.put("desc", "success");
+        body.put("success", "00".equals(code));
+        body.set("data", data);
+        body.put("signature", PayosGateway.sign(signKey, PayosGateway.flatten(data)));
+        return body;
+    }
+
+    @Test
+    void payos_createLink_parentGetsQrAndSecondCallReusesSameLink() {
+        stubPayosCreate();
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+
+        PaymentLinkResponse first = linkService.createOrReuseLink(invoice.id(), parentUser.getId());
+        PaymentLinkResponse second = linkService.createOrReuseLink(invoice.id(), parentUser.getId());
+
+        assertThat(first.qrCode()).isNotBlank();
+        assertThat(first.amount()).isEqualByComparingTo("2000000");
+        assertThat(second.orderCode()).isEqualTo(first.orderCode());
+        verify(payosGateway, times(1)).createPaymentLink(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void payos_createLink_afterPartialPayment_issuesNewLinkForRemainingDebtAndCancelsOld() {
+        stubPayosCreate();
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        PaymentLinkResponse first = linkService.createOrReuseLink(invoice.id(), parentUser.getId());
+        invoiceService.confirmBankWebhook(new BankWebhookPaymentRequest(
+                invoice.invoiceNumber(), new BigDecimal("500000"), "BANK-TXN-PL-" + SEQ.incrementAndGet(), OffsetDateTime.now()));
+
+        PaymentLinkResponse second = linkService.createOrReuseLink(invoice.id(), parentUser.getId());
+
+        assertThat(second.orderCode()).isNotEqualTo(first.orderCode());
+        assertThat(second.amount()).isEqualByComparingTo("1500000");
+        assertThat(invoicePaymentLinkRepository.findByProviderAndOrderCode("PAYOS", first.orderCode()).orElseThrow().getStatus())
+                .isEqualTo(vn.com.pps.education.domain.InvoicePaymentLink.Status.CANCELLED);
+        verify(payosGateway).cancelPaymentLink(first.orderCode(), "Thay bằng link mới");
+    }
+
+    @Test
+    void payos_createLink_nonLinkedUser_isRejected() {
+        stubPayosCreate();
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        User stranger = newUser("stranger");
+
+        assertThatThrownBy(() -> linkService.createOrReuseLink(invoice.id(), stranger.getId()))
+                .isInstanceOf(NotAuthorizedForPortalAccessException.class);
+    }
+
+    @Test
+    void payos_webhook_validSignature_marksInvoicePaidAndIsIdempotent() {
+        stubPayosCreate();
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        PaymentLinkResponse link = linkService.createOrReuseLink(invoice.id(), parentUser.getId());
+        JsonNode webhook = payosWebhook(link.orderCode(), "2000000", "FT26276ABC", "00", PAYOS_CHECKSUM);
+
+        linkService.handleWebhook("payos", webhook);
+        linkService.handleWebhook("payos", webhook);
+
+        assertThat(invoiceService.getInvoice(invoice.id(), parentUser.getId()).status()).isEqualTo("PAID");
+        assertThat(invoiceService.listPayments(invoice.id())).hasSize(1)
+                .first().satisfies(p -> assertThat(p.paymentMethod()).isEqualTo("QR_BANK"));
+        assertThat(invoicePaymentLinkRepository.findByProviderAndOrderCode("PAYOS", link.orderCode()).orElseThrow().getStatus())
+                .isEqualTo(vn.com.pps.education.domain.InvoicePaymentLink.Status.PAID);
+    }
+
+    @Test
+    void payos_webhook_badSignature_isRejectedAndInvoiceUntouched() {
+        stubPayosCreate();
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        PaymentLinkResponse link = linkService.createOrReuseLink(invoice.id(), parentUser.getId());
+        JsonNode forged = payosWebhook(link.orderCode(), "2000000", "FT-FORGED", "00", "wrong-key");
+
+        assertThatThrownBy(() -> linkService.handleWebhook("payos", forged))
+                .isInstanceOf(InvalidWebhookSecretException.class);
+        assertThat(invoiceRepository.findById(invoice.id()).orElseThrow().getPaidAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void payos_webhook_unknownOrderCodeOrFailedCode_isAcknowledgedWithoutEffect() {
+        stubPayosCreate();
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        PaymentLinkResponse link = linkService.createOrReuseLink(invoice.id(), parentUser.getId());
+
+        linkService.handleWebhook("payos", payosWebhook(123L, "2000", "FT-TEST", "00", PAYOS_CHECKSUM));
+        linkService.handleWebhook("payos", payosWebhook(link.orderCode(), "2000000", "FT-FAIL", "01", PAYOS_CHECKSUM));
+
+        assertThat(invoiceRepository.findById(invoice.id()).orElseThrow().getPaidAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void payos_webhook_unknownProvider_isNotFound() {
+        assertThatThrownBy(() -> linkService.handleWebhook("unknown-gateway", objectMapper.createObjectNode()))
+                .isInstanceOf(vn.com.pps.education.exception.ResourceNotFoundException.class);
+    }
+
+    @Test
+    void payos_webhook_cancelledInvoice_doesNotApplyPayment() {
+        stubPayosCreate();
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        PaymentLinkResponse link = linkService.createOrReuseLink(invoice.id(), parentUser.getId());
+        Invoice entity = invoiceRepository.findById(invoice.id()).orElseThrow();
+        entity.setStatus(Invoice.Status.CANCELLED);
+        invoiceRepository.save(entity);
+
+        linkService.handleWebhook("payos", payosWebhook(link.orderCode(), "2000000", "FT-CXL", "00", PAYOS_CHECKSUM));
+
+        assertThat(invoiceRepository.findById(invoice.id()).orElseThrow().getPaidAmount()).isEqualByComparingTo("0");
     }
 
     private GenerateInvoicesRequest billingRequest() {

@@ -84,7 +84,21 @@
     "copied": "Copied!",
     "copyContent": "Copy content",
     "transferHint": "Transfer with the exact content above — the system automatically records payment once the bank confirms it, no need to report separately.",
-    "selectInvoicePrompt": "Select an invoice to view its transfer details"
+    "selectInvoicePrompt": "Press “Pay by QR” on an invoice to get the code",
+    "payByQr": "Pay by QR",
+    "payTitle": "Scan to pay",
+    "creatingLink": "Creating QR code...",
+    "linkFailed": "Could not create the payment code. Please try again or contact the center.",
+    "scanHint": "Open your banking app and scan the code. Payment is recorded automatically once the bank confirms it.",
+    "accountName": "Account name",
+    "accountNumber": "Account number",
+    "transferNote": "Transfer note",
+    "expiresAt": "Code expires at",
+    "openCheckout": "Open payment page",
+    "waiting": "Waiting for payment...",
+    "paidSuccess": "Payment received, thank you!",
+    "paidSuccessPartial": "Payment received. The invoice still has a balance; you can pay the rest.",
+    "newQr": "New code"
   },
   "documents": {
     "type": {
