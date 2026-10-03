@@ -200,6 +200,11 @@ export default function CommentAiAssistantSidebar({
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         <div className="text-sm text-slate-600 bg-violet-50 border border-violet-100 rounded-lg p-3 space-y-1.5">
           <p>{t("dailyCommentPanel.aiAssistant.intro")}</p>
+          <ul className="list-disc pl-4 space-y-1">
+            {(t("dailyCommentPanel.aiAssistant.tips", { returnObjects: true }) as string[]).map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ul>
           <p className="text-sm text-violet-700">{t("dailyCommentPanel.aiAssistant.permissionNote")}</p>
         </div>
 

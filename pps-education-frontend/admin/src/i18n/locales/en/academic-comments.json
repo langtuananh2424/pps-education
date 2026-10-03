@@ -414,8 +414,15 @@
       "title": "Comment assistant",
       "noSession": "Select a session to start",
       "close": "Close assistant",
-      "intro": "Type your feedback for the session (or record/upload audio up to 5 minutes if easier): a general comment for the class, then mention students who need specific feedback. The assistant drafts Attitude + Comment for every present student.",
-      "permissionNote": "The assistant only fills Attitude and Comment, never scores/homework. Its highest save level is Save draft — you review and submit.",
+      "intro": "Type your feedback for the session, or record/upload audio up to 5 minutes. The assistant drafts Attitude + Comment for every present student, skipping absent students and those already submitted.",
+      "tips": [
+        "Give the general class comment first and name exceptions in the same breath: \"The class focused well, except An who kept chatting\".",
+        "Mention each student by name. If you say \"this one\", \"that kid\" or a name not in the class, the assistant will not guess and lists it under \"Student not identified\" for you to check.",
+        "Correct yourself on the spot (\"no, actually…\"): only your final version is used.",
+        "Attitude is filled only when you mention it; otherwise it is left blank for you to choose.",
+        "No need to read out homework results: the assistant takes them from system data. Scores you say are kept as is, never calculated."
+      ],
+      "permissionNote": "The assistant only fills Attitude and Comment, never the score/homework fields. Its highest save level is Save draft — you review and submit.",
       "suggestions": {
         "record": "Record feedback",
         "upload": "Upload audio file"
