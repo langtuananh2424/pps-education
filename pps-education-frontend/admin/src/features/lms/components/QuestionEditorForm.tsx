@@ -380,9 +380,18 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
     }
 
     const trimmedWordBankOptions = wordBankOptions.map((o) => o.trim()).filter(Boolean);
+    // Fix bug thật (2026-10-03, đã xác nhận với người dùng) — sửa câu WORD_BANK (chỉ đổi điểm cũng bị) ghi đè
+    // structuredContent chỉ còn { blanks }, làm MẤT inputMode="text"/format="form" (câu "Nghe điền phiếu thông
+    // tin" và "Điền từ - Đoạn văn" import Excel) nên câu bị chuyển thành "Điền từ - Hộp từ vựng" dạng dropdown.
+    // Khi sửa phải giữ nguyên các key form không hiển thị (inputMode, format, wordBox...), chỉ ghi đè key đang sửa.
+    const preservedWordBankContent = isEditing && existingQuestion?.structuredContent ? { ...existingQuestion.structuredContent } : {};
+    if (kind === "WORD_BANK_PICTURE" && trimmedWordBankOptions.length === 0) {
+      delete preservedWordBankContent.wordBankOptions;
+    }
     const structuredContent =
       kind === "WORD_BANK" || kind === "WORD_BANK_PICTURE"
         ? {
+            ...preservedWordBankContent,
             blanks: wordBankBlanks.map((b) => b.trim()),
             ...(kind === "WORD_BANK_PICTURE" && trimmedWordBankOptions.length > 0 ? { wordBankOptions: trimmedWordBankOptions } : {})
           }
@@ -704,7 +713,11 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             <Blocks className="w-4 h-4 text-orange-600" />
             <span>{t("questionEditorForm.wordBankSectionTitle")}</span>
           </div>
-          <p className="text-[13px] text-slate-400">{t("questionEditorForm.wordBankHint")}</p>
+          {existingQuestion?.structuredContent?.format === "form" ? (
+            <p className="text-[13px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">{t("questionEditorForm.formCompletionEditNote")}</p>
+          ) : (
+            <p className="text-[13px] text-slate-400">{t("questionEditorForm.wordBankHint")}</p>
+          )}
           {/*
            * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — cảnh báo CHỈ đặt ở WORD_BANK/
            * WORD_BANK_PICTURE (không đặt ở FILL_IN_BLANK) vì chỉ 2 kind này cho phép nhồi NHIỀU chỗ
