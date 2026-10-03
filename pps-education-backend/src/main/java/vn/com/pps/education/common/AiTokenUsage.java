@@ -2,7 +2,7 @@ package vn.com.pps.education.common;
 
 /**
  * V192 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — mức tiêu thụ token của ĐÚNG 1
- * lệnh gọi AI, do {@link vn.com.pps.education.service.NineRouterAiClient} đọc từ field {@code usage} của
+ * lệnh gọi AI, do {@link vn.com.pps.education.lms.service.NineRouterAiClient} đọc từ field {@code usage} của
  * response và trả ngược lên cho service gọi.
  *
  * Truyền TƯỜNG MINH qua kiểu trả về (không dùng ThreadLocal/biến tĩnh) vì service gọi mới là nơi biết

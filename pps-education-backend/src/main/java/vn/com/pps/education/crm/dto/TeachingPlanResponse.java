@@ -1,0 +1,21 @@
+package vn.com.pps.education.crm.dto;
+
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+
+public record TeachingPlanResponse(
+        Long id,
+        Long classId,
+        Long teacherId,
+        String planType,
+        Long academicYearId,
+        String academicYear,
+        Integer weekNumber,
+        LocalDate weekStartDate,
+        LocalDate weekEndDate,
+        String summary,
+        String objectives,
+        String status,
+        boolean visibleToPartner,
+        OffsetDateTime publishedAt
+) {}

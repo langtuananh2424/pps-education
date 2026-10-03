@@ -1,0 +1,463 @@
+package vn.com.pps.education.lms.service;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.common.KeyGrammarDictionary;
+import vn.com.pps.education.common.WritingV3Grade;
+import vn.com.pps.education.academic.domain.Curriculum;
+import vn.com.pps.education.academic.domain.CurriculumSubject;
+import vn.com.pps.education.lms.domain.Question;
+import vn.com.pps.education.lms.domain.QuestionBank;
+import vn.com.pps.education.lms.domain.QuestionChoice;
+import vn.com.pps.education.lms.domain.QuestionHistory;
+import vn.com.pps.education.auth.domain.User;
+import vn.com.pps.education.lms.dto.CreateQuestionBankRequest;
+import vn.com.pps.education.lms.dto.CreateQuestionRequest;
+import vn.com.pps.education.lms.dto.KeyGrammarStructureResponse;
+import vn.com.pps.education.lms.dto.QuestionBankResponse;
+import vn.com.pps.education.lms.dto.QuestionChoiceRequest;
+import vn.com.pps.education.lms.dto.QuestionChoiceResponse;
+import vn.com.pps.education.lms.dto.QuestionResponse;
+import vn.com.pps.education.lms.dto.UpdateQuestionBankStatusRequest;
+import vn.com.pps.education.lms.dto.UpdateQuestionRequest;
+import vn.com.pps.education.exception.DuplicateQuestionContentException;
+import vn.com.pps.education.exception.QuestionLockedException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.academic.repository.CurriculumRepository;
+import vn.com.pps.education.academic.repository.CurriculumSubjectRepository;
+import vn.com.pps.education.lms.repository.ExamRepository;
+import vn.com.pps.education.lms.repository.QuestionBankRepository;
+import vn.com.pps.education.lms.repository.QuestionChoiceRepository;
+import vn.com.pps.education.lms.repository.QuestionHistoryRepository;
+import vn.com.pps.education.lms.repository.QuestionRepository;
+import vn.com.pps.education.lms.repository.StudentAnswerRepository;
+import vn.com.pps.education.auth.repository.UserRepository;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+/**
+ * UC-40: Soạn & giao đề kiểm tra (FR-LMS-10) — phần Ngân hàng câu hỏi.
+ * Xem docs/uc/phan-he-07-lms-portal.md. Tách khỏi ExerciseService (soạn
+ * đề/giao đề) theo SRP — ngân hàng câu hỏi là tài nguyên dùng chung, có
+ * thể tái sử dụng ngoài phạm vi 1 đề cụ thể (xem .claude/rules/solid.md).
+ *
+ * SDD "Bảo vệ khi sửa": câu hỏi đã có student_answers thì cấm sửa
+ * content/đáp án đúng — chỉ còn sửa được các trường không ảnh hưởng bài
+ * đã làm (status...). Muốn đổi nội dung phải tạo câu hỏi mới (createQuestion)
+ * rồi tự archive câu cũ.
+ *
+ * Authorization qua @PreAuthorize("hasPermission(null,'lms.question-bank.
+ * create/update/view')") ở QuestionBankController (Hybrid PBAC — V28,
+ * tách riêng khỏi lms.exercise.* ở V62 vì là resource khác nhau — ngân
+ * hàng câu hỏi dùng chung nhiều đề, không thuộc 1 đề cụ thể nào).
+ */
+@Service
+public class QuestionBankService {
+
+    private final QuestionBankRepository questionBankRepository;
+    private final ExamRepository examRepository;
+    private final QuestionRepository questionRepository;
+    private final QuestionChoiceRepository questionChoiceRepository;
+    private final QuestionHistoryRepository questionHistoryRepository;
+    private final StudentAnswerRepository studentAnswerRepository;
+    private final CurriculumRepository curriculumRepository;
+    private final CurriculumSubjectRepository curriculumSubjectRepository;
+    private final UserRepository userRepository;
+    private final KeyGrammarDictionaryLoader keyGrammarDictionaryLoader;
+
+    public QuestionBankService(QuestionBankRepository questionBankRepository,
+                                ExamRepository examRepository,
+                                QuestionRepository questionRepository,
+                                QuestionChoiceRepository questionChoiceRepository,
+                                QuestionHistoryRepository questionHistoryRepository,
+                                StudentAnswerRepository studentAnswerRepository,
+                                CurriculumRepository curriculumRepository,
+                                CurriculumSubjectRepository curriculumSubjectRepository,
+                                UserRepository userRepository,
+                                KeyGrammarDictionaryLoader keyGrammarDictionaryLoader) {
+        this.questionBankRepository = questionBankRepository;
+        this.examRepository = examRepository;
+        this.questionRepository = questionRepository;
+        this.questionChoiceRepository = questionChoiceRepository;
+        this.questionHistoryRepository = questionHistoryRepository;
+        this.studentAnswerRepository = studentAnswerRepository;
+        this.curriculumRepository = curriculumRepository;
+        this.curriculumSubjectRepository = curriculumSubjectRepository;
+        this.userRepository = userRepository;
+        this.keyGrammarDictionaryLoader = keyGrammarDictionaryLoader;
+    }
+
+    @Transactional
+    public QuestionBankResponse createBank(CreateQuestionBankRequest request, Long actorUserId) {
+        QuestionBank bank = new QuestionBank();
+        bank.setCode(request.code());
+        bank.setName(request.name());
+        if (request.curriculumId() != null) {
+            bank.setCurriculum(curriculumOrThrow(request.curriculumId()));
+        }
+        if (request.subjectId() != null) {
+            bank.setSubject(curriculumSubjectOrThrow(request.subjectId()));
+        }
+        bank.setLevel(request.level());
+        bank = questionBankRepository.save(bank);
+        return toResponse(bank);
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuestionBankResponse> listBanksByCurriculum(Long curriculumId) {
+        return questionBankRepository.findLegacyByCurriculumId(curriculumId).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung — is_active tồn tại sẵn trong SDD nhưng trước đây không
+     * endpoint nào set được. Không có UC nào yêu cầu ẩn bank INACTIVE
+     * khỏi listBanksByCurriculum/tạo câu hỏi, nên chỉ bổ sung khả năng
+     * bật/tắt — không tự thêm ràng buộc chặn khác ngoài phạm vi đã xác
+     * nhận.
+     */
+    @Transactional
+    public QuestionBankResponse updateBankStatus(Long id, UpdateQuestionBankStatusRequest request, Long actorUserId) {
+        QuestionBank bank = getLegacyBankOrThrow(id);
+        bank.setActive(request.isActive());
+        bank = questionBankRepository.save(bank);
+        return toResponse(bank);
+    }
+
+    /**
+     * Main Flow bước 1: soạn câu hỏi mới, lưu vào ngân hàng. Bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-08-03 — cấm tạo trùng nội
+     * dung câu hỏi trong CÙNG 1 ngân hàng (soạn tay lẫn import hàng loạt
+     * đều đi qua đây, xem QuestionImportService — dòng import trùng chỉ
+     * lỗi đúng dòng đó, không chặn cả file, nhờ cơ chế bắt lỗi từng dòng
+     * sẵn có ở đó). CHỈ so với câu ACTIVE (không tính câu đã ARCHIVED) —
+     * không thì sẽ chặn nhầm luồng sửa hợp lệ: câu đã có student_answers
+     * bị cấm sửa content/đáp án (xem updateQuestion), buộc phải archive
+     * câu cũ rồi tạo câu mới thay thế, có thể trùng NGUYÊN VĂN câu hỏi
+     * nếu chỉ sửa đáp án sai chứ không đổi câu hỏi.
+     */
+    @Transactional
+    public QuestionResponse createQuestion(CreateQuestionRequest request, Long actorUserId) {
+        QuestionBank bank = getLegacyBankOrThrow(request.questionBankId());
+        return createQuestionInBank(bank, request, actorUserId, true);
+    }
+
+    /**
+     * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — cho QuestionImportService dùng để pre-check
+     * trùng nội dung TRƯỚC KHI tạo bất kỳ câu nào của 1 nhóm "DIEN_TU_NHOM" (nhiều Question/1 dòng
+     * Excel) — tránh tạo dở dang N-1/N câu rồi mới phát hiện câu cuối trùng (không dùng transaction
+     * REQUIRES_NEW để tự rollback theo dòng vì đã thử và bỏ ở ParentBatchImportService: REQUIRES_NEW
+     * suspend transaction ngoài, không thấy được dữ liệu vừa ghi trong cùng transaction/test bọc
+     * @Transactional — validate TRƯỚC khi ghi là cách đúng, xem Javadoc ParentBatchImportService).
+     * Cùng điều kiện với check trong createQuestionInBank ở trên — KHÔNG viết lại logic riêng.
+     */
+    @Transactional(readOnly = true)
+    boolean existsActiveDuplicate(Long bankId, String content) {
+        return questionRepository.existsByQuestionBankIdAndContentAndStatus(bankId, content, Question.Status.ACTIVE);
+    }
+
+    /**
+     * Primitive dùng chung cho generic bank và ExamQuestionService. Generic
+     * bank chặn duplicate; bank nội bộ của Exam cho phép duplicate theo
+     * quyết định 2026-08-04.
+     */
+    @Transactional
+    QuestionResponse createQuestionInBank(QuestionBank bank, CreateQuestionRequest request,
+                                          Long actorUserId, boolean rejectActiveDuplicate) {
+        User actor = getUserOrThrow(actorUserId);
+        if (rejectActiveDuplicate && questionRepository.existsByQuestionBankIdAndContentAndStatus(
+                bank.getId(), request.content(), Question.Status.ACTIVE)) {
+            throw new DuplicateQuestionContentException("error.duplicateQuestionContent.default",
+                    new Object[]{bank.getName()},
+                    "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
+        }
+        Question.QuestionType questionType = Question.QuestionType.valueOf(request.questionType());
+        requireStructuredContentIfNeeded(questionType, request.structuredContent());
+
+        Question question = new Question();
+        question.setQuestionBank(bank);
+        question.setQuestionType(questionType);
+        if (request.skill() != null) {
+            question.setSkill(Question.Skill.valueOf(request.skill()));
+        }
+        if (request.difficulty() != null) {
+            question.setDifficulty(Question.Difficulty.valueOf(request.difficulty()));
+        }
+        question.setContent(request.content());
+        question.setAudioUrl(request.audioUrl());
+        question.setImageUrl(request.imageUrl());
+        question.setReferencePassage(request.referencePassage());
+        question.setExplanation(request.explanation());
+        question.setCorrectAnswerText(request.correctAnswerText());
+        question.setStructuredContent(request.structuredContent());
+        question.setGroupKey(request.groupKey());
+        if (request.defaultPoints() != null) {
+            question.setDefaultPoints(request.defaultPoints());
+        }
+        question.setTags(request.tags());
+        question.setCreatedBy(actor);
+        question = questionRepository.save(question);
+        saveChoices(question, request.choices());
+
+        writeHistory(question, actor, QuestionHistory.Action.CREATED);
+        return toResponse(question);
+    }
+
+    /**
+     * Sửa câu hỏi — chặn nếu đã có student_answers VÀ request đổi
+     * content/choices (SDD "Bảo vệ khi sửa"); các trường khác (status...)
+     * luôn sửa được.
+     */
+    @Transactional
+    public QuestionResponse updateQuestion(Long id, UpdateQuestionRequest request, Long actorUserId) {
+        Question question = questionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionBank.questionNotFound",
+                        new Object[]{id}, "Không tìm thấy câu hỏi id=" + id));
+        requireLegacyBank(question.getQuestionBank().getId());
+        return updateResolvedQuestion(question, request, actorUserId);
+    }
+
+    /** Primitive dùng chung sau khi caller đã verify ownership của câu hỏi. */
+    @Transactional
+    QuestionResponse updateResolvedQuestion(Question question, UpdateQuestionRequest request, Long actorUserId) {
+        User actor = getUserOrThrow(actorUserId);
+        Long id = question.getId();
+
+        boolean changesContent = !Objects.equals(question.getContent(), request.content()) || request.choices() != null
+                || !Objects.equals(question.getCorrectAnswerText(), request.correctAnswerText())
+                || !Objects.equals(question.getStructuredContent(), request.structuredContent());
+        if (changesContent && studentAnswerRepository.existsByQuestionId(id)) {
+            throw new QuestionLockedException("error.questionLocked.default", new Object[]{},
+                    "Câu hỏi này đã có học sinh trả lời — không sửa được nội dung/đáp án. Hãy tạo câu hỏi mới rồi lưu trữ (archive) câu này.");
+        }
+        requireStructuredContentIfNeeded(question.getQuestionType(), request.structuredContent());
+
+        question.setContent(request.content());
+        question.setAudioUrl(request.audioUrl());
+        question.setImageUrl(request.imageUrl());
+        question.setReferencePassage(request.referencePassage());
+        question.setExplanation(request.explanation());
+        question.setCorrectAnswerText(request.correctAnswerText());
+        question.setStructuredContent(request.structuredContent());
+        if (request.defaultPoints() != null) {
+            question.setDefaultPoints(request.defaultPoints());
+        }
+        question.setTags(request.tags());
+        if (request.status() != null) {
+            question.setStatus(Question.Status.valueOf(request.status()));
+        }
+        question.setKeyGrammar(resolveKeyGrammar(question, request.keyGrammarIds()));
+        question = questionRepository.save(question);
+        if (request.choices() != null) {
+            questionChoiceRepository.deleteAll(questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(id));
+            saveChoices(question, request.choices());
+        }
+
+        writeHistory(question, actor, QuestionHistory.Action.UPDATED);
+        return toResponse(question);
+    }
+
+    /**
+     * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, V193) — validate
+     * 1-3 mã, khớp từ điển đúng Khối/track của {@code questionBank.curriculum}, và chỉ chấp nhận khi
+     * {@code questionType=ESSAY}. Câu hỏi không phải ESSAY luôn bị ép về {@code null} (kể cả khi request
+     * gửi kèm ids) — Key Grammar không có ý nghĩa ngoài câu tự luận.
+     */
+    private List<String> resolveKeyGrammar(Question question, List<String> requestedIds) {
+        if (question.getQuestionType() != Question.QuestionType.ESSAY) {
+            return null;
+        }
+        if (requestedIds == null || requestedIds.isEmpty()) {
+            return null;
+        }
+        if (requestedIds.size() > 3) {
+            throw new IllegalArgumentException("Key Grammar chỉ được chọn tối đa 3 mã cấu trúc.");
+        }
+        KeyGrammarDictionary dictionary = loadKeyGrammarDictionary(question);
+        if (dictionary == null) {
+            throw new IllegalArgumentException(
+                    "Khối/chương trình của câu hỏi này chưa có từ điển Key Grammar (chỉ Khối 6-8 có filter 2).");
+        }
+        for (String reqId : requestedIds) {
+            if (dictionary.find(reqId).isEmpty()) {
+                throw new IllegalArgumentException("Mã Key Grammar không hợp lệ: " + reqId);
+            }
+        }
+        return requestedIds;
+    }
+
+    /**
+     * Key Grammar (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — danh sách mã cấu trúc
+     * khả dụng để hiện dropdown chọn tay ở modal "Sửa câu hỏi" (FE) — rỗng nếu câu hỏi không phải ESSAY
+     * hoặc Khối/chương trình chưa có từ điển (VD Khối 9).
+     */
+    @Transactional(readOnly = true)
+    public List<KeyGrammarStructureResponse> listKeyGrammarOptions(Long questionId, Long actorUserId) {
+        return listKeyGrammarOptionsForResolvedQuestion(questionOrThrow(questionId));
+    }
+
+    /** Primitive dùng chung — caller (VD ExamQuestionService) đã tự verify ownership của câu hỏi. */
+    @Transactional(readOnly = true)
+    List<KeyGrammarStructureResponse> listKeyGrammarOptionsForResolvedQuestion(Question question) {
+        if (question.getQuestionType() != Question.QuestionType.ESSAY) {
+            return List.of();
+        }
+        KeyGrammarDictionary dictionary = loadKeyGrammarDictionary(question);
+        if (dictionary == null) {
+            return List.of();
+        }
+        return dictionary.structures().stream()
+                .map(s -> new KeyGrammarStructureResponse(s.id(), s.name(), s.base()))
+                .toList();
+    }
+
+    private KeyGrammarDictionary loadKeyGrammarDictionary(Question question) {
+        Curriculum curriculum = question.getQuestionBank().getCurriculum();
+        if (curriculum == null) {
+            return null;
+        }
+        WritingV3Grade grade = WritingV3Grade.forGradeTrack(curriculum.getGradeLevel(), curriculum.getTrack());
+        return keyGrammarDictionaryLoader.load(grade);
+    }
+
+    private Question questionOrThrow(Long id) {
+        return questionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionBank.questionNotFound",
+                        new Object[]{id}, "Không tìm thấy câu hỏi id=" + id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuestionResponse> listQuestions(Long questionBankId) {
+        requireLegacyBank(questionBankId);
+        return listQuestionsInBank(questionBankId);
+    }
+
+    @Transactional(readOnly = true)
+    List<QuestionResponse> listQuestionsInBank(Long questionBankId) {
+        return questionRepository.findByQuestionBankIdAndStatus(questionBankId, Question.Status.ACTIVE)
+                .stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public QuestionResponse getQuestion(Long id) {
+        Question question = questionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionBank.questionNotFound",
+                        new Object[]{id}, "Không tìm thấy câu hỏi id=" + id));
+        requireLegacyBank(question.getQuestionBank().getId());
+        return toResponse(question);
+    }
+
+    @Transactional(readOnly = true)
+    QuestionResponse toResponseForResolvedQuestion(Question question) {
+        return toResponse(question);
+    }
+
+    // ===================== Helpers =====================
+
+    /**
+     * V85 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — WORD_BANK/SENTENCE_BUILDING
+     * bắt buộc có structuredContent (key "blanks"/"chunks" tương ứng) để tự chấm được, giống cách
+     * FILL_IN_BLANK bắt buộc correctAnswerText.
+     */
+    private void requireStructuredContentIfNeeded(Question.QuestionType questionType, Map<String, Object> structuredContent) {
+        if (questionType != Question.QuestionType.WORD_BANK && questionType != Question.QuestionType.SENTENCE_BUILDING) {
+            return;
+        }
+        String key = questionType == Question.QuestionType.WORD_BANK ? "blanks" : "chunks";
+        Object values = structuredContent == null ? null : structuredContent.get(key);
+        if (!(values instanceof List<?> list) || list.isEmpty()) {
+            throw new IllegalArgumentException(
+                    (questionType == Question.QuestionType.WORD_BANK ? "Điền từ - Hộp từ vựng" : "Sắp xếp câu")
+                            + " cần có ít nhất 1 phần tử \"" + key + "\" để hệ thống tự chấm.");
+        }
+    }
+
+    private void saveChoices(Question question, List<QuestionChoiceRequest> choices) {
+        if (choices == null) {
+            return;
+        }
+        for (QuestionChoiceRequest c : choices) {
+            QuestionChoice choice = new QuestionChoice();
+            choice.setQuestion(question);
+            choice.setChoiceLabel(c.choiceLabel());
+            choice.setContent(c.content());
+            choice.setImageUrl(c.imageUrl());
+            choice.setCorrect(c.isCorrect());
+            choice.setDisplayOrder(c.displayOrder());
+            questionChoiceRepository.save(choice);
+        }
+    }
+
+    private QuestionBank getLegacyBankOrThrow(Long id) {
+        QuestionBank bank = questionBankRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionBank.bankNotFound",
+                        new Object[]{id}, "Không tìm thấy ngân hàng câu hỏi id=" + id));
+        requireLegacyBank(id);
+        return bank;
+    }
+
+    private void requireLegacyBank(Long bankId) {
+        if (examRepository.existsByQuestionBankId(bankId)) {
+            throw new ResourceNotFoundException("error.questionBank.bankNotFound",
+                    new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId);
+        }
+    }
+
+    private User getUserOrThrow(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionBank.userNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
+    }
+
+    private Curriculum curriculumOrThrow(Long id) {
+        return curriculumRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionBank.curriculumNotFound",
+                        new Object[]{id}, "Không tìm thấy khung chương trình id=" + id));
+    }
+
+    private CurriculumSubject curriculumSubjectOrThrow(Long id) {
+        return curriculumSubjectRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionBank.subjectNotFound",
+                        new Object[]{id}, "Không tìm thấy học phần id=" + id));
+    }
+
+    private void writeHistory(Question question, User actor, QuestionHistory.Action action) {
+        QuestionHistory history = new QuestionHistory();
+        history.setQuestion(question);
+        history.setChangedBy(actor);
+        history.setAction(action);
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("questionType", question.getQuestionType().name());
+        snapshot.put("content", question.getContent());
+        snapshot.put("status", question.getStatus().name());
+        history.setDetails(snapshot);
+        questionHistoryRepository.save(history);
+    }
+
+    private QuestionBankResponse toResponse(QuestionBank b) {
+        return new QuestionBankResponse(
+                b.getId(), b.getCode(), b.getName(),
+                b.getCurriculum() == null ? null : b.getCurriculum().getId(),
+                b.getSubject() == null ? null : b.getSubject().getId(),
+                b.getLevel(), b.isActive());
+    }
+
+    private QuestionResponse toResponse(Question q) {
+        List<QuestionChoiceResponse> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(q.getId())
+                .stream().map(this::toResponse).toList();
+        return new QuestionResponse(
+                q.getId(), q.getQuestionBank().getId(), q.getQuestionType().name(),
+                q.getSkill() == null ? null : q.getSkill().name(),
+                q.getDifficulty() == null ? null : q.getDifficulty().name(),
+                q.getContent(), q.getAudioUrl(), q.getImageUrl(), q.getReferencePassage(), q.getExplanation(),
+                q.getCorrectAnswerText(),
+                q.getDefaultPoints(), q.getTags(), q.getStatus().name(), q.getCreatedBy().getId(), choices,
+                q.getStructuredContent(), q.getGroupKey(), q.getKeyGrammar());
+    }
+
+    private QuestionChoiceResponse toResponse(QuestionChoice c) {
+        return new QuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.getImageUrl(), c.isCorrect(), c.getDisplayOrder());
+    }
+}

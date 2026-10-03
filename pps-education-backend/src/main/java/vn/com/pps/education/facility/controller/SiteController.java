@@ -1,0 +1,121 @@
+package vn.com.pps.education.facility.controller;
+
+import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.facility.dto.AssignSiteManagerRequest;
+import vn.com.pps.education.facility.dto.AssignSiteTeacherRequest;
+import vn.com.pps.education.hr.dto.ClassSessionResponse;
+import vn.com.pps.education.facility.dto.CreateSiteRequest;
+import vn.com.pps.education.crm.dto.PartnerAttendanceSummaryResponse;
+import vn.com.pps.education.facility.dto.SiteResponse;
+import vn.com.pps.education.facility.dto.SiteTeacherResponse;
+import vn.com.pps.education.facility.dto.UpdateSiteRequest;
+import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.academic.service.ClassSessionService;
+import vn.com.pps.education.facility.service.SiteService;
+import vn.com.pps.education.student.service.StudentAttendanceService;
+
+import java.time.LocalDate;
+import java.util.List;
+
+/** UC-36: Quản lý điểm trường (FR-FAC-01) — xem Javadoc SiteService. */
+@RestController
+public class SiteController {
+
+    private final SiteService siteService;
+    private final StudentAttendanceService studentAttendanceService;
+    private final ClassSessionService classSessionService;
+
+    public SiteController(SiteService siteService, StudentAttendanceService studentAttendanceService,
+                           ClassSessionService classSessionService) {
+        this.siteService = siteService;
+        this.studentAttendanceService = studentAttendanceService;
+        this.classSessionService = classSessionService;
+    }
+
+    @PostMapping("/api/sites")
+    @PreAuthorize("hasPermission(null, 'facility.site.create')")
+    public ResponseEntity<SiteResponse> createSite(@Valid @RequestBody CreateSiteRequest request,
+                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(siteService.createSite(request, actor.userId()));
+    }
+
+    @PutMapping("/api/sites/{id}")
+    @PreAuthorize("hasPermission(null, 'facility.site.update')")
+    public ResponseEntity<SiteResponse> updateSite(@PathVariable Long id,
+                                                     @Valid @RequestBody UpdateSiteRequest request,
+                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(siteService.updateSite(id, request, actor.userId()));
+    }
+
+    @PutMapping("/api/sites/{id}/manager")
+    @PreAuthorize("hasPermission(null, 'facility.site.update')")
+    public ResponseEntity<SiteResponse> assignManager(@PathVariable Long id,
+                                                        @Valid @RequestBody AssignSiteManagerRequest request,
+                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(siteService.assignManager(id, request, actor.userId()));
+    }
+
+    @GetMapping("/api/sites/{id}")
+    public ResponseEntity<SiteResponse> getSite(@PathVariable Long id) {
+        return ResponseEntity.ok(siteService.getSite(id));
+    }
+
+    @GetMapping("/api/sites")
+    public ResponseEntity<List<SiteResponse>> listSites() {
+        return ResponseEntity.ok(siteService.listSites());
+    }
+
+    @PostMapping("/api/sites/{id}/teachers")
+    @PreAuthorize("hasPermission(null, 'facility.site-teacher.assign')")
+    public ResponseEntity<SiteTeacherResponse> assignTeacher(@PathVariable Long id,
+                                                              @Valid @RequestBody AssignSiteTeacherRequest request,
+                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(siteService.assignTeacher(id, request, actor.userId()));
+    }
+
+    @DeleteMapping("/api/sites/{id}/teachers/{siteTeacherId}")
+    @PreAuthorize("hasPermission(null, 'facility.site-teacher.remove')")
+    public ResponseEntity<Void> removeTeacher(@PathVariable Long id, @PathVariable Long siteTeacherId,
+                                               @AuthenticationPrincipal AuthenticatedUser actor) {
+        siteService.removeTeacherFromSite(id, siteTeacherId, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/api/sites/{id}/teachers")
+    public ResponseEntity<List<SiteTeacherResponse>> listTeachers(@PathVariable Long id) {
+        return ResponseEntity.ok(siteService.listTeachers(id));
+    }
+
+    /** UC-15b: Quản lý điểm trường xem báo cáo chuyên cần của điểm trường mình phụ trách. */
+    @GetMapping("/api/sites/{id}/attendance-summary")
+    public ResponseEntity<List<PartnerAttendanceSummaryResponse>> getAttendanceSummary(
+            @PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentAttendanceService.getSiteSummary(id, actor.userId()));
+    }
+
+    /**
+     * Lưới thời khóa biểu toàn điểm trường theo tuần (bổ sung ngoài SDD
+     * gốc, xác nhận 2026-08-19) — xem Javadoc
+     * ClassSessionService#listSessionsForSiteTimetable.
+     */
+    @GetMapping("/api/sites/{id}/sessions")
+    public ResponseEntity<List<ClassSessionResponse>> listSessions(
+            @PathVariable Long id,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classSessionService.listSessionsForSiteTimetable(id, fromDate, toDate, actor.userId()));
+    }
+}
