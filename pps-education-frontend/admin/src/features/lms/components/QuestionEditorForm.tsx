@@ -396,8 +396,12 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             ...(kind === "WORD_BANK_PICTURE" && trimmedWordBankOptions.length > 0 ? { wordBankOptions: trimmedWordBankOptions } : {})
           }
         : kind === "SENTENCE_BUILDING" || kind === "LETTER_SCRAMBLE"
-          ? { chunks: sentenceChunks.filter((c) => c.trim()).map((c) => c.trim()) }
-          : undefined;
+          ? { ...preservedWordBankContent, chunks: sentenceChunks.filter((c) => c.trim()).map((c) => c.trim()) }
+          : // Các kind không có ô sửa structuredContent (Điền từ trong nhóm có wordBox, trắc nghiệm...) phải GỬI LẠI
+            // nguyên giá trị cũ khi sửa, vì backend ghi đè nguyên cột theo request (null = xóa sạch).
+            isEditing
+            ? (existingQuestion?.structuredContent ?? undefined)
+            : undefined;
 
     setSubmitting(true);
     try {
@@ -406,10 +410,15 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       const includeAudio = isVoiceOrListeningAudio || (supportsOptionalAudio && !!audioUrl.trim());
       const resolvedSkill = isVoiceOrListeningAudio || (supportsOptionalAudio && !!audioUrl.trim()) ? "LISTENING" : kind === "SPEAKING" ? "SPEAKING" : undefined;
       if (isEditing && existingQuestion) {
+        // Fix bug thật (2026-10-03, đã xác nhận với người dùng) — backend (QuestionBankService#updateResolvedQuestion)
+        // ghi đè TOÀN BỘ field theo request, nên field nào form không hiển thị cho kind này mà không gửi lại thì bị
+        // xóa sạch mỗi lần sửa+lưu (kể cả chỉ đổi điểm): tags, ảnh/audio đề bài, đoạn văn tham chiếu của trắc nghiệm,
+        // structuredContent (VD wordBox). Với mọi field form KHÔNG sửa được ở kind này → gửi lại giá trị đang có.
         const updateRequest = {
           content: content.trim(),
-          audioUrl: includeAudio ? audioUrl.trim() || undefined : undefined,
-          imageUrl: supportsImage ? imageUrl.trim() || undefined : undefined,
+          audioUrl: includeAudio ? audioUrl.trim() || undefined : supportsOptionalAudio ? undefined : existingQuestion.audioUrl ?? undefined,
+          imageUrl: supportsImage ? imageUrl.trim() || undefined : existingQuestion.imageUrl ?? undefined,
+          tags: existingQuestion.tags ?? undefined,
           // Fix bug thật (2026-09-25, đã xác nhận với người dùng) — trước đây gate theo `includeAudio`
           // (chỉ true khi THẬT SỰ có audioUrl), nên FILL_IN_BLANK/WORD_BANK/SENTENCE_BUILDING/
           // LETTER_SCRAMBLE không audio mà có referencePassage (dùng làm tiêu đề/đoạn văn cho cả nhóm —
@@ -422,7 +431,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
               ? transcript.trim() || undefined
               : kind === "SPEAKING"
                 ? phoneticKeywords.trim() || undefined
-                : undefined,
+                : existingQuestion.referencePassage ?? undefined,
           explanation: explanation.trim() || undefined,
           correctAnswerText:
             kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE" ? correctAnswerText.trim() || undefined : undefined,
