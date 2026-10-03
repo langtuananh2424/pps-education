@@ -9,31 +9,35 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.PaymentLinkResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
-import vn.com.pps.education.service.PayosPaymentService;
+import vn.com.pps.education.service.InvoicePaymentLinkService;
 
 import java.util.Map;
 
-/** UC-30 Main Flow bước 3-6: thanh toán QR qua payOS — xem Javadoc PayosPaymentService. */
+/** UC-30 Main Flow bước 3-6: thanh toán QR qua cổng bên thứ ba — xem Javadoc InvoicePaymentLinkService. */
 @RestController
 public class PaymentLinkController {
 
-    private final PayosPaymentService payosPaymentService;
+    private final InvoicePaymentLinkService invoicePaymentLinkService;
 
-    public PaymentLinkController(PayosPaymentService payosPaymentService) {
-        this.payosPaymentService = payosPaymentService;
+    public PaymentLinkController(InvoicePaymentLinkService invoicePaymentLinkService) {
+        this.invoicePaymentLinkService = invoicePaymentLinkService;
     }
 
     /** Phụ huynh liên kết với học sinh của hóa đơn lấy link/QR thanh toán phần còn nợ. */
     @PostMapping("/api/finance/invoices/{id}/payment-link")
     public ResponseEntity<PaymentLinkResponse> createPaymentLink(@PathVariable Long id,
                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(payosPaymentService.createOrReuseLink(id, actor.userId()));
+        return ResponseEntity.ok(invoicePaymentLinkService.createOrReuseLink(id, actor.userId()));
     }
 
-    /** Webhook payOS (permitAll, SecurityConfig) — tự xác thực bằng chữ ký HMAC với checksum key. */
-    @PostMapping("/api/webhooks/payos")
-    public ResponseEntity<Map<String, Object>> payosWebhook(@RequestBody JsonNode body) {
-        payosPaymentService.handleWebhook(body);
+    /**
+     * Webhook của cổng thanh toán {@code provider} (VD payos) — permitAll (SecurityConfig), mỗi cổng tự
+     * xác thực bằng chữ ký riêng. Định tuyến theo provider để giao dịch của cổng cũ vẫn ghi nhận được sau
+     * khi đổi cổng đang dùng.
+     */
+    @PostMapping("/api/webhooks/payment/{provider}")
+    public ResponseEntity<Map<String, Object>> paymentWebhook(@PathVariable String provider, @RequestBody JsonNode body) {
+        invoicePaymentLinkService.handleWebhook(provider, body);
         return ResponseEntity.ok(Map.of("success", true));
     }
 }

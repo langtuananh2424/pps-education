@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import vn.com.pps.education.exception.InvalidWebhookSecretException;
 import vn.com.pps.education.exception.PaymentGatewayException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -18,12 +19,18 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Client payOS (https://payos.vn) cho UC-30 — bổ sung ngoài SDD gốc, đã thống nhất với người dùng
@@ -32,11 +39,10 @@ import java.util.Map;
  * Chưa cấu hình đủ 3 khoá thì {@link #isConfigured()} = false và mọi thao tác tạo link báo lỗi có kiểm soát.
  */
 @Component
-public class PayosClient {
+public class PayosGateway implements PaymentGateway {
 
-    /** Kết quả tạo link thanh toán (trường {@code data} của payOS). */
-    public record PaymentLink(String paymentLinkId, String checkoutUrl, String qrCode, String bin,
-                              String accountNumber, String accountName, String description) {}
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final DateTimeFormatter PAYOS_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -46,7 +52,7 @@ public class PayosClient {
     private final String checksumKey;
     private final String baseUrl;
 
-    public PayosClient(ObjectMapper objectMapper,
+    public PayosGateway(ObjectMapper objectMapper,
                        @Value("${app.finance.payos.client-id:}") String clientId,
                        @Value("${app.finance.payos.api-key:}") String apiKey,
                        @Value("${app.finance.payos.checksum-key:}") String checksumKey,
@@ -58,35 +64,42 @@ public class PayosClient {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 
+    @Override
+    public String providerCode() {
+        return "PAYOS";
+    }
+
+    @Override
     public boolean isConfigured() {
         return notBlank(clientId) && notBlank(apiKey) && notBlank(checksumKey);
     }
 
     /** POST /v2/payment-requests — chữ ký HMAC-SHA256 trên amount, cancelUrl, description, orderCode, returnUrl. */
-    public PaymentLink createPaymentLink(long orderCode, BigDecimal amount, String description,
-                                         String returnUrl, String cancelUrl, long expiredAtEpochSeconds) {
+    @Override
+    public Link createPaymentLink(LinkRequest request) {
         requireConfigured();
-        long amountVnd = amount.longValueExact();
+        long amountVnd = request.amount().longValueExact();
         ObjectNode body = objectMapper.createObjectNode();
-        body.put("orderCode", orderCode);
+        body.put("orderCode", request.orderCode());
         body.put("amount", amountVnd);
-        body.put("description", description);
-        body.put("returnUrl", returnUrl);
-        body.put("cancelUrl", cancelUrl);
-        body.put("expiredAt", expiredAtEpochSeconds);
+        body.put("description", request.description());
+        body.put("returnUrl", request.returnUrl());
+        body.put("cancelUrl", request.cancelUrl());
+        body.put("expiredAt", request.expiredAtEpochSeconds());
         body.put("signature", sign(checksumKey, Map.of(
                 "amount", String.valueOf(amountVnd),
-                "cancelUrl", cancelUrl,
-                "description", description,
-                "orderCode", String.valueOf(orderCode),
-                "returnUrl", returnUrl)));
+                "cancelUrl", request.cancelUrl(),
+                "description", request.description(),
+                "orderCode", String.valueOf(request.orderCode()),
+                "returnUrl", request.returnUrl())));
 
         JsonNode data = call("POST", "/v2/payment-requests", body);
-        return new PaymentLink(text(data, "paymentLinkId"), text(data, "checkoutUrl"), text(data, "qrCode"),
+        return new Link(text(data, "paymentLinkId"), text(data, "checkoutUrl"), text(data, "qrCode"),
                 text(data, "bin"), text(data, "accountNumber"), text(data, "accountName"), text(data, "description"));
     }
 
     /** POST /v2/payment-requests/{orderCode}/cancel — huỷ link còn chờ khi đã sinh link mới. */
+    @Override
     public void cancelPaymentLink(long orderCode, String reason) {
         requireConfigured();
         ObjectNode body = objectMapper.createObjectNode();
@@ -96,9 +109,27 @@ public class PayosClient {
 
     /**
      * Xác thực chữ ký webhook: HMAC-SHA256 (checksum key) trên các cặp key=value của {@code data} sắp xếp
-     * theo tên khoá, nối bằng '&'. So sánh thời gian hằng số.
+     * theo tên khoá, nối bằng '&', so sánh thời gian hằng số. Chữ ký sai -> 401. Giao dịch không thành
+     * công (code != "00") -> bỏ qua. Payload thử khi khai báo webhook trên dashboard payOS có orderCode lạ,
+     * để tầng trên tự bỏ qua.
      */
-    public boolean verifyWebhookSignature(JsonNode webhook) {
+    @Override
+    public Optional<PaidEvent> parseWebhook(JsonNode webhook) {
+        if (!hasValidSignature(webhook)) {
+            throw new InvalidWebhookSecretException("Chữ ký webhook payOS không hợp lệ.");
+        }
+        JsonNode data = webhook.path("data");
+        if (!webhook.path("success").asBoolean(false) || !"00".equals(data.path("code").asText())) {
+            return Optional.empty();
+        }
+        return Optional.of(new PaidEvent(
+                data.path("orderCode").asLong(),
+                new BigDecimal(data.path("amount").asText()),
+                data.path("reference").asText(""),
+                parsePaidAt(data.path("transactionDateTime").asText(null))));
+    }
+
+    boolean hasValidSignature(JsonNode webhook) {
         if (!notBlank(checksumKey) || webhook == null || !webhook.path("data").isObject()
                 || !webhook.path("signature").isTextual()) {
             return false;
@@ -106,6 +137,17 @@ public class PayosClient {
         String expected = sign(checksumKey, flatten(webhook.get("data")));
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
                 webhook.get("signature").asText().toLowerCase().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static OffsetDateTime parsePaidAt(String transactionDateTime) {
+        if (transactionDateTime == null || transactionDateTime.isBlank()) {
+            return OffsetDateTime.now();
+        }
+        try {
+            return LocalDateTime.parse(transactionDateTime, PAYOS_TIME).atZone(APP_ZONE).toOffsetDateTime();
+        } catch (DateTimeParseException e) {
+            return OffsetDateTime.now();
+        }
     }
 
     static Map<String, String> flatten(JsonNode object) {

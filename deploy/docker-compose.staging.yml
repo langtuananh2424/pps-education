@@ -155,8 +155,8 @@ services:
       PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
       PAYOS_API_KEY: ${PAYOS_API_KEY:-}
       PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
-      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-}
-      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-}
+      PAYMENT_RETURN_URL: ${PAYMENT_RETURN_URL:-}
+      PAYMENT_CANCEL_URL: ${PAYMENT_CANCEL_URL:-}
       SEED_DEV_USERS: ${SEED_DEV_USERS:-false}
       # Bootstrap 1 tài khoản sysadmin lần đầu (KHÁC SEED_DEV_USERS - xem InitialAdminSeeder.java).
       # Mặc định tắt - chỉ bật 1 lần khi cần tạo sysadmin đầu tiên, rồi tắt lại (đặt false trong .env).

@@ -430,8 +430,8 @@ public class InvoiceService {
     // ===================== Helpers =====================
 
     /**
-     * Hóa đơn mà Phụ huynh liên kết được phép thanh toán online (payOS): còn nợ và chưa hủy. Dùng bởi
-     * PayosPaymentService khi sinh link/QR.
+     * Hóa đơn mà Phụ huynh liên kết được phép thanh toán online qua cổng QR: còn nợ và chưa hủy. Dùng bởi
+     * InvoicePaymentLinkService khi sinh link/QR.
      */
     @Transactional(readOnly = true)
     public Invoice requirePayableInvoice(Long invoiceId, Long actorUserId) {
