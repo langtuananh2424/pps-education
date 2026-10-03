@@ -18,6 +18,7 @@ import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateOperatingExpenseRequest;
 import vn.com.pps.education.dto.CreateTuitionPlanRequest;
 import vn.com.pps.education.dto.CurriculumResponse;
+import vn.com.pps.education.dto.DecideOperatingExpenseRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.FinancialReportResponse;
 import vn.com.pps.education.dto.GenerateInvoicesRequest;
@@ -185,6 +186,25 @@ class FinanceReportServiceTest extends AbstractIntegrationTest {
         assertThat(report.totalRevenue()).isEqualByComparingTo("2000000");
         assertThat(report.totalExpense()).isEqualByComparingTo("500000");
         assertThat(report.bySite()).anyMatch(s -> s.siteId().equals(site.getId()));
+    }
+
+    /** UC-31 A2 + UC-32: khoản chi bị Ban giám đốc từ chối không phải chi thực tế, không cộng vào báo cáo. */
+    @Test
+    void getChainReport_UC32_rejectedExpenseExcludedFromTotals() {
+        var rejected = operatingExpenseService.create(new CreateOperatingExpenseRequest(
+                "RENT", site.getId(), LocalDate.now(), new BigDecimal("300000"), "Ghi nhầm",
+                "CASH", null, null, null), accountant.getId());
+        operatingExpenseService.decide(rejected.id(), new DecideOperatingExpenseRequest("REJECTED", "Trùng chứng từ"), executiveUser.getId());
+        var sharedRejected = operatingExpenseService.create(new CreateOperatingExpenseRequest(
+                "RENT", null, LocalDate.now(), new BigDecimal("700000"), "Chi chung ghi nhầm",
+                "CASH", null, null, null), accountant.getId());
+        operatingExpenseService.decide(sharedRejected.id(), new DecideOperatingExpenseRequest("REJECTED", "Sai"), executiveUser.getId());
+
+        FinancialReportResponse siteReport = financeReportService.getMySiteReports(periodFrom, periodTo, siteManagerUser.getId()).get(0);
+        assertThat(siteReport.totalExpense()).isEqualByComparingTo("500000");
+        ChainFinancialReportResponse chain = financeReportService.getChainReport(periodFrom, periodTo, executiveUser.getId());
+        FinancialReportResponse chainSite = chain.bySite().stream().filter(r -> r.siteId().equals(site.getId())).findFirst().orElseThrow();
+        assertThat(chainSite.totalExpense()).isEqualByComparingTo("500000");
     }
 
     private String curriculumCode() {

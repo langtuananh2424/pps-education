@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.CreateOperatingExpenseRequest;
 import vn.com.pps.education.dto.DecideOperatingExpenseRequest;
+import vn.com.pps.education.dto.ExpenseCategoryResponse;
 import vn.com.pps.education.dto.OperatingExpenseResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.OperatingExpenseService;
@@ -37,12 +38,18 @@ public class OperatingExpenseController {
     }
 
     @GetMapping("/api/finance/operating-expenses")
-    @PreAuthorize("hasPermission(null, 'finance.expense.create') or hasPermission(null, 'finance.expense.approve')")
+    @PreAuthorize("hasPermission(null, 'finance.expense.view') or hasPermission(null, 'finance.expense.create') or hasPermission(null, 'finance.expense.approve')")
     public ResponseEntity<List<OperatingExpenseResponse>> list(
             @RequestParam(required = false) Long siteId,
             @RequestParam LocalDate from,
             @RequestParam LocalDate to) {
         return ResponseEntity.ok(operatingExpenseService.listBySiteAndPeriod(siteId, from, to));
+    }
+
+    @GetMapping("/api/finance/expense-categories")
+    @PreAuthorize("hasPermission(null, 'finance.expense.view') or hasPermission(null, 'finance.expense.create')")
+    public ResponseEntity<List<ExpenseCategoryResponse>> listCategories() {
+        return ResponseEntity.ok(operatingExpenseService.listCategories());
     }
 
     @PostMapping("/api/finance/operating-expenses/{id}/decision")

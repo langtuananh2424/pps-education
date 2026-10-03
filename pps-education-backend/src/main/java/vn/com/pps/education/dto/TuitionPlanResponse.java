@@ -16,5 +16,7 @@ public record TuitionPlanResponse(
         String currency,
         LocalDate effectiveFrom,
         LocalDate effectiveTo,
-        String status
+        String status,
+        // Bổ sung 2026-10-03 cho màn Gói học phí phía Kế toán.
+        String curriculumName
 ) {}

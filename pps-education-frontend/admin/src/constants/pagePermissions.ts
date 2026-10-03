@@ -392,6 +392,7 @@ export const PAGE_PERMISSIONS: Record<string, PagePermissions> = {
     actions: [
       { label: "Sinh hoá đơn", codes: ["finance.invoice.generate"] },
       { label: "Ghi nhận thanh toán", codes: ["finance.invoice.payment.record"] },
+      { label: "Hủy hoá đơn", codes: ["finance.invoice.cancel"] },
       { label: "Tạo, sửa, gán gói học phí", codes: ["finance.tuition-plan.create", "finance.tuition-plan.update", "finance.tuition-plan.assign"] },
       { label: "Cấp, thu hồi học bổng/miễn giảm", codes: ["finance.scholarship.create", "finance.scholarship.revoke"] },
     ]

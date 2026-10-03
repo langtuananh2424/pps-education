@@ -5,14 +5,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import vn.com.pps.education.domain.Invoice;
 import vn.com.pps.education.dto.GenerateInvoicesRequest;
-import vn.com.pps.education.repository.InvoiceRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.List;
 
 /**
  * UC-30 A1 (cron nightly đánh dấu OVERDUE, độc lập với các bước còn lại)
@@ -27,16 +24,12 @@ public class FinanceSchedulerService {
     private static final Logger log = LoggerFactory.getLogger(FinanceSchedulerService.class);
     private static final String GENERATION_DAY_KEY = "finance.invoice_generation_day_of_month";
     private static final String DUE_DAYS_KEY = "finance.invoice_due_days";
-    private static final List<Invoice.Status> OPEN_STATUSES = List.of(Invoice.Status.ISSUED, Invoice.Status.PARTIAL_PAID);
 
-    private final InvoiceRepository invoiceRepository;
     private final SystemSettingRepository systemSettingRepository;
     private final InvoiceService invoiceService;
 
-    public FinanceSchedulerService(InvoiceRepository invoiceRepository,
-                                    SystemSettingRepository systemSettingRepository,
+    public FinanceSchedulerService(SystemSettingRepository systemSettingRepository,
                                     InvoiceService invoiceService) {
-        this.invoiceRepository = invoiceRepository;
         this.systemSettingRepository = systemSettingRepository;
         this.invoiceService = invoiceService;
     }
@@ -48,15 +41,11 @@ public class FinanceSchedulerService {
         generateMonthlyInvoicesIfDue(LocalDate.now());
     }
 
-    /** A1: invoices ISSUED/PARTIAL_PAID có due_date < hôm nay → OVERDUE. */
+    /** A1: invoices ISSUED/PARTIAL_PAID có due_date < hôm nay → OVERDUE (kèm lịch sử hệ thống, xem InvoiceService). */
     private void markOverdue(LocalDate today) {
-        List<Invoice> overdue = invoiceRepository.findByStatusInAndDueDateBeforeAndDeletedAtIsNull(OPEN_STATUSES, today);
-        for (Invoice invoice : overdue) {
-            invoice.setStatus(Invoice.Status.OVERDUE);
-        }
-        invoiceRepository.saveAll(overdue);
-        if (!overdue.isEmpty()) {
-            log.info("FinanceSchedulerService: đánh dấu OVERDUE {} hóa đơn quá hạn.", overdue.size());
+        int count = invoiceService.markOverdueInvoices(today);
+        if (count > 0) {
+            log.info("FinanceSchedulerService: đánh dấu OVERDUE {} hóa đơn quá hạn.", count);
         }
     }
 

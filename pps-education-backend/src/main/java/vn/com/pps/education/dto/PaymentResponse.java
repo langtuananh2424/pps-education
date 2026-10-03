@@ -14,5 +14,7 @@ public record PaymentResponse(
         String receiptNumber,
         String status,
         Long confirmedBy,
-        OffsetDateTime confirmedAt
+        OffsetDateTime confirmedAt,
+        /** NULL khi xác nhận tự động qua webhook ngân hàng. */
+        String confirmedByName
 ) {}

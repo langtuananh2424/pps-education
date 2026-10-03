@@ -21,6 +21,7 @@ import vn.com.pps.education.repository.TuitionPlanRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Định mức học phí (SDD > Tài chính & Học phí > Định mức học phí) — hạ
@@ -110,6 +111,28 @@ public class TuitionPlanService {
         return toResponse(tuitionPlanAssignmentRepository.save(assignment));
     }
 
+    /** Danh sách định mức phí cho màn Gói học phí phía Kế toán (bổ sung 2026-10-03), mới nhất trước. */
+    @Transactional(readOnly = true)
+    public List<TuitionPlanResponse> listPlans(String status) {
+        TuitionPlan.Status statusFilter = status == null || status.isBlank() ? null : TuitionPlan.Status.valueOf(status);
+        return tuitionPlanRepository.findAllByOrderByCreatedAtDesc().stream()
+                .filter(p -> statusFilter == null || p.getStatus() == statusFilter)
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /**
+     * Gán định mức phí của các lớp (bổ sung 2026-10-03). classId có giá trị: toàn bộ lịch sử gán của lớp đó
+     * (mới nhất trước); không truyền: chỉ các gán đang hiệu lực (effective_to NULL) của mọi lớp.
+     */
+    @Transactional(readOnly = true)
+    public List<TuitionPlanAssignmentResponse> listAssignments(Long classId) {
+        List<TuitionPlanAssignment> assignments = classId != null
+                ? tuitionPlanAssignmentRepository.findBySchoolClassIdOrderByEffectiveFromDesc(classId)
+                : tuitionPlanAssignmentRepository.findByEffectiveToIsNull();
+        return assignments.stream().map(this::toResponse).toList();
+    }
+
     @Transactional(readOnly = true)
     public TuitionPlanResponse getPlan(Long id) {
         return toResponse(tuitionPlanRepository.findById(id)
@@ -143,12 +166,13 @@ public class TuitionPlanService {
                 p.getId(), p.getCode(), p.getName(), p.getCurriculum().getId(),
                 p.getPricingModel().name(), p.getClassTypeFilter() == null ? null : p.getClassTypeFilter().name(),
                 p.getBasePrice(), p.getPricePerUnit(), p.getUnitCount(), p.getCurrency(),
-                p.getEffectiveFrom(), p.getEffectiveTo(), p.getStatus().name());
+                p.getEffectiveFrom(), p.getEffectiveTo(), p.getStatus().name(), p.getCurriculum().getName());
     }
 
     private TuitionPlanAssignmentResponse toResponse(TuitionPlanAssignment a) {
         return new TuitionPlanAssignmentResponse(
                 a.getId(), a.getSchoolClass().getId(), a.getTuitionPlan().getId(),
-                a.getPriceOverride(), a.getOverrideReason(), a.getEffectiveFrom(), a.getEffectiveTo());
+                a.getPriceOverride(), a.getOverrideReason(), a.getEffectiveFrom(), a.getEffectiveTo(),
+                a.getSchoolClass().getName(), a.getTuitionPlan().getCode(), a.getTuitionPlan().getName());
     }
 }

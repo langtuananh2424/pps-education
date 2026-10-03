@@ -14,6 +14,8 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTuitionPlanRequest;
 import vn.com.pps.education.dto.BankWebhookPaymentRequest;
+import vn.com.pps.education.dto.CancelInvoiceRequest;
+import vn.com.pps.education.dto.InvoiceHistoryResponse;
 import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateClassRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
@@ -256,6 +258,89 @@ class InvoiceServiceTest extends AbstractIntegrationTest {
                 invoice.invoiceNumber(), new BigDecimal("2000000"), "BANK-TXN-CXL-" + SEQ.incrementAndGet(), OffsetDateTime.now())))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(invoiceRepository.findById(invoice.id()).orElseThrow().getPaidAmount()).isEqualByComparingTo("0");
+    }
+
+    /** V210: thay đổi do hệ thống (webhook ngân hàng) vẫn được ghi lịch sử, changed_by NULL. */
+    @Test
+    void confirmBankWebhook_boSung_writesSystemHistoryRow() {
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+
+        invoiceService.confirmBankWebhook(new BankWebhookPaymentRequest(
+                invoice.invoiceNumber(), new BigDecimal("2000000"), "BANK-TXN-HIS-" + SEQ.incrementAndGet(), OffsetDateTime.now()));
+
+        List<InvoiceHistoryResponse> history = invoiceService.listHistory(invoice.id());
+        InvoiceHistoryResponse last = history.get(history.size() - 1);
+        assertThat(last.changedById()).isNull();
+        assertThat(last.details()).containsEntry("source", "SYSTEM").containsEntry("status", "PAID");
+    }
+
+    /** V210: cron sinh hóa đơn (actor NULL) ghi lịch sử CREATED của hệ thống. */
+    @Test
+    void generateInvoices_boSung_cronWritesSystemCreatedHistory() {
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), null).get(0);
+
+        List<InvoiceHistoryResponse> history = invoiceService.listHistory(invoice.id());
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).action()).isEqualTo("CREATED");
+        assertThat(history.get(0).changedById()).isNull();
+    }
+
+    /** UC-30 A1 qua InvoiceService: chuyển OVERDUE kèm lịch sử hệ thống. */
+    @Test
+    void markOverdueInvoices_UC30_A1_marksOverdueAndWritesHistory() {
+        LocalDate from = LocalDate.now().withDayOfMonth(1);
+        InvoiceResponse invoice = invoiceService.generateInvoices(new GenerateInvoicesRequest(schoolClass.id(), from,
+                from.plusMonths(1).minusDays(1), LocalDate.now().minusDays(20), LocalDate.now().minusDays(5)),
+                accountant.getId()).get(0);
+
+        int count = invoiceService.markOverdueInvoices(LocalDate.now());
+
+        assertThat(count).isGreaterThanOrEqualTo(1);
+        assertThat(invoiceService.getInvoiceForStaff(invoice.id()).status()).isEqualTo("OVERDUE");
+        assertThat(invoiceService.listHistory(invoice.id()))
+                .anyMatch(h -> h.changedById() == null && "OVERDUE".equals(h.details().get("reason")));
+    }
+
+    @Test
+    void searchInvoices_boSung_filtersByClassStatusAndKeyword() {
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        LocalDate from = LocalDate.now().minusDays(1);
+        LocalDate to = LocalDate.now().plusDays(1);
+
+        assertThat(invoiceService.searchInvoices(from, to, null, null, schoolClass.id(), null))
+                .extracting(InvoiceResponse::id).containsExactly(invoice.id());
+        assertThat(invoiceService.searchInvoices(from, to, "ISSUED", null, schoolClass.id(), student.getStudentCode().toLowerCase()))
+                .hasSize(1);
+        assertThat(invoiceService.searchInvoices(from, to, "PAID", null, schoolClass.id(), null)).isEmpty();
+        InvoiceResponse found = invoiceService.searchInvoices(from, to, null, null, schoolClass.id(), invoice.invoiceNumber()).get(0);
+        assertThat(found.classId()).isEqualTo(schoolClass.id());
+        assertThat(found.siteName()).isEqualTo("Test Site");
+    }
+
+    @Test
+    void cancelInvoice_boSung_unpaidInvoiceCancelledWithReasonInHistory() {
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+
+        InvoiceResponse cancelled = invoiceService.cancelInvoice(invoice.id(), new CancelInvoiceRequest("Phát hành nhầm lớp"), accountant.getId());
+
+        assertThat(cancelled.status()).isEqualTo("CANCELLED");
+        assertThat(invoiceService.listHistory(invoice.id()))
+                .anyMatch(h -> "Phát hành nhầm lớp".equals(h.details().get("reason")) && accountant.getId().equals(h.changedById()));
+        assertThatThrownBy(() -> invoiceService.recordManualPayment(invoice.id(),
+                new RecordManualPaymentRequest(new BigDecimal("100000"), "CASH", OffsetDateTime.now(), null), accountant.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void cancelInvoice_boSung_invoiceWithPaymentCannotBeCancelled() {
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        invoiceService.recordManualPayment(invoice.id(),
+                new RecordManualPaymentRequest(new BigDecimal("500000"), "CASH", OffsetDateTime.now(), "RC-9"), accountant.getId());
+
+        assertThatThrownBy(() -> invoiceService.cancelInvoice(invoice.id(), new CancelInvoiceRequest("Sai"), accountant.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(invoiceService.listPayments(invoice.id())).hasSize(1)
+                .first().satisfies(p -> assertThat(p.confirmedByName()).isEqualTo(accountant.getFullName()));
     }
 
     private GenerateInvoicesRequest billingRequest() {

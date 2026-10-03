@@ -13,6 +13,8 @@ public interface ScholarshipRepository extends JpaRepository<Scholarship, Long> 
 
     List<Scholarship> findByStudentIdAndStatus(Long studentId, Scholarship.Status status);
 
+    List<Scholarship> findAllByOrderByApprovedAtDesc();
+
     default List<Scholarship> findActiveForStudentOn(Long studentId, LocalDate date) {
         return findByStudentIdAndStatus(studentId, Scholarship.Status.ACTIVE).stream()
                 .filter(s -> (s.getValidFrom() == null || !s.getValidFrom().isAfter(date))

@@ -19,7 +19,9 @@ import vn.com.pps.education.domain.TuitionPlan;
 import vn.com.pps.education.domain.TuitionPlanAssignment;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.BankWebhookPaymentRequest;
+import vn.com.pps.education.dto.CancelInvoiceRequest;
 import vn.com.pps.education.dto.GenerateInvoicesRequest;
+import vn.com.pps.education.dto.InvoiceHistoryResponse;
 import vn.com.pps.education.dto.InvoiceItemResponse;
 import vn.com.pps.education.dto.InvoiceResponse;
 import vn.com.pps.education.dto.PaymentResponse;
@@ -46,8 +48,10 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.Year;
 import java.time.temporal.ChronoField;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -260,6 +264,9 @@ public class InvoiceService {
     @Transactional
     public PaymentResponse recordManualPayment(Long invoiceId, RecordManualPaymentRequest request, Long actorUserId) {
         Invoice invoice = invoiceOrThrow(invoiceId);
+        if (invoice.getStatus() == Invoice.Status.CANCELLED) {
+            throw new IllegalArgumentException("Hóa đơn số=" + invoice.getInvoiceNumber() + " đã hủy, không thể ghi nhận thanh toán.");
+        }
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.invoice.userNotFound", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
 
@@ -332,6 +339,94 @@ public class InvoiceService {
         writeInvoiceHistory(invoice, actor, InvoiceHistory.Action.UPDATED);
     }
 
+    // ===================== A1: cron đánh dấu quá hạn =====================
+
+    /**
+     * A1: hóa đơn ISSUED/PARTIAL_PAID có due_date trước hôm nay chuyển OVERDUE, ghi lịch sử (hệ thống).
+     * Gọi từ FinanceSchedulerService (cron hàng đêm). Trả về số hóa đơn đã chuyển.
+     */
+    @Transactional
+    public int markOverdueInvoices(LocalDate today) {
+        List<Invoice> overdue = invoiceRepository.findByStatusInAndDueDateBeforeAndDeletedAtIsNull(
+                List.of(Invoice.Status.ISSUED, Invoice.Status.PARTIAL_PAID), today);
+        for (Invoice invoice : overdue) {
+            invoice.setStatus(Invoice.Status.OVERDUE);
+            invoiceRepository.save(invoice);
+            writeInvoiceHistory(invoice, null, InvoiceHistory.Action.UPDATED, Map.of("reason", "OVERDUE"));
+        }
+        return overdue.size();
+    }
+
+    // ===================== Phía Kế toán: tra cứu, hủy hóa đơn (bổ sung 2026-10-03) =====================
+
+    /**
+     * Danh sách hóa đơn cho màn Thu phí & hóa đơn (quyền finance.invoice.view). Kỳ phát hành from-to bắt
+     * buộc để giới hạn số dòng; keyword khớp số hóa đơn, mã hoặc họ tên học sinh (không phân biệt hoa thường).
+     */
+    @Transactional(readOnly = true)
+    public List<InvoiceResponse> searchInvoices(LocalDate from, LocalDate to, String status, Long siteId, Long classId,
+                                                String keyword) {
+        if (from == null || to == null || to.isBefore(from)) {
+            throw new IllegalArgumentException("Khoảng ngày phát hành không hợp lệ.");
+        }
+        Invoice.Status statusFilter = status == null || status.isBlank() ? null : Invoice.Status.valueOf(status);
+        String needle = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        return invoiceRepository.searchForStaff(from, to, statusFilter, siteId, classId).stream()
+                .filter(i -> needle.isEmpty()
+                        || i.getInvoiceNumber().toLowerCase(Locale.ROOT).contains(needle)
+                        || i.getStudent().getStudentCode().toLowerCase(Locale.ROOT).contains(needle)
+                        || i.getStudent().getUser().getFullName().toLowerCase(Locale.ROOT).contains(needle))
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public InvoiceResponse getInvoiceForStaff(Long invoiceId) {
+        return toResponse(invoiceOrThrow(invoiceId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> listPayments(Long invoiceId) {
+        invoiceOrThrow(invoiceId);
+        return paymentRepository.findByInvoiceId(invoiceId).stream()
+                .sorted(Comparator.comparing(Payment::getPaidAt))
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<InvoiceHistoryResponse> listHistory(Long invoiceId) {
+        invoiceOrThrow(invoiceId);
+        return invoiceHistoryRepository.findByInvoiceIdOrderByCreatedAtAsc(invoiceId).stream()
+                .map(h -> new InvoiceHistoryResponse(h.getId(), h.getAction().name(),
+                        h.getChangedBy() == null ? null : h.getChangedBy().getId(),
+                        h.getChangedBy() == null ? null : h.getChangedBy().getFullName(),
+                        h.getDetails(), h.getCreatedAt()))
+                .toList();
+    }
+
+    /**
+     * Hủy hóa đơn phát hành sai (quyền finance.invoice.cancel, V210). Chỉ hủy được khi chưa có khoản thu
+     * nào — hóa đơn đã thu tiền phải xử lý hoàn tiền riêng, không hủy để tránh lệch sổ.
+     */
+    @Transactional
+    public InvoiceResponse cancelInvoice(Long invoiceId, CancelInvoiceRequest request, Long actorUserId) {
+        Invoice invoice = invoiceOrThrow(invoiceId);
+        if (invoice.getStatus() == Invoice.Status.CANCELLED) {
+            throw new IllegalArgumentException("Hóa đơn số=" + invoice.getInvoiceNumber() + " đã hủy trước đó.");
+        }
+        if (invoice.getPaidAmount().signum() > 0) {
+            throw new IllegalArgumentException("Hóa đơn số=" + invoice.getInvoiceNumber()
+                    + " đã có khoản thu, không thể hủy.");
+        }
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.invoice.userNotFound", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
+        invoice.setStatus(Invoice.Status.CANCELLED);
+        invoice = invoiceRepository.save(invoice);
+        writeInvoiceHistory(invoice, actor, InvoiceHistory.Action.UPDATED, Map.of("reason", request.reason().trim()));
+        return toResponse(invoice);
+    }
+
     // ===================== Helpers =====================
 
     private Invoice invoiceOrThrow(Long id) {
@@ -372,27 +467,40 @@ public class InvoiceService {
                 metadata, "INVOICE", invoice.getId(), Notification.Priority.NORMAL, null);
     }
 
+    /**
+     * actor NULL = hệ thống tự động (cron sinh hóa đơn/đánh dấu OVERDUE, webhook ngân hàng) — vẫn ghi lịch
+     * sử với changed_by NULL (V210) để đối soát được mọi thay đổi, không chỉ thay đổi do người thao tác.
+     */
     private void writeInvoiceHistory(Invoice invoice, User actor, InvoiceHistory.Action action) {
-        if (actor == null) {
-            return;
-        }
+        writeInvoiceHistory(invoice, actor, action, Map.of());
+    }
+
+    private void writeInvoiceHistory(Invoice invoice, User actor, InvoiceHistory.Action action, Map<String, Object> extra) {
         InvoiceHistory history = new InvoiceHistory();
         history.setInvoice(invoice);
         history.setChangedBy(actor);
         history.setAction(action);
-        history.setDetails(snapshot(invoice));
+        Map<String, Object> details = snapshot(invoice);
+        details.put("source", actor == null ? "SYSTEM" : "USER");
+        details.putAll(extra);
+        history.setDetails(details);
         invoiceHistoryRepository.save(history);
     }
 
     private void writePaymentHistory(Payment payment, User actor, PaymentHistory.Action action) {
-        if (actor == null) {
-            return;
-        }
         PaymentHistory history = new PaymentHistory();
         history.setPayment(payment);
         history.setChangedBy(actor);
         history.setAction(action);
-        history.setDetails(Map.of("amount", payment.getAmount().toString(), "status", payment.getStatus().name()));
+        Map<String, Object> details = new HashMap<>();
+        details.put("amount", payment.getAmount().toString());
+        details.put("status", payment.getStatus().name());
+        details.put("paymentMethod", payment.getPaymentMethod().name());
+        details.put("source", actor == null ? "SYSTEM" : "USER");
+        if (payment.getBankTransactionId() != null) {
+            details.put("bankTransactionId", payment.getBankTransactionId());
+        }
+        history.setDetails(details);
         paymentHistoryRepository.save(history);
     }
 
@@ -418,6 +526,7 @@ public class InvoiceService {
     }
 
     private InvoiceResponse toResponse(Invoice i) {
+        SchoolClass schoolClass = i.getClassEnrollment() == null ? null : i.getClassEnrollment().getSchoolClass();
         List<InvoiceItemResponse> items = invoiceItemRepository.findByInvoiceId(i.getId()).stream()
                 .map(it -> new InvoiceItemResponse(it.getId(), it.getItemType().name(), it.getDescription(),
                         it.getQuantity(), it.getUnitPrice(), it.getAmount()))
@@ -428,13 +537,17 @@ public class InvoiceService {
                 i.getPayerParent() == null ? null : i.getPayerParent().getId(),
                 i.getBillingPeriodFrom(), i.getBillingPeriodTo(), i.getIssueDate(), i.getDueDate(),
                 i.getSubtotal(), i.getDiscountTotal(), i.getTaxAmount(), i.getTotalAmount(), i.getPaidAmount(),
-                i.getOutstandingAmount(), i.getStatus().name(), i.getQrCodeData(), items);
+                i.getOutstandingAmount(), i.getStatus().name(), i.getQrCodeData(), items,
+                schoolClass == null ? null : schoolClass.getId(), schoolClass == null ? null : schoolClass.getName(),
+                schoolClass == null || schoolClass.getSite() == null ? null : schoolClass.getSite().getId(),
+                schoolClass == null || schoolClass.getSite() == null ? null : schoolClass.getSite().getName());
     }
 
     private PaymentResponse toResponse(Payment p) {
         return new PaymentResponse(
                 p.getId(), p.getPaymentReference(), p.getInvoice().getId(), p.getAmount(), p.getPaymentMethod().name(),
                 p.getPaidAt(), p.getBankTransactionId(), p.getReceiptNumber(), p.getStatus().name(),
-                p.getConfirmedBy() == null ? null : p.getConfirmedBy().getId(), p.getConfirmedAt());
+                p.getConfirmedBy() == null ? null : p.getConfirmedBy().getId(), p.getConfirmedAt(),
+                p.getConfirmedBy() == null ? null : p.getConfirmedBy().getFullName());
     }
 }

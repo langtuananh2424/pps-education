@@ -19,7 +19,7 @@ import vn.com.pps.education.repository.SiteRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -33,6 +33,9 @@ import java.util.List;
  */
 @Service
 public class FinanceReportService {
+
+    /** Kỳ báo cáo tính theo ngày giờ Việt Nam: khoản thu lúc 0h-7h sáng không bị đẩy sang ngày trước như khi tính theo UTC. */
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
@@ -75,20 +78,22 @@ public class FinanceReportService {
         BigDecimal totalOutstanding = bySite.stream().map(FinancialReportResponse::totalOutstanding).reduce(BigDecimal.ZERO, BigDecimal::add);
         // Chi dùng chung nhiều điểm trường (site_id NULL, UC-31 A1) không gắn được vào 1 site cụ thể - cộng riêng vào tổng toàn chuỗi.
         BigDecimal siteExpense = bySite.stream().map(FinancialReportResponse::totalExpense).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal sharedExpense = operatingExpenseRepository.findByExpenseDateBetween(from, to).stream()
-                .filter(e -> e.getSite() == null)
+        BigDecimal sharedExpense = operatingExpenseRepository
+                .findBySiteIsNullAndExpenseDateBetweenAndStatusNot(from, to, OperatingExpense.Status.REJECTED).stream()
                 .map(OperatingExpense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new ChainFinancialReportResponse(from, to, totalRevenue, siteExpense.add(sharedExpense), totalOutstanding, bySite);
     }
 
     private FinancialReportResponse buildSiteReport(Long siteId, LocalDate from, LocalDate to) {
         Site site = siteRepository.findById(siteId).orElseThrow();
-        OffsetDateTime fromDateTime = from.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
-        OffsetDateTime toDateTime = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
+        OffsetDateTime fromDateTime = from.atStartOfDay(APP_ZONE).toOffsetDateTime();
+        OffsetDateTime toDateTime = to.plusDays(1).atStartOfDay(APP_ZONE).toOffsetDateTime();
 
         BigDecimal revenue = paymentRepository.findBySiteIdAndStatusAndPaidAtBetween(siteId, Payment.Status.CONFIRMED, fromDateTime, toDateTime)
                 .stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal expense = operatingExpenseRepository.findBySiteIdAndExpenseDateBetween(siteId, from, to)
+        // Khoản chi bị Ban giám đốc từ chối (UC-31 A2) không phải chi thực tế - không cộng vào báo cáo.
+        BigDecimal expense = operatingExpenseRepository
+                .findBySiteIdAndExpenseDateBetweenAndStatusNot(siteId, from, to, OperatingExpense.Status.REJECTED)
                 .stream().map(OperatingExpense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal outstanding = invoiceRepository.findBySiteIdAndIssueDateBetween(siteId, from, to)
                 .stream().map(Invoice::getOutstandingAmount).reduce(BigDecimal.ZERO, BigDecimal::add);

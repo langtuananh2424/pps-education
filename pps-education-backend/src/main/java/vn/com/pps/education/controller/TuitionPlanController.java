@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AssignTuitionPlanRequest;
 import vn.com.pps.education.dto.CreateTuitionPlanRequest;
@@ -17,6 +18,8 @@ import vn.com.pps.education.dto.TuitionPlanResponse;
 import vn.com.pps.education.dto.UpdateTuitionPlanStatusRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.TuitionPlanService;
+
+import java.util.List;
 
 /** Định mức học phí — hạ tầng cho UC-30, xem Javadoc TuitionPlanService. */
 @RestController
@@ -33,6 +36,18 @@ public class TuitionPlanController {
     public ResponseEntity<TuitionPlanResponse> createPlan(@Valid @RequestBody CreateTuitionPlanRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(tuitionPlanService.createPlan(request, actor.userId()));
+    }
+
+    @GetMapping("/api/finance/tuition-plans")
+    @PreAuthorize("hasPermission(null, 'finance.tuition-plan.view')")
+    public ResponseEntity<List<TuitionPlanResponse>> listPlans(@RequestParam(required = false) String status) {
+        return ResponseEntity.ok(tuitionPlanService.listPlans(status));
+    }
+
+    @GetMapping("/api/finance/tuition-plan-assignments")
+    @PreAuthorize("hasPermission(null, 'finance.tuition-plan.view')")
+    public ResponseEntity<List<TuitionPlanAssignmentResponse>> listAssignments(@RequestParam(required = false) Long classId) {
+        return ResponseEntity.ok(tuitionPlanService.listAssignments(classId));
     }
 
     @GetMapping("/api/finance/tuition-plans/{id}")

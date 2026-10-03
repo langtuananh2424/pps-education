@@ -11,4 +11,6 @@ public interface ExpenseCategoryRepository extends JpaRepository<ExpenseCategory
     Optional<ExpenseCategory> findByCode(String code);
 
     List<ExpenseCategory> findByActiveTrue();
+
+    List<ExpenseCategory> findByActiveTrueOrderByNameAsc();
 }

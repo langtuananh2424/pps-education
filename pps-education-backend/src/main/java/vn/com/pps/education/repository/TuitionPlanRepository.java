@@ -11,4 +11,6 @@ public interface TuitionPlanRepository extends JpaRepository<TuitionPlan, Long> 
     Optional<TuitionPlan> findByCode(String code);
 
     List<TuitionPlan> findByCurriculumIdAndStatus(Long curriculumId, TuitionPlan.Status status);
+
+    List<TuitionPlan> findAllByOrderByCreatedAtDesc();
 }
