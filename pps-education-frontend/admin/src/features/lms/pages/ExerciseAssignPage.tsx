@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ClipboardList, Layers, Pencil, Plus, Trash2, Users, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardList, Download, Layers, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
@@ -22,6 +22,7 @@ import {
   createExam,
   deleteExam,
   deleteExercise,
+  exportExerciseQuestions,
   getExamQuestion,
   listBooks,
   listExamAssignedClasses,
@@ -46,6 +47,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
+import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
@@ -978,6 +980,9 @@ function ExerciseRow({
   const [addQuestionsOpen, setAddQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [deletingExercise, setDeletingExercise] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const { hasPermission } = useApp();
+  const canExport = hasPermission("lms.exercise.update");
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { confirmDialog } = useDialog();
@@ -1067,6 +1072,20 @@ function ExerciseRow({
     }
   };
 
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-03 — xuất Excel câu hỏi của Bài (định dạng khớp file mẫu import). */
+  const handleExportExcel = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExporting(true);
+    setError(null);
+    try {
+      downloadBlob(await exportExerciseQuestions(exercise.id), `bai-${exercise.code}.xlsx`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("assignPage.exerciseRow.exportExcelFailed"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — "Xóa Bài" (lưu trữ, không xóa cứng — xem Javadoc ExerciseService#deleteExercise). */
   const handleDeleteExercise = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1114,6 +1133,16 @@ function ExerciseRow({
               className="text-slate-400 hover:text-brand-red shrink-0"
             >
               <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {canExport && (
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              title={t("assignPage.exerciseRow.exportExcelTooltip")}
+              className="text-slate-400 hover:text-brand-red shrink-0 disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
             </button>
           )}
           {canManage && (

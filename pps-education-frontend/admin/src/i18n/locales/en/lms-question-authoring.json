@@ -544,6 +544,8 @@
       "attachedPoints": " (attached {{points}})",
       "pointsInputDraftOnlyTitle": "This question's points within the exercise (editable only while still Draft)",
       "editExerciseTooltip": "Edit exercise",
+      "exportExcelTooltip": "Export exercise questions to Excel",
+      "exportExcelFailed": "Excel export failed.",
       "deleteExerciseTooltip": "Delete exercise",
       "addQuestions": "+ Add questions",
       "previewWithAnswers": "Preview (with answers)",

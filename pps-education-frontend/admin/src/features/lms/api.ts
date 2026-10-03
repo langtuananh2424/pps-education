@@ -724,6 +724,14 @@ export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuest
 }
 
 /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — chỉ gỡ được khi Bài còn DRAFT (backend tự chặn 400 nếu đã Publish). */
+/**
+ * Xuất Excel toàn bộ câu hỏi của 1 Bài (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-03) —
+ * đúng định dạng file mẫu import nên import lại được, xem Javadoc ExerciseQuestionExportService (BE).
+ */
+export function exportExerciseQuestions(exerciseId: number): Promise<Blob> {
+  return apiRequestBlob(`/exercises/${exerciseId}/questions/export.xlsx`);
+}
+
 export function removeExerciseQuestion(exerciseId: number, exerciseQuestionId: number): Promise<void> {
   return apiRequest<void>(`/exercises/${exerciseId}/questions/${exerciseQuestionId}`, { method: "DELETE" });
 }
