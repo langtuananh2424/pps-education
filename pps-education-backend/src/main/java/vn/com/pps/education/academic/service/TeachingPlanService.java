@@ -1,0 +1,288 @@
+package vn.com.pps.education.academic.service;
+
+import vn.com.pps.education.permission.service.PermissionEvaluationService;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.academic.domain.AcademicYear;
+import vn.com.pps.education.academic.domain.ClassSession;
+import vn.com.pps.education.academic.domain.SchoolClass;
+import vn.com.pps.education.academic.domain.TeachingPlan;
+import vn.com.pps.education.academic.domain.TeachingPlanHistory;
+import vn.com.pps.education.academic.domain.TeachingPlanItem;
+import vn.com.pps.education.auth.domain.User;
+import vn.com.pps.education.academic.dto.AddTeachingPlanItemRequest;
+import vn.com.pps.education.academic.dto.CreateTeachingPlanRequest;
+import vn.com.pps.education.academic.dto.TeachingPlanItemResponse;
+import vn.com.pps.education.crm.dto.TeachingPlanResponse;
+import vn.com.pps.education.academic.dto.UpdateTeachingPlanItemRequest;
+import vn.com.pps.education.academic.dto.UpdateTeachingPlanRequest;
+import vn.com.pps.education.exception.InvalidTeachingPlanPeriodException;
+import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.academic.repository.AcademicYearRepository;
+import vn.com.pps.education.academic.repository.ClassSessionRepository;
+import vn.com.pps.education.academic.repository.ClassTeacherRepository;
+import vn.com.pps.education.academic.repository.SchoolClassRepository;
+import vn.com.pps.education.academic.repository.TeachingPlanHistoryRepository;
+import vn.com.pps.education.academic.repository.TeachingPlanItemRepository;
+import vn.com.pps.education.academic.repository.TeachingPlanRepository;
+import vn.com.pps.education.auth.repository.UserRepository;
+
+import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * UC-28: Điền kế hoạch giảng dạy (FR-LMS-08). Xem docs/uc/phan-he-07-lms-portal.md.
+ * Không có bước duyệt — lưu (DRAFT) hoặc gửi (PUBLISHED) hiển thị ngay
+ * cho Portal trường liên kết (UC-29, đọc trực tiếp qua
+ * {@code findBySchoolClassIdAndStatusAndVisibleToPartnerTrueOrderByIdDesc}).
+ */
+@Service
+public class TeachingPlanService {
+
+    private final TeachingPlanRepository teachingPlanRepository;
+    private final TeachingPlanItemRepository teachingPlanItemRepository;
+    private final TeachingPlanHistoryRepository teachingPlanHistoryRepository;
+    private final SchoolClassRepository schoolClassRepository;
+    private final ClassSessionRepository classSessionRepository;
+    private final ClassTeacherRepository classTeacherRepository;
+    private final UserRepository userRepository;
+    private final AcademicYearRepository academicYearRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
+
+    private static final String PERM_TEACHING_PLAN_MANAGE = "lms.teaching-plan.manage";
+
+    public TeachingPlanService(TeachingPlanRepository teachingPlanRepository,
+                                TeachingPlanItemRepository teachingPlanItemRepository,
+                                TeachingPlanHistoryRepository teachingPlanHistoryRepository,
+                                SchoolClassRepository schoolClassRepository,
+                                ClassSessionRepository classSessionRepository,
+                                ClassTeacherRepository classTeacherRepository,
+                                UserRepository userRepository,
+                                AcademicYearRepository academicYearRepository,
+                                PermissionEvaluationService permissionEvaluationService) {
+        this.teachingPlanRepository = teachingPlanRepository;
+        this.teachingPlanItemRepository = teachingPlanItemRepository;
+        this.teachingPlanHistoryRepository = teachingPlanHistoryRepository;
+        this.schoolClassRepository = schoolClassRepository;
+        this.classSessionRepository = classSessionRepository;
+        this.classTeacherRepository = classTeacherRepository;
+        this.userRepository = userRepository;
+        this.academicYearRepository = academicYearRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
+    }
+
+    /** Main Flow bước 1-3: chọn lớp + kỳ lập kế hoạch, nhập nội dung, lưu (DRAFT). */
+    @Transactional
+    public TeachingPlanResponse createPlan(CreateTeachingPlanRequest request, Long actorUserId) {
+        SchoolClass schoolClass = getClassOrThrow(request.classId());
+        if (schoolClass.getStatus() == SchoolClass.Status.CANCELLED) {
+            throw new IllegalStateException("Lớp học \"" + schoolClass.getName() + "\" đã bị HỦY — không thể lập kế hoạch giảng dạy.");
+        }
+        requireAssignedTeacher(request.classId(), actorUserId);
+        User actor = getUserOrThrow(actorUserId);
+
+        TeachingPlan.PlanType planType = TeachingPlan.PlanType.valueOf(request.planType());
+        AcademicYear academicYear = null;
+        if (planType == TeachingPlan.PlanType.WEEKLY) {
+            if (request.weekStartDate() == null || request.weekEndDate() == null) {
+                throw new InvalidTeachingPlanPeriodException("error.invalidTeachingPlanPeriod.weeklyMissingDates", new Object[]{}, "plan_type=WEEKLY phải có weekStartDate và weekEndDate.");
+            }
+        } else if (request.academicYearId() == null) {
+            throw new InvalidTeachingPlanPeriodException("error.invalidTeachingPlanPeriod.yearlyMissingAcademicYear", new Object[]{}, "plan_type=YEARLY phải có academicYearId.");
+        } else {
+            academicYear = academicYearRepository.findById(request.academicYearId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.teachingPlan.academicYearNotFound", new Object[]{request.academicYearId()},
+                            "Không tìm thấy năm học id=" + request.academicYearId()));
+        }
+
+        TeachingPlan plan = new TeachingPlan();
+        plan.setSchoolClass(schoolClass);
+        plan.setTeacher(actor);
+        plan.setPlanType(planType);
+        plan.setAcademicYear(academicYear);
+        plan.setWeekNumber(request.weekNumber());
+        plan.setWeekStartDate(request.weekStartDate());
+        plan.setWeekEndDate(request.weekEndDate());
+        plan.setSummary(request.summary());
+        plan.setObjectives(request.objectives());
+        plan.setVisibleToPartner(request.visibleToPartner());
+        plan = teachingPlanRepository.save(plan);
+
+        writeHistory(plan, actor, TeachingPlanHistory.Action.CREATED);
+        return toResponse(plan);
+    }
+
+    /** Main Flow bước 3-4, A1 (cập nhật kế hoạch đã gửi): lưu/gửi (PUBLISHED) — hiển thị ngay cho Portal trường liên kết. */
+    @Transactional
+    public TeachingPlanResponse updatePlan(Long id, UpdateTeachingPlanRequest request, Long actorUserId) {
+        TeachingPlan plan = getPlanOrThrow(id);
+        requireAssignedTeacher(plan.getSchoolClass().getId(), actorUserId);
+        User actor = getUserOrThrow(actorUserId);
+
+        plan.setSummary(request.summary());
+        plan.setObjectives(request.objectives());
+        plan.setVisibleToPartner(request.visibleToPartner());
+        TeachingPlan.Status newStatus = TeachingPlan.Status.valueOf(request.status());
+        if (newStatus == TeachingPlan.Status.PUBLISHED && plan.getStatus() != TeachingPlan.Status.PUBLISHED) {
+            plan.setPublishedAt(OffsetDateTime.now());
+        }
+        plan.setStatus(newStatus);
+        plan = teachingPlanRepository.save(plan);
+
+        writeHistory(plan, actor, TeachingPlanHistory.Action.UPDATED);
+        return toResponse(plan);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeachingPlanResponse> listByClass(Long classId) {
+        return teachingPlanRepository.findBySchoolClassIdOrderByIdDesc(classId).stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public TeachingPlanResponse getPlan(Long id) {
+        return toResponse(getPlanOrThrow(id));
+    }
+
+    /** Main Flow bước 2: thêm 1 mục chi tiết (chủ đề/mục tiêu/nội dung dự kiến) vào kế hoạch. */
+    @Transactional
+    public TeachingPlanItemResponse addItem(Long planId, AddTeachingPlanItemRequest request, Long actorUserId) {
+        TeachingPlan plan = getPlanOrThrow(planId);
+        requireAssignedTeacher(plan.getSchoolClass().getId(), actorUserId);
+
+        TeachingPlanItem item = new TeachingPlanItem();
+        item.setTeachingPlan(plan);
+        item.setItemOrder(request.itemOrder());
+        item.setPlannedDate(request.plannedDate());
+        item.setTopic(request.topic());
+        item.setObjectives(request.objectives());
+        item.setContentOutline(request.contentOutline());
+        item.setSkillsFocus(request.skillsFocus());
+        item.setHomeworkNote(request.homeworkNote());
+        if (request.classSessionId() != null) {
+            ClassSession session = classSessionRepository.findById(request.classSessionId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.teachingPlan.classSessionNotFound", new Object[]{request.classSessionId()},
+                            "Không tìm thấy buổi học id=" + request.classSessionId()));
+            item.setClassSession(session);
+        }
+        item = teachingPlanItemRepository.save(item);
+        return toResponse(item);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeachingPlanItemResponse> listItems(Long planId) {
+        return teachingPlanItemRepository.findByTeachingPlanIdOrderByItemOrder(planId).stream().map(this::toResponse).toList();
+    }
+
+    /** UC-28 A1: chỉnh sửa 1 mục chi tiết đã lập trong kế hoạch. */
+    @Transactional
+    public TeachingPlanItemResponse updateItem(Long planId, Long itemId, UpdateTeachingPlanItemRequest request, Long actorUserId) {
+        TeachingPlan plan = getPlanOrThrow(planId);
+        requireAssignedTeacher(plan.getSchoolClass().getId(), actorUserId);
+        TeachingPlanItem item = getItemOrThrow(planId, itemId);
+
+        item.setItemOrder(request.itemOrder());
+        item.setPlannedDate(request.plannedDate());
+        item.setTopic(request.topic());
+        item.setObjectives(request.objectives());
+        item.setContentOutline(request.contentOutline());
+        item.setSkillsFocus(request.skillsFocus());
+        item.setHomeworkNote(request.homeworkNote());
+        if (request.classSessionId() == null) {
+            item.setClassSession(null);
+        } else {
+            ClassSession session = classSessionRepository.findById(request.classSessionId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "error.teachingPlan.classSessionNotFound", new Object[]{request.classSessionId()},
+                            "Không tìm thấy buổi học id=" + request.classSessionId()));
+            item.setClassSession(session);
+        }
+        item = teachingPlanItemRepository.save(item);
+        return toResponse(item);
+    }
+
+    // ===================== Helpers =====================
+
+    /**
+     * UC-28: giáo viên chỉ thao tác kế hoạch của lớp mình được phân công dạy.
+     * Tài khoản có quyền quản trị (lms.teaching-plan.manage) vượt rào ownership
+     * này — thao tác kế hoạch của lớp/giáo viên bất kỳ (V106).
+     */
+    private void requireAssignedTeacher(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_TEACHING_PLAN_MANAGE)) {
+            return;
+        }
+        if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
+            throw new NotAssignedTeacherForClassException(
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
+        }
+    }
+
+    private User getUserOrThrow(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.teachingPlan.actorNotFound", new Object[]{id},
+                        "Không tìm thấy tài khoản id=" + id));
+    }
+
+    private SchoolClass getClassOrThrow(Long id) {
+        return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.teachingPlan.classNotFound", new Object[]{id},
+                        "Không tìm thấy lớp học id=" + id));
+    }
+
+    private TeachingPlan getPlanOrThrow(Long id) {
+        return teachingPlanRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.teachingPlan.notFound", new Object[]{id},
+                        "Không tìm thấy kế hoạch giảng dạy id=" + id));
+    }
+
+    private TeachingPlanItem getItemOrThrow(Long planId, Long itemId) {
+        TeachingPlanItem item = teachingPlanItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.teachingPlan.itemNotFound", new Object[]{itemId},
+                        "Không tìm thấy mục kế hoạch id=" + itemId));
+        if (!item.getTeachingPlan().getId().equals(planId)) {
+            throw new ResourceNotFoundException(
+                    "error.teachingPlan.itemNotFoundInPlan", new Object[]{itemId, planId},
+                    "Không tìm thấy mục kế hoạch id=" + itemId + " thuộc kế hoạch id=" + planId);
+        }
+        return item;
+    }
+
+    private void writeHistory(TeachingPlan plan, User actor, TeachingPlanHistory.Action action) {
+        TeachingPlanHistory history = new TeachingPlanHistory();
+        history.setTeachingPlan(plan);
+        history.setChangedBy(actor);
+        history.setAction(action);
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("planType", plan.getPlanType().name());
+        snapshot.put("status", plan.getStatus().name());
+        snapshot.put("visibleToPartner", plan.isVisibleToPartner());
+        history.setDetails(snapshot);
+        teachingPlanHistoryRepository.save(history);
+    }
+
+    private TeachingPlanResponse toResponse(TeachingPlan p) {
+        return new TeachingPlanResponse(
+                p.getId(), p.getSchoolClass().getId(), p.getTeacher().getId(), p.getPlanType().name(),
+                p.getAcademicYear() == null ? null : p.getAcademicYear().getId(),
+                p.getAcademicYear() == null ? null : p.getAcademicYear().getCode(),
+                p.getWeekNumber(), p.getWeekStartDate(), p.getWeekEndDate(),
+                p.getSummary(), p.getObjectives(), p.getStatus().name(), p.isVisibleToPartner(), p.getPublishedAt());
+    }
+
+    private TeachingPlanItemResponse toResponse(TeachingPlanItem i) {
+        return new TeachingPlanItemResponse(
+                i.getId(), i.getTeachingPlan().getId(), i.getItemOrder(), i.getPlannedDate(), i.getTopic(),
+                i.getObjectives(), i.getContentOutline(), i.getSkillsFocus(), i.getHomeworkNote(),
+                i.getClassSession() == null ? null : i.getClassSession().getId());
+    }
+}

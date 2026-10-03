@@ -51,12 +51,15 @@ Controller  →  Service  →  Repository  →  Database
   `@RequiredArgsConstructor` của Lombok với field `private final`) — không
   dùng `@Autowired` trên field.
 
-## Package hiện tại (chưa tách theo module)
+## Package — chia theo phân hệ (package-by-feature)
 
 ```
-vn.com.pps.education.{config,controller,service,repository,domain,dto,security,exception,common}
+vn.com.pps.education.<phân-hệ>.{controller,service,repository,domain,dto}
+vn.com.pps.education.{config,security,exception,common}   (dùng chung)
 ```
 
-Giữ nguyên cấu trúc này cho tới khi PM quyết định tách package-by-feature
-(dự kiến đánh giá lại khi bắt đầu Backend Phase B — xem tài liệu Kế hoạch
-phân kỳ). Không tự ý đổi cấu trúc package giữa chừng.
+Phân hệ: `auth`, `permission`, `hr`, `student`, `academic`, `lms`, `finance`, `crm`, `facility`, `task`, `notification`, `report`, `media`, `system`. Trong mỗi phân hệ vẫn giữ nguyên hướng phụ thuộc
+Controller → Service → Repository. Class mới đặt vào phân hệ sở hữu nghiệp
+vụ đó; gọi sang phân hệ khác thì import trực tiếp class public của phân hệ
+đó (không nhân bản). Phần dùng chung (config, security, exception, common)
+không phụ thuộc ngược vào phân hệ nào.

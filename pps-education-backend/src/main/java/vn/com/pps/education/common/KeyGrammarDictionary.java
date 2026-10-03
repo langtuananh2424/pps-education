@@ -6,7 +6,7 @@ import java.util.Optional;
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22 — dữ liệu đã parse từ 1 file từ điển
  * {@code KeyGrammar_Grade*.md} (gói {@code key-grammar} do người training bàn giao cùng đợt với rubric
- * Writing "v3"), xem {@link vn.com.pps.education.service.KeyGrammarDictionaryLoader}.
+ * Writing "v3"), xem {@link vn.com.pps.education.lms.service.KeyGrammarDictionaryLoader}.
  *
  * {@code passIfAtLeast}/{@code grammarCapAtZero}/{@code grammarCapAtOne} đọc TRỰC TIẾP từ khối yaml §6
  * của từng file (không hardcode) — dù ở đợt bàn giao 22/09/2026 cả 5 khối đều cùng giá trị

@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
-import vn.com.pps.education.dto.CommentAiDraftResult;
+import vn.com.pps.education.lms.dto.CommentAiDraftResult;
 
 /**
  * UC-74 (bổ sung 2026-09-29, đã xác nhận với người dùng — phương án A, không đổi schema) — chỉ số chất lượng

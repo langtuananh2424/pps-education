@@ -3,7 +3,7 @@ package vn.com.pps.education.security;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
-import vn.com.pps.education.service.PermissionEvaluationService;
+import vn.com.pps.education.permission.service.PermissionEvaluationService;
 
 import java.io.Serializable;
 

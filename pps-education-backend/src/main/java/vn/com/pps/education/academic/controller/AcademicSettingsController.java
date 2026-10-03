@@ -1,0 +1,56 @@
+package vn.com.pps.education.academic.controller;
+
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.academic.dto.CommentEditWindowResponse;
+import vn.com.pps.education.academic.dto.GradeEditWindowResponse;
+import vn.com.pps.education.academic.dto.UpdateCommentEditWindowRequest;
+import vn.com.pps.education.academic.dto.UpdateGradeEditWindowRequest;
+import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.academic.service.AcademicSettingsService;
+
+/**
+ * UC-19/20 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): cấu hình
+ * số ngày X (mốc "lần đầu nhập điểm", thông tin — V44 không còn job tự
+ * động nào gắn với setting này). API hẹp cho đúng setting này — không
+ * xây SystemSettingsController tổng quát (ngoài phạm vi).
+ */
+@RestController
+public class AcademicSettingsController {
+
+    private final AcademicSettingsService academicSettingsService;
+
+    public AcademicSettingsController(AcademicSettingsService academicSettingsService) {
+        this.academicSettingsService = academicSettingsService;
+    }
+
+    @GetMapping("/api/academic/settings/grade-edit-window-days")
+    public ResponseEntity<GradeEditWindowResponse> getGradeEditWindow() {
+        return ResponseEntity.ok(academicSettingsService.getGradeEditWindow());
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.grade.manage')")
+    @PutMapping("/api/academic/settings/grade-edit-window-days")
+    public ResponseEntity<GradeEditWindowResponse> updateGradeEditWindow(@Valid @RequestBody UpdateGradeEditWindowRequest request,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(academicSettingsService.updateGradeEditWindowDays(request.days(), actor.userId()));
+    }
+
+    @GetMapping("/api/academic/settings/comment-edit-window-days")
+    public ResponseEntity<CommentEditWindowResponse> getCommentEditWindow() {
+        return ResponseEntity.ok(academicSettingsService.getCommentEditWindow());
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @PutMapping("/api/academic/settings/comment-edit-window-days")
+    public ResponseEntity<CommentEditWindowResponse> updateCommentEditWindow(@Valid @RequestBody UpdateCommentEditWindowRequest request,
+                                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(academicSettingsService.updateCommentEditWindowDays(request.days(), actor.userId()));
+    }
+}

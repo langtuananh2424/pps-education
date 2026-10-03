@@ -40,7 +40,7 @@ interface QuestionImportPanelProps {
 const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
   VOCAB_GRAMMAR: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"],
   WRITING: ["TU_LUAN"],
-  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH"],
+  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN"],
   READING: ["DOC_HIEU_LUOI", "DOC_DIEN_TU"]
 };
 
@@ -48,7 +48,7 @@ const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
 const ALL_KIND_TOKENS = [
   "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "TU_LUAN", "SPEAKING",
   "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "DOC_HIEU_LUOI", "DOC_DIEN_TU"
+  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN", "DOC_HIEU_LUOI", "DOC_DIEN_TU"
 ];
 
 /**
@@ -119,6 +119,9 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
         ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
           "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
           t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""],
+        ["NGHE_PHIEU_THONG_TIN", "", "The Sea Lady\n\n- Built in: (14) ___\n- Dinner time: (15) ___ p.m. to 9.30 p.m.", "", "", "", "", "1999/nineteen ninety-nine|7:30/7.30/7h30",
+          "https://example-r2.dev/lms/questions/audio/mau-phieu-thong-tin.mp3", "", "Fill in each blank with one word, number, date or time.", "1",
+          t("questionImportPanel.excelSampleExplanations.listeningFormCompletion"), ""],
         ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "B",
           "https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
           "https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",

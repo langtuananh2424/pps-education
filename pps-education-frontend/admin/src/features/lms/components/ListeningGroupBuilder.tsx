@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Headphones, Image as ImageIcon, Plus, Volume2, PenLine, X } from "lucide-react";
+import { Check, ClipboardList, Headphones, Image as ImageIcon, Plus, Volume2, PenLine, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
@@ -11,7 +11,15 @@ import FloatingError from "@/components/ui/FloatingError";
 const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[12px]";
 
-export type ListeningSubKind = "VOICE_MULTIPLE_CHOICE" | "VOICE_PICTURE_CHOICE" | "LISTENING_AUDIO_SUBMISSION" | "LISTENING_FILL_IN_BLANK";
+export type ListeningSubKind =
+  | "VOICE_MULTIPLE_CHOICE"
+  | "VOICE_PICTURE_CHOICE"
+  | "LISTENING_AUDIO_SUBMISSION"
+  | "LISTENING_FILL_IN_BLANK"
+  | "LISTENING_FORM_COMPLETION";
+
+/** Đếm số chỗ trống "___" trong nội dung phiếu thông tin (Nghe điền phiếu thông tin) — khớp cách BE đếm ở QuestionImportService. */
+const countBlanks = (text: string): number => text.split("___").length - 1;
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — 1 nhóm nghe (audioUrl + groupKey dùng
@@ -32,7 +40,8 @@ const subKindMeta: Record<ListeningSubKind, { icon: typeof Volume2; activeClass:
   VOICE_MULTIPLE_CHOICE: { icon: Volume2, activeClass: "bg-blue-50 border-blue-400 text-blue-800 ring-1 ring-blue-300", iconClass: "text-blue-600" },
   VOICE_PICTURE_CHOICE: { icon: ImageIcon, activeClass: "bg-indigo-50 border-indigo-400 text-indigo-800 ring-1 ring-indigo-300", iconClass: "text-indigo-600" },
   LISTENING_AUDIO_SUBMISSION: { icon: Headphones, activeClass: "bg-sky-50 border-sky-400 text-sky-800 ring-1 ring-sky-300", iconClass: "text-sky-600" },
-  LISTENING_FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-violet-50 border-violet-400 text-violet-800 ring-1 ring-violet-300", iconClass: "text-violet-600" }
+  LISTENING_FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-violet-50 border-violet-400 text-violet-800 ring-1 ring-violet-300", iconClass: "text-violet-600" },
+  LISTENING_FORM_COMPLETION: { icon: ClipboardList, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" }
 };
 
 interface QuestionRow {
@@ -101,10 +110,29 @@ export default function ListeningGroupBuilder({
   const [audioUrl, setAudioUrl] = useState("");
   const [transcript, setTranscript] = useState("");
   const [questions, setQuestions] = useState<QuestionRow[]>([emptyQuestionRow(), emptyQuestionRow()]);
+  /**
+   * Bổ sung 2026-10-03 (đã xác nhận với người dùng) — "Nghe điền phiếu thông tin": 1 audio + 1 phiếu
+   * (tiêu đề, gạch đầu dòng, chữ **đậm** tùy ý) có nhiều chỗ trống "___" → ĐÚNG 1 Question WORD_BANK
+   * (inputMode=text, format=form), khác các loại con còn lại (mỗi câu 1 Question). Đáp án mỗi ô có thể
+   * nhiều phương án phân tách "/", số/giờ được chuẩn hóa khi chấm — xem FormAnswerMatcher (BE).
+   */
+  const [formContent, setFormContent] = useState("");
+  const [formAnswers, setFormAnswers] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isAppending = appendTarget !== "new";
+  const isForm = subKind === "LISTENING_FORM_COMPLETION";
+  const formBlankCount = countBlanks(formContent);
+
+  const handleFormContentChange = (value: string) => {
+    setFormContent(value);
+    const count = countBlanks(value);
+    setFormAnswers((prev) => Array.from({ length: count }, (_, i) => prev[i] ?? ""));
+  };
+  const updateFormAnswer = (idx: number, value: string) => {
+    setFormAnswers((prev) => prev.map((a, i) => (i === idx ? value : a)));
+  };
 
   /** Đổi loại câu hỏi con: reset danh sách câu hỏi để không lẫn field của loại cũ (đáp án/option). */
   const handleSelectSubKind = (value: ListeningSubKind) => {
@@ -171,6 +199,35 @@ export default function ListeningGroupBuilder({
 
     if (!audioUrl.trim()) {
       setError(t("listeningGroupBuilder.errors.audioRequired"));
+      return;
+    }
+    if (isForm) {
+      if (!formContent.trim() || formBlankCount === 0) {
+        setError(t("listeningGroupBuilder.errors.formNeedBlank"));
+        return;
+      }
+      if (formAnswers.slice(0, formBlankCount).some((a) => !a.trim())) {
+        setError(t("listeningGroupBuilder.errors.formFillAllAnswers"));
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const result = await createExamQuestion(examId, {
+          questionType: "WORD_BANK",
+          skill: "LISTENING",
+          difficulty: "MEDIUM",
+          content: formContent.trim(),
+          audioUrl: audioUrl.trim(),
+          referencePassage: transcript.trim() || undefined,
+          structuredContent: { blanks: formAnswers.slice(0, formBlankCount).map((a) => a.trim()), inputMode: "text", format: "form" },
+          defaultPoints: 1
+        });
+        onCreated([result]);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : t("listeningGroupBuilder.errors.createFailed"));
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
     if (questions.length === 0) {
@@ -267,7 +324,7 @@ export default function ListeningGroupBuilder({
 
       <div>
         <label className={labelClass}>{t("listeningGroupBuilder.subKindLabel")}</label>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           {(Object.entries(subKindMeta) as [ListeningSubKind, (typeof subKindMeta)[ListeningSubKind]][]).map(([value, meta]) => {
             const Icon = meta.icon;
             const active = subKind === value;
@@ -307,7 +364,9 @@ export default function ListeningGroupBuilder({
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("common.transcriptLabel")}</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">
+              {isForm ? t("listeningGroupBuilder.formInstructionLabel") : t("common.transcriptLabel")}
+            </label>
             {/* Fix bug thật (2026-09-08, đã xác nhận với người dùng) — trước đây <input> 1 dòng, dán
                 transcript nhiều lượt hội thoại bị trình duyệt xoá sạch \n trước khi React nhận được
                 giá trị, hiển thị dồn thành 1 đoạn. Đổi sang textarea, mirror ClozeQuestionBuilder/
@@ -315,8 +374,8 @@ export default function ListeningGroupBuilder({
             <textarea
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
-              placeholder={t("common.transcriptPlaceholder")}
-              rows={6}
+              placeholder={isForm ? t("listeningGroupBuilder.formInstructionPlaceholder") : t("common.transcriptPlaceholder")}
+              rows={isForm ? 2 : 6}
               disabled={isAppending}
               className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
             />
@@ -324,6 +383,39 @@ export default function ListeningGroupBuilder({
         </div>
       </div>
 
+      {isForm && (
+        <div className="space-y-2">
+          <span className="font-bold text-slate-700 uppercase tracking-wider text-[13px] block">{t("listeningGroupBuilder.formSectionTitle")}</span>
+          <textarea
+            required
+            value={formContent}
+            onChange={(e) => handleFormContentChange(e.target.value)}
+            placeholder={t("listeningGroupBuilder.formContentPlaceholder")}
+            rows={10}
+            className={inputClass}
+          />
+          <p className="text-[12px] text-slate-400">{t("listeningGroupBuilder.formContentHint")}</p>
+          {formBlankCount > 0 && (
+            <div className="border border-slate-200 rounded-lg p-3 space-y-1.5">
+              <span className="font-bold text-slate-600 text-[13px] uppercase block">{t("listeningGroupBuilder.formAnswersTitle", { count: formBlankCount })}</span>
+              {Array.from({ length: formBlankCount }, (_, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-[12px] font-bold text-slate-500 w-6 shrink-0">{i + 1}.</span>
+                  <input
+                    required
+                    value={formAnswers[i] ?? ""}
+                    onChange={(e) => updateFormAnswer(i, e.target.value)}
+                    placeholder={t("listeningGroupBuilder.formAnswerPlaceholder", { n: i + 1 })}
+                    className={`flex-1 ${inputClass}`}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isForm && (
       <div className="space-y-2">
         <span className="font-bold text-slate-700 uppercase tracking-wider text-[13px] block">{t("listeningGroupBuilder.questionsSectionTitle")}</span>
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
@@ -454,13 +546,18 @@ export default function ListeningGroupBuilder({
           <p className="text-[13px] text-slate-400">{t("listeningGroupBuilder.audioSubmissionHint")}</p>
         )}
       </div>
+      )}
 
       <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
         {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đặt cạnh footer thay vì đầu
             danh sách để không phải cuộn lên trên khi đã có nhiều câu hỏi. */}
-        <Button type="button" variant="secondary" size="sm" onClick={() => setQuestions((prev) => [...prev, emptyQuestionRow()])}>
-          <Plus className="w-3.5 h-3.5" /> {t("common.addQuestionButton")}
-        </Button>
+        {isForm ? (
+          <span />
+        ) : (
+          <Button type="button" variant="secondary" size="sm" onClick={() => setQuestions((prev) => [...prev, emptyQuestionRow()])}>
+            <Plus className="w-3.5 h-3.5" /> {t("common.addQuestionButton")}
+          </Button>
+        )}
         <div className="flex items-center gap-2">
           <Button type="button" variant="secondary" onClick={onCancel}>
             {t("common.cancel")}
@@ -468,7 +565,9 @@ export default function ListeningGroupBuilder({
           <Button type="submit" variant="primary" disabled={submitting}>
             {submitting
               ? t("common.creating")
-              : isAppending
+              : isForm
+                ? t("listeningGroupBuilder.submitForm")
+                : isAppending
                 ? t("listeningGroupBuilder.submitAppend", { count: questions.length })
                 : t("listeningGroupBuilder.submitCreate", { count: questions.length })}
           </Button>

@@ -84,7 +84,21 @@
     "copied": "Đã sao chép!",
     "copyContent": "Sao chép nội dung",
     "transferHint": "Chuyển khoản đúng nội dung trên — hệ thống tự động ghi nhận đã thanh toán khi ngân hàng xác nhận, không cần báo lại.",
-    "selectInvoicePrompt": "Chọn 1 hóa đơn để xem nội dung chuyển khoản"
+    "selectInvoicePrompt": "Bấm “Thanh toán QR” ở 1 hóa đơn để lấy mã",
+    "payByQr": "Thanh toán QR",
+    "payTitle": "Quét mã để thanh toán",
+    "creatingLink": "Đang tạo mã QR...",
+    "linkFailed": "Không tạo được mã thanh toán, vui lòng thử lại hoặc liên hệ trung tâm.",
+    "scanHint": "Mở app ngân hàng và quét mã. Hệ thống tự ghi nhận thanh toán khi ngân hàng xác nhận, không cần báo lại.",
+    "accountName": "Chủ tài khoản",
+    "accountNumber": "Số tài khoản",
+    "transferNote": "Nội dung",
+    "expiresAt": "Mã hết hạn lúc",
+    "openCheckout": "Mở trang thanh toán",
+    "waiting": "Đang chờ thanh toán...",
+    "paidSuccess": "Đã nhận thanh toán, cảm ơn phụ huynh!",
+    "paidSuccessPartial": "Đã nhận thanh toán. Hóa đơn còn nợ, bạn có thể thanh toán tiếp.",
+    "newQr": "Tạo mã mới"
   },
   "documents": {
     "type": {

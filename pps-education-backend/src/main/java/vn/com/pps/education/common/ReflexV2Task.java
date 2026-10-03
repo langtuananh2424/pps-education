@@ -1,6 +1,6 @@
 package vn.com.pps.education.common;
 
-import vn.com.pps.education.domain.Curriculum;
+import vn.com.pps.education.academic.domain.Curriculum;
 
 import java.util.LinkedHashMap;
 import java.util.List;

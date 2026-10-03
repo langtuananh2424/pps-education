@@ -7,12 +7,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import vn.com.pps.education.domain.Role;
-import vn.com.pps.education.domain.User;
-import vn.com.pps.education.domain.UserRole;
-import vn.com.pps.education.repository.RoleRepository;
-import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
+import vn.com.pps.education.permission.domain.Role;
+import vn.com.pps.education.auth.domain.User;
+import vn.com.pps.education.permission.domain.UserRole;
+import vn.com.pps.education.permission.repository.RoleRepository;
+import vn.com.pps.education.auth.repository.UserRepository;
+import vn.com.pps.education.permission.repository.UserRoleRepository;
 
 import java.util.List;
 import java.util.Locale;
