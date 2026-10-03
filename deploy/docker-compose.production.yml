@@ -155,6 +155,11 @@ services:
       # UC-30 webhook ngân hàng (X-Webhook-Secret). Để trống = webhook TẮT (InvoiceController từ chối
       # mọi request) - trước đây không khai báo nên app dùng giá trị mẫu mặc định ai cũng biết.
       BANK_WEBHOOK_SECRET: ${BANK_WEBHOOK_SECRET:-}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+      PAYMENT_RETURN_URL: ${PAYMENT_RETURN_URL:-}
+      PAYMENT_CANCEL_URL: ${PAYMENT_CANCEL_URL:-}
       SEED_DEV_USERS: "false"
       # Bootstrap 1 tài khoản sysadmin lần đầu (KHÁC SEED_DEV_USERS - xem InitialAdminSeeder.java).
       # Mặc định tắt - chỉ bật 1 lần khi cần tạo sysadmin đầu tiên, rồi tắt lại (đặt false trong .env).

@@ -1,7 +1,7 @@
 import React from "react";
 import { UserRole } from "@/types";
 import { useApp } from "@/context/AppContext";
-import { mockCampuses, mockExpenses, mockInvoices, mockStudents } from "@/data/mockData";
+import { mockCampuses, mockStudents } from "@/data/mockData";
 import ExecutiveDashboard from "../components/ExecutiveDashboard";
 import AcademicDashboard from "../components/AcademicDashboard";
 import CampusDashboard from "../components/CampusDashboard";
@@ -23,12 +23,6 @@ export default function DashboardPage() {
   const activeStudentsCount = students.filter((s) => s.status === "STUDYING").length;
   const campusesCount = selectedCampusId === "ALL" ? mockCampuses.length : 1;
 
-  const billingList = filterByCampus(mockInvoices, selectedCampusId);
-  const totalPaid = billingList.filter((inv) => inv.status === "PAID").reduce((sum, item) => sum + item.finalAmount, 0);
-
-  const totalExpenses = mockExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const profit = totalPaid - totalExpenses;
-
   if (
     currentRole === UserRole.SYS_ADMIN ||
     currentRole === UserRole.EXECUTIVE ||
@@ -37,13 +31,7 @@ export default function DashboardPage() {
     currentRole === UserRole.HR_MANAGER
   ) {
     return (
-      <ExecutiveDashboard
-        totalPaid={totalPaid}
-        totalExpenses={totalExpenses}
-        profit={profit}
-        activeStudentsCount={activeStudentsCount}
-        campusesCount={campusesCount}
-      />
+      <ExecutiveDashboard activeStudentsCount={activeStudentsCount} campusesCount={campusesCount} />
     );
   }
 

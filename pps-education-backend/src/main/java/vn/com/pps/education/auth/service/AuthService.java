@@ -1,0 +1,486 @@
+package vn.com.pps.education.auth.service;
+
+import vn.com.pps.education.notification.service.NotificationService;
+import vn.com.pps.education.permission.service.DataScopeService;
+import vn.com.pps.education.permission.service.PermissionEvaluationService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.auth.domain.LoginAttempt;
+import vn.com.pps.education.auth.domain.RefreshToken;
+import vn.com.pps.education.student.domain.Student;
+import vn.com.pps.education.auth.domain.User;
+import vn.com.pps.education.auth.dto.CurrentUserResponse;
+import vn.com.pps.education.auth.dto.GoogleLoginRequest;
+import vn.com.pps.education.auth.dto.LoginRequest;
+import vn.com.pps.education.auth.dto.LoginResponse;
+import vn.com.pps.education.auth.dto.LogoutRequest;
+import vn.com.pps.education.auth.dto.RefreshTokenRequest;
+import vn.com.pps.education.auth.dto.RefreshTokenResponse;
+import vn.com.pps.education.exception.AccountInactiveException;
+import vn.com.pps.education.exception.AccountLockedException;
+import vn.com.pps.education.exception.ActiveSessionExistsException;
+import vn.com.pps.education.exception.GoogleAccountNotProvisionedException;
+import vn.com.pps.education.exception.InvalidCredentialsException;
+import vn.com.pps.education.exception.TooManyLoginAttemptsException;
+import vn.com.pps.education.exception.InvalidRefreshTokenException;
+import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.notification.domain.Notification;
+import vn.com.pps.education.hr.repository.EmployeeRepository;
+import vn.com.pps.education.auth.repository.LoginAttemptRepository;
+import vn.com.pps.education.auth.repository.RefreshTokenRepository;
+import vn.com.pps.education.permission.repository.RoleRepository;
+import vn.com.pps.education.student.repository.StudentRepository;
+import vn.com.pps.education.auth.repository.UserRepository;
+import vn.com.pps.education.permission.repository.UserRoleRepository;
+import vn.com.pps.education.security.ClientIpResolver;
+import vn.com.pps.education.security.GoogleIdTokenVerifier;
+import vn.com.pps.education.security.GoogleIdentity;
+import vn.com.pps.education.security.JwtService;
+
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.time.OffsetDateTime;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * Triển khai UC-01 (Đăng nhập hệ thống) — luồng Tài khoản/Mật khẩu và Google.
+ * Xem docs/uc/phan-he-01-dang-nhap.md.
+ */
+@Service
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final RoleRepository roleRepository;
+    private final EmployeeRepository employeeRepository;
+    private final StudentRepository studentRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final LoginAttemptRepository loginAttemptRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final GoogleIdTokenVerifier googleIdTokenVerifier;
+    private final NotificationService notificationService;
+    private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
+    private final LoginIpThrottle loginIpThrottle;
+    private final ClientIpResolver clientIpResolver;
+    private final int maxFailedAttempts;
+    private final int lockDurationMinutes;
+    private final long refreshTokenTtlDays;
+    private final int maxActiveSessions;
+    private final int studentMaxActiveSessions;
+    private final long refreshReuseGraceSeconds;
+
+    public AuthService(UserRepository userRepository,
+                        UserRoleRepository userRoleRepository,
+                        RoleRepository roleRepository,
+                        EmployeeRepository employeeRepository,
+                        StudentRepository studentRepository,
+                        RefreshTokenRepository refreshTokenRepository,
+                        LoginAttemptRepository loginAttemptRepository,
+                        PasswordEncoder passwordEncoder,
+                        JwtService jwtService,
+                        GoogleIdTokenVerifier googleIdTokenVerifier,
+                        NotificationService notificationService,
+                        PermissionEvaluationService permissionEvaluationService,
+                        DataScopeService dataScopeService,
+                        LoginIpThrottle loginIpThrottle,
+                        ClientIpResolver clientIpResolver,
+                        @Value("${app.security.brute-force.max-failed-attempts}") int maxFailedAttempts,
+                        @Value("${app.security.brute-force.lock-duration-minutes}") int lockDurationMinutes,
+                        @Value("${app.jwt.refresh-token-ttl-days}") long refreshTokenTtlDays,
+                        @Value("${app.security.session.max-active-sessions:0}") int maxActiveSessions,
+                        @Value("${app.security.session.student-max-active-sessions:1}") int studentMaxActiveSessions,
+                        @Value("${app.security.session.refresh-reuse-grace-seconds:30}") long refreshReuseGraceSeconds) {
+        this.userRepository = userRepository;
+        this.userRoleRepository = userRoleRepository;
+        this.roleRepository = roleRepository;
+        this.employeeRepository = employeeRepository;
+        this.studentRepository = studentRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.loginAttemptRepository = loginAttemptRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.googleIdTokenVerifier = googleIdTokenVerifier;
+        this.notificationService = notificationService;
+        this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
+        this.loginIpThrottle = loginIpThrottle;
+        this.clientIpResolver = clientIpResolver;
+        this.maxFailedAttempts = maxFailedAttempts;
+        this.lockDurationMinutes = lockDurationMinutes;
+        this.refreshTokenTtlDays = refreshTokenTtlDays;
+        this.maxActiveSessions = maxActiveSessions;
+        this.studentMaxActiveSessions = studentMaxActiveSessions;
+        this.refreshReuseGraceSeconds = refreshReuseGraceSeconds;
+    }
+
+    /**
+     * UC-01: Đăng nhập hệ thống (FR-AUT-01), luồng Tài khoản/Mật khẩu.
+     * Xem docs/uc/phan-he-01-dang-nhap.md — Main Flow bước 1-7, A1 (sai mật
+     * khẩu), A2 (khóa 5 lần sai, FR-AUT-02), A3 (tài khoản INACTIVE).
+     *
+     * noRollbackFor bắt buộc: các nhánh A1/A2/A3 đều ghi login_attempts
+     * (và A2 còn ghi failed_login_count/locked_until) TRƯỚC KHI throw —
+     * mặc định Spring rollback toàn bộ transaction khi có unchecked
+     * exception sẽ xóa luôn các ghi nhận audit/khóa tài khoản này (phát
+     * hiện qua verify runtime thật, không lộ ra khi test vì test dùng
+     * chung 1 transaction bao ngoài che mất rollback thật).
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 —
+     * ActiveSessionExistsException (xem enforceActiveSessionLimit)
+     * ném RA SAU khi đã ghi login_attempts (success=true, mật khẩu đúng) —
+     * cùng lý do noRollbackFor như trên, không được để mất bản ghi audit.
+     *
+     * Rà soát bảo mật 2026-09-28 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) - trước cả Main
+     * Flow: IP đã đăng nhập sai quá ngưỡng (LoginIpThrottle) bị từ chối 429, không chạm tới tài khoản nào
+     * (không tăng failed_login_count, không khoá thêm ai). Mỗi lần A1 (sai tài khoản/mật khẩu) cộng 1 lần
+     * sai cho IP.
+     */
+    @Transactional(noRollbackFor = {InvalidCredentialsException.class, AccountLockedException.class,
+            AccountInactiveException.class, ActiveSessionExistsException.class})
+    public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolve(httpRequest);
+        if (loginIpThrottle.isBlocked(clientIp)) {
+            throw new TooManyLoginAttemptsException("error.auth.tooManyLoginAttempts",
+                    new Object[]{loginIpThrottle.windowMinutes()},
+                    "Quá nhiều lần đăng nhập từ thiết bị/mạng này. Vui lòng thử lại sau "
+                            + loginIpThrottle.windowMinutes() + " phút.");
+        }
+        String input = request.usernameOrEmail();
+        Optional<User> maybeUser = userRepository.findByUsername(input)
+                .or(() -> userRepository.findByEmail(input));
+
+        // A1 — không tiết lộ tài khoản có tồn tại hay không
+        if (maybeUser.isEmpty()) {
+            loginIpThrottle.recordFailure(clientIp);
+            recordAttempt(input, null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND,
+                    request.screenResolution(), request.browserLanguage(), request.timezone());
+            throw new InvalidCredentialsException("error.invalidCredentials.default", new Object[]{},
+                    "Sai tài khoản hoặc mật khẩu.");
+        }
+        User user = maybeUser.get();
+
+        ensureAccountUsable(user, input, httpRequest,
+                request.screenResolution(), request.browserLanguage(), request.timezone());
+
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            loginIpThrottle.recordFailure(clientIp);
+            registerFailedAttempt(user, httpRequest);
+            recordAttempt(input, user, httpRequest, false, LoginAttempt.FailureReason.WRONG_PASSWORD,
+                    request.screenResolution(), request.browserLanguage(), request.timezone());
+            throw new InvalidCredentialsException("error.invalidCredentials.default", new Object[]{},
+                    "Sai tài khoản hoặc mật khẩu.");
+        }
+
+        recordAttempt(input, user, httpRequest, true, null,
+                request.screenResolution(), request.browserLanguage(), request.timezone());
+        enforceActiveSessionLimit(user, request.confirm());
+        return issueSuccessfulLogin(user, httpRequest);
+    }
+
+    /**
+     * UC-01: Đăng nhập hệ thống (FR-AUT-01), luồng Google (Main Flow bước 4).
+     * Xem docs/uc/phan-he-01-dang-nhap.md — A2/A3 áp dụng như luồng mật khẩu,
+     * A4 (email/subject Google chưa có tài khoản nào được cấp phát).
+     * noRollbackFor: xem ghi chú ở login(...) — cùng lý do.
+     */
+    @Transactional(noRollbackFor = {GoogleAccountNotProvisionedException.class, AccountLockedException.class,
+            AccountInactiveException.class, ActiveSessionExistsException.class})
+    public LoginResponse loginWithGoogle(GoogleLoginRequest request, HttpServletRequest httpRequest) {
+        GoogleIdentity identity = googleIdTokenVerifier.verify(request.idToken());
+
+        Optional<User> maybeUser = userRepository.findByGoogleId(identity.subject())
+                .or(() -> userRepository.findByEmail(identity.email()));
+
+        // A4 — tài khoản chưa được cấp phát, không có đăng ký tự phục vụ qua Google
+        if (maybeUser.isEmpty()) {
+            recordAttempt(identity.email(), null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND,
+                    request.screenResolution(), request.browserLanguage(), request.timezone());
+            throw new GoogleAccountNotProvisionedException("error.googleAccountNotProvisioned.default", new Object[]{},
+                    "Tài khoản chưa được cấp phát trong hệ thống. Vui lòng liên hệ Quản trị viên.");
+        }
+        User user = maybeUser.get();
+
+        ensureAccountUsable(user, identity.email(), httpRequest,
+                request.screenResolution(), request.browserLanguage(), request.timezone());
+
+        if (user.getGoogleId() == null) {
+            user.setGoogleId(identity.subject());
+        }
+
+        recordAttempt(identity.email(), user, httpRequest, true, null,
+                request.screenResolution(), request.browserLanguage(), request.timezone());
+        enforceActiveSessionLimit(user, request.confirm());
+        return issueSuccessfulLogin(user, httpRequest);
+    }
+
+    /**
+     * POST /api/auth/refresh — xoay vòng refresh token (không phải 1 UC
+     * riêng, suy ra từ thiết kế bảng refresh_tokens).
+     * noRollbackFor: nhánh phát hiện reuse token đã revoke ghi thu hồi toàn
+     * bộ session TRƯỚC KHI throw — cùng lý do rollback-che-audit ở login(...).
+     *
+     * Sửa lỗi 2026-09-29 — nhánh reuse trước đây thu hồi TOÀN BỘ phiên với MỌI token đã revoke, gây
+     * "đá văng" oan ở 2 tình huống không phải đánh cắp token:
+     * - Token bị thu hồi bởi đăng xuất/Quản trị viên gỡ phiên/đăng nhập vượt giới hạn thiết bị
+     *   (last_used_at NULL — chưa từng xoay vòng): thiết bị cũ gọi refresh lần cuối → trước đây kéo
+     *   theo thu hồi luôn phiên của thiết bị MỚI vừa đăng nhập. Nay chỉ từ chối token đó.
+     * - Nhiều tab cùng dùng chung 1 refresh token trong localStorage ("Ghi nhớ đăng nhập") cùng refresh
+     *   gần như đồng thời: tab chậm hơn gửi token vừa bị tab kia xoay vòng. Nay token xoay vòng trong
+     *   vòng {@code refreshReuseGraceSeconds} chỉ bị từ chối (FE đọc lại token mới tab kia đã ghi).
+     */
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
+    public RefreshTokenResponse refresh(RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        RefreshToken token = refreshTokenRepository.findByTokenHash(sha256(request.refreshToken()))
+                .orElseThrow(() -> new InvalidRefreshTokenException("error.invalidRefreshToken.invalid",
+                        new Object[]{}, "Refresh token không hợp lệ."));
+
+        if (token.getRevokedAt() != null) {
+            OffsetDateTime now = OffsetDateTime.now();
+            boolean rotated = token.getLastUsedAt() != null;
+            boolean withinGrace = token.getRevokedAt().isAfter(now.minusSeconds(refreshReuseGraceSeconds));
+            if (rotated && !withinGrace) {
+                // Token đã rotate từ lâu nhưng vẫn bị dùng lại -- khả năng bị đánh cắp, thu hồi toàn bộ session đang hoạt động
+                List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(token.getUser().getId());
+                activeTokens.forEach(t -> t.setRevokedAt(now));
+                refreshTokenRepository.saveAll(activeTokens);
+            }
+            throw new InvalidRefreshTokenException("error.invalidRefreshToken.invalid", new Object[]{},
+                    "Refresh token không hợp lệ.");
+        }
+
+        if (token.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new InvalidRefreshTokenException("error.invalidRefreshToken.expired", new Object[]{},
+                    "Refresh token đã hết hạn.");
+        }
+
+        User user = token.getUser();
+        token.setRevokedAt(OffsetDateTime.now());
+        token.setLastUsedAt(OffsetDateTime.now());
+        refreshTokenRepository.save(token);
+
+        String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), rolesOf(user));
+        String newRefreshToken = issueRefreshToken(user, httpRequest);
+        return new RefreshTokenResponse(accessToken, newRefreshToken, jwtService.getAccessTokenTtlSeconds());
+    }
+
+    /** POST /api/auth/logout — thu hồi refresh token hiện tại. Idempotent: không lộ thông tin token có tồn tại hay không. */
+    @Transactional
+    public void logout(LogoutRequest request) {
+        refreshTokenRepository.findByTokenHash(sha256(request.refreshToken())).ifPresent(token -> {
+            if (token.getRevokedAt() == null) {
+                token.setRevokedAt(OffsetDateTime.now());
+                refreshTokenRepository.save(token);
+            }
+        });
+    }
+
+    /**
+     * GET /api/auth/me — hồ sơ tài khoản đang đăng nhập, phục vụ hiển thị
+     * sidebar/header phía frontend. Không thuộc UC-01 (không phải luồng đăng
+     * nhập) nhưng đặt cùng AuthService/AuthController vì cùng thao tác trên
+     * chính tài khoản đang giữ JWT — không cần permission code riêng, chỉ
+     * cần đã xác thực.
+     */
+    @Transactional(readOnly = true)
+    /**
+     * UC-42 (FR-LMS-12) tiền đề: tài khoản Học sinh tự đăng nhập cần tra ra studentId
+     * của chính mình để gọi các API Portal cần studentId (Phụ huynh đã có sẵn
+     * GET /api/portal/parent/children cho việc này) — bổ sung studentId (null nếu
+     * tài khoản không có hồ sơ Student liên kết) vào response tự-phục-vụ này thay vì
+     * thêm 1 endpoint riêng, vì bản chất chỉ là 1 field trong hồ sơ tài khoản đang xem.
+     */
+    public CurrentUserResponse getCurrentUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.auth.accountNotFound",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
+        String departmentName = employeeRepository.findByUserId(userId)
+                .map(e -> e.getDepartment() == null ? null : e.getDepartment().getName())
+                .orElse(null);
+        Long studentId = studentRepository.findByUserId(userId).map(Student::getId).orElse(null);
+        return new CurrentUserResponse(
+                user.getId(), user.getUsername(), user.getEmail(), user.getFullName(), user.getPhone(),
+                departmentName,
+                rolesOf(user),
+                studentId,
+                permissionEvaluationService.getEffectivePermissions(userId),
+                dataScopeService.resolve(userId).name());
+    }
+
+    /** A2 (khóa 5 lần sai) + A3 (INACTIVE/SUSPENDED) — áp dụng cho cả luồng mật khẩu và Google. */
+    private void ensureAccountUsable(User user, String identityInput, HttpServletRequest httpRequest,
+                                      String screenResolution, String browserLanguage, String timezone) {
+        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(OffsetDateTime.now())) {
+            recordAttempt(identityInput, user, httpRequest, false, LoginAttempt.FailureReason.USER_LOCKED,
+                    screenResolution, browserLanguage, timezone);
+            throw new AccountLockedException("error.accountLocked.default", new Object[]{user.getLockedUntil()},
+                    "Tài khoản đang tạm khóa do đăng nhập sai quá nhiều lần. Thử lại sau: " + user.getLockedUntil());
+        }
+        if (user.getStatus() != User.Status.ACTIVE) {
+            recordAttempt(identityInput, user, httpRequest, false, LoginAttempt.FailureReason.USER_INACTIVE,
+                    screenResolution, browserLanguage, timezone);
+            throw new AccountInactiveException("error.accountInactive.default", new Object[]{},
+                    "Tài khoản không hoạt động. Vui lòng liên hệ Quản trị viên.");
+        }
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — chỉ áp dụng cho tài khoản HỌC SINH
+     * (có hồ sơ Student liên kết): chặn đăng nhập thiết bị thứ 2 khi thiết bị 1 vẫn còn phiên ACTIVE
+     * (refresh token chưa revoke, chưa hết hạn) — tránh học sinh dùng song song 2 thiết bị để "lách
+     * luật" khi làm bài (VD 1 máy mở đề tra cứu, máy kia thao tác nộp bài). KHÔNG áp dụng cho giáo
+     * viên/nhân viên/phụ huynh — các vai trò này vẫn cần đăng nhập nhiều thiết bị cùng lúc bình thường
+     * (điện thoại + máy tính).
+     *
+     * Bổ sung tiếp ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — trước đây học sinh BẮT BUỘC
+     * phải tự tay "Đăng xuất" ở thiết bị cũ trước (hoặc chờ refresh token tự hết hạn theo
+     * {@code refreshTokenTtlDays}), kể cả khi thiết bị cũ đã tắt/mất mà chưa kịp gọi {@link #logout}
+     * (session vẫn còn ACTIVE trong DB dù thiết bị thực tế không còn dùng nữa) — không có lối thoát nào
+     * khác ngoài chờ hết hạn. Nay cho phép {@code request.confirm() == true} (FE hiện popup xác nhận
+     * "Tài khoản đang đăng nhập ở một nơi khác. Bạn có muốn đăng xuất?") để CHỦ ĐỘNG thu hồi (revoke)
+     * toàn bộ refresh token ACTIVE của tài khoản rồi đăng nhập tiếp — cùng cơ chế thu hồi đã dùng ở
+     * {@link #logout}/{@link #refresh} (nhánh phát hiện reuse token). Hệ thống KHÔNG có kênh push
+     * real-time nào tới thiết bị cũ (chưa có WebSocket/SSE) nên thiết bị đó sẽ chỉ thực sự bị đăng xuất
+     * ở lần gọi API kế tiếp (access token hết hạn hoặc gọi /auth/refresh thất bại do token đã revoke) —
+     * chấp nhận được vì access token có TTL ngắn.
+     *
+     * Bổ sung tiếp ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29 — mở rộng thành giới hạn số
+     * thiết bị (số refresh token ACTIVE) cho MỌI tài khoản: Học sinh tối đa {@code studentMaxActiveSessions}
+     * (mặc định 1, giữ nguyên quy tắc chống "lách luật" ở trên), các vai trò khác tối đa
+     * {@code maxActiveSessions} (mặc định 3) — trước đây giáo viên/nhân viên/Quản trị viên không giới hạn,
+     * phiên bỏ quên (đóng trình duyệt không đăng xuất) tích tụ tới 14 ngày. Đăng nhập khi đã đủ giới hạn:
+     * chưa confirm → 409 (FE hiện popup "Tài khoản của bạn đang đăng nhập ở thiết bị khác. Bạn có muốn
+     * đăng xuất?"); confirm → chỉ thu hồi (các) phiên CŨ NHẤT (issued_at nhỏ nhất — token ACTIVE luôn là
+     * token vừa xoay vòng gần nhất nên issued_at chính là lần hoạt động gần nhất của thiết bị đó) đủ để
+     * nhường chỗ cho thiết bị mới, các thiết bị khác đang dùng không bị ảnh hưởng. Với Học sinh (giới hạn
+     * 1) kết quả trùng hành vi cũ: thu hồi hết phiên cũ.
+     *
+     * Đổi 2026-10-01 (đã xác nhận với người dùng) — bỏ giới hạn thiết bị cho tài khoản KHÔNG phải Học sinh
+     * (nhân viên/giáo viên/Quản trị viên dùng trang admin, phụ huynh): {@code maxActiveSessions} mặc định 0
+     * = không giới hạn, đăng nhập thiết bị mới không bao giờ bị 409 hay đẩy thiết bị khác ra. Học sinh giữ
+     * nguyên giới hạn {@code studentMaxActiveSessions}. Giá trị <= 0 ở cả 2 cấu hình đều nghĩa là không giới hạn.
+     */
+    private void enforceActiveSessionLimit(User user, boolean confirm) {
+        int limit = studentRepository.findByUserId(user.getId()).isPresent()
+                ? studentMaxActiveSessions
+                : maxActiveSessions;
+        if (limit <= 0) {
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId()).stream()
+                .filter(token -> token.getExpiresAt().isAfter(now))
+                .sorted(Comparator.comparing(RefreshToken::getIssuedAt).thenComparing(RefreshToken::getId))
+                .toList();
+        int excess = activeTokens.size() - limit + 1;
+        if (excess <= 0) {
+            return;
+        }
+        if (!confirm) {
+            throw new ActiveSessionExistsException("error.activeSessionExists.default", new Object[]{limit},
+                    "Tài khoản của bạn đang đăng nhập ở thiết bị khác. Bạn có muốn đăng xuất?");
+        }
+        List<RefreshToken> evicted = activeTokens.subList(0, excess);
+        evicted.forEach(token -> token.setRevokedAt(now));
+        refreshTokenRepository.saveAll(evicted);
+    }
+
+    private LoginResponse issueSuccessfulLogin(User user, HttpServletRequest httpRequest) {
+        user.setFailedLoginCount(0);
+        user.setLastLoginAt(OffsetDateTime.now());
+        userRepository.save(user);
+
+        String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), rolesOf(user));
+        String refreshToken = issueRefreshToken(user, httpRequest);
+        return new LoginResponse(accessToken, refreshToken, jwtService.getAccessTokenTtlSeconds());
+    }
+
+    private List<String> rolesOf(User user) {
+        return userRoleRepository.findByUserId(user.getId()).stream()
+                .map(ur -> ur.getRole().getCode())
+                .toList();
+    }
+
+    private void registerFailedAttempt(User user, HttpServletRequest httpRequest) {
+        user.setFailedLoginCount(user.getFailedLoginCount() + 1);
+        if (user.getFailedLoginCount() >= maxFailedAttempts) {
+            user.setLockedUntil(OffsetDateTime.now().plusMinutes(lockDurationMinutes));
+            userRepository.save(user);
+            notifyAdminsAccountLocked(user, clientIpResolver.resolve(httpRequest));
+            return;
+        }
+        userRepository.save(user);
+    }
+
+    /** UC-01 A2 bước 1: ghi nhận IP + gửi cảnh báo cho Quản trị viên (FR-AUT-02). */
+    private void notifyAdminsAccountLocked(User user, String ipAddress) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("username", user.getUsername());
+        metadata.put("lockDurationMinutes", lockDurationMinutes);
+        metadata.put("maxFailedAttempts", maxFailedAttempts);
+        metadata.put("ipAddress", ipAddress);
+        roleRepository.findByCode("SYS_ADMIN").ifPresent(sysAdminRole ->
+                userRoleRepository.findByRoleId(sysAdminRole.getId()).forEach(adminUserRole ->
+                        notificationService.notify(
+                                adminUserRole.getUser().getId(),
+                                Notification.NotificationType.OTHER,
+                                "Tài khoản bị khóa do đăng nhập sai nhiều lần",
+                                "Tài khoản '%s' đã bị khóa tạm thời %d phút sau %d lần đăng nhập sai liên tiếp từ IP %s."
+                                        .formatted(user.getUsername(), lockDurationMinutes, maxFailedAttempts, ipAddress),
+                                metadata, "USER", user.getId(), Notification.Priority.HIGH, null)));
+    }
+
+    private void recordAttempt(String usernameOrEmail, User user, HttpServletRequest httpRequest,
+                                boolean success, LoginAttempt.FailureReason failureReason,
+                                String screenResolution, String browserLanguage, String timezone) {
+        LoginAttempt attempt = new LoginAttempt();
+        attempt.setUsernameOrEmail(usernameOrEmail);
+        attempt.setUser(user);
+        attempt.setIpAddress(clientIpResolver.resolve(httpRequest));
+        attempt.setUserAgent(httpRequest.getHeader("User-Agent"));
+        attempt.setSuccess(success);
+        attempt.setFailureReason(failureReason);
+        attempt.setScreenResolution(screenResolution);
+        attempt.setBrowserLanguage(browserLanguage);
+        attempt.setTimezone(timezone);
+        loginAttemptRepository.save(attempt);
+    }
+
+    private String issueRefreshToken(User user, HttpServletRequest httpRequest) {
+        String rawToken = generateSecureRandomToken();
+        RefreshToken token = new RefreshToken();
+        token.setUser(user);
+        token.setTokenHash(sha256(rawToken));
+        token.setIpAddress(clientIpResolver.resolve(httpRequest));
+        token.setDeviceInfo(httpRequest.getHeader("User-Agent"));
+        token.setExpiresAt(OffsetDateTime.now().plusDays(refreshTokenTtlDays));
+        refreshTokenRepository.save(token);
+        return rawToken;
+    }
+
+    private String generateSecureRandomToken() {
+        byte[] bytes = new byte[64];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(value.getBytes());
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (Exception e) {
+            throw new IllegalStateException("Không thể băm refresh token", e);
+        }
+    }
+}

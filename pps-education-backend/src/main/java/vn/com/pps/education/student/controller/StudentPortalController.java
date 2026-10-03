@@ -1,0 +1,171 @@
+package vn.com.pps.education.student.controller;
+
+import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.student.dto.AssignedExerciseResponse;
+import vn.com.pps.education.student.dto.AttendanceMarkResponse;
+import vn.com.pps.education.hr.dto.ClassSessionResponse;
+import vn.com.pps.education.academic.dto.CurriculumDocumentResponse;
+import vn.com.pps.education.student.dto.GradeEntryResponse;
+import vn.com.pps.education.student.dto.GradeEvaluationResultResponse;
+import vn.com.pps.education.lms.dto.ListeningPracticeItemResponse;
+import vn.com.pps.education.student.dto.MyReviewVideoAssignmentResponse;
+import vn.com.pps.education.student.dto.ParentStudentResponse;
+import vn.com.pps.education.student.dto.StudentCommentResponse;
+import vn.com.pps.education.student.dto.StudentResponse;
+import vn.com.pps.education.student.dto.UpdateOwnStudentProfileRequest;
+import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.academic.service.ClassSessionService;
+import vn.com.pps.education.academic.service.CurriculumDocumentService;
+import vn.com.pps.education.lms.service.ExerciseAttemptService;
+import vn.com.pps.education.academic.service.GradeService;
+import vn.com.pps.education.lms.service.ListeningPracticeService;
+import vn.com.pps.education.lms.service.ReviewVideoService;
+import vn.com.pps.education.student.service.StudentAttendanceService;
+import vn.com.pps.education.student.service.StudentCommentService;
+import vn.com.pps.education.student.service.StudentService;
+
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Gộp các endpoint tự-xem của Học sinh (UC-59, UC-60, UC-26, bổ sung
+ * giao bài) — self-service, không cần permission đặc biệt, chỉ cần đăng
+ * nhập + có hồ sơ Student (giống pattern TeacherScheduleController —
+ * UC-58). Controller mỏng, mỗi method chỉ gọi 1 Service tương ứng.
+ */
+@RestController
+@RequestMapping("/api/students/me")
+public class StudentPortalController {
+
+    private final ClassSessionService classSessionService;
+    private final ExerciseAttemptService exerciseAttemptService;
+    private final CurriculumDocumentService curriculumDocumentService;
+    private final ListeningPracticeService listeningPracticeService;
+    private final ReviewVideoService reviewVideoService;
+    private final GradeService gradeService;
+    private final StudentService studentService;
+    private final StudentAttendanceService studentAttendanceService;
+    private final StudentCommentService studentCommentService;
+
+    public StudentPortalController(ClassSessionService classSessionService,
+                                    ExerciseAttemptService exerciseAttemptService,
+                                    CurriculumDocumentService curriculumDocumentService,
+                                    ListeningPracticeService listeningPracticeService,
+                                    ReviewVideoService reviewVideoService,
+                                    GradeService gradeService,
+                                    StudentService studentService,
+                                    StudentAttendanceService studentAttendanceService,
+                                    StudentCommentService studentCommentService) {
+        this.classSessionService = classSessionService;
+        this.exerciseAttemptService = exerciseAttemptService;
+        this.curriculumDocumentService = curriculumDocumentService;
+        this.listeningPracticeService = listeningPracticeService;
+        this.reviewVideoService = reviewVideoService;
+        this.gradeService = gradeService;
+        this.studentService = studentService;
+        this.studentAttendanceService = studentAttendanceService;
+        this.studentCommentService = studentCommentService;
+    }
+
+    /** UC-63: học sinh tự xem hồ sơ của chính mình (FR-USR-07). */
+    @GetMapping
+    public ResponseEntity<StudentResponse> getMine(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentService.getMyStudentProfile(actor.userId()));
+    }
+
+    /** UC-63: học sinh tự cập nhật ảnh đại diện của chính mình (FR-USR-07). */
+    @PutMapping
+    public ResponseEntity<StudentResponse> updateMine(@AuthenticationPrincipal AuthenticatedUser actor,
+                                                        @Valid @RequestBody UpdateOwnStudentProfileRequest request) {
+        return ResponseEntity.ok(studentService.updateMyStudentProfile(actor.userId(), request));
+    }
+
+    /** UC-63: học sinh tự tra danh sách phụ huynh liên kết với chính mình (FR-USR-07). */
+    @GetMapping("/parents")
+    public ResponseEntity<List<ParentStudentResponse>> listMyParents(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentService.listMyParents(actor.userId()));
+    }
+
+    /** UC-59: lịch học của tôi. */
+    @GetMapping("/sessions")
+    public ResponseEntity<List<ClassSessionResponse>> listMySessions(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) Long classId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classSessionService.listMySessionsForStudent(actor.userId(), fromDate, toDate, classId));
+    }
+
+    /** Bổ sung: đề đã được giao cho (các) lớp tôi đang học. */
+    @GetMapping("/exercises")
+    public ResponseEntity<List<AssignedExerciseResponse>> listMyAssignedExercises(
+            @RequestParam(required = false) Long classId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseAttemptService.listMyAssignedExercises(actor.userId(), classId));
+    }
+
+    /** Bổ sung: hạn nộp (dueAt) bộ Video Ôn tập đã được giao cho (các) lớp tôi đang học ACTIVE — xem Javadoc ReviewVideoService.listMyAssignments. */
+    @GetMapping("/review-video-assignments")
+    public ResponseEntity<List<MyReviewVideoAssignmentResponse>> listMyReviewVideoAssignments(
+            @RequestParam(required = false) Long classId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.listMyAssignments(actor.userId(), classId));
+    }
+
+    /** UC-60: kho tài liệu tham khảo theo curriculum của (các) lớp tôi đang học. */
+    @GetMapping("/documents")
+    public ResponseEntity<List<CurriculumDocumentResponse>> listMyDocuments(
+            @RequestParam(required = false) Long curriculumId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(curriculumDocumentService.listMyDocuments(actor.userId(), curriculumId));
+    }
+
+    /** UC-26: bài luyện Nghe/Chép chính tả/Nói theo curriculum của (các) lớp tôi đang học. */
+    @GetMapping("/listening-practice")
+    public ResponseEntity<List<ListeningPracticeItemResponse>> listMyListeningPractice(
+            @RequestParam(required = false) String mode,
+            @RequestParam(required = false) Long curriculumId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(listeningPracticeService.listMyPracticeItems(actor.userId(), mode, curriculumId));
+    }
+
+    /** UC-61: bảng điểm đã công bố (PUBLISHED) của (các) lớp tôi đang học. */
+    @GetMapping("/grades")
+    public ResponseEntity<List<GradeEntryResponse>> listMyGrades(
+            @RequestParam(required = false) Long classId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.listMyGrades(actor.userId(), classId));
+    }
+
+    /** UC-61: Overall/Level + Nhận xét/Ghi chú (V95) đã công bố (OFFICIAL) của 1 (kỳ học, Giữa/Cuối kỳ). */
+    @GetMapping("/classes/{classId}/academic-terms/{academicTermId}/evaluation/{evaluationType}/result")
+    public ResponseEntity<GradeEvaluationResultResponse> getMyEvaluationResult(
+            @PathVariable Long classId, @PathVariable Long academicTermId, @PathVariable String evaluationType,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(gradeService.getMyEvaluationResult(actor.userId(), classId, academicTermId, evaluationType));
+    }
+
+    /** UC-64: điểm danh của tôi theo lớp — "Xem quá trình học tập". */
+    @GetMapping("/classes/{classId}/attendance")
+    public ResponseEntity<List<AttendanceMarkResponse>> listMyAttendance(
+            @PathVariable Long classId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentAttendanceService.listMyAttendance(classId, actor.userId()));
+    }
+
+    /** UC-64: nhận xét giáo viên đã duyệt của tôi theo lớp — "Xem quá trình học tập". */
+    @GetMapping("/classes/{classId}/comments")
+    public ResponseEntity<List<StudentCommentResponse>> listMyComments(
+            @PathVariable Long classId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.listMyComments(classId, actor.userId()));
+    }
+}

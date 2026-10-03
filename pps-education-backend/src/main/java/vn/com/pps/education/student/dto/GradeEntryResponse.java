@@ -1,0 +1,25 @@
+package vn.com.pps.education.student.dto;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+
+public record GradeEntryResponse(
+        Long id,
+        Long classId,
+        Long studentId,
+        String studentFullName,
+        String studentCode,
+        Long gradeEvaluationComponentId,
+        Long academicTermId,
+        Long academicYearId,
+        String academicYear,
+        String evaluationType,
+        BigDecimal score,
+        boolean absenceFlag,
+        String teacherNote,
+        String status,
+        Long enteredBy,
+        Long publishedBy,
+        OffsetDateTime publishedAt,
+        OffsetDateTime finalizedAt
+) {}

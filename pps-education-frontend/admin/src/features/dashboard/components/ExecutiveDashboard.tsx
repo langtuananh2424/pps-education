@@ -3,32 +3,35 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, ArrowRight, Calendar } from "lucide-react";
 import { mockLeads } from "@/data/mockData";
+import { useApp } from "@/context/AppContext";
+import { useMonthlyFinanceTrend } from "@/features/finance/hooks/useMonthlyFinanceTrend";
+import FinanceTrendChart from "@/features/finance/components/FinanceTrendChart";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 
 interface ExecutiveDashboardProps {
-  totalPaid: number;
-  totalExpenses: number;
-  profit: number;
   activeStudentsCount: number;
   campusesCount: number;
 }
 
-const revenueSeries = [
-  { month: "T12/25", in: 120, out: 95 },
-  { month: "T1/26", in: 150, out: 100 },
-  { month: "T2/26", in: 95, out: 90 },
-  { month: "T3/26", in: 180, out: 110 },
-  { month: "T4/26", in: 210, out: 125 },
-  { month: "T5/26", in: 160, out: 115 },
-  { month: "T6/26", in: 240, out: 140 }
-];
-
-export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, activeStudentsCount, campusesCount }: ExecutiveDashboardProps) {
+/**
+ * Thu/Chi/biên lợi nhuận và biểu đồ 6 tháng lấy từ báo cáo tài chính thật (UC-32, cùng nguồn trang Báo cáo
+ * kế toán) — chỉ hiện với tài khoản có quyền finance.report.view. Phễu CRM và thông báo gia hạn vẫn là dữ
+ * liệu minh hoạ, chưa nằm trong phạm vi hoàn thiện tài chính 2026-10-03.
+ */
+export default function ExecutiveDashboard({ activeStudentsCount, campusesCount }: ExecutiveDashboardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation("dashboard");
-  const chartData = [...revenueSeries, { month: t("executive.thisMonth"), in: totalPaid / 1_000_000, out: totalExpenses / 1_000_000 }];
-  const maxVal = 260;
+  const { hasPermission } = useApp();
+  const canViewFinance = hasPermission("finance.report.view");
+  const trend = useMonthlyFinanceTrend(canViewFinance);
+  const current = trend.points[trend.points.length - 1];
+  const previous = trend.points[trend.points.length - 2];
+  const revenue = current?.revenue ?? 0;
+  const expense = current?.expense ?? 0;
+  const net = revenue - expense;
+  const revenueChange = previous && previous.revenue > 0 ? ((revenue - previous.revenue) / previous.revenue) * 100 : null;
+  const now = new Date();
 
   const funnel = [
     { stage: t("executive.funnelNewLeads"), count: mockLeads.length, percentage: 100, color: "bg-slate-800" },
@@ -46,44 +49,52 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
         </div>
         <div className="flex items-center gap-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-lg">
           <Calendar className="w-4 h-4 text-brand-orange" />
-          <span>{t("executive.reportPeriod")}</span>
+          <span>{t("executive.reportPeriod", { month: now.getMonth() + 1, year: now.getFullYear() })}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="relative overflow-hidden">
-          <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.actualRevenue")}</span>
-          <div className="flex items-baseline gap-1.5 mt-2">
-            <span className="text-2xl font-bold text-slate-900 font-display">{totalPaid.toLocaleString("vi-VN")}</span>
-            <span className="text-sm font-semibold text-slate-500">VND</span>
-          </div>
-          <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-emerald-600">
-            <span>{t("executive.vsLastMonth")}</span>
-          </div>
-        </Card>
+        {canViewFinance && (
+          <>
+            <Card className="relative overflow-hidden">
+              <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.actualRevenue")}</span>
+              <div className="flex items-baseline gap-1.5 mt-2">
+                <span className="text-2xl font-bold text-slate-900 font-display">{revenue.toLocaleString("vi-VN")}</span>
+                <span className="text-sm font-semibold text-slate-500">VND</span>
+              </div>
+              <div className={`flex items-center gap-1 mt-2 text-[12px] font-semibold ${revenueChange != null && revenueChange < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                <span>
+                  {revenueChange == null
+                    ? t("executive.noPreviousMonth")
+                    : t("executive.vsLastMonth", { value: `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}` })}
+                </span>
+              </div>
+            </Card>
 
-        <Card className="relative overflow-hidden">
-          <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.operatingCost")}</span>
-          <div className="flex items-baseline gap-1.5 mt-2">
-            <span className="text-2xl font-bold text-slate-900 font-display">{totalExpenses.toLocaleString("vi-VN")}</span>
-            <span className="text-sm font-semibold text-slate-500">VND</span>
-          </div>
-          <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-slate-500">
-            <span>{t("executive.operatingCostNote")}</span>
-          </div>
-        </Card>
+            <Card className="relative overflow-hidden">
+              <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.operatingCost")}</span>
+              <div className="flex items-baseline gap-1.5 mt-2">
+                <span className="text-2xl font-bold text-slate-900 font-display">{expense.toLocaleString("vi-VN")}</span>
+                <span className="text-sm font-semibold text-slate-500">VND</span>
+              </div>
+              <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-slate-500">
+                <span>{t("executive.operatingCostNote")}</span>
+              </div>
+            </Card>
 
-        <Card className="relative overflow-hidden">
-          <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.profitMargin")}</span>
-          <div className="flex items-baseline gap-1.5 mt-2">
-            <span className="text-2xl font-bold text-slate-900 font-display">
-              {profit > 0 ? `+${((profit / totalPaid) * 100).toFixed(1)}%` : t("executive.pendingUpdate")}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-brand-orange">
-            <span>{t("executive.onTargetNote")}</span>
-          </div>
-        </Card>
+            <Card className="relative overflow-hidden">
+              <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.profitMargin")}</span>
+              <div className="flex items-baseline gap-1.5 mt-2">
+                <span className={`text-2xl font-bold font-display ${net < 0 ? "text-rose-600" : "text-slate-900"}`}>
+                  {revenue > 0 ? `${net >= 0 ? "+" : ""}${((net / revenue) * 100).toFixed(1)}%` : t("executive.pendingUpdate")}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-brand-orange">
+                <span>{t("executive.netThisMonth", { amount: net.toLocaleString("vi-VN") })}</span>
+              </div>
+            </Card>
+          </>
+        )}
 
         <Card className="relative overflow-hidden">
           <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.activeStudents")}</span>
@@ -98,53 +109,21 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 font-display">{t("executive.revenueChartTitle")}</h3>
-            <p className="text-[13px] text-slate-400 mt-0.5">{t("executive.revenueChartSubtitle")}</p>
-          </div>
-
-          <div className="h-60 w-full mt-4 flex items-end justify-between relative px-2 border-b border-slate-100 pb-1 overflow-x-auto">
-            {chartData.map((data, index) => {
-              const inHeight = (data.in / maxVal) * 100;
-              const outHeight = (data.out / maxVal) * 100;
-              return (
-                <div key={index} className="flex flex-col items-center gap-1 z-10 min-w-[10%]">
-                  <div className="flex gap-1.5 h-44 items-end w-full justify-center">
-                    <div
-                      style={{ height: `${inHeight}%` }}
-                      className="w-3 sm:w-4 bg-brand-gradient rounded-t-xs transition-all duration-500 cursor-pointer hover:opacity-90 relative group"
-                    >
-                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[13px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                        {data.in.toFixed(0)}M VND
-                      </div>
-                    </div>
-                    <div
-                      style={{ height: `${outHeight}%` }}
-                      className="w-3 sm:w-4 bg-slate-300 rounded-t-xs transition-all duration-500 cursor-pointer hover:bg-slate-400 relative group"
-                    >
-                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[13px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                        {data.out.toFixed(0)}M VND
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-[12px] font-semibold text-slate-500 mt-1 font-sans whitespace-nowrap">{data.month}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-5 mt-4 text-[13px] font-medium justify-center border-t border-slate-100 pt-3">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-brand-gradient" />
-              <span className="text-slate-600">{t("executive.legendRevenue")}</span>
+        {canViewFinance && (
+          <Card className="lg:col-span-2 flex flex-col justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 font-display">{t("executive.revenueChartTitle")}</h3>
+              <p className="text-[13px] text-slate-400 mt-0.5">{t("executive.revenueChartSubtitle")}</p>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-              <span className="text-slate-600">{t("executive.legendExpense")}</span>
-            </div>
-          </div>
-        </Card>
+            {trend.loading ? (
+              <p className="text-sm text-slate-500 mt-4">{t("executive.loadingFinance")}</p>
+            ) : trend.error ? (
+              <p className="text-sm text-rose-600 mt-4">{t("executive.financeLoadError")}</p>
+            ) : (
+              <FinanceTrendChart points={trend.points} />
+            )}
+          </Card>
+        )}
 
         <Card className="flex flex-col justify-between">
           <div>
