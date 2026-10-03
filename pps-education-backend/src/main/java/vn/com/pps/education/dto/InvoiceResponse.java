@@ -24,5 +24,10 @@ public record InvoiceResponse(
         BigDecimal outstandingAmount,
         String status,
         String qrCodeData,
-        List<InvoiceItemResponse> items
+        List<InvoiceItemResponse> items,
+        // Bổ sung 2026-10-03 cho màn Thu phí & hóa đơn phía Kế toán — NULL nếu hóa đơn không gắn ghi danh lớp.
+        Long classId,
+        String className,
+        Long siteId,
+        String siteName
 ) {}

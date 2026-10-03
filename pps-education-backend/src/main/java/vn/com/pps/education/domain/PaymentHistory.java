@@ -29,8 +29,9 @@ public class PaymentHistory {
     @JoinColumn(name = "payment_id", nullable = false)
     private Payment payment;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "changed_by", nullable = false)
+    /** NULL = thay đổi do hệ thống tự động (cron, webhook ngân hàng) — V210. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "changed_by")
     private User changedBy;
 
     @Enumerated(EnumType.STRING)

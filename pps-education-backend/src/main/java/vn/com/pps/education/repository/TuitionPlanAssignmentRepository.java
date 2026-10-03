@@ -11,4 +11,6 @@ public interface TuitionPlanAssignmentRepository extends JpaRepository<TuitionPl
     Optional<TuitionPlanAssignment> findBySchoolClassIdAndEffectiveToIsNull(Long classId);
 
     List<TuitionPlanAssignment> findByEffectiveToIsNull();
+
+    List<TuitionPlanAssignment> findBySchoolClassIdOrderByEffectiveFromDesc(Long classId);
 }

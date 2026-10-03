@@ -13,6 +13,7 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * Học bổng/Miễn giảm (SDD > Tài chính & Học phí > Học bổng/Miễn giảm) —
@@ -61,6 +62,17 @@ public class ScholarshipService {
         return toResponse(scholarshipRepository.save(scholarship));
     }
 
+    /** Danh sách học bổng/miễn giảm cho màn Học bổng phía Kế toán (bổ sung 2026-10-03), lọc theo học sinh/trạng thái. */
+    @Transactional(readOnly = true)
+    public List<ScholarshipResponse> list(Long studentId, String status) {
+        Scholarship.Status statusFilter = status == null || status.isBlank() ? null : Scholarship.Status.valueOf(status);
+        return scholarshipRepository.findAllByOrderByApprovedAtDesc().stream()
+                .filter(s -> studentId == null || s.getStudent().getId().equals(studentId))
+                .filter(s -> statusFilter == null || s.getStatus() == statusFilter)
+                .map(this::toResponse)
+                .toList();
+    }
+
     /** Thu hồi học bổng — SDD "thay đổi thì REVOKE record cũ, tạo record mới", không tạo record mới ở đây vì UC không mô tả luồng cấp lại. */
     @Transactional
     public ScholarshipResponse revoke(Long id) {
@@ -75,6 +87,7 @@ public class ScholarshipService {
                 s.getId(), s.getStudent().getId(), s.getCode(), s.getName(),
                 s.getDiscountType().name(), s.getDiscountValue(),
                 s.getApplicableScope().name(), s.getValidFrom(), s.getValidTo(), s.getMaxAmount(),
-                s.getStatus().name(), s.getApprovedBy().getId(), s.getApprovedAt());
+                s.getStatus().name(), s.getApprovedBy().getId(), s.getApprovedAt(),
+                s.getStudent().getStudentCode(), s.getStudent().getUser().getFullName());
     }
 }

@@ -13,4 +13,11 @@ public interface OperatingExpenseRepository extends JpaRepository<OperatingExpen
     List<OperatingExpense> findBySiteIdAndExpenseDateBetween(Long siteId, LocalDate from, LocalDate to);
 
     List<OperatingExpense> findByExpenseDateBetween(LocalDate from, LocalDate to);
+
+    /** UC-32: báo cáo chỉ cộng khoản chi chưa bị Ban giám đốc từ chối (RECORDED/APPROVED). */
+    List<OperatingExpense> findBySiteIdAndExpenseDateBetweenAndStatusNot(Long siteId, LocalDate from, LocalDate to,
+                                                                           OperatingExpense.Status status);
+
+    List<OperatingExpense> findBySiteIsNullAndExpenseDateBetweenAndStatusNot(LocalDate from, LocalDate to,
+                                                                              OperatingExpense.Status status);
 }

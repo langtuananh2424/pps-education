@@ -9,6 +9,7 @@ import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CreateOperatingExpenseRequest;
 import vn.com.pps.education.dto.DecideOperatingExpenseRequest;
+import vn.com.pps.education.dto.ExpenseCategoryResponse;
 import vn.com.pps.education.dto.OperatingExpenseResponse;
 import vn.com.pps.education.exception.OperatingExpenseAlreadyDecidedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -124,6 +125,15 @@ public class OperatingExpenseService {
         return expenses.stream().map(this::toResponse).toList();
     }
 
+    /** Danh mục loại chi đang dùng cho form ghi nhận chi (UC-31 bước 2). */
+    @Transactional(readOnly = true)
+    public List<ExpenseCategoryResponse> listCategories() {
+        return expenseCategoryRepository.findByActiveTrueOrderByNameAsc().stream()
+                .map(c -> new ExpenseCategoryResponse(c.getId(), c.getCode(), c.getName(),
+                        c.getCategoryGroup() == null ? null : c.getCategoryGroup().name()))
+                .toList();
+    }
+
     private String generateExpenseNumber() {
         String prefix = "EXP-" + Year.now().getValue() + "-";
         long sequence = operatingExpenseRepository.countByExpenseNumberStartingWith(prefix) + 1;
@@ -161,6 +171,8 @@ public class OperatingExpenseService {
                 e.getSite() == null ? null : e.getSite().getId(), e.getExpenseDate(), e.getAmount(), e.getDescription(),
                 e.getPaymentMethod().name(), e.getSupplierName(), e.getReceiptNumber(), e.getFileUrl(),
                 e.getStatus().name(), e.getRecordedBy().getId(),
-                e.getApprovedBy() == null ? null : e.getApprovedBy().getId(), e.getRejectionReason());
+                e.getApprovedBy() == null ? null : e.getApprovedBy().getId(), e.getRejectionReason(),
+                e.getSite() == null ? null : e.getSite().getName(), e.getRecordedBy().getFullName(),
+                e.getApprovedBy() == null ? null : e.getApprovedBy().getFullName(), e.getCreatedAt());
     }
 }

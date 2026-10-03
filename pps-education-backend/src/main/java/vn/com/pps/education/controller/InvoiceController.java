@@ -10,9 +10,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.BankWebhookPaymentRequest;
+import vn.com.pps.education.dto.CancelInvoiceRequest;
 import vn.com.pps.education.dto.GenerateInvoicesRequest;
+import vn.com.pps.education.dto.InvoiceHistoryResponse;
 import vn.com.pps.education.dto.InvoiceResponse;
 import vn.com.pps.education.dto.PaymentResponse;
 import vn.com.pps.education.dto.RecordManualPaymentRequest;
@@ -22,6 +25,7 @@ import vn.com.pps.education.service.InvoiceService;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.LocalDate;
 import java.util.List;
 
 /** UC-30: Xem hóa đơn & thanh toán học phí (FR-FIN-01, FR-FIN-02) — xem Javadoc InvoiceService. */
@@ -43,6 +47,44 @@ public class InvoiceController {
     public ResponseEntity<List<InvoiceResponse>> generateInvoices(@Valid @RequestBody GenerateInvoicesRequest request,
                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(invoiceService.generateInvoices(request, actor.userId()));
+    }
+
+    /** Màn Thu phí & hóa đơn phía Kế toán: lọc theo kỳ phát hành, trạng thái, điểm trường, lớp, từ khoá. */
+    @GetMapping("/api/finance/invoices")
+    @PreAuthorize("hasPermission(null, 'finance.invoice.view')")
+    public ResponseEntity<List<InvoiceResponse>> searchInvoices(@RequestParam LocalDate from,
+                                                                   @RequestParam LocalDate to,
+                                                                   @RequestParam(required = false) String status,
+                                                                   @RequestParam(required = false) Long siteId,
+                                                                   @RequestParam(required = false) Long classId,
+                                                                   @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(invoiceService.searchInvoices(from, to, status, siteId, classId, keyword));
+    }
+
+    @GetMapping("/api/finance/invoices/{id}/detail")
+    @PreAuthorize("hasPermission(null, 'finance.invoice.view')")
+    public ResponseEntity<InvoiceResponse> getInvoiceForStaff(@PathVariable Long id) {
+        return ResponseEntity.ok(invoiceService.getInvoiceForStaff(id));
+    }
+
+    @GetMapping("/api/finance/invoices/{id}/payments")
+    @PreAuthorize("hasPermission(null, 'finance.invoice.view')")
+    public ResponseEntity<List<PaymentResponse>> listPayments(@PathVariable Long id) {
+        return ResponseEntity.ok(invoiceService.listPayments(id));
+    }
+
+    @GetMapping("/api/finance/invoices/{id}/history")
+    @PreAuthorize("hasPermission(null, 'finance.invoice.view')")
+    public ResponseEntity<List<InvoiceHistoryResponse>> listHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(invoiceService.listHistory(id));
+    }
+
+    @PostMapping("/api/finance/invoices/{id}/cancel")
+    @PreAuthorize("hasPermission(null, 'finance.invoice.cancel')")
+    public ResponseEntity<InvoiceResponse> cancelInvoice(@PathVariable Long id,
+                                                          @Valid @RequestBody CancelInvoiceRequest request,
+                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(invoiceService.cancelInvoice(id, request, actor.userId()));
     }
 
     @GetMapping("/api/finance/invoices/my")

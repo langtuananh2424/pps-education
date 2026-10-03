@@ -10,5 +10,9 @@ public record TuitionPlanAssignmentResponse(
         BigDecimal priceOverride,
         String overrideReason,
         LocalDate effectiveFrom,
-        LocalDate effectiveTo
+        LocalDate effectiveTo,
+        // Bổ sung 2026-10-03 cho màn Gói học phí phía Kế toán.
+        String className,
+        String tuitionPlanCode,
+        String tuitionPlanName
 ) {}

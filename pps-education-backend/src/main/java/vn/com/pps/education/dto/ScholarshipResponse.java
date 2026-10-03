@@ -17,5 +17,8 @@ public record ScholarshipResponse(
         BigDecimal maxAmount,
         String status,
         Long approvedBy,
-        OffsetDateTime approvedAt
+        OffsetDateTime approvedAt,
+        // Bổ sung 2026-10-03 cho màn Học bổng phía Kế toán.
+        String studentCode,
+        String studentFullName
 ) {}

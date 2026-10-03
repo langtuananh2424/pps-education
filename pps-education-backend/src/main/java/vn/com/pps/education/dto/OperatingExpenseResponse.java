@@ -2,6 +2,7 @@ package vn.com.pps.education.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 
 public record OperatingExpenseResponse(
         Long id,
@@ -19,5 +20,10 @@ public record OperatingExpenseResponse(
         String status,
         Long recordedBy,
         Long approvedBy,
-        String rejectionReason
+        String rejectionReason,
+        // Bổ sung 2026-10-03 cho màn Chi phí vận hành — siteName NULL = chi dùng chung (UC-31 A1).
+        String siteName,
+        String recordedByName,
+        String approvedByName,
+        OffsetDateTime createdAt
 ) {}
