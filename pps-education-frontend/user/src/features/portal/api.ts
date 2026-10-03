@@ -440,9 +440,24 @@ export interface InvoiceResponse {
   totalAmount: number;
   paidAmount: number;
   outstandingAmount: number;
-  status: "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "CANCELLED";
+  status: "DRAFT" | "ISSUED" | "PARTIAL_PAID" | "PAID" | "OVERDUE" | "CANCELLED";
   qrCodeData: string | null;
   items: InvoiceItemResponse[];
+}
+
+/** UC-30 — khớp PaymentLinkResponse thật (link/QR payOS cho phần còn nợ). qrCode là chuỗi VietQR để tự vẽ ảnh. */
+export interface PaymentLinkResponse {
+  invoiceId: number;
+  orderCode: number;
+  amount: number;
+  status: "PENDING" | "PAID" | "CANCELLED" | "EXPIRED";
+  checkoutUrl: string | null;
+  qrCode: string | null;
+  bin: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  description: string | null;
+  expiresAt: string;
 }
 
 /** Bảng tin — khớp NotificationResponse thật (thông báo hệ thống, không phải tin trường chung). */
@@ -519,6 +534,10 @@ export function listMySessions(fromDate?: string, toDate?: string, classId?: num
 
 export function listMyInvoices(): Promise<InvoiceResponse[]> {
   return apiRequest<InvoiceResponse[]>("/finance/invoices/my");
+}
+
+export function createInvoicePaymentLink(invoiceId: number): Promise<PaymentLinkResponse> {
+  return apiRequest<PaymentLinkResponse>(`/finance/invoices/${invoiceId}/payment-link`, { method: "POST" });
 }
 
 export function listMyNotifications(page = 0, size = 20): Promise<Page<NotificationResponse>> {
