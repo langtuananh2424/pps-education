@@ -63,6 +63,7 @@
     "optionalAudioTranscriptFillInBlankHint": "No audio: this text is shown as a shared title/passage above the whole question group in the student's exercise.",
     "wordBankSectionTitle": "Word bank — correct answers in blank order",
     "wordBankHint": "Write the passage with blanks in \"Question content\" above, mark each blank with ___ in the EXACT order of the words below — students choose via dropdown, each word used exactly once.",
+    "formCompletionEditNote": "This is a \"Listening form completion\" question: students type each blank in the form (no dropdown), and each blank can accept several answers separated by /. Editing points or answers here keeps this question type.",
     "wordBankMultiSentenceWarning": "⚠ If this exercise has MULTIPLE separate sentences (e.g. 10-12 numbered items), this type bundles them all into a single question and grades all-or-nothing (1 wrong blank loses all the points for the whole thing). To give each sentence its own \"Question N.\" label and its own points, use the \"Multiple fill-in-the-blank questions\" tab in the compose-mode step instead.",
     "blankLabel": "Blank {{index}}",
     "blankPlaceholder": "e.g. went",
