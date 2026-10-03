@@ -32,7 +32,8 @@
     "ESSAY": "Tự luận file/ảnh",
     "SPEAKING": "Speaking oral",
     "LISTENING_AUDIO_SUBMISSION": "Nghe & nộp audio",
-    "LISTENING_FILL_IN_BLANK": "Nghe điền từ"
+    "LISTENING_FILL_IN_BLANK": "Nghe điền từ",
+    "LISTENING_FORM_COMPLETION": "Nghe điền phiếu thông tin"
   },
   "difficulty": {
     "EASY": "Dễ (Easy)",
@@ -244,6 +245,14 @@
     "correctAnswerPlaceholder": "Đáp án đúng (hệ thống tự chấm, nhiều đáp án cách nhau bằng /)...",
     "explanationPlaceholder": "Giải thích (phục vụ gợi ý tapescript sau khi học sinh nghe hết 3 lần)...",
     "audioSubmissionHint": "Nghe & nộp audio không có đáp án mẫu — mỗi câu sẽ chờ giáo viên chấm tay ở \"Hàng chờ chấm bài\".",
+    "formInstructionLabel": "Dòng hướng dẫn (tùy chọn)",
+    "formInstructionPlaceholder": "VD: Điền MỖI chỗ trống một từ, một số, một ngày hoặc một giờ.",
+    "formSectionTitle": "Phiếu thông tin (tiêu đề, gạch đầu dòng, chỗ trống ___)",
+    "formContentPlaceholder": "The Sea Lady\n\n- Built in: (14) ___\n- Length of the ship: (15) ___ long\n- Dinner time: (16) ___ p.m. to 9.30 p.m.",
+    "formContentHint": "Mỗi chỗ trống viết là ___ (3 dấu gạch dưới). Dòng đầu tách bằng 1 dòng trống sẽ thành tiêu đề; dùng **chữ đậm** để in đậm. Cả phiếu là 1 câu hỏi, chấm theo tỉ lệ ô đúng.",
+    "formAnswersTitle": "Đáp án từng chỗ trống ({{count}} ô, theo thứ tự xuất hiện)",
+    "formAnswerPlaceholder": "Đáp án ô {{n}} (nhiều đáp án cách nhau bằng /, VD 7:30/7.30 — số và giờ được chuẩn hóa khi chấm)",
+    "submitForm": "Tạo phiếu thông tin",
     "submitCreate": "Tạo {{count}} câu hỏi",
     "submitAppend": "Thêm {{count}} câu vào nhóm",
     "appendTargetLabel": "Thêm vào nhóm nghe",
@@ -257,6 +266,8 @@
       "fillAllOptions": "Vui lòng điền đủ 4 đáp án cho mọi câu hỏi trắc nghiệm.",
       "fillAllImages": "Vui lòng chọn đủ ảnh cho mọi đáp án của mọi câu hỏi.",
       "fillAllCorrectAnswers": "Vui lòng điền đáp án đúng cho mọi câu hỏi điền từ.",
+      "formNeedBlank": "Phiếu thông tin cần có nội dung và ít nhất 1 chỗ trống ___.",
+      "formFillAllAnswers": "Vui lòng điền đáp án cho mọi chỗ trống của phiếu.",
       "partialFailure": "Đã tạo được {{created}}/{{total}} câu thì lỗi — các câu đã tạo vẫn nằm trong ngân hàng câu hỏi, kiểm tra lại nếu cần.",
       "createFailed": "Tạo nhóm câu hỏi nghe thất bại."
     }
