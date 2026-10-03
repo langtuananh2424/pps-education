@@ -758,6 +758,9 @@ public class ExerciseAttemptService {
         if (given == null || question.getStructuredContent() == null) {
             return false;
         }
+        if (isFormCompletion(question)) {
+            return formAnswerMatches(question, given) == formBlankCount(question);
+        }
         Object raw = question.getStructuredContent().get(key);
         if (!(raw instanceof List<?> correctList) || correctList.size() != given.size()) {
             return false;
@@ -770,6 +773,32 @@ public class ExerciseAttemptService {
             }
         }
         return true;
+    }
+
+    /** Dạng "Nghe điền phiếu thông tin" (structuredContent.format="form") — xem {@link FormAnswerMatcher}. */
+    private static boolean isFormCompletion(Question question) {
+        return question.getQuestionType() == Question.QuestionType.WORD_BANK
+                && question.getStructuredContent() != null
+                && "form".equals(question.getStructuredContent().get("format"));
+    }
+
+    private static int formBlankCount(Question question) {
+        return question.getStructuredContent().get("blanks") instanceof List<?> l ? l.size() : 0;
+    }
+
+    /** Số ô đúng của câu dạng form: mỗi ô nhận nhiều phương án "a/b" + chuẩn hóa số/giờ. */
+    private static int formAnswerMatches(Question question, List<String> given) {
+        if (!(question.getStructuredContent().get("blanks") instanceof List<?> correctList)) {
+            return 0;
+        }
+        int matched = 0;
+        for (int i = 0; i < correctList.size(); i++) {
+            String submitted = i < given.size() ? given.get(i) : null;
+            if (FormAnswerMatcher.matches(String.valueOf(correctList.get(i)), submitted)) {
+                matched++;
+            }
+        }
+        return matched;
     }
 
     /**
@@ -797,6 +826,10 @@ public class ExerciseAttemptService {
             return BigDecimal.ZERO;
         }
         int total = correctList.size();
+        if (isFormCompletion(question)) {
+            return points.multiply(BigDecimal.valueOf(formAnswerMatches(question, given)))
+                    .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+        }
         int matched = 0;
         for (int i = 0; i < total; i++) {
             String correct = String.valueOf(correctList.get(i));

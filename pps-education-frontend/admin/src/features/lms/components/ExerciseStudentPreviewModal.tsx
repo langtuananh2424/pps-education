@@ -325,6 +325,8 @@ function QuestionPreview({ question, displayNumber }: { question: ExerciseQuesti
               : (question.structuredContent.wordBankOptions ?? question.structuredContent.blanks)
           }
           inputMode={question.structuredContent.inputMode}
+          formMode={question.structuredContent.format === "form"}
+          instruction={question.structuredContent.format === "form" ? question.referencePassage : null}
         />
       ) : question.questionType === "SENTENCE_BUILDING" && question.structuredContent?.chunks ? (
         <SentenceBuildingPreview chunkPool={question.structuredContent.chunks} />
@@ -361,7 +363,26 @@ function SpeakingInputPreview() {
  * trống đổi thành <input> gõ tay thay vì <select> — xem đúng lý do KHÔNG fallback wordPool=blanks
  * cho chế độ gõ tay ở TakeExerciseModal#WordBankBlock (tránh lộ sẵn đáp án trong hộp tham khảo).
  */
-function WordBankPreview({ content, wordPool, inputMode = "select" }: { content: string; wordPool: string[]; inputMode?: "select" | "text" }) {
+/** Hiện **chữ đậm** trong phiếu thông tin (chỉ cú pháp ** **, không phải Markdown đầy đủ). */
+function renderFormBold(text: string): React.ReactNode {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((seg, i) =>
+    seg.startsWith("**") && seg.endsWith("**") && seg.length > 4 ? <strong key={i}>{seg.slice(2, -2)}</strong> : seg
+  );
+}
+
+function WordBankPreview({
+  content,
+  wordPool,
+  inputMode = "select",
+  formMode = false,
+  instruction = null
+}: {
+  content: string;
+  wordPool: string[];
+  inputMode?: "select" | "text";
+  formMode?: boolean;
+  instruction?: string | null;
+}) {
   const { t } = useTranslation("lms-question-authoring");
   // Bổ sung 2026-09-17, đã xác nhận với người dùng — content của bài đọc dạng "đoạn văn" (VD
   // DIEN_TU_DOAN_VAN) thường có dòng TIÊU ĐỀ đứng riêng (tách bởi \n\n) trước phần thân có "___", mirror
@@ -388,11 +409,12 @@ function WordBankPreview({ content, wordPool, inputMode = "select" }: { content:
   // duyệt tự ngắt dòng theo TỪNG TỪ như văn bản thật.
   return (
     <div className="space-y-2">
+      {instruction && <p className="text-xs italic text-slate-500">{instruction}</p>}
       {title && <p className="text-sm font-black text-slate-800 text-center">{title}</p>}
-      <p className="text-sm font-bold text-slate-800 leading-8">
+      <p className={`text-sm ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-slate-800 leading-8`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
-            {part}
+            {formMode ? renderFormBold(part) : part}
             {idx < blankCount &&
               (inputMode === "text" ? (
                 <input

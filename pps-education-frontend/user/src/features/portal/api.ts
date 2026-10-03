@@ -1046,6 +1046,8 @@ export interface ExerciseQuestionResponse {
     wordBox?: string[];
     /** Bổ sung 2026-09-17, đã xác nhận với người dùng — chỉ có ở WORD_BANK: "text" = mỗi chỗ trống hiện ô nhập chữ tự do (học sinh gõ tay) thay vì <select> chọn sẵn (mirror ExerciseStudentPreviewModal#WordBankPreview). Thiếu field này (undefined) = hành vi cũ (dropdown). */
     inputMode?: "select" | "text";
+    /** Bổ sung 2026-10-03 — "form" = Nghe điền phiếu thông tin (NGHE_PHIEU_THONG_TIN): giữ xuống dòng, hiện **chữ đậm**, mỗi ô nhận nhiều đáp án "a/b" và chuẩn hóa số/giờ khi chấm. */
+    format?: "form";
   } | null;
   groupKey: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa dùng cho ESSAY/WORD_BANK/SENTENCE_BUILDING. */
