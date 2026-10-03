@@ -652,7 +652,14 @@ public class QuestionImportService {
                 throw new IllegalArgumentException("Điền từ - Hộp từ vựng/Đoạn văn cần danh sách đáp án đúng theo thứ tự chỗ trống, phân tách bằng dấu | (VD: went|to|school).");
             }
             Map<String, Object> sc = new LinkedHashMap<>();
-            sc.put("blanks", splitOrdered(row.correctAnswer()));
+            // Bổ sung 2026-10-02 (đã xác nhận với người dùng) — riêng DIEN_TU_DOAN_VAN cho phép 1 vài
+            // chỗ trống có đáp án đúng là CHUỖI RỖNG (VD bài điền mạo từ a/an/the/Ø — chỗ trống đúng ra
+            // "không cần mạo từ" thì học sinh để trống ô, không phải gõ chữ "Ø"/"no article"). Dùng
+            // splitPipeKeepBlanks (giữ nguyên vị trí rỗng) thay vì splitOrdered (filter rỗng) để không
+            // bị lệch thứ tự so với các "(N)___" trong Nội dung. Chỉ áp dụng cho DIEN_TU_DOAN_VAN — 2
+            // kind còn lại (DIEN_TU_HOP_TU_VUNG/_ANH, dropdown chọn sẵn) không có khái niệm "để trống
+            // hợp lệ" nên giữ nguyên splitOrdered như cũ.
+            sc.put("blanks", kind.equals("DIEN_TU_DOAN_VAN") ? splitPipeKeepBlanks(row.correctAnswer()) : splitOrdered(row.correctAnswer()));
             if (kind.equals("DIEN_TU_HOP_TU_VUNG_ANH") || kind.equals("DIEN_TU_DOAN_VAN")) {
                 imageUrl = blankToNull(row.imageUrl());
                 // Tái dùng cột "Transcript/Từ khóa phát âm" (referencePassage) làm hộp từ vựng — tùy

@@ -353,6 +353,50 @@ class CommentAiDraftServiceTest {
         assertThat(result.unmatchedMentions().get(1).candidateStudentIds()).containsExactly(1L);
     }
 
+    /** Rubric v2 (2026-10-02): đại từ không kèm tên / tên không khớp ai → unmatched rỗng ứng viên, kèm "reason". */
+    @Test
+    void generateDraft_UC74_A6_pronounMentionAcceptedWithEmptyCandidatesAndReason() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT, """
+                {"classAttitude": "GOOD", "classPoints": ["cả lớp tập trung tốt"], "individuals": [],
+                 "unmatched": [{"quote": "bạn áo đỏ hôm nay nói chuyện riêng", "candidateStudentIds": [], "reason": "pronoun"},
+                               {"quote": "bạn Quang làm bài tốt", "candidateStudentIds": [], "reason": "name_not_found"}]}""");
+        stubAi(CommentAiDraftService.WRITE_PROMPT,
+                "{\"comments\": [{\"studentId\": 1, \"content\": \"An tập trung tốt suốt buổi học.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "ghi chú");
+
+        assertThat(result.rows()).extracting(CommentAiDraftResult.Row::studentId).containsExactly(1L);
+        assertThat(result.unmatchedMentions()).extracting(CommentAiDraftResult.UnmatchedMention::quote)
+                .containsExactly("bạn áo đỏ hôm nay nói chuyện riêng", "bạn Quang làm bài tốt");
+        assertThat(result.unmatchedMentions()).allSatisfy(m -> assertThat(m.candidateStudentIds()).isEmpty());
+    }
+
+    /** Rubric v2 (2026-10-02): 1 học sinh được nhắc nhiều lần mà AI chưa gộp → code gộp ý, không mất ý lần sau. */
+    @Test
+    void generateDraft_UC74_studentMentionedTwiceIsMergedNotDropped() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT, """
+                {"classAttitude": null, "classPoints": [],
+                 "individuals": [{"studentId": 1, "attitude": "AVERAGE", "points": ["nói chuyện riêng đầu giờ"], "evidence": "An nói chuyện riêng"},
+                                 {"studentId": 2, "attitude": "GOOD", "points": ["làm bài tốt"]},
+                                 {"studentId": 1, "attitude": "GOOD", "points": ["cuối giờ phát biểu tốt"], "evidence": "An phát biểu tốt", "sharedWith": [2]}],
+                 "unmatched": []}""");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, """
+                {"comments": [{"studentId": 1, "content": "An đầu giờ còn nói chuyện riêng. Cuối giờ con phát biểu tốt."},
+                              {"studentId": 2, "content": "Bình làm bài tốt trong buổi hôm nay."}]}""");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN, BINH), null, null, "ghi chú");
+
+        assertThat(result.extraction().individuals()).hasSize(2);
+        CommentAiDraftResult.IndividualPoints an = result.extraction().individuals().get(0);
+        assertThat(an.studentId()).isEqualTo(1L);
+        assertThat(an.points()).containsExactly("nói chuyện riêng đầu giờ", "cuối giờ phát biểu tốt");
+        // 2 lần nhắc có Thái độ khác nhau -> để trống cho giáo viên tự chọn.
+        assertThat(an.attitude()).isNull();
+        assertThat(an.evidence()).isEqualTo("An nói chuyện riêng … An phát biểu tốt");
+        assertThat(an.sharedWith()).containsExactly(2L);
+        assertThat(result.rows()).extracting(CommentAiDraftResult.Row::studentId).contains(1L, 2L);
+    }
+
     @Test
     void generateDraft_UC74_A7_attitudeLeftBlankWhenTeacherDidNotMentionIt() {
         stubAi(CommentAiDraftService.EXTRACT_PROMPT, """
@@ -492,6 +536,24 @@ class CommentAiDraftServiceTest {
         assertThat(result.rows().get(0).content()).isEqualTo("An tập trung tốt.");
         assertThat(result.rows().get(1).attitude()).isEqualTo("AVERAGE");
         assertThat(result.rows().get(1).content()).isEqualTo("Bình hôm nay còn lơ là, cần cố gắng hơn.");
+    }
+
+    /** Revise luật 10 (rubric v2): đổi Thái độ không kèm lý do → AI chỉ trả "attitude", nội dung cũ được giữ nguyên. */
+    @Test
+    void revise_UC74_attitudeOnlyChangeKeepsExistingContent() {
+        stubAi(CommentAiDraftService.REVISE_PROMPT, """
+                {"assistantMessage": "Đã đổi Thái độ của An sang Trung bình, nội dung giữ nguyên.",
+                 "changes": [{"studentId": 1, "attitude": "AVERAGE"}]}""");
+        ReviseCommentAiDraftRequest request = new ReviseCommentAiDraftRequest(ReviseCommentAiDraftRequest.Mode.INSTRUCTION,
+                "An hôm nay cho Trung bình", "transcript", null,
+                List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "GOOD", "An đã hoàn thành bài trên lớp.")),
+                List.of(), null);
+
+        CommentAiDraftResult result = service.revise(context(AN), request);
+
+        assertThat(result.rows().get(0).attitude()).isEqualTo("AVERAGE");
+        assertThat(result.rows().get(0).content()).isEqualTo("An đã hoàn thành bài trên lớp.");
+        verify(aiClient, times(1)).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT), anyString(), anyString(), anyDouble());
     }
 
     @Test

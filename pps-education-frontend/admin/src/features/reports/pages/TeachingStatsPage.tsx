@@ -102,15 +102,6 @@ export default function TeachingStatsPage() {
           ))}
         </div>
       </Td>
-      <Td>
-        <div className="flex flex-wrap gap-1">
-          {r.roles.map((role) => (
-            <span key={role} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 whitespace-nowrap">
-              {t(`teachingStats.roleLabels.${role}`, { defaultValue: role })}
-            </span>
-          ))}
-        </div>
-      </Td>
       <Td className="text-right">{r.classCount}</Td>
       <Td className="text-right">{r.scheduledSessions}</Td>
       <Td className="text-right">{r.heldSessions}</Td>
