@@ -544,6 +544,8 @@
       "attachedPoints": " (đã gắn {{points}})",
       "pointsInputDraftOnlyTitle": "Điểm câu hỏi này trong Bài (chỉ sửa được khi còn Nháp)",
       "editExerciseTooltip": "Sửa Bài",
+      "exportExcelTooltip": "Xuất Excel câu hỏi của Bài",
+      "exportExcelFailed": "Xuất Excel thất bại.",
       "deleteExerciseTooltip": "Xóa Bài",
       "addQuestions": "+ Thêm câu hỏi",
       "previewWithAnswers": "Xem trước (có đáp án)",
