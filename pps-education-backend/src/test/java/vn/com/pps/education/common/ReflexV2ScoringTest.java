@@ -3,7 +3,7 @@ package vn.com.pps.education.common;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import vn.com.pps.education.domain.Curriculum;
+import vn.com.pps.education.academic.domain.Curriculum;
 
 import java.util.List;
 

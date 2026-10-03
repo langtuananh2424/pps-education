@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import vn.com.pps.education.dto.CommentAiDraftResult;
+import vn.com.pps.education.lms.dto.CommentAiDraftResult;
 
 class CommentAiDraftMetricsTest {
 

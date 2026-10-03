@@ -88,8 +88,8 @@ PR vào `develop` (chỉ chạy local, không deploy) → PR `develop` → `main
 - E2E: backend chạy sẵn ở `:8080`, rồi `cd e2e && npm test`.
 
 ## Quy ước code
-- Package dùng chung `vn.com.pps.education.{config,controller,service,repository,domain,dto,security,exception,common}`
-  — chưa tách theo module (repo còn nhỏ).
+- Package chia theo phân hệ: `vn.com.pps.education.<phân-hệ>.{controller,service,repository,domain,dto}`
+  (`auth`, `permission`, `hr`, `student`, `academic`, `lms`, `finance`, `crm`, `facility`, `task`, `notification`, `report`, `media`, `system`); phần dùng chung ở `vn.com.pps.education.{config,security,exception,common}`.
 - Không tự sinh DDL từ Hibernate (`ddl-auto: validate`) — Flyway là nguồn
   chân lý schema duy nhất.
 - Toàn bộ entity có `created_at/updated_at` kế thừa `BaseAuditEntity`.

@@ -4,12 +4,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
-import vn.com.pps.education.domain.Role;
-import vn.com.pps.education.domain.User;
-import vn.com.pps.education.domain.UserRole;
-import vn.com.pps.education.repository.RoleRepository;
-import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
+import vn.com.pps.education.permission.domain.Role;
+import vn.com.pps.education.auth.domain.User;
+import vn.com.pps.education.permission.domain.UserRole;
+import vn.com.pps.education.permission.repository.RoleRepository;
+import vn.com.pps.education.auth.repository.UserRepository;
+import vn.com.pps.education.permission.repository.UserRoleRepository;
 import vn.com.pps.education.security.JwtService;
 
 import java.util.List;

@@ -1,0 +1,176 @@
+package vn.com.pps.education.academic.controller;
+
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.ExcelHttpResponses;
+import vn.com.pps.education.academic.dto.AssignTeacherRequest;
+import vn.com.pps.education.academic.dto.ChangeTeacherRequest;
+import vn.com.pps.education.academic.dto.ClassEnrollmentBatchImportResponse;
+import vn.com.pps.education.academic.dto.ClassTeacherHistoryResponse;
+import vn.com.pps.education.academic.dto.ClassEnrollmentResponse;
+import vn.com.pps.education.lms.dto.ClassResponse;
+import vn.com.pps.education.academic.dto.ClassTeacherResponse;
+import vn.com.pps.education.academic.dto.CreateClassRequest;
+import vn.com.pps.education.academic.dto.EndTeacherAssignmentRequest;
+import vn.com.pps.education.academic.dto.EnrollStudentRequest;
+import vn.com.pps.education.academic.dto.PromoteClassRequest;
+import vn.com.pps.education.academic.dto.PromoteClassResponse;
+import vn.com.pps.education.academic.dto.UpdateClassRequest;
+import vn.com.pps.education.academic.dto.WithdrawEnrollmentRequest;
+import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.academic.service.ClassEnrollmentBatchImportService;
+import vn.com.pps.education.academic.service.ClassService;
+
+import java.util.List;
+
+/** UC-18: Xếp lớp & gán khóa học (FR-ACA-02). */
+@RestController
+@RequestMapping("/api/classes")
+public class ClassController {
+
+    private final ClassService classService;
+    private final ClassEnrollmentBatchImportService classEnrollmentBatchImportService;
+
+    public ClassController(ClassService classService, ClassEnrollmentBatchImportService classEnrollmentBatchImportService) {
+        this.classService = classService;
+        this.classEnrollmentBatchImportService = classEnrollmentBatchImportService;
+    }
+
+    /**
+     * Dropdown FE: chọn trường (siteId) -> hiển thị lớp của trường đó; lọc
+     * thêm theo chương trình (curriculumId/classCategory). Tài khoản có phạm
+     * vi dữ liệu hẹp hơn ALL (V202) chỉ thấy lớp thuộc (các) site được gán
+     * qua site_teachers/site_managers — xem Javadoc ClassService.search.
+     */
+    @GetMapping
+    public ResponseEntity<List<ClassResponse>> search(@RequestParam(required = false) String query,
+                                                       @RequestParam(required = false) Long siteId,
+                                                       @RequestParam(required = false) Long curriculumId,
+                                                       @RequestParam(required = false) String classCategory,
+                                                       @RequestParam(required = false) Long academicYearId,
+                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.search(query, siteId, curriculumId, classCategory, academicYearId, actor.userId()));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ClassResponse> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(classService.getById(id));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.class.create')")
+    @PostMapping
+    public ResponseEntity<ClassResponse> create(@Valid @RequestBody CreateClassRequest request,
+                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.create(request, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.class.update')")
+    @PutMapping("/{id}")
+    public ResponseEntity<ClassResponse> update(@PathVariable Long id,
+                                                   @Valid @RequestBody UpdateClassRequest request,
+                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.update(id, request, actor.userId()));
+    }
+
+    @GetMapping("/{id}/teachers")
+    public ResponseEntity<List<ClassTeacherResponse>> listTeachers(@PathVariable Long id) {
+        return ResponseEntity.ok(classService.listTeachers(id));
+    }
+
+    /** UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): lịch sử thay đổi giáo viên phụ trách của cả lớp. */
+    @GetMapping("/{id}/teachers/history")
+    public ResponseEntity<List<ClassTeacherHistoryResponse>> listTeacherHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(classService.listTeacherHistory(id));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.class.teacher.assign')")
+    @PostMapping("/{id}/teachers")
+    public ResponseEntity<ClassTeacherResponse> assignTeacher(@PathVariable Long id,
+                                                                  @Valid @RequestBody AssignTeacherRequest request,
+                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.assignTeacher(id, request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — kết thúc phụ trách của 1 giáo viên với lớp. */
+    @PreAuthorize("hasPermission(null, 'academic.class.teacher.assign')")
+    @PutMapping("/{id}/teachers/{classTeacherId}/end")
+    public ResponseEntity<ClassTeacherResponse> endTeacherAssignment(@PathVariable Long id,
+                                                                        @PathVariable Long classTeacherId,
+                                                                        @Valid @RequestBody EndTeacherAssignmentRequest request,
+                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.endTeacherAssignment(id, classTeacherId, request, actor.userId()));
+    }
+
+    /**
+     * UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): đổi giáo viên
+     * chính (PRIMARY) của lớp — kết thúc phân công cũ + gán phân công
+     * mới trong 1 transaction, cascade cập nhật giáo viên phụ trách các
+     * buổi học SCHEDULED tương lai cùng loại giáo viên.
+     */
+    @PreAuthorize("hasPermission(null, 'academic.class.teacher.assign')")
+    @PutMapping("/{id}/teachers/{classTeacherId}/change")
+    public ResponseEntity<ClassTeacherResponse> changeTeacher(@PathVariable Long id,
+                                                                  @PathVariable Long classTeacherId,
+                                                                  @Valid @RequestBody ChangeTeacherRequest request,
+                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.changeTeacher(id, classTeacherId, request, actor.userId()));
+    }
+
+    @GetMapping("/{id}/enrollments")
+    public ResponseEntity<List<ClassEnrollmentResponse>> listEnrollments(@PathVariable Long id) {
+        return ResponseEntity.ok(classService.listEnrollments(id));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.class.enrollment.create')")
+    @PostMapping("/{id}/enrollments")
+    public ResponseEntity<ClassEnrollmentResponse> enroll(@PathVariable Long id,
+                                                              @Valid @RequestBody EnrollStudentRequest request,
+                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.enroll(id, request, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.class.enrollment.withdraw')")
+    @PostMapping("/{id}/enrollments/{enrollmentId}/withdraw")
+    public ResponseEntity<ClassEnrollmentResponse> withdraw(@PathVariable Long id,
+                                                                @PathVariable Long enrollmentId,
+                                                                @Valid @RequestBody WithdrawEnrollmentRequest request,
+                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.withdraw(id, enrollmentId, request, actor.userId()));
+    }
+
+    /** UC-65: ghi danh học sinh (đã tồn tại sẵn) theo lô qua Excel — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31. */
+    @PreAuthorize("hasPermission(null, 'academic.class.enrollment.import')")
+    @PostMapping(value = "/{id}/enrollments/import", consumes = "multipart/form-data")
+    public ResponseEntity<ClassEnrollmentBatchImportResponse> importEnrollments(@PathVariable Long id,
+                                                                                 @RequestParam("file") MultipartFile file,
+                                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classEnrollmentBatchImportService.importEnrollments(id, file, actor.userId()));
+    }
+
+    /** File mẫu ghi danh học sinh theo lô (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31). */
+    @PreAuthorize("hasPermission(null, 'academic.class.enrollment.import')")
+    @GetMapping("/{id}/enrollments/import-template")
+    public ResponseEntity<byte[]> downloadEnrollmentImportTemplate(@PathVariable Long id) {
+        return ExcelHttpResponses.attachment(classEnrollmentBatchImportService.buildTemplate(), "mau-ghi-danh-hoc-sinh.xlsx");
+    }
+
+    /** Chuyển lớp hàng loạt cuối năm học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) — xem ClassService#promoteClass. */
+    @PreAuthorize("hasPermission(null, 'academic.class.promote')")
+    @PostMapping("/{id}/promote")
+    public ResponseEntity<PromoteClassResponse> promoteClass(@PathVariable Long id,
+                                                                 @Valid @RequestBody PromoteClassRequest request,
+                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classService.promoteClass(id, request, actor.userId()));
+    }
+}

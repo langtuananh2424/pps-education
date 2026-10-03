@@ -13,7 +13,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import vn.com.pps.education.service.AccountStatusService;
+import vn.com.pps.education.auth.service.AccountStatusService;
 
 import java.io.IOException;
 import java.util.List;

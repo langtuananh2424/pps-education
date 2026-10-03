@@ -1,6 +1,6 @@
 package vn.com.pps.education.common;
 
-import vn.com.pps.education.domain.Curriculum;
+import vn.com.pps.education.academic.domain.Curriculum;
 
 import java.util.List;
 
@@ -13,7 +13,7 @@ import java.util.List;
  * Mã khối (g6/g7/g7b1/g8/g8b1/g9) khớp đúng {@code HUONG_DAN_TICH_HOP.md} mục 2 "Bảng khối" — dùng làm
  * khoá tra rubric/key-grammar và chọn model gọi 9Router. Khối 9 CAMBRIDGE không có rubric (chưa được bàn
  * giao) — {@link #forGradeTrack} trả {@code null}, caller rơi về hàng chờ chấm tay như mọi trường hợp
- * thiếu rubric khác (xem {@link vn.com.pps.education.service.RubricByGradeTrackLoader}).
+ * thiếu rubric khác (xem {@link vn.com.pps.education.lms.service.RubricByGradeTrackLoader}).
  */
 public record WritingV3Grade(String code, String label, String exam, List<String> rows, String contentCriterion,
                               int thinContentCapPercent, int defaultWordLimit, boolean openingSentenceExempt) {
@@ -48,7 +48,7 @@ public record WritingV3Grade(String code, String label, String exam, List<String
     /**
      * @return {@code null} nếu chưa xác định được (thiếu gradeLevel/track) hoặc tổ hợp chưa có rubric
      *         (Khối 9 Cambridge) — caller coi như "chưa chấm được", mirror
-     *         {@link vn.com.pps.education.service.RubricByGradeTrackLoader#load}.
+     *         {@link vn.com.pps.education.lms.service.RubricByGradeTrackLoader#load}.
      */
     public static WritingV3Grade forGradeTrack(Curriculum.GradeLevel gradeLevel, Curriculum.Track track) {
         if (gradeLevel == null) {
