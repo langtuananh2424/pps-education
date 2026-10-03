@@ -440,9 +440,24 @@ export interface InvoiceResponse {
   totalAmount: number;
   paidAmount: number;
   outstandingAmount: number;
-  status: "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "CANCELLED";
+  status: "DRAFT" | "ISSUED" | "PARTIAL_PAID" | "PAID" | "OVERDUE" | "CANCELLED";
   qrCodeData: string | null;
   items: InvoiceItemResponse[];
+}
+
+/** UC-30 — khớp PaymentLinkResponse thật (link/QR payOS cho phần còn nợ). qrCode là chuỗi VietQR để tự vẽ ảnh. */
+export interface PaymentLinkResponse {
+  invoiceId: number;
+  orderCode: number;
+  amount: number;
+  status: "PENDING" | "PAID" | "CANCELLED" | "EXPIRED";
+  checkoutUrl: string | null;
+  qrCode: string | null;
+  bin: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  description: string | null;
+  expiresAt: string;
 }
 
 /** Bảng tin — khớp NotificationResponse thật (thông báo hệ thống, không phải tin trường chung). */
@@ -519,6 +534,10 @@ export function listMySessions(fromDate?: string, toDate?: string, classId?: num
 
 export function listMyInvoices(): Promise<InvoiceResponse[]> {
   return apiRequest<InvoiceResponse[]>("/finance/invoices/my");
+}
+
+export function createInvoicePaymentLink(invoiceId: number): Promise<PaymentLinkResponse> {
+  return apiRequest<PaymentLinkResponse>(`/finance/invoices/${invoiceId}/payment-link`, { method: "POST" });
 }
 
 export function listMyNotifications(page = 0, size = 20): Promise<Page<NotificationResponse>> {
@@ -1027,6 +1046,8 @@ export interface ExerciseQuestionResponse {
     wordBox?: string[];
     /** Bổ sung 2026-09-17, đã xác nhận với người dùng — chỉ có ở WORD_BANK: "text" = mỗi chỗ trống hiện ô nhập chữ tự do (học sinh gõ tay) thay vì <select> chọn sẵn (mirror ExerciseStudentPreviewModal#WordBankPreview). Thiếu field này (undefined) = hành vi cũ (dropdown). */
     inputMode?: "select" | "text";
+    /** Bổ sung 2026-10-03 — "form" = Nghe điền phiếu thông tin (NGHE_PHIEU_THONG_TIN): giữ xuống dòng, hiện **chữ đậm**, mỗi ô nhận nhiều đáp án "a/b" và chuẩn hóa số/giờ khi chấm. */
+    format?: "form";
   } | null;
   groupKey: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa dùng cho ESSAY/WORD_BANK/SENTENCE_BUILDING. */

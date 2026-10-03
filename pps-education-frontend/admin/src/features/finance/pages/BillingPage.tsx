@@ -1,25 +1,36 @@
-import React from "react";
-import UnderDevelopment from "@/components/ui/UnderDevelopment";
-// 100% mock data (mockInvoices, webhook giả lập qua alert()) — tạm ẩn theo yêu cầu người dùng
-// (2026-07-23), sẽ phát triển tiếp ở giai đoạn sau, không xoá component cũ (InvoiceQrPanel).
-// import { useState } from "react";
-// import { QrCode } from "lucide-react";
-// import { Invoice } from "@/types";
-// import { mockInvoices } from "@/data/mockData";
-// import Card from "@/components/ui/Card";
-// import Badge from "@/components/ui/Badge";
-// import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
-// import InvoiceQrPanel from "../components/InvoiceQrPanel";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import Tabs from "@/components/ui/Tabs";
+import InvoicesTab from "../components/InvoicesTab";
+import TuitionPlansTab from "../components/TuitionPlansTab";
+import ScholarshipsTab from "../components/ScholarshipsTab";
 
+type TabId = "invoices" | "plans" | "scholarships";
+
+/**
+ * Thu phí & hóa đơn (UC-30 phía Kế toán): tra cứu hóa đơn + ghi nhận thanh toán thủ công, gói học phí gán
+ * cho lớp, học bổng/miễn giảm. Thay cho bản mock cũ (đã ẩn bằng UnderDevelopment từ 2026-09).
+ */
 export default function BillingPage() {
+  const { t } = useTranslation("finance");
+  const [activeTab, setActiveTab] = useState<TabId>("invoices");
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "invoices", label: t("billing.tabInvoices") },
+    { id: "plans", label: t("billing.tabPlans") },
+    { id: "scholarships", label: t("billing.tabScholarships") }
+  ];
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Tài Chính & Sổ Cái Kế Toán</h1>
-        <p className="text-sm text-slate-500 mt-1">Xuất hóa đơn học phí, quét mã QR gạch nợ tự động trực tuyến.</p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("billing.title")}</h1>
+        <p className="text-sm text-slate-500 mt-1">{t("billing.description")}</p>
       </div>
-
-      <UnderDevelopment title="Thu phí & hóa đơn" />
+      <Tabs items={tabs} activeId={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
+      {activeTab === "invoices" && <InvoicesTab />}
+      {activeTab === "plans" && <TuitionPlansTab />}
+      {activeTab === "scholarships" && <ScholarshipsTab />}
     </div>
   );
 }

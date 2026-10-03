@@ -32,7 +32,8 @@
     "ESSAY": "Essay (file/image)",
     "SPEAKING": "Speaking (oral)",
     "LISTENING_AUDIO_SUBMISSION": "Listen & submit audio",
-    "LISTENING_FILL_IN_BLANK": "Listening fill in the blank"
+    "LISTENING_FILL_IN_BLANK": "Listening fill in the blank",
+    "LISTENING_FORM_COMPLETION": "Listening form completion"
   },
   "difficulty": {
     "EASY": "Easy",
@@ -140,6 +141,7 @@
       "letterScramble": "1 letter per element, separated by | in the EXACT order that forms the correct word.",
       "listeningAudioSubmission": "Student submits audio; graded manually in the Grading queue.",
       "listeningFillInBlank": "Auto-graded against the correct answer.",
+      "listeningFormCompletion": "Each ___ blank maps to one answer in order (| separated); several accepted answers per blank use /, numbers/times are normalised. Scored by share of correct blanks.",
       "listeningPictureChoice": "Each image is 1 option in order A/B/C(/D), separated by | in Image URL — Option A/B/C/D are optional captions under each image, leave blank to default to the letter label.",
       "gridReading": "Each question in Content is separated by | and shares ONE reference passage + ONE shared A-D answer set (applies to EVERY question). Correct answer is the letter A/B/C/D in the EXACT order matching Content.",
       "clozeReading": "The number of blanks is inferred from the | count in Answer A (required) — Answer B/C/D (if present) must match that count, EACH blank has its own options. Content (optional) labels each blank; leave blank to auto-number them."
@@ -162,6 +164,7 @@
       "SAP_XEP_CHU_CAI": "Unscramble letters",
       "NGHE_NOP_AUDIO": "Listen & submit audio",
       "NGHE_DIEN_TU": "Listening fill in the blank",
+      "NGHE_PHIEU_THONG_TIN": "Listening form completion",
       "DOC_HIEU_LUOI": "Reading comprehension - Grid",
       "DOC_DIEN_TU": "Reading cloze"
     },
@@ -242,6 +245,14 @@
     "correctAnswerPlaceholder": "Correct answer (auto-graded by the system, multiple answers separated by /)...",
     "explanationPlaceholder": "Explanation (used for the tapescript hint after students finish listening 3 times)...",
     "audioSubmissionHint": "Listen & submit audio has no sample answer — each question waits for the teacher to grade manually in \"Grading Queue\".",
+    "formInstructionLabel": "Instruction line (optional)",
+    "formInstructionPlaceholder": "E.g. Write ONE WORD, NUMBER, DATE or TIME for each answer.",
+    "formSectionTitle": "Information form (title, bullets, ___ blanks)",
+    "formContentPlaceholder": "The Sea Lady\n\n- Built in: (14) ___\n- Length of the ship: (15) ___ long\n- Dinner time: (16) ___ p.m. to 9.30 p.m.",
+    "formContentHint": "Write each blank as ___ (3 underscores). A first line followed by an empty line becomes the title; use **bold** for bold text. The whole form is one question, scored by share of correct blanks.",
+    "formAnswersTitle": "Answer for each blank ({{count}} blanks, in order of appearance)",
+    "formAnswerPlaceholder": "Answer for blank {{n}} (separate alternatives with /, e.g. 7:30/7.30 — numbers and times are normalised)",
+    "submitForm": "Create form question",
     "submitCreate": "Create {{count}} questions",
     "submitAppend": "Add {{count}} questions to group",
     "appendTargetLabel": "Add to listening group",
@@ -255,6 +266,8 @@
       "fillAllOptions": "Please fill in all 4 answers for every multiple choice question.",
       "fillAllImages": "Please choose an image for every answer of every question.",
       "fillAllCorrectAnswers": "Please fill in the correct answer for every fill-in-the-blank question.",
+      "formNeedBlank": "The form needs content and at least one ___ blank.",
+      "formFillAllAnswers": "Please fill in an answer for every blank.",
       "partialFailure": "Created {{created}}/{{total}} questions before an error occurred — the created questions remain in the question bank; please review if needed.",
       "createFailed": "Failed to create the listening question group."
     }
@@ -544,6 +557,8 @@
       "attachedPoints": " (attached {{points}})",
       "pointsInputDraftOnlyTitle": "This question's points within the exercise (editable only while still Draft)",
       "editExerciseTooltip": "Edit exercise",
+      "exportExcelTooltip": "Export exercise questions to Excel",
+      "exportExcelFailed": "Excel export failed.",
       "deleteExerciseTooltip": "Delete exercise",
       "addQuestions": "+ Add questions",
       "previewWithAnswers": "Preview (with answers)",

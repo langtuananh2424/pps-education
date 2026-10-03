@@ -1,0 +1,59 @@
+package vn.com.pps.education.permission.controller;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.permission.dto.RoleResponse;
+import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.permission.service.UserRoleAssignmentService;
+
+import java.util.List;
+
+/**
+ * UC-46: Gán/Thu hồi vai trò cho tài khoản (FR-PER-05). Tách khỏi
+ * UserController (UC-43, /api/users) và UserPermissionOverrideController
+ * (UC-04, permission.override.manage) — 3 UC khác lý do thay đổi (SOLID S).
+ */
+@RestController
+@RequestMapping("/api/users/{userId}/roles")
+public class UserRoleController {
+
+    private final UserRoleAssignmentService userRoleAssignmentService;
+
+    public UserRoleController(UserRoleAssignmentService userRoleAssignmentService) {
+        this.userRoleAssignmentService = userRoleAssignmentService;
+    }
+
+    @PreAuthorize("hasPermission(null, 'user.role.view')")
+    @GetMapping
+    public ResponseEntity<List<RoleResponse>> listAssignedRoles(@PathVariable Long userId) {
+        return ResponseEntity.ok(userRoleAssignmentService.listAssignedRoles(userId));
+    }
+
+    @PreAuthorize("hasPermission(null, 'user.role.assign')")
+    @PutMapping("/{roleId}")
+    public ResponseEntity<Void> assignRole(@PathVariable Long userId,
+                                            @PathVariable Long roleId,
+                                            @AuthenticationPrincipal AuthenticatedUser actor,
+                                            HttpServletRequest httpRequest) {
+        userRoleAssignmentService.assignRole(userId, roleId, actor.userId(), httpRequest);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasPermission(null, 'user.role.revoke')")
+    @DeleteMapping("/{roleId}")
+    public ResponseEntity<Void> revokeRole(@PathVariable Long userId,
+                                            @PathVariable Long roleId,
+                                            @AuthenticationPrincipal AuthenticatedUser actor,
+                                            HttpServletRequest httpRequest) {
+        userRoleAssignmentService.revokeRole(userId, roleId, actor.userId(), httpRequest);
+        return ResponseEntity.noContent().build();
+    }
+}

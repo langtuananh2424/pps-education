@@ -1,0 +1,110 @@
+package vn.com.pps.education.notification.domain;
+
+import vn.com.pps.education.auth.domain.User;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.time.OffsetDateTime;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Bảng notifications (SDD > Task Management & Thông báo > Notifications >
+ * a) — nội dung thông báo, tách khỏi kênh gửi (notification_deliveries).
+ * Không có history — bản chất là log.
+ */
+@Getter
+@Setter
+@Entity
+@Table(name = "notifications")
+public class Notification {
+
+    public enum NotificationType {
+        ATTENDANCE_ABSENT, ATTENDANCE_PRESENT, ATTENDANCE_LATE, ATTENDANCE_EXCUSED, ATTENDANCE_EARLY_LEAVE,
+        TASK_ASSIGNED, TASK_COMMENT, INVOICE_DUE, GRADE_PUBLISHED,
+        COMMENT_APPROVED, PARTNER_FEEDBACK, LEAVE_REQUEST_STATUS, SYSTEM_ANNOUNCEMENT,
+        GRADE_REJECTED, EXAM_INTEGRITY_VIOLATION, EXAM_INTEGRITY_VIOLATION_PARENT, HOMEWORK_DEADLINE_SUMMARY,
+        HOMEWORK_MISS_REMINDER, HOMEWORK_MISS_WARNING, HOMEWORK_MISS_PARENT_MEETING_INVITE,
+        HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE, HOMEWORK_DUE_SOON_REMINDER,
+        COMMENT_PENDING_APPROVAL, COMMENT_REJECTED, OTHER,
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: báo Quản lý điểm trường
+        // có "Thư mời phụ huynh tới làm việc" (HOMEWORK_MISS_PARENT_MEETING_INVITE) đang chờ
+        // duyệt trước khi gửi xuống Phụ huynh — xem HomeworkParentMeetingInviteService.
+        HOMEWORK_MEETING_INVITE_PENDING_APPROVAL,
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: cảnh báo thái độ học
+        // tập (StudentComment.attitude = WEAK/AVERAGE) — xem StudentAttitudeAlertTrackingService/
+        // StudentAttitudeEscalationService.
+        STUDENT_ATTITUDE_ALERT, STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL, STUDENT_ATTITUDE_ESCALATION,
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 (UC-71 mở rộng): cảnh báo
+        // giáo viên CHƯA nhận lớp khi tới giờ học (LATE) / KHÔNG nhận lớp khi đã hết giờ học
+        // (ABSENT) — gửi PUSH tới Quản lý điểm trường + EMAIL tới giáo viên dạy buổi đó. Xem
+        // ClassCheckInAlertSchedulerService.
+        CLASS_CHECKIN_LATE_ALERT, CLASS_CHECKIN_ABSENT_ALERT,
+        // V207 (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-01): theo dõi nộp & duyệt báo
+        // cáo buổi học — nhắc giáo viên (sắp hết hạn nộp / quá hạn nộp / quá hạn gửi lại), nhắc Quản lý
+        // điểm trường (sắp hết hạn duyệt / quá hạn duyệt), báo Trưởng phòng đào tạo khi quá hạn ở bất kỳ
+        // khâu nào + tổng hợp hằng ngày. Xem SessionReportAlertSchedulerService.
+        SESSION_REPORT_DUE_SOON, SESSION_REPORT_OVERDUE, SESSION_REPORT_RESUBMIT_OVERDUE,
+        SESSION_REPORT_APPROVAL_DUE_SOON, SESSION_REPORT_APPROVAL_OVERDUE,
+        SESSION_REPORT_ESCALATION, SESSION_REPORT_DAILY_DIGEST
+    }
+
+    public enum Priority { LOW, NORMAL, HIGH, URGENT }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true, updatable = false)
+    private UUID uuid = UUID.randomUUID();
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "recipient_user_id", nullable = false)
+    private User recipientUser;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notification_type", nullable = false, length = 50)
+    private NotificationType notificationType;
+
+    @Column(nullable = false, length = 500)
+    private String title;
+
+    @Column(nullable = false, columnDefinition = "text")
+    private String content;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> metadata;
+
+    /** Loại object liên quan để click chuyển trang. */
+    @Column(name = "entity_type", length = 50)
+    private String entityType;
+
+    @Column(name = "entity_id")
+    private Long entityId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Priority priority = Priority.NORMAL;
+
+    /** NULL = system. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "triggered_by")
+    private User triggeredBy;
+
+    @Column(name = "read_at")
+    private OffsetDateTime readAt;
+
+    @Column(name = "dismissed_at")
+    private OffsetDateTime dismissedAt;
+
+    @Column(name = "expires_at")
+    private OffsetDateTime expiresAt;
+
+    @Column(name = "created_at", nullable = false)
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+}
