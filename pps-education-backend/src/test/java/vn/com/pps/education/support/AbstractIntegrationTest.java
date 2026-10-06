@@ -3,6 +3,7 @@ package vn.com.pps.education.support;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.transaction.TestTransaction;
@@ -72,6 +73,9 @@ public abstract class AbstractIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    private static final int TRUNCATE_MAX_ATTEMPTS = 5;
+    private static final long TRUNCATE_RETRY_BACKOFF_MS = 300L;
 
     private boolean committedDuringTest = false;
 
@@ -152,9 +156,37 @@ public abstract class AbstractIntegrationTest {
                 String.class);
         tables.removeAll(SEED_REFERENCE_TABLES);
         if (!tables.isEmpty()) {
-            jdbcTemplate.execute("TRUNCATE TABLE " + String.join(", ", tables) + " CASCADE");
+            truncateWithRetry("TRUNCATE TABLE " + String.join(", ", tables) + " CASCADE");
         }
         restoreSeedTablesWipedByCascade();
+    }
+
+    /**
+     * TRUNCATE cần AccessExclusiveLock trên mọi bảng, trong khi các job @Scheduled chạy ngay trong
+     * ApplicationContext test (SchedulingConfig bật @EnableScheduling; VD job cron mỗi 5 phút của
+     * ExerciseAttemptTimeoutSchedulerService, HomeworkDeadline..., hoặc NotificationDispatchService
+     * mỗi phút) đang giữ AccessShareLock khi SELECT trên thread "scheduling-1" — 2 phiên khóa chéo
+     * thứ tự bảng nhau thì PostgreSQL báo "deadlock detected" (CI run 37404300859, đúng mốc :30:00
+     * của cron 5 phút, flaky, rerun xanh). PostgreSQL hủy 1 phiên làm nạn nhân và job nền chỉ chạy
+     * vài trăm ms, nên thử lại vài lần là đủ — không đổi hành vi test, không cần tắt scheduler.
+     */
+    private void truncateWithRetry(String truncateSql) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                jdbcTemplate.execute(truncateSql);
+                return;
+            } catch (PessimisticLockingFailureException ex) {
+                if (attempt >= TRUNCATE_MAX_ATTEMPTS) {
+                    throw ex;
+                }
+                try {
+                    Thread.sleep(TRUNCATE_RETRY_BACKOFF_MS * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw ex;
+                }
+            }
+        }
     }
 
     /**
