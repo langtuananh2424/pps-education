@@ -33,10 +33,20 @@ export const VIETNAMESE_SKILL_KINDS: Record<"VOCAB_GRAMMAR" | "WRITING", UiQuest
     "MULTIPLE_CHOICE",
     "VOICE_MULTIPLE_CHOICE",
     "INLINE_CHOICE",
+    // Gắn lại 2026-10-05 (đã xác nhận với người dùng) — MULTIPLE_ANSWER/TRUE_FALSE trước đó không tạo
+    // mới được ở đâu cả (không trong form soạn tay, không trong import Excel) dù Question.QuestionType
+    // (BE) vẫn còn đủ 8 giá trị — mở lại ở đây, cùng nhóm "Trắc nghiệm" (xem KIND_GROUPS ở
+    // QuestionEditorForm.tsx). CHƯA mở lại ở QuestionImportService (Excel/Word) — việc riêng, xem Javadoc.
+    "MULTIPLE_ANSWER",
+    "TRUE_FALSE",
     "FILL_IN_BLANK",
     "FILL_IN_BLANK_PICTURE",
     "WORD_BANK",
     "WORD_BANK_PICTURE",
+    // Gắn lại 2026-10-05 (đã xác nhận với người dùng) — "Đọc điền từ - Đoạn văn liền mạch" (trước đó
+    // chỉ tạo được qua Excel import, kind DIEN_TU_DOAN_VAN) — cùng nhóm WORD_BANK, không phải skill
+    // Listening nên vẫn thuộc VOCAB_GRAMMAR, không phải FOREIGN_LISTENING_KINDS.
+    "WORD_BANK_PASSAGE",
     "SENTENCE_BUILDING",
     "LETTER_SCRAMBLE"
   ],
@@ -45,4 +55,10 @@ export const VIETNAMESE_SKILL_KINDS: Record<"VOCAB_GRAMMAR" | "WRITING", UiQuest
 
 /** GV nước ngoài chỉ có đúng 1 Nhóm kỹ năng hợp lệ — LISTENING — y hệt allowedKinds hiện có, không đổi. */
 export const FOREIGN_LISTENING_MODES: ComposeSubMode[] = ["single", "listeningGroup"];
-export const FOREIGN_LISTENING_KINDS: UiQuestionKind[] = ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION", "LISTENING_FILL_IN_BLANK"];
+/**
+ * Gắn lại 2026-10-05 (đã xác nhận với người dùng) — thêm "LISTENING_FORM_COMPLETION" (Nghe điền phiếu
+ * thông tin, trước đó chỉ tạo được qua Excel import kind NGHE_PHIEU_THONG_TIN) — khớp đúng
+ * SKILL_CATEGORY_KIND_TOKENS["LISTENING"] phía backend (QuestionImportService.java) đã xếp
+ * KIND_FORM_COMPLETION vào nhóm LISTENING từ trước, không phải VOCAB_GRAMMAR.
+ */
+export const FOREIGN_LISTENING_KINDS: UiQuestionKind[] = ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION", "LISTENING_FILL_IN_BLANK", "LISTENING_FORM_COMPLETION"];

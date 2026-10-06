@@ -29,6 +29,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -206,7 +207,7 @@ public class QuestionImportService {
             // nhiều câu độc lập cùng 1 file audio, mirror ListeningGroupBuilder.tsx phía form soạn tay)
             // thành 1 nhóm groupKey, để đoạn văn/audio hiện DÙNG CHUNG 1 LẦN ở màn xem trước/làm bài thay
             // vì lặp lại trước mỗi câu.
-            Map<Integer, String> autoGroupKeys = computeAutoGroupKeys(parsedRows, defaultKind);
+            Map<QuestionRowParser.ParsedQuestionRow, String> autoGroupKeys = computeAutoGroupKeys(parsedRows, defaultKind);
             // Bổ sung 2026-08-28 — đếm THEO DÒNG file (khớp totalRows/parsedRows.size()), KHÔNG đếm
             // theo số Question tạo ra: DIEN_TU_NHOM có thể tạo N Question từ ĐÚNG 1 dòng, nếu đếm theo
             // createdQuestions.size() thì successRows sẽ vượt quá totalRows (sai số liệu báo cáo).
@@ -223,8 +224,23 @@ public class QuestionImportService {
                             ? mapToGridGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : KIND_CLOZE_GROUP.equals(kind)
                             ? mapToClozeGroupRequests(row, bank.getId(), rejectActiveDuplicate)
-                            : List.of(mapToRequest(row, bank.getId(), kind, autoGroupKeys.get(row.rowNumber())));
+                            : List.of(mapToRequest(row, bank.getId(), kind, autoGroupKeys.get(row)));
                     for (CreateQuestionRequest request : requests) {
+                        // Bug thật phát hiện qua test 2026-10-05, đã xác nhận với người dùng hướng sửa —
+                        // createQuestionInBank() tự nó @Transactional (bean khác, QuestionBankService):
+                        // exception DuplicateQuestionContentException ném từ TRONG method đó vượt qua
+                        // boundary @Transactional của chính nó TRƯỚC khi về tới catch bên dưới, khiến
+                        // Spring đánh dấu rollback-only lên transaction CHUNG của importQuestionsIntoBank
+                        // (cùng mức REQUIRED) — dù catch tưởng đã "xử lý xong 1 dòng lỗi", lúc commit cuối
+                        // cùng vẫn ném UnexpectedRollbackException, sập TOÀN BỘ file dù chỉ 1 dòng trùng.
+                        // Trái với đúng Javadoc "A2: lỗi từng dòng, không chặn dòng khác". Pre-check trùng
+                        // nội dung NGAY TẠI ĐÂY (mirror đúng pattern mapToGroupRequests/mapToGridGroupRequests/
+                        // mapToClozeGroupRequests đã làm) — throw trong CHÍNH class này (không qua bean
+                        // khác) nên không cắt ngang transaction, catch bên dưới xử lý được đúng như thiết kế.
+                        if (rejectActiveDuplicate && questionBankService.existsActiveDuplicate(bank.getId(), request.content())) {
+                            throw new IllegalArgumentException(
+                                    "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
+                        }
                         QuestionResponse created = questionBankService.createQuestionInBank(
                                 bank, request, actorUserId, rejectActiveDuplicate);
                         Map<String, Object> summary = new LinkedHashMap<>();
@@ -235,7 +251,7 @@ public class QuestionImportService {
                     }
                     successRowCount++;
                 } catch (RuntimeException ex) {
-                    errors.add(rowError(row.rowNumber(), ex.getMessage()));
+                    errors.add(rowError(row, ex.getMessage()));
                 }
             }
 
@@ -538,12 +554,20 @@ public class QuestionImportService {
      * "nhóm dùng chung", giữ groupKey=null như hành vi cũ (bug thật phát hiện khi review trước khi commit
      * 2026-09-09: bản đầu gán groupKey ngay cho dòng đầu tiên của mỗi đoạn văn mới, khiến MỌI câu Voice
      * có transcript tự nhiên có 1 groupKey "nhóm 1 người" dù không có ý định gộp).
+     *
+     * Khóa theo ĐỐI TƯỢNG dòng (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — mẫu Excel
+     * nhiều sheet): trước đây khóa bằng {@code row.rowNumber()} (int) — đúng khi cả file chỉ 1 sheet (số
+     * dòng duy nhất toàn file), nhưng {@code rowNumber} giờ tính RIÊNG theo từng sheet (dòng 2 sheet
+     * "Trắc nghiệm" và dòng 2 sheet "Nói - Audio" cùng là số 2) — khóa bằng int sẽ đụng độ, gán nhầm
+     * groupKey của dòng sheet này sang dòng trùng số ở sheet khác. Dùng {@link IdentityHashMap} (khóa
+     * theo địa chỉ đối tượng, không theo nội dung) để không bao giờ đụng độ dù 2 dòng ở 2 sheet khác nhau
+     * có nội dung giống hệt nhau.
      */
-    private Map<Integer, String> computeAutoGroupKeys(List<QuestionRowParser.ParsedQuestionRow> rows, String defaultKind) {
-        Map<Integer, String> result = new LinkedHashMap<>();
+    private Map<QuestionRowParser.ParsedQuestionRow, String> computeAutoGroupKeys(List<QuestionRowParser.ParsedQuestionRow> rows, String defaultKind) {
+        Map<QuestionRowParser.ParsedQuestionRow, String> result = new IdentityHashMap<>();
         String previousPassage = null;
         String previousAudio = null;
-        List<Integer> currentRun = new ArrayList<>();
+        List<QuestionRowParser.ParsedQuestionRow> currentRun = new ArrayList<>();
         for (QuestionRowParser.ParsedQuestionRow row : rows) {
             String kind;
             try {
@@ -561,12 +585,12 @@ public class QuestionImportService {
             boolean continuesRun = (passage != null && passage.equals(previousPassage))
                     || (audio != null && audio.equals(previousAudio));
             if (continuesRun) {
-                currentRun.add(row.rowNumber());
+                currentRun.add(row);
             } else {
                 flushGroupRun(result, currentRun);
                 currentRun = new ArrayList<>();
                 if (passage != null || audio != null) {
-                    currentRun.add(row.rowNumber());
+                    currentRun.add(row);
                 }
             }
             previousPassage = passage;
@@ -577,13 +601,13 @@ public class QuestionImportService {
     }
 
     /** Chỉ ghi groupKey nếu chuỗi liên tiếp có TỪ 2 DÒNG trở lên — xem Javadoc computeAutoGroupKeys. */
-    private void flushGroupRun(Map<Integer, String> result, List<Integer> runRowNumbers) {
-        if (runRowNumbers.size() < 2) {
+    private void flushGroupRun(Map<QuestionRowParser.ParsedQuestionRow, String> result, List<QuestionRowParser.ParsedQuestionRow> run) {
+        if (run.size() < 2) {
             return;
         }
-        String groupKey = "auto-import-group-" + System.currentTimeMillis() + "-" + runRowNumbers.get(0);
-        for (Integer rowNumber : runRowNumbers) {
-            result.put(rowNumber, groupKey);
+        String groupKey = "auto-import-group-" + System.currentTimeMillis() + "-" + run.get(0).rowNumber();
+        for (QuestionRowParser.ParsedQuestionRow row : run) {
+            result.put(row, groupKey);
         }
     }
 
@@ -1241,6 +1265,22 @@ public class QuestionImportService {
     private Map<String, Object> rowError(int rowNumber, String reason) {
         Map<String, Object> error = new HashMap<>();
         error.put("row", rowNumber);
+        error.put("reason", reason);
+        return error;
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — mẫu Excel nhiều sheet: báo lỗi kèm
+     * tên sheet (VD "Trắc nghiệm · dòng 5") để GV tìm đúng dòng lỗi khi file có nhiều sheet, thay vì chỉ
+     * "dòng 5" (mơ hồ vì rowNumber tính riêng theo từng sheet). {@code row.sheetLabel()} null (file 1
+     * sheet hoặc Word) → giữ nguyên format cũ "row": int, không đổi hợp đồng cho mọi file hiện có.
+     */
+    private Map<String, Object> rowError(QuestionRowParser.ParsedQuestionRow row, String reason) {
+        if (row.sheetLabel() == null) {
+            return rowError(row.rowNumber(), reason);
+        }
+        Map<String, Object> error = new HashMap<>();
+        error.put("row", row.sheetLabel() + " · dòng " + row.rowNumber());
         error.put("reason", reason);
         return error;
     }
