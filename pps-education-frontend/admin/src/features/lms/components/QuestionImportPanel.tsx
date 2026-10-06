@@ -1,9 +1,8 @@
 import React, { useRef, useState } from "react";
-import { Download, UploadCloud } from "lucide-react";
+import { ChevronDown, Download, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
-import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
-import Select from "@/components/ui/Select";
+import { buildXlsxMultiSheetTemplateBlob, buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import {
   ExamTeacherType,
   ExerciseSkillCategory,
@@ -36,9 +35,16 @@ interface QuestionImportPanelProps {
  * cho lọc file mẫu Excel phía FE, KHÔNG tự thêm/bớt token khác backend.
  * Bổ sung 2026-09-08 (đã xác nhận với người dùng) — READING mở khóa import (DOC_HIEU_LUOI/DOC_DIEN_TU,
  * mirror GridQuestionBuilder.tsx/ClozeQuestionBuilder.tsx), trước đó không có entry vì Cloze/Grid từng
- * chỉ là composite builder chưa import được. */
+ * chỉ là composite builder chưa import được.
+ * Fix gap thật (bổ sung 2026-10-05, đã xác nhận với người dùng) — "DIEN_TU_DOAN_VAN" (backend hỗ trợ từ
+ * 2026-09-17, xem QuestionImportService.SKILL_CATEGORY_KIND_TOKENS.VOCAB_GRAMMAR) bị bỏ sót hoàn toàn ở
+ * mirror này — GV gõ tay đúng token vẫn import được (backend validate độc lập), nhưng không chọn được
+ * qua dropdown "Loại câu hỏi mặc định"/không có ví dụ trong file mẫu tải về. Thêm vào đây. */
 const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
-  VOCAB_GRAMMAR: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"],
+  VOCAB_GRAMMAR: [
+    "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "DIEN_TU_HOP_TU_VUNG",
+    "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"
+  ],
   WRITING: ["TU_LUAN"],
   LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN"],
   READING: ["DOC_HIEU_LUOI", "DOC_DIEN_TU"]
@@ -47,8 +53,25 @@ const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
 /** Mirror VALID_KINDS ở QuestionImportService.java (backend) — nguồn cho dropdown "Loại câu hỏi mặc định". */
 const ALL_KIND_TOKENS = [
   "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "TU_LUAN", "SPEAKING",
-  "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
+  "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
   "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN", "DOC_HIEU_LUOI", "DOC_DIEN_TU"
+];
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — gom 17 token thành 7 nhóm cha, mirror
+ * tên nhóm (kindGroup.*) đã dùng ở cây "Loại cha → Kiểu con" của form soạn tay (QuestionEditorForm.tsx),
+ * cộng 1 nhóm "reading" riêng cho 2 loại composite chỉ có ở Excel (không có kind đơn tương ứng ở form
+ * soạn tay). Dùng cho accordion chọn "Loại câu hỏi mặc định" VÀ để nhóm sheet khi sinh file mẫu nhiều
+ * sheet (xem handleDownloadTemplate) — 1 nguồn duy nhất cho cả 2 chỗ, tránh lệch nhau.
+ */
+const IMPORT_KIND_GROUPS: { labelKey: string; tokens: string[] }[] = [
+  { labelKey: "kindGroup.multipleChoice", tokens: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE"] },
+  { labelKey: "kindGroup.fillInBlank", tokens: ["DIEN_TU", "NGHE_DIEN_TU", "DIEN_TU_NHOM"] },
+  { labelKey: "kindGroup.wordBank", tokens: ["DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "NGHE_PHIEU_THONG_TIN"] },
+  { labelKey: "kindGroup.sentenceBuilding", tokens: ["SAP_XEP_CAU", "SAP_XEP_CHU_CAI"] },
+  { labelKey: "kindGroup.essay", tokens: ["TU_LUAN"] },
+  { labelKey: "kindGroup.speaking", tokens: ["SPEAKING", "NGHE_NOP_AUDIO", "NGHE_CHON_HINH"] },
+  { labelKey: "kindGroup.reading", tokens: ["DOC_HIEU_LUOI", "DOC_DIEN_TU"] }
 ];
 
 /**
@@ -72,78 +95,136 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   // "1 Ex chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị — chọn 1 lần ở đây thay vì gõ lại cột
   // "Loại câu hỏi" ở MỌI dòng trong file. Rỗng ("") = giữ hành vi cũ (bắt buộc mỗi dòng tự ghi loại).
   const [defaultKind, setDefaultKind] = useState("");
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — accordion "Loại cha → Kiểu con" cho
+  // dropdown "Loại câu hỏi mặc định" (mirror pattern expandedGroupKey ở QuestionEditorForm.tsx), thu
+  // gọn hết khi mở panel. Tối đa 1 nhóm mở cùng lúc.
+  const [expandedGroupKey, setExpandedGroupKey] = useState<string | null>(null);
   const allowedKindTokens = teacherType === "FOREIGN" ? SKILL_CATEGORY_KIND_TOKENS.LISTENING : skillCategory ? SKILL_CATEGORY_KIND_TOKENS[skillCategory] : undefined;
   const defaultKindOptions = allowedKindTokens ?? ALL_KIND_TOKENS;
+
+  // Cột cố định của mẫu Excel — ExcelQuestionRowParser.java đọc theo TÊN header (dòng 1), không theo vị
+  // trí cột, nên thứ tự/ngôn ngữ header đổi được miễn còn khớp alias (xem QuestionImportFieldAliases.java)
+  // — mảng dưới đây chỉ cần khớp ĐÚNG THỨ TỰ với mảng `headers`. 17 dòng ví dụ demo đủ 17 loại
+  // VALID_KINDS backend hỗ trợ (bổ sung 2026-08-26: NGHE_NOP_AUDIO/NGHE_DIEN_TU cho GV nước ngoài; bổ
+  // sung 2026-08-28: DIEN_TU_NHOM — "Cách B", 1 dòng tạo N Question riêng cùng groupKey, mirror
+  // FillInBlankGroupBuilder.tsx; bổ sung 2026-09-08: DOC_HIEU_LUOI/DOC_DIEN_TU cho READING; bổ sung
+  // 2026-09-09: NGHE_CHON_HINH — mirror VOICE_PICTURE_CHOICE ở ListeningGroupBuilder.tsx, ảnh theo từng
+  // đáp án qua "URL Hình ảnh" phân tách "|"; bổ sung 2026-10-05: DIEN_TU_DOAN_VAN — fix gap thật, trước
+  // đây thiếu hoàn toàn dù backend hỗ trợ từ 2026-09-17), y hệt nội dung buildTemplateBlocks() bên
+  // backend (QuestionImportService.java) để 2 định dạng nhất quán. Hoist ra scope component (thay vì
+  // local trong handleDownloadTemplate như trước) để dùng chung cho cả preview inline trong panel.
+  const sampleRows: string[][] = [
+    ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
+      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.geo"), "geo,easy"],
+    ["TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
+      "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", ""],
+    ["DIEN_TU", "", "She ___ (go) to school every day.", "", "", "", "", "goes",
+      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), ""],
+    ["DIEN_TU_NHOM", "", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.", "", "", "", "", "smart|favourite|coach",
+      "", "", "activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice", "1",
+      t("questionImportPanel.excelSampleExplanations.fillInBlankGroup"), ""],
+    ["DIEN_TU_DOAN_VAN", "",
+      "In recent years, tourism has become a (1) ___ industry. Many travellers now book a (2) ___ that includes both transport and accommodation.",
+      "", "", "", "", "growing|package deal", "", "", "growing, package deal, accommodation, destination, resort", "1", "", ""],
+    ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "",
+      "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), ""],
+    ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "",
+      "", "", "enthusiasm, literature, variety", "1", "", ""],
+    ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "goes|plays",
+      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), ""],
+    ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "under|next to",
+      "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
+      t("questionImportPanel.excelSampleExplanations.wordBankPicture"), ""],
+    ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "This|is|a|pen",
+      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), ""],
+    ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "s|m|i|l|e",
+      "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
+      t("questionImportPanel.excelSampleExplanations.letterScramble"), ""],
+    ["NGHE_NOP_AUDIO", "", "Listen to the audio and record your answer.", "", "", "", "", "",
+      "https://example-r2.dev/lms/questions/audio/mau-nghe.mp3", "", "", "1",
+      t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), ""],
+    ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
+      "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
+      t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""],
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-06 (qua ảnh chụp đề giấy thật GV gửi) —
+    // nội dung mẫu dựng lại gần sát đề thật: dòng đầu "The Sea Lady" đứng riêng (cách phần sau bằng 1
+    // dòng trống) → tự thành TIÊU ĐỀ in đậm căn giữa; "**Main Facts:**"/"**Dinner:**" dùng cú pháp đậm
+    // ** ** → tự in đậm làm tiêu đề mục con; toàn bộ xuống dòng còn lại GIỮ NGUYÊN (formMode bật
+    // whitespace-pre-line) — khớp ĐÚNG cơ chế WordBankPreview đã có, chỉ là trước đây sample quá đơn
+    // giản nên không lộ ra được hết khả năng này.
+    ["NGHE_PHIEU_THONG_TIN", "", "The Sea Lady\n\n**Main Facts:**\nBuilt in: (14) ___\nFirst tour: The Mediterranean Sea\n\n**Dinner:**\nTime: (15) ___ p.m. to 9.30 p.m.", "", "", "", "", "1999/nineteen ninety-nine|7:30/7.30/7h30",
+      "https://example-r2.dev/lms/questions/audio/mau-phieu-thong-tin.mp3", "", "Write one or two words or a number or a date or a time.", "1",
+      t("questionImportPanel.excelSampleExplanations.listeningFormCompletion"), ""],
+    ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "B",
+      "https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
+      "https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",
+      "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), ""],
+    ["DOC_HIEU_LUOI", "", "Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
+      "Tom", "Max", "Anna", "", "B|A|C",
+      "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",
+      t("questionImportPanel.excelSampleExplanations.gridReading"), ""],
+    ["DOC_DIEN_TU", "", "",
+      "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", "", "B|A|C",
+      "", "", "The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.", "1",
+      t("questionImportPanel.excelSampleExplanations.clozeReading"), ""]
+  ];
 
   const handleDownloadTemplate = async () => {
     setError(null);
     if (format === "xlsx") {
-      // Cột cố định của mẫu Excel — ExcelQuestionRowParser.java đọc theo TÊN header (dòng 1), không
-      // theo vị trí cột, nên thứ tự/ngôn ngữ header đổi được miễn còn khớp alias (xem
-      // QuestionImportFieldAliases.java) — mảng dưới đây chỉ cần khớp ĐÚNG THỨ TỰ với mảng `headers`.
-      // 15 dòng ví dụ demo đủ 15 loại UI hỗ trợ (bổ sung 2026-08-26: NGHE_NOP_AUDIO/NGHE_DIEN_TU cho
-      // GV nước ngoài; bổ sung 2026-08-28: DIEN_TU_NHOM — "Cách B", 1 dòng tạo N Question riêng cùng
-      // groupKey, mirror FillInBlankGroupBuilder.tsx; bổ sung 2026-09-08: DOC_HIEU_LUOI/DOC_DIEN_TU
-      // cho READING; bổ sung 2026-09-09: NGHE_CHON_HINH — mirror VOICE_PICTURE_CHOICE ở
-      // ListeningGroupBuilder.tsx, ảnh theo từng đáp án qua "URL Hình ảnh" phân tách "|"), y hệt nội
-      // dung buildTemplateBlocks() bên backend (QuestionImportService.java) để 2
-      // định dạng nhất quán.
       const headers = t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[];
-      const sampleRows: string[][] = [
-        ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
-          "", "", "", "1", t("questionImportPanel.excelSampleExplanations.geo"), "geo,easy"],
-        ["TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
-          "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", ""],
-        ["DIEN_TU", "", "She ___ (go) to school every day.", "", "", "", "", "goes",
-          "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), ""],
-        ["DIEN_TU_NHOM", "", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.", "", "", "", "", "smart|favourite|coach",
-          "", "", "activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice", "1",
-          t("questionImportPanel.excelSampleExplanations.fillInBlankGroup"), ""],
-        ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "",
-          "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), ""],
-        ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "",
-          "", "", "enthusiasm, literature, variety", "1", "", ""],
-        ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "goes|plays",
-          "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), ""],
-        ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "under|next to",
-          "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
-          t("questionImportPanel.excelSampleExplanations.wordBankPicture"), ""],
-        ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "This|is|a|pen",
-          "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), ""],
-        ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "s|m|i|l|e",
-          "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
-          t("questionImportPanel.excelSampleExplanations.letterScramble"), ""],
-        ["NGHE_NOP_AUDIO", "", "Listen to the audio and record your answer.", "", "", "", "", "",
-          "https://example-r2.dev/lms/questions/audio/mau-nghe.mp3", "", "", "1",
-          t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), ""],
-        ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
-          "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
-          t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""],
-        ["NGHE_PHIEU_THONG_TIN", "", "The Sea Lady\n\n- Built in: (14) ___\n- Dinner time: (15) ___ p.m. to 9.30 p.m.", "", "", "", "", "1999/nineteen ninety-nine|7:30/7.30/7h30",
-          "https://example-r2.dev/lms/questions/audio/mau-phieu-thong-tin.mp3", "", "Fill in each blank with one word, number, date or time.", "1",
-          t("questionImportPanel.excelSampleExplanations.listeningFormCompletion"), ""],
-        ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "B",
-          "https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
-          "https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",
-          "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), ""],
-        ["DOC_HIEU_LUOI", "", "Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
-          "Tom", "Max", "Anna", "", "B|A|C",
-          "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",
-          t("questionImportPanel.excelSampleExplanations.gridReading"), ""],
-        ["DOC_DIEN_TU", "", "",
-          "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", "", "B|A|C",
-          "", "", "The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.", "1",
-          t("questionImportPanel.excelSampleExplanations.clozeReading"), ""]
-      ];
       // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — defaultKind ưu tiên CAO HƠN lọc theo Nhóm kỹ
       // năng: GV đã chọn cụ thể 1 loại thì chỉ cần đúng 1 dòng ví dụ loại đó để copy xuống nhiều dòng,
-      // không cần cả bảng tra cứu nhiều loại nữa.
-      const filteredRows = defaultKind
-        ? sampleRows.filter((row) => row[0] === defaultKind)
-        : allowedKindTokens
-          ? sampleRows.filter((row) => allowedKindTokens.includes(row[0]))
-          : sampleRows;
-      const blob = buildXlsxTemplateBlob(headers, filteredRows);
+      // không cần cả bảng tra cứu nhiều loại nữa — xuất 1 sheet đơn như cũ, không cần tách nhiều sheet.
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-06 — fix thiếu sót: nhánh này trước đó
+      // KHÔNG có cột "Hướng dẫn chi tiết" dù đã thêm cho 7 sheet nhóm bên dưới — GV chọn sẵn 1 loại cụ
+      // thể cũng cần thấy hướng dẫn ngay trong sheet, không chỉ khi tải bản đủ 17 loại.
+      if (defaultKind) {
+        const blob = buildXlsxTemplateBlob(
+          [...headers, t("questionImportPanel.guideColumnHint")],
+          sampleRows.filter((row) => row[0] === defaultKind).map((row) => [...row, t(`questionImportPanel.columnHints.${row[0]}`)])
+        );
+        downloadBlob(blob, "mau-soan-cau-hoi.xlsx");
+        return;
+      }
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — chưa chọn defaultKind: xuất mẫu
+      // NHIỀU SHEET theo IMPORT_KIND_GROUPS (thay vì 1 sheet trộn 17 loại như trước) để mở file lên đỡ
+      // rối — mỗi loại vẫn dùng chung đúng 14 cột, chỉ tách VỊ TRÍ vật lý theo nhóm. Backend đọc được
+      // nhiều sheet từ ExcelQuestionRowParser#parse() (xem Javadoc ở đó). Nhóm nào không còn loại nào
+      // khớp allowedKindTokens (lọc theo Nhóm kỹ năng) thì bỏ hẳn sheet đó.
+      //
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-06 — thêm CỘT THỨ 15 "Hướng dẫn chi
+      // tiết" ngay trong TỪNG sheet nhỏ (không chỉ ở sheet "Hướng dẫn" riêng/khối gợi ý trên UI panel):
+      // GV mở đúng sheet "Trắc nghiệm" là thấy luôn giải thích cho từng loại trong sheet đó, không phải
+      // lật qua tab khác. An toàn vì ExcelQuestionRowParser#resolveHeaderColumns chỉ map cột có header
+      // khớp alias đã biết (QuestionImportFieldAliases) — "Hướng dẫn chi tiết" không khớp alias nào nên
+      // bị bỏ qua hoàn toàn lúc đọc (không có field nào map tới), dù sample row vẫn điền sẵn nội dung và
+      // GV tự gõ dòng mới không điền cột này cũng không sao (cột thuần hiển thị, không ảnh hưởng parse).
+      const kindSheets = IMPORT_KIND_GROUPS
+        .map((group) => {
+          const tokens = allowedKindTokens ? group.tokens.filter((tok) => allowedKindTokens.includes(tok)) : group.tokens;
+          const rows = sampleRows
+            .filter((row) => tokens.includes(row[0]))
+            .map((row) => [...row, t(`questionImportPanel.columnHints.${row[0]}`)]);
+          return { name: t(group.labelKey), headers: [...headers, t("questionImportPanel.guideColumnHint")], rows };
+        })
+        .filter((sheet) => sheet.rows.length > 0)
+        .map((sheet) => ({ name: sheet.name, headers: sheet.headers, rows: sheet.rows }));
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-06 — sheet "Hướng dẫn" đứng ĐẦU file:
+      // 1 cột (VD "Đoạn văn tham chiếu") mang nhiều nghĩa tùy loại (transcript/hộp từ vựng/đoạn văn đọc
+      // hiểu/dòng hướng dẫn...) — nếu GV mở file từ đồng nghiệp gửi lại (không qua panel import, không
+      // thấy khối gợi ý cột trên UI) thì không biết cột nào cần điền gì. Nhúng thẳng nội dung gợi ý
+      // (questionImportPanel.columnHints.*, CÙNG nguồn với khối gợi ý trên UI, không viết lại) vào
+      // chính file. Header 2 cột cố tình chọn tên KHÔNG khớp alias "content"/"Nội dung"
+      // (QuestionImportFieldAliases) để ExcelQuestionRowParser#parse() luôn coi đây là sheet phụ, tự bỏ
+      // qua khi import — đã đúng theo thiết kế "sheet thiếu header bắt buộc thì bỏ qua, không throw".
+      const guideTokens = allowedKindTokens ?? ALL_KIND_TOKENS;
+      const guideSheet = {
+        name: t("questionImportPanel.guideSheetName"),
+        headers: [t("questionImportPanel.guideColumnKind"), t("questionImportPanel.guideColumnHint")],
+        rows: guideTokens.map((token) => [t(`questionImportPanel.kindLabels.${token}`), t(`questionImportPanel.columnHints.${token}`)])
+      };
+      const blob = buildXlsxMultiSheetTemplateBlob([guideSheet, ...kindSheets]);
       downloadBlob(blob, "mau-soan-cau-hoi.xlsx");
       return;
     }
@@ -203,21 +284,104 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
         ))}
       </div>
 
-      <div>
+      <div className="space-y-2">
         <label className="block font-bold text-slate-600 mb-1 text-[12px] uppercase tracking-wider">{t("questionImportPanel.defaultKindLabel")}</label>
-        <Select
-          value={defaultKind}
-          onChange={(e) => setDefaultKind(e.target.value)}
-          className="w-full bg-white border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
+        {/*
+         * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — đổi <Select> dropdown phẳng 17
+         * token thành accordion gom theo IMPORT_KIND_GROUPS, mirror ĐÚNG pattern vừa duyệt ở
+         * QuestionEditorForm.tsx (KIND_GROUPS + expandedGroupKey). "Không đặt mặc định" tách thành nút
+         * riêng đứng trên accordion (không thuộc nhóm nào).
+         */}
+        <button
+          type="button"
+          onClick={() => setDefaultKind("")}
+          className={`w-full text-left px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+            defaultKind === "" ? "border-brand-red bg-brand-red/5 text-brand-red" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+          }`}
         >
-          <option value="">{t("questionImportPanel.defaultKindNone")}</option>
-          {defaultKindOptions.map((token) => (
-            <option key={token} value={token}>
-              {t(`questionImportPanel.kindLabels.${token}`)}
-            </option>
-          ))}
-        </Select>
-        <p className="text-[13px] text-slate-400 mt-1">{t("questionImportPanel.defaultKindHint")}</p>
+          {t("questionImportPanel.defaultKindNone")}
+        </button>
+        {IMPORT_KIND_GROUPS.map((group) => {
+          const tokens = group.tokens.filter((tok) => defaultKindOptions.includes(tok));
+          if (tokens.length === 0) return null;
+          const isExpanded = expandedGroupKey === group.labelKey;
+          const hasActiveToken = tokens.includes(defaultKind);
+          return (
+            <div key={group.labelKey} className="border border-slate-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setExpandedGroupKey(isExpanded ? null : group.labelKey)}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition-colors ${
+                  hasActiveToken ? "bg-brand-red/5" : "bg-slate-50 hover:bg-slate-100"
+                }`}
+              >
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  {t(group.labelKey)}
+                  {hasActiveToken && !isExpanded && (
+                    <span className="normal-case font-bold text-brand-red">— {t(`questionImportPanel.kindLabels.${defaultKind}`)}</span>
+                  )}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+              </button>
+              {isExpanded && (
+                <div className="p-2.5 pt-2 border-t border-slate-200 flex flex-wrap gap-2">
+                  {tokens.map((token) => (
+                    <button
+                      key={token}
+                      type="button"
+                      onClick={() => setDefaultKind(token)}
+                      className={`px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors ${
+                        defaultKind === token ? "border-brand-red bg-brand-red/5 text-brand-red" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {t(`questionImportPanel.kindLabels.${token}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/*
+         * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-06 — BỎ khối text dài render
+         * questionImportPanel.columnHints.<token> khỏi panel (trước đó ở đây, key columnHintTitle đã xóa
+         * hẳn vì không còn chỗ dùng) — nội dung hint giờ đã dài/chi tiết hơn nhiều (viết thêm theo yêu
+         * cầu người dùng để giải thích rõ "Đoạn văn tham chiếu") nên hiện thẳng trong panel bị TRÀN, đẩy
+         * "Ví dụ 1 dòng mẫu" xuống xa, ngược lại mục tiêu ban đầu "thấy ngay không cần lướt". Đồng thời
+         * giờ ĐÃ có cùng nội dung này ngay trong file Excel (sheet "Hướng dẫn" + cột "Hướng dẫn chi tiết"
+         * ở từng sheet nhỏ/từng loại lẻ, xem handleDownloadTemplate) nên không cần lặp lại nguyên văn ở
+         * đây nữa — key i18n questionImportPanel.columnHints.* VẪN GIỮ (dùng để sinh nội dung Excel), chỉ
+         * bỏ chỗ hiện trong JSX panel. Chỉ còn preview 1 dòng mẫu (ngắn gọn, trực quan) + 1 dòng trỏ sang
+         * Excel nếu cần đọc đầy đủ.
+         */}
+        {defaultKind && (
+          <div className="bg-slate-50/60 border border-slate-200 rounded-xl p-3 space-y-2">
+            {(() => {
+              const headers = t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[];
+              const sampleRow = sampleRows.find((row) => row[0] === defaultKind);
+              if (!sampleRow) return null;
+              const filledCells = headers
+                .map((header, i) => ({ header, value: sampleRow[i] }))
+                .filter((cell, i) => i > 0 && cell.value);
+              if (filledCells.length === 0) return null;
+              return (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">{t("questionImportPanel.samplePreviewTitle")}</p>
+                  <div className="space-y-1">
+                    {filledCells.map((cell) => (
+                      <div key={cell.header} className="flex gap-2 text-[13px]">
+                        <span className="font-bold text-slate-400 shrink-0 min-w-[110px]">{cell.header}</span>
+                        <span className="text-slate-700 whitespace-pre-line break-words">{cell.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[12px] text-slate-400 italic pt-1">{t("questionImportPanel.columnHintExcelPointer")}</p>
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       <button
