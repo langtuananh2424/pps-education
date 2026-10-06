@@ -138,7 +138,14 @@ function escapeXml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
-function buildSheetXml(rows: string[][]): string {
+/**
+ * Bug thật phát hiện qua test với Excel thật (2026-10-06, đã xác nhận với người dùng qua ảnh chụp) —
+ * thiếu khai báo tab nào được CHỌN SẴN khi mở file (`tabSelected` ở sheetView) khiến Excel tự chọn 1
+ * sheet bất kỳ thay vì luôn mở đúng sheet đầu tiên (VD "Hướng dẫn" — xem buildXlsxMultiSheetTemplateBlob)
+ * — GV mở file tưởng thiếu mất sheet dù vẫn còn nguyên, chỉ là không active. `active` = true cho ĐÚNG 1
+ * sheet duy nhất trong file (sheet đầu tiên truyền vào buildXlsxMultiSheetTemplateBlob).
+ */
+function buildSheetXml(rows: string[][], active = false): string {
   const rowsXml = rows
     .map((row, rIdx) => {
       const cells = row
@@ -150,7 +157,8 @@ function buildSheetXml(rows: string[][]): string {
       return `<row r="${rIdx + 1}">${cells}</row>`;
     })
     .join("");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsXml}</sheetData></worksheet>`;
+  const sheetViews = active ? '<sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews>' : "";
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${sheetViews}<sheetData>${rowsXml}</sheetData></worksheet>`;
 }
 
 /** headers = dòng 1, sampleRows = các dòng ví dụ theo sau (có thể để rỗng). */
@@ -192,6 +200,83 @@ export function buildXlsxTemplateBlob(headers: string[], sampleRows: string[][] 
     { name: "xl/workbook.xml", data: encoder.encode(workbookXml) },
     { name: "xl/_rels/workbook.xml.rels", data: encoder.encode(workbookRels) },
     { name: "xl/worksheets/sheet1.xml", data: encoder.encode(sheetXml) }
+  ];
+  const zipBytes = buildZip(entries);
+  return new Blob([zipBytes as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — mẫu Excel soạn câu hỏi tách nhiều
+ * sheet theo nhóm loại câu hỏi (thay vì 1 sheet trộn 17 loại, xem QuestionImportPanel.tsx) để mở file
+ * lên đỡ rối — KHÔNG đổi chữ ký `buildXlsxTemplateBlob` ở trên (đang dùng chung ở 7 nơi khác: review
+ * video/book catalog import, danh sách lớp...). Tái dùng nguyên `buildSheetXml`/`buildZip`/`colLetter`/
+ * `escapeXml`, chỉ khai nhiều `<sheet>`/part `sheetN.xml` trong workbook.xml/Content_Types.xml/
+ * workbook.xml.rels — mirror cấu trúc OOXML của hàm 1-sheet ở trên, chỉ lặp theo số lượng sheet.
+ * Tên sheet Excel giới hạn 31 ký tự, không chứa `: \ / ? * [ ]` — cắt bớt phòng hờ, không throw (tải mẫu
+ * không nên hard-fail vì tên nhóm dài).
+ */
+export function buildXlsxMultiSheetTemplateBlob(sheets: { name: string; headers: string[]; rows: string[][] }[]): Blob {
+  const encoder = new TextEncoder();
+  // Bug thật phát hiện qua test UI thật (2026-10-05) — tên nhóm có "/" (VD "Nói / Audio") bị thay
+  // bằng khoảng trắng nhưng không gộp lại, ra tên sheet "Nói   Audio" (3 khoảng trắng liền, nhìn như
+  // lỗi). Gộp khoảng trắng liên tiếp về 1 sau khi thay ký tự cấm.
+  const safeName = (name: string, index: number): string => {
+    const cleaned = name.replace(/[:\\/?*[\]]/g, " ").replace(/\s+/g, " ").trim();
+    const base = cleaned.length > 0 ? cleaned : `Sheet${index + 1}`;
+    return base.slice(0, 31);
+  };
+
+  const sheetEntries = sheets.map((s, i) => ({
+    name: safeName(s.name, i),
+    xml: buildSheetXml([s.headers, ...s.rows], i === 0)
+  }));
+
+  const contentTypes =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    sheetEntries
+      .map(
+        (_, i) =>
+          `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+      )
+      .join("") +
+    "</Types>";
+
+  const rootRels =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+    "</Relationships>";
+
+  const workbookXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    '<bookViews><workbookView activeTab="0"/></bookViews>' +
+    "<sheets>" +
+    sheetEntries.map((s, i) => `<sheet name="${escapeXml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("") +
+    "</sheets>" +
+    "</workbook>";
+
+  const workbookRels =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    sheetEntries
+      .map(
+        (_, i) =>
+          `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`
+      )
+      .join("") +
+    "</Relationships>";
+
+  const entries: ZipEntry[] = [
+    { name: "[Content_Types].xml", data: encoder.encode(contentTypes) },
+    { name: "_rels/.rels", data: encoder.encode(rootRels) },
+    { name: "xl/workbook.xml", data: encoder.encode(workbookXml) },
+    { name: "xl/_rels/workbook.xml.rels", data: encoder.encode(workbookRels) },
+    ...sheetEntries.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: encoder.encode(s.xml) }))
   ];
   const zipBytes = buildZip(entries);
   return new Blob([zipBytes as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });

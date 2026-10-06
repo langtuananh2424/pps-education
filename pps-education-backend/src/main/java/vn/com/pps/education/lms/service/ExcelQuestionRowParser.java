@@ -23,6 +23,17 @@ import java.util.Map;
  * Thiếu header "Nội dung"/"Loại câu hỏi" (bắt buộc để biết đọc cột nào) →
  * lỗi ngay cả file, không đọc được dòng nào. Header khác thiếu → field đó
  * luôn null mọi dòng (validate hiện có ở QuestionImportService xử lý).
+ *
+ * Nhiều sheet (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-10-05 — mẫu Excel giờ tách 7 sheet theo nhóm loại câu hỏi thay vì 1
+ * sheet trộn 17 loại, xem QuestionImportPanel.tsx): đọc TUẦN TỰ qua MỌI
+ * sheet trong file (không còn cố định sheet 0), gộp chung kết quả theo
+ * đúng thứ tự sheet rồi thứ tự dòng trong sheet. Sheet thiếu header
+ * "kind"/"content" bị BỎ QUA (coi là sheet phụ, VD "Hướng dẫn") CHỈ KHI
+ * file có từ 2 sheet trở lên; file ĐÚNG 1 sheet thiếu header đó vẫn throw
+ * y hệt hành vi cũ — nên file 1-sheet hiện có của giáo viên (100% file
+ * trước 2026-10-05) chạy qua vòng lặp đúng 1 lần, hành vi giống hệt trước
+ * khi đổi, không có rủi ro backward-compat.
  */
 @Service
 public class ExcelQuestionRowParser implements QuestionRowParser {
@@ -38,42 +49,57 @@ public class ExcelQuestionRowParser implements QuestionRowParser {
     @Override
     public List<ParsedQuestionRow> parse(InputStream inputStream) {
         try (XSSFWorkbook workbook = new XSSFWorkbook(inputStream)) {
-            Sheet sheet = workbook.getSheetAt(0);
             DataFormatter formatter = new DataFormatter();
-            Row headerRow = sheet.getRow(HEADER_ROW_INDEX);
-            if (headerRow == null) {
-                throw new IllegalArgumentException("File rỗng hoặc thiếu dòng tiêu đề (header).");
-            }
-            Map<String, Integer> fieldToColumn = resolveHeaderColumns(headerRow, formatter);
-            if (!fieldToColumn.containsKey("content") || !fieldToColumn.containsKey("kind")) {
-                throw new IllegalArgumentException(
-                        "Thiếu cột bắt buộc: \"Nội dung\"/\"Content\" hoặc \"Loại câu hỏi\"/\"Question Type\" — "
-                                + "không xác định được cột nào chứa dữ liệu gì.");
-            }
-
+            boolean multiSheet = workbook.getNumberOfSheets() > 1;
             List<ParsedQuestionRow> rows = new ArrayList<>();
-            for (int rowIndex = FIRST_DATA_ROW_INDEX; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
-                Row row = sheet.getRow(rowIndex);
-                if (row == null || isBlankRow(row, formatter, fieldToColumn)) {
-                    continue;
+            int validSheetCount = 0;
+            for (int sheetIndex = 0; sheetIndex < workbook.getNumberOfSheets(); sheetIndex++) {
+                Sheet sheet = workbook.getSheetAt(sheetIndex);
+                Row headerRow = sheet.getRow(HEADER_ROW_INDEX);
+                Map<String, Integer> fieldToColumn = headerRow == null ? Map.of() : resolveHeaderColumns(headerRow, formatter);
+                boolean hasRequiredHeaders = fieldToColumn.containsKey("content") && fieldToColumn.containsKey("kind");
+                if (!hasRequiredHeaders) {
+                    if (multiSheet) {
+                        // Sheet phụ không phải dữ liệu câu hỏi (VD "Hướng dẫn") — bỏ qua, không throw.
+                        continue;
+                    }
+                    throw new IllegalArgumentException(
+                            "Thiếu cột bắt buộc: \"Nội dung\"/\"Content\" hoặc \"Loại câu hỏi\"/\"Question Type\" — "
+                                    + "không xác định được cột nào chứa dữ liệu gì.");
                 }
-                rows.add(new ParsedQuestionRow(
-                        rowIndex + 1,
-                        field(row, formatter, fieldToColumn, "kind"),
-                        field(row, formatter, fieldToColumn, "difficulty"),
-                        field(row, formatter, fieldToColumn, "content"),
-                        field(row, formatter, fieldToColumn, "choiceA"),
-                        field(row, formatter, fieldToColumn, "choiceB"),
-                        field(row, formatter, fieldToColumn, "choiceC"),
-                        field(row, formatter, fieldToColumn, "choiceD"),
-                        field(row, formatter, fieldToColumn, "correctAnswer"),
-                        field(row, formatter, fieldToColumn, "audioUrl"),
-                        field(row, formatter, fieldToColumn, "imageUrl"),
-                        field(row, formatter, fieldToColumn, "referencePassage"),
-                        field(row, formatter, fieldToColumn, "defaultPoints"),
-                        field(row, formatter, fieldToColumn, "explanation"),
-                        field(row, formatter, fieldToColumn, "tags")
-                ));
+                validSheetCount++;
+                // sheetLabel null khi file chỉ 1 sheet — giữ nguyên format báo lỗi cũ "dòng N" (không
+                // đổi behavior hiển thị cho file giáo viên đã có từ trước khi tính năng nhiều sheet ra đời).
+                String sheetLabel = multiSheet ? sheet.getSheetName() : null;
+                for (int rowIndex = FIRST_DATA_ROW_INDEX; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+                    Row row = sheet.getRow(rowIndex);
+                    if (row == null || isBlankRow(row, formatter, fieldToColumn)) {
+                        continue;
+                    }
+                    rows.add(new ParsedQuestionRow(
+                            rowIndex + 1,
+                            sheetLabel,
+                            field(row, formatter, fieldToColumn, "kind"),
+                            field(row, formatter, fieldToColumn, "difficulty"),
+                            field(row, formatter, fieldToColumn, "content"),
+                            field(row, formatter, fieldToColumn, "choiceA"),
+                            field(row, formatter, fieldToColumn, "choiceB"),
+                            field(row, formatter, fieldToColumn, "choiceC"),
+                            field(row, formatter, fieldToColumn, "choiceD"),
+                            field(row, formatter, fieldToColumn, "correctAnswer"),
+                            field(row, formatter, fieldToColumn, "audioUrl"),
+                            field(row, formatter, fieldToColumn, "imageUrl"),
+                            field(row, formatter, fieldToColumn, "referencePassage"),
+                            field(row, formatter, fieldToColumn, "defaultPoints"),
+                            field(row, formatter, fieldToColumn, "explanation"),
+                            field(row, formatter, fieldToColumn, "tags")
+                    ));
+                }
+            }
+            if (multiSheet && validSheetCount == 0) {
+                throw new IllegalArgumentException(
+                        "Không tìm thấy sheet nào có cột bắt buộc \"Nội dung\"/\"Content\" hoặc "
+                                + "\"Loại câu hỏi\"/\"Question Type\" — không xác định được sheet nào chứa dữ liệu câu hỏi.");
             }
             return rows;
         } catch (IOException | RuntimeException ex) {

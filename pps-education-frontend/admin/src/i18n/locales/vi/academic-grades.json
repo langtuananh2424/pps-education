@@ -177,5 +177,45 @@
     "noComponents": "Setup này chưa có đầu điểm nào được cấu hình.",
     "selectClassAndSetupPrompt": "Chọn lớp (Header) → setup sổ điểm để xem lại điểm (mọi trạng thái).",
     "selectClassPrompt": "Chọn lớp ở Header để bắt đầu nhập điểm."
+  },
+  "aiAssistant": {
+    "fabLabel": "Trợ lý nhận xét kỳ AI",
+    "title": "Trợ lý nhận xét kỳ AI",
+    "noSetup": "Chưa có sổ điểm Giữa kỳ/Cuối kỳ",
+    "close": "Đóng trợ lý",
+    "intro": "Trợ lý phân tích điểm thành phần và Overall rồi soạn sẵn Nhận xét kỳ cho từng học sinh — không ghi con số điểm vào nhận xét. Bạn có thể nói hoặc gõ thêm ý chung của lớp, ý riêng về học sinh nào đó, rồi trò chuyện để sửa (VD \"An viết ngắn lại\").",
+    "permissionNote": "Trợ lý chỉ điền ô Nhận xét, không đụng tới điểm. Lưu vào sổ điểm giữ nguyên trạng thái hiện tại — bạn vẫn tự Gửi duyệt như bình thường.",
+    "suggestions": {
+      "draftAll": "Soạn nhận xét cả lớp",
+      "record": "Ghi âm ý chung",
+      "upload": "Tải file audio"
+    },
+    "audioMessage": "Audio {{duration}}",
+    "working": "Trợ lý đang phân tích điểm và soạn nhận xét... (có thể mất 1–2 phút)",
+    "inputPlaceholder": "Ý chung cả lớp hoặc ý riêng về học sinh (tuỳ chọn), Enter để soạn...",
+    "inputPlaceholderRevise": "Yêu cầu sửa, VD \"An nhấn mạnh phần nói\", Enter để gửi...",
+    "existingComment": "Nhận xét hiện có",
+    "skipped": "Không soạn: {{names}}",
+    "transcriptToggle": "Lời giáo viên (từ audio)",
+    "savedMessage": "Đã lưu nhận xét của {{count}} học sinh vào sổ điểm. Bạn xem lại trên bảng rồi Gửi duyệt khi sẵn sàng.",
+    "actions": {
+      "save": "Lưu vào sổ điểm ({{count}})",
+      "rewrite": "Viết lại cho đa dạng hơn"
+    },
+    "quickInstructions": {
+      "shorter": "Viết ngắn gọn hơn cho cả lớp",
+      "warmer": "Viết ấm áp, động viên hơn",
+      "focusWeak": "Nhấn mạnh kỹ năng cần cải thiện và gợi ý cách luyện"
+    },
+    "quickInstructionLabels": {
+      "shorter": "Ngắn gọn hơn",
+      "warmer": "Ấm áp hơn",
+      "focusWeak": "Nhấn mạnh kỹ năng yếu"
+    },
+    "errors": {
+      "generic": "Trợ lý gặp lỗi — vui lòng thử lại.",
+      "timeout": "Trợ lý chưa trả kết quả — vui lòng thử lại.",
+      "save": "Lưu nhận xét vào sổ điểm thất bại."
+    }
   }
 }

@@ -177,5 +177,45 @@
     "noComponents": "This setup has no score components configured yet.",
     "selectClassAndSetupPrompt": "Select a class (Header) → gradebook setup to review grades (any status).",
     "selectClassPrompt": "Select a class in the Header to start entering grades."
+  },
+  "aiAssistant": {
+    "fabLabel": "AI term comment assistant",
+    "title": "AI term comment assistant",
+    "noSetup": "No mid-term/end-of-term gradebook yet",
+    "close": "Close assistant",
+    "intro": "The assistant analyses component scores and Overall, then drafts a term comment for each student — no score numbers are written into comments. You can also speak or type general notes for the class or about a specific student, then chat to refine (e.g. \"make An's shorter\").",
+    "permissionNote": "The assistant only fills the Comment cell and never touches scores. Saving keeps the current status — you still submit for approval yourself.",
+    "suggestions": {
+      "draftAll": "Draft for the whole class",
+      "record": "Record notes",
+      "upload": "Upload audio"
+    },
+    "audioMessage": "Audio {{duration}}",
+    "working": "The assistant is analysing scores and drafting comments... (may take 1–2 minutes)",
+    "inputPlaceholder": "Optional notes for the class or a student, Enter to draft...",
+    "inputPlaceholderRevise": "Edit request, e.g. \"emphasise An's speaking\", Enter to send...",
+    "existingComment": "Current comment",
+    "skipped": "Not drafted: {{names}}",
+    "transcriptToggle": "Teacher's words (from audio)",
+    "savedMessage": "Saved comments for {{count}} students to the gradebook. Review them in the table, then submit for approval when ready.",
+    "actions": {
+      "save": "Save to gradebook ({{count}})",
+      "rewrite": "Rewrite for more variety"
+    },
+    "quickInstructions": {
+      "shorter": "Make the comments shorter for the whole class",
+      "warmer": "Make the comments warmer and more encouraging",
+      "focusWeak": "Emphasise the skills to improve and suggest how to practise"
+    },
+    "quickInstructionLabels": {
+      "shorter": "Shorter",
+      "warmer": "Warmer",
+      "focusWeak": "Focus on weak skills"
+    },
+    "errors": {
+      "generic": "The assistant ran into an error — please try again.",
+      "timeout": "The assistant did not return a result — please try again.",
+      "save": "Failed to save comments to the gradebook."
+    }
   }
 }
