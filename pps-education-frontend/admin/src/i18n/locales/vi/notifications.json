@@ -21,7 +21,15 @@
     "missCountValue": "{{count}} buổi",
     "actionReject": "Từ chối",
     "actionApprove": "Duyệt",
-    "deciding": "Đang xử lý..."
+    "deciding": "Đang xử lý...",
+    "itemLabel": "thư mời",
+    "selectPage": "Chọn tất cả thư mời trong trang",
+    "selectedCount": "Đã chọn {{count}} thư mời",
+    "clearSelection": "Bỏ chọn",
+    "bulkReject": "Từ chối đã chọn",
+    "bulkApprove": "Duyệt đã chọn",
+    "bulkApprovedToast": "Đã duyệt {{count}} thư mời — đã gửi xuống Phụ huynh.",
+    "bulkRejectedToast": "Đã từ chối {{count}} thư mời — sẽ không được gửi."
   },
   "attitudeEscalations": {
     "title": "Duyệt cảnh báo thái độ học tập",
@@ -44,6 +52,14 @@
     "streakCountValue": "{{count}} buổi",
     "actionReject": "Từ chối",
     "actionApprove": "Duyệt",
-    "deciding": "Đang xử lý..."
+    "deciding": "Đang xử lý...",
+    "itemLabel": "cảnh báo",
+    "selectPage": "Chọn tất cả cảnh báo trong trang",
+    "selectedCount": "Đã chọn {{count}} cảnh báo",
+    "clearSelection": "Bỏ chọn",
+    "bulkReject": "Từ chối đã chọn",
+    "bulkApprove": "Duyệt đã chọn",
+    "bulkApprovedToast": "Đã duyệt {{count}} cảnh báo — đã gửi xuống Phụ huynh.",
+    "bulkRejectedToast": "Đã từ chối {{count}} cảnh báo — sẽ không được gửi."
   }
 }
