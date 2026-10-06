@@ -27,6 +27,7 @@ import vn.com.pps.education.student.domain.Student;
 import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.academic.dto.CreateGradeComponentSetupRequest;
 import vn.com.pps.education.academic.dto.CreateGradeEvaluationComponentRequest;
+import vn.com.pps.education.academic.dto.ApplyTermCommentAiDraftRequest;
 import vn.com.pps.education.academic.dto.EnterGradeEvaluationResultRequest;
 import vn.com.pps.education.academic.dto.EnterGradeRequest;
 import vn.com.pps.education.academic.dto.GradeComponentSetupResponse;
@@ -39,6 +40,7 @@ import vn.com.pps.education.academic.dto.SubmitGradesRequest;
 import vn.com.pps.education.academic.dto.UpdateGradeComponentSetupRequest;
 import vn.com.pps.education.academic.dto.UpdateGradeEvaluationComponentRequest;
 import vn.com.pps.education.lms.domain.Skill;
+import vn.com.pps.education.exception.CommentAiDraftRejectedException;
 import vn.com.pps.education.exception.GradeAlreadyPublishedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
 import vn.com.pps.education.exception.GradeComponentNotDeletableException;
@@ -72,9 +74,14 @@ import vn.com.pps.education.auth.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * UC-19: Nhập điểm (FR-ACA-03) + UC-20: Duyệt/Từ chối điểm (FR-ACA-03).
@@ -556,6 +563,82 @@ public class GradeService {
                         "Không tìm thấy điểm tổng kết của học sinh id=" + studentId + " cho setup id=" + setupId));
         requireEditableState(result.getStatus(), result.getId(), actorUserId);
         gradeEvaluationResultRepository.delete(result);
+    }
+
+    /**
+     * UC-76 bước 8 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05): ghi Nhận xét kỳ của các dòng giáo
+     * viên đã chọn từ bản xem trước của trợ lý AI — 1 giao dịch cho cả lô. CHỈ đổi {@code comment} + đánh dấu
+     * {@code ai_drafted}/{@code ai_draft_content}; Overall/Level/Ghi chú/trạng thái giữ nguyên (bản ghi chưa có thì tạo
+     * mới ở DRAFT, thang theo setup). Kiểm tra hết các dòng trước khi ghi: 1 dòng bị khoá hoặc học sinh không còn
+     * ACTIVE thì từ chối cả lô (A8), không ghi dòng nào.
+     */
+    @Transactional
+    public List<GradeEvaluationResultResponse> applyAiDraftComments(Long classId, Long setupId,
+                                                                    ApplyTermCommentAiDraftRequest request, Long actorUserId) {
+        requireCanEnterGrades(classId, actorUserId);
+        GradeComponentSetup setup = getSetupOfClassOrThrow(classId, setupId);
+        Map<Long, Student> activeStudents = classEnrollmentRepository
+                .findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE).stream()
+                .collect(Collectors.toMap(e -> e.getStudent().getId(), ClassEnrollment::getStudent, (a, b) -> a));
+        Map<Long, GradeEvaluationResult> existing = gradeEvaluationResultRepository
+                .findBySchoolClassIdAndAcademicTermIdAndEvaluationTypeOrderByStudentId(
+                        classId, setup.getAcademicTerm().getId(), setup.getEvaluationType())
+                .stream().collect(Collectors.toMap(r -> r.getStudent().getId(), Function.identity()));
+        Set<Long> seen = new HashSet<>();
+        for (ApplyTermCommentAiDraftRequest.Row row : request.rows()) {
+            if (!seen.add(row.studentId())) {
+                throw new CommentAiDraftRejectedException("Học sinh id=" + row.studentId() + " bị lặp trong lần áp dụng.");
+            }
+            if (!activeStudents.containsKey(row.studentId())) {
+                throw new CommentAiDraftRejectedException("Học sinh id=" + row.studentId()
+                        + " không còn học trong lớp — bỏ chọn dòng này rồi áp dụng lại.");
+            }
+            GradeEvaluationResult result = existing.get(row.studentId());
+            if (result != null) {
+                requireEditableState(result.getStatus(), result.getId(), actorUserId);
+            }
+        }
+        User actor = getUserOrThrow(actorUserId);
+        SchoolClass schoolClass = setup.getSchoolClass();
+        List<GradeEvaluationResultResponse> saved = new ArrayList<>();
+        for (ApplyTermCommentAiDraftRequest.Row row : request.rows()) {
+            GradeEvaluationResult result = existing.get(row.studentId());
+            if (result == null) {
+                result = new GradeEvaluationResult();
+                result.setSchoolClass(schoolClass);
+                result.setStudent(activeStudents.get(row.studentId()));
+                result.setAcademicTerm(setup.getAcademicTerm());
+                result.setEvaluationType(setup.getEvaluationType());
+                result.setScaleType(resultScaleOf(setup.getScaleType()));
+            }
+            result.setComment(row.comment().trim());
+            result.setAiDrafted(true);
+            if (row.aiDraftContent() != null && !row.aiDraftContent().isBlank()) {
+                result.setAiDraftContent(row.aiDraftContent().trim());
+            }
+            result.setEnteredBy(actor);
+            result.setEnteredAt(OffsetDateTime.now());
+            saved.add(toResponse(gradeEvaluationResultRepository.save(result)));
+        }
+        ensureEditWindowStarted(classId, setupId);
+        return saved;
+    }
+
+    /** UC-76 A2 — setup phải tồn tại và thuộc đúng lớp đang thao tác. */
+    GradeComponentSetup getSetupOfClassOrThrow(Long classId, Long setupId) {
+        return gradeComponentSetupRepository.findById(setupId)
+                .filter(setup -> setup.getSchoolClass().getId().equals(classId))
+                .orElseThrow(() -> new ResourceNotFoundException("error.grade.componentSetupNotFound", new Object[]{setupId},
+                        "Không tìm thấy setup sổ điểm id=" + setupId));
+    }
+
+    /** V97: thang của setup quyết định scale_type lưu cho Overall (cùng quy ước với FE nhập điểm). */
+    static GradeEvaluationResult.ScaleType resultScaleOf(GradeComponentSetup.ScaleType setupScale) {
+        return switch (setupScale) {
+            case POINT_10 -> GradeEvaluationResult.ScaleType.NUMERIC;
+            case PERCENT -> GradeEvaluationResult.ScaleType.PERCENTAGE;
+            case IELTS -> GradeEvaluationResult.ScaleType.BAND;
+        };
     }
 
     @Transactional(readOnly = true)

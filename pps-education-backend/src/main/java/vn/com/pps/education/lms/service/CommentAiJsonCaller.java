@@ -52,13 +52,22 @@ public class CommentAiJsonCaller {
      * @return object JSON AI trả về, hoặc {@code null} khi AI lỗi/kết quả dở dang/không phải JSON.
      */
     public JsonNode callJson(String promptFile, Object payload, String model, Set<Integer> rubricSections, double temperature) {
+        return callJson(promptFile, RUBRIC_FILE, payload, model, rubricSections, temperature);
+    }
+
+    /**
+     * Như {@link #callJson(String, Object, String, Set, double)} nhưng chèn rubric từ file khác — UC-76 (nhận xét Giữa
+     * kỳ/Cuối kỳ, bổ sung 2026-10-05) dùng rubric riêng {@code term-comment-ai-rubric.md} vì văn phong khác nhận xét hằng ngày.
+     */
+    public JsonNode callJson(String promptFile, String rubricFile, Object payload, String model, Set<Integer> rubricSections,
+                             double temperature) {
         String userMessage;
         try {
             userMessage = objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("CommentAiJsonCaller: không dựng được payload JSON.", e);
         }
-        String rubric = HTML_COMMENT.matcher(promptTemplateLoader.load(RUBRIC_FILE, Map.of())).replaceAll("").trim();
+        String rubric = HTML_COMMENT.matcher(promptTemplateLoader.load(rubricFile, Map.of())).replaceAll("").trim();
         String systemPrompt = promptTemplateLoader.load(promptFile, Map.of("RUBRIC", selectRubricSections(rubric, rubricSections)));
         NineRouterAiClient.ChatResult result = aiClient.chatWithFinishReason(systemPrompt, userMessage, model, temperature);
         if (result == null || result.content() == null) {

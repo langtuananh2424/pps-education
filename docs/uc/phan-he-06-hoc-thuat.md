@@ -2828,6 +2828,227 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
 
 ---
 
+UC-76: Trợ lý AI soạn nháp nhận xét Giữa kỳ/Cuối kỳ (bổ sung ngoài SDD
+gốc, đã xác nhận với người dùng 2026-10-05)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-76                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Trợ lý AI soạn nháp nhận xét Giữa kỳ/Cuối kỳ       |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-03 (mở rộng — bổ sung ngoài SDD gốc, đã xác |
+| năng gốc**      | nhận với người dùng 2026-10-05)                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên (và actor nhập điểm hợp lệ của UC-19 —   |
+|                 | cùng rào requireCanEnterGrades)                    |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Trong Sổ điểm của 1 lớp, ở 1 setup Giữa kỳ hoặc    |
+| tắt**           | Cuối kỳ (UC-19/UC-53), Giáo viên bấm "AI soạn nhận |
+|                 | xét". Hệ thống tự phân tích điểm thành phần +      |
+|                 | Overall của từng học sinh (kỹ năng mạnh/yếu, chưa  |
+|                 | đạt ngưỡng, tiến bộ so với Giữa kỳ) rồi giao AI    |
+|                 | viết thành Nhận xét gửi phụ huynh. Kết quả chỉ là  |
+|                 | BẢN XEM TRƯỚC — AI chỉ được điền ô Nhận xét        |
+|                 | (`grade_evaluation_results.comment`), không bao    |
+|                 | giờ đụng tới điểm, Overall, Level, Ghi chú hay     |
+|                 | trạng thái. Lưu thật do Giáo viên bấm "Áp dụng",   |
+|                 | bản ghi ở Nháp (DRAFT); Gửi duyệt vẫn đi đúng      |
+|                 | UC-19 bước 4.                                      |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên đã nhập (hoặc import) điểm Giữa kỳ/Cuối  |
+| hoạt**          | kỳ và cần viết nhận xét kỳ cho cả lớp: mở nút nổi  |
+|                 | "Trợ lý nhận xét kỳ AI" ở tab Sổ điểm (sidebar trò |
+|                 | chuyện như UC-74, bổ sung 2026-10-06).             |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | - Thoả rào nhập điểm của UC-19                     |
+| tiên quyết (    |   (requireCanEnterGrades): Giáo viên được phân     |
+| Precondition)** |   công lớp, HOẶC có academic.grade.manage, HOẶC là |
+|                 |   Quản lý điểm trường phụ trách điểm trường của    |
+|                 |   lớp.                                             |
+|                 | - Setup sổ điểm thuộc đúng lớp đang mở.            |
+|                 | - Hệ thống đã cấu hình 9Router (model soạn nhận    |
+|                 |   xét, dùng chung với UC-74).                      |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên mở Sổ điểm của lớp, bấm nút nổi Trợ  |
+| chính (Main     |     lý, chọn setup Giữa kỳ/Cuối kỳ trong sidebar,  |
+| Flow)**         |     rồi bấm "Soạn nhận xét cả lớp" — hoặc ghi âm   |
+|                 |     (≤ 5 phút)/tải audio/gõ thêm lời giáo viên (ý  |
+|                 |     chung cả lớp, ý riêng về học sinh nào đó).     |
+|                 |                                                    |
+|                 | 2.  Hệ thống kiểm tra rào nhập điểm (A1), setup    |
+|                 |     thuộc lớp (A2), nhận yêu cầu và xử lý bất đồng |
+|                 |     bộ (trả mã công việc, màn hình tự hỏi lại      |
+|                 |     trạng thái — như UC-74).                       |
+|                 |                                                    |
+|                 | 3.  Hệ thống xác định danh sách học sinh cần soạn: |
+|                 |     học sinh ACTIVE của lớp, có ít nhất 1 điểm     |
+|                 |     thành phần (không đánh dấu vắng thi) hoặc có   |
+|                 |     Overall ở setup này, và Nhận xét kỳ chưa ở     |
+|                 |     SUBMITTED/OFFICIAL (trừ actor có               |
+|                 |     academic.grade.edit.override). Nếu Giáo viên   |
+|                 |     chỉ yêu cầu soạn lại 1 số học sinh thì chỉ xét |
+|                 |     các học sinh đó.                               |
+|                 |                                                    |
+|                 | 4.  Hệ thống tự phân tích điểm (bằng code, không   |
+|                 |     gọi AI) và quy ra LỜI cho từng học sinh:       |
+|                 |     (a) mức từng kỹ năng theo % điểm tối đa (Tốt   |
+|                 |     ≥ 85%, Cần cố gắng < 50% — ngưỡng cấu hình     |
+|                 |     được; thang IELTS/band không xếp mức theo %);  |
+|                 |     (b) kỹ năng dưới ngưỡng đạt (pass_threshold)   |
+|                 |     nếu thành phần có cấu hình; (c) kỹ năng nổi    |
+|                 |     bật/cần tập trung so với chính học sinh đó     |
+|                 |     (lệch ≥ 10 điểm % so với trung bình các kỹ     |
+|                 |     năng của em, khi có từ 2 kỹ năng); (d) với     |
+|                 |     Cuối kỳ: tiến bộ rõ/giảm rõ so với Giữa kỳ     |
+|                 |     cùng kỳ học, cùng lớp (lệch ≥ 10 điểm %, so    |
+|                 |     theo cùng kỹ năng và Overall cùng thang);      |
+|                 |     (e) phần thi vắng — AI không nhận xét kết quả  |
+|                 |     phần đó.                                       |
+|                 |                                                    |
+|                 | 5.  AI viết Nhận xét cho từng học sinh theo lô,    |
+|                 |     theo rubric nhận xét kỳ                        |
+|                 |     (`prompts/term-comment-ai-rubric.md`): chỉ     |
+|                 |     diễn đạt các ý ở bước 4, KHÔNG ghi con số điểm |
+|                 |     (phụ huynh đã thấy điểm ngay cạnh), không so   |
+|                 |     sánh với bạn khác; câu chữ khác nhau giữa các  |
+|                 |     học sinh và khác nhận xét kỳ trước của chính   |
+|                 |     học sinh đó. Có audio thì chuyển thành chữ     |
+|                 |     trước (audio không được lưu lại); lời giáo     |
+|                 |     viên là nguồn DUY NHẤT được nhắc thái độ/hành  |
+|                 |     vi trên lớp, và chỉ cho đúng học sinh được     |
+|                 |     nhắc.                                          |
+|                 |                                                    |
+|                 | 6.  Hệ thống đo độ trùng lặp câu chữ (cùng cách đo |
+|                 |     và ngưỡng với UC-74 bước 7) giữa các học sinh  |
+|                 |     và với nhận xét kỳ trước; dòng vượt ngưỡng     |
+|                 |     được AI viết lại 1 lần.                        |
+|                 |                                                    |
+|                 | 7.  Sidebar hiển thị bản xem trước (chưa ghi DB):  |
+|                 |     từng học sinh với tóm tắt điểm đã phân tích,   |
+|                 |     Nhận xét hiện có (nếu có) và Nhận xét AI soạn, |
+|                 |     kèm cảnh báo và các nút gợi ý thao tác ("Lưu   |
+|                 |     vào sổ điểm", "Viết lại cho đa dạng hơn", lệnh |
+|                 |     nhanh). Dòng chưa có Nhận xét được chọn sẵn;   |
+|                 |     dòng đã có Nhận xét KHÔNG được chọn sẵn (A7).  |
+|                 |                                                    |
+|                 | 7b. (Tuỳ chọn) Giáo viên trò chuyện để sửa (gõ     |
+|                 |     hoặc nói, VD "An viết ngắn lại"): AI chỉ sửa   |
+|                 |     đúng các dòng liên quan; "Viết lại" viết lại   |
+|                 |     câu chữ toàn bộ, tránh câu cũ. Mỗi lượt sửa    |
+|                 |     chạy lại rào và đọc lại điểm mới nhất.         |
+|                 |                                                    |
+|                 | 8.  Giáo viên chọn dòng và bấm "Lưu vào sổ điểm":  |
+|                 |     hệ thống ghi Nhận xét của các dòng đã   |
+|                 |     chọn vào sổ điểm trong 1 giao dịch (tạo bản    |
+|                 |     ghi Overall mới ở DRAFT nếu chưa có), đánh dấu |
+|                 |     ai_drafted và lưu nguyên văn bản AI vào        |
+|                 |     ai_draft_content; các trường khác giữ nguyên.  |
+|                 |                                                    |
+|                 | 9.  Giáo viên tự xem lại và Gửi duyệt theo UC-19   |
+|                 |     bước 4 — trợ lý AI không có quyền Gửi duyệt.   |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 — Không đủ quyền***                          |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Tại bước 2 hoặc 8, actor không thoả rào nhập   |
+| Flow)**         |     điểm của UC-19: từ chối (403).                 |
+|                 |                                                    |
+|                 | ***A2 — Setup không thuộc lớp***                   |
+|                 |                                                    |
+|                 | 1.  Tại bước 2 hoặc 8, setup không tồn tại hoặc    |
+|                 |     thuộc lớp khác: từ chối (404).                 |
+|                 |                                                    |
+|                 | ***A3 — Không còn học sinh nào cần soạn***         |
+|                 |                                                    |
+|                 | 1.  Tại bước 3, danh sách rỗng (chưa có điểm hoặc  |
+|                 |     đã Gửi duyệt hết): từ chối (422), báo lý do.   |
+|                 |                                                    |
+|                 | ***A4 — Lỗi AI hoặc quá thời gian***               |
+|                 |                                                    |
+|                 | 1.  Tại bước 5, mọi lô đều lỗi: công việc chuyển   |
+|                 |     FAILED, sổ điểm không thay đổi; Giáo viên thử  |
+|                 |     lại.                                           |
+|                 |                                                    |
+|                 | 2.  Chỉ 1 số lô lỗi hoặc AI bỏ sót học sinh: thử   |
+|                 |     lại 1 lần với lô nhỏ hơn; vẫn thiếu thì dòng   |
+|                 |     đó có cảnh báo NOT_WRITTEN, không có nội dung. |
+|                 |                                                    |
+|                 | ***A5 — Vẫn trùng lặp sau khi viết lại***          |
+|                 |                                                    |
+|                 | 1.  Tại bước 6, dòng vẫn vượt ngưỡng sau 1 lần     |
+|                 |     viết lại: giữ bản viết lại, gắn cảnh báo       |
+|                 |     SIMILAR_IN_CLASS / SIMILAR_TO_PREVIOUS.        |
+|                 |                                                    |
+|                 | ***A6 — Nhận xét có chữ số***                      |
+|                 |                                                    |
+|                 | 1.  Tại bước 7, Nhận xét AI có chữ số (nghi lộ     |
+|                 |     điểm): gắn cảnh báo HAS_DIGITS để Giáo viên    |
+|                 |     xem lại, không tự xoá.                         |
+|                 |                                                    |
+|                 | ***A7 — Học sinh đã có Nhận xét***                 |
+|                 |                                                    |
+|                 | 1.  Tại bước 7, dòng đã có Nhận xét (Giáo viên tự  |
+|                 |     viết hoặc import) không được chọn sẵn; Giáo    |
+|                 |     viên tự chọn nếu muốn ghi đè.                  |
+|                 |                                                    |
+|                 | ***A8 — Bản ghi bị khoá khi áp dụng***             |
+|                 |                                                    |
+|                 | 1.  Tại bước 8, có dòng đã chuyển SUBMITTED/       |
+|                 |     OFFICIAL trong lúc chờ (actor không có         |
+|                 |     override) hoặc học sinh không còn ACTIVE trong |
+|                 |     lớp: từ chối cả lần áp dụng (422), không ghi   |
+|                 |     dòng nào; Giáo viên bỏ chọn dòng đó rồi áp     |
+|                 |     dụng lại.                                      |
+|                 |                                                    |
+|                 | ***A9 — Đầu vào không hợp lệ***                    |
+|                 |                                                    |
+|                 | 1.  Tại bước 2/7b, file không phải audio hoặc vượt |
+|                 |     dung lượng, lời giáo viên quá 2000 ký tự, hoặc |
+|                 |     yêu cầu sửa trống: từ chối (422). Giới hạn 5   |
+|                 |     phút do sidebar kiểm tra trước khi gửi.        |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | - Sau bước 7: sổ điểm chưa thay đổi.               |
+| (P              | - Sau bước 8: các dòng đã chọn có Nhận xét mới,    |
+| ostcondition)** |   ai_drafted = TRUE, ai_draft_content = nguyên văn |
+|                 |   bản AI; trạng thái giữ nguyên (bản ghi mới ở     |
+|                 |   DRAFT, bản ghi REJECTED vẫn REJECTED chờ gửi     |
+|                 |   lại).                                            |
++-----------------+----------------------------------------------------+
+
+Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-10-05):
+
+-   Migration V212 thêm `grade_evaluation_results.ai_drafted` +
+    `ai_draft_content` (cùng ý nghĩa với V201/V208 của `student_comments`),
+    không trả ra API.
+-   Endpoint (quyền `academic.grade.entry` hoặc
+    `academic.grade.edit.override`, như nhập điểm):
+    `POST /api/classes/{classId}/grade-component-setups/{setupId}/comments/ai-draft`
+    (multipart tuỳ chọn: `audio`, `instruction`, `studentIds`) +
+    `POST .../comments/ai-draft/revise` (multipart: `request` JSON gồm
+    `mode`/`currentRows`/`history`, kèm `audio`/`instruction`) +
+    `GET /api/term-comment-ai-drafts/{jobId}`;
+    `POST /api/classes/{classId}/grade-component-setups/{setupId}/comments/ai-draft/apply`.
+    Chạy nền qua `AiJobRegistry` (làn DRAFT, dùng chung với UC-74).
+-   Ngưỡng ở bước 4 cấu hình qua `app.ai-term-comment.*`; rubric riêng
+    `prompts/term-comment-ai-rubric.md` vì văn phong nhận xét kỳ khác nhận
+    xét hằng ngày. Điểm danh, BTVN, nhận xét hằng ngày KHÔNG đưa vào (phạm
+    vi giai đoạn 1 chỉ dùng điểm thành phần + Overall).
+-   Bổ sung 2026-10-06 (đã xác nhận với người dùng): giao diện chuyển từ
+    hộp thoại sang nút nổi `AiAssistantFab` + sidebar trò chuyện (dùng chung
+    `AiChatComposer` với UC-74/75), kèm lời giáo viên bằng audio/chữ và sửa
+    theo yêu cầu (prompt `term-comment-ai-revise-system-prompt.txt`).
+-   Đã xác nhận với người dùng 2026-10-06: (1) giáo viên ĐƯỢC nói/gõ thêm
+    thái độ, hành vi trên lớp — đây là nguồn duy nhất trợ lý được nhắc các
+    ý này, và chỉ cho đúng học sinh được nhắc; (2) giữ ngưỡng đề xuất ở bước
+    4 (Tốt ≥ 85%, Cần cố gắng < 50%, lệch tương đối 10 điểm %, tiến bộ/giảm
+    10 điểm % hoặc 0.5 band) làm mặc định, sẽ tinh chỉnh dần qua
+    `app.ai-term-comment.*` theo kết quả thật.
+
+---
+
 UC-53: Nhập điểm thi qua Excel (bổ sung ngoài SDD gốc, đã xác nhận với
 người dùng)
 
