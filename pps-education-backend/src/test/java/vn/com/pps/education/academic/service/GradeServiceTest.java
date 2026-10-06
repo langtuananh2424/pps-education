@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.academic.domain.AcademicTerm;
+import vn.com.pps.education.academic.domain.GradeEvaluationResult;
 import vn.com.pps.education.academic.domain.GradePeriodEditWindow;
 import vn.com.pps.education.student.domain.Parent;
 import vn.com.pps.education.student.domain.ParentStudent;
@@ -17,6 +18,7 @@ import vn.com.pps.education.facility.domain.SiteManager;
 import vn.com.pps.education.student.domain.Student;
 import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.permission.domain.UserRole;
+import vn.com.pps.education.academic.dto.ApplyTermCommentAiDraftRequest;
 import vn.com.pps.education.academic.dto.AssignTeacherRequest;
 import vn.com.pps.education.lms.dto.ClassResponse;
 import vn.com.pps.education.academic.dto.CreateClassRequest;
@@ -36,6 +38,7 @@ import vn.com.pps.education.student.dto.RecordTransferRequest;
 import vn.com.pps.education.academic.dto.SubmitGradesRequest;
 import vn.com.pps.education.academic.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.academic.dto.UpdateGradeEvaluationComponentRequest;
+import vn.com.pps.education.exception.CommentAiDraftRejectedException;
 import vn.com.pps.education.exception.GradeAlreadyPublishedException;
 import vn.com.pps.education.exception.GradeComponentLockedException;
 import vn.com.pps.education.exception.GradeComponentNotDeletableException;
@@ -49,6 +52,7 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.academic.repository.AcademicTermRepository;
 import vn.com.pps.education.academic.repository.GradeEntryHistoryRepository;
 import vn.com.pps.education.academic.repository.GradeEntryRepository;
+import vn.com.pps.education.academic.repository.GradeEvaluationResultRepository;
 import vn.com.pps.education.academic.repository.GradePeriodEditWindowRepository;
 import vn.com.pps.education.student.repository.ParentRepository;
 import vn.com.pps.education.student.repository.ParentStudentRepository;
@@ -111,6 +115,9 @@ class GradeServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private GradeEntryRepository gradeEntryRepository;
+
+    @Autowired
+    private GradeEvaluationResultRepository gradeEvaluationResultRepository;
 
     @Autowired
     private GradeEntryHistoryRepository gradeEntryHistoryRepository;
@@ -867,6 +874,94 @@ class GradeServiceTest extends AbstractIntegrationTest {
                 .findBySchoolClassIdAndGradeComponentSetupId(classId, setupId).orElseThrow();
         window.setFirstEnteredAt(OffsetDateTime.now().minusDays(academicSettingsService.gradeEditWindowDays() + 1L));
         gradePeriodEditWindowRepository.save(window);
+    }
+
+    // ===================== UC-76 bước 8: Áp dụng Nhận xét kỳ từ trợ lý AI =====================
+
+    @Test
+    void applyAiDraftComments_UC76_MainFlow_writesCommentAndAiMarksKeepingScoresAndStatus() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        Student other = newStudent();
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(other.getId(), LocalDate.now()), headAcademic.getId());
+        GradeEvaluationResultResponse existing = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
+                new EnterGradeEvaluationResultRequest(new BigDecimal("8.5"), "NUMERIC", "B1", null, "Ghi chú GV", null), teacher.getId());
+
+        List<GradeEvaluationResultResponse> saved = gradeService.applyAiDraftComments(schoolClass.id(), gradeSetup.id(),
+                new ApplyTermCommentAiDraftRequest(List.of(
+                        new ApplyTermCommentAiDraftRequest.Row(student.getId(), " Nhận xét GV đã sửa ", "Nhận xét AI gốc"),
+                        new ApplyTermCommentAiDraftRequest.Row(other.getId(), "Nhận xét cho bạn chưa có Overall", "Nhận xét cho bạn chưa có Overall"))),
+                teacher.getId());
+
+        assertThat(saved).hasSize(2);
+        GradeEvaluationResult updated = gradeEvaluationResultRepository.findById(existing.id()).orElseThrow();
+        assertThat(updated.getComment()).isEqualTo("Nhận xét GV đã sửa");
+        assertThat(updated.isAiDrafted()).isTrue();
+        assertThat(updated.getAiDraftContent()).isEqualTo("Nhận xét AI gốc");
+        assertThat(updated.getOverallScore()).isEqualByComparingTo("8.5");
+        assertThat(updated.getLevel()).isEqualTo("B1");
+        assertThat(updated.getNote()).isEqualTo("Ghi chú GV");
+        assertThat(updated.getStatus()).isEqualTo(GradeEvaluationResult.Status.DRAFT);
+        GradeEvaluationResultResponse created = saved.stream().filter(r -> r.studentId().equals(other.getId())).findFirst().orElseThrow();
+        assertThat(created.status()).isEqualTo("DRAFT");
+        assertThat(created.overallScore()).isNull();
+        assertThat(created.scaleType()).isEqualTo("NUMERIC");
+    }
+
+    @Test
+    void applyAiDraftComments_UC76_A1_rejectsActorNotAllowedToEnterGrades() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        User outsider = newUser("outsider");
+
+        assertThatThrownBy(() -> gradeService.applyAiDraftComments(schoolClass.id(), gradeSetup.id(),
+                new ApplyTermCommentAiDraftRequest(List.of(new ApplyTermCommentAiDraftRequest.Row(student.getId(), "Nhận xét", null))),
+                outsider.getId()))
+                .isInstanceOf(NotAssignedTeacherForClassException.class);
+    }
+
+    @Test
+    void applyAiDraftComments_UC76_A2_rejectsSetupOfAnotherClass() {
+        ClassResponse otherClass = classService.create(
+                new CreateClassRequest(classCode(), "9B1", schoolClass.siteId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        GradeComponentSetupResponse otherSetup = gradeService.createGradeComponentSetup(otherClass.id(),
+                new CreateGradeComponentSetupRequest(academicTerm.getId(), "MID_TERM", "POINT_10", LocalDate.now(), false),
+                headAcademic.getId());
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+
+        assertThatThrownBy(() -> gradeService.applyAiDraftComments(schoolClass.id(), otherSetup.id(),
+                new ApplyTermCommentAiDraftRequest(List.of(new ApplyTermCommentAiDraftRequest.Row(student.getId(), "Nhận xét", null))),
+                teacher.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void applyAiDraftComments_UC76_A8_rejectsWholeBatchWhenOneRowIsSubmitted() {
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
+        Student other = newStudent();
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(other.getId(), LocalDate.now()), headAcademic.getId());
+        GradeEvaluationResultResponse submitted = gradeService.enterEvaluationResult(schoolClass.id(), student.getId(), gradeSetup.id(),
+                new EnterGradeEvaluationResultRequest(new BigDecimal("7"), "NUMERIC", null, "Nhận xét cũ", null, null), teacher.getId());
+        submitResults(submitted.id());
+
+        assertThatThrownBy(() -> gradeService.applyAiDraftComments(schoolClass.id(), gradeSetup.id(),
+                new ApplyTermCommentAiDraftRequest(List.of(
+                        new ApplyTermCommentAiDraftRequest.Row(other.getId(), "Nhận xét mới", null),
+                        new ApplyTermCommentAiDraftRequest.Row(student.getId(), "Nhận xét mới", null))),
+                teacher.getId()))
+                .isInstanceOf(GradeNotEditableException.class);
+        assertThat(gradeService.listEvaluationResults(schoolClass.id(), gradeSetup.id()))
+                .extracting(GradeEvaluationResultResponse::studentId).containsExactly(student.getId());
+        assertThat(gradeEvaluationResultRepository.findById(submitted.id()).orElseThrow().getComment()).isEqualTo("Nhận xét cũ");
+    }
+
+    @Test
+    void applyAiDraftComments_UC76_A8_rejectsStudentNotActiveInClass() {
+        // Cố tình KHÔNG ghi danh học sinh vào lớp.
+        assertThatThrownBy(() -> gradeService.applyAiDraftComments(schoolClass.id(), gradeSetup.id(),
+                new ApplyTermCommentAiDraftRequest(List.of(new ApplyTermCommentAiDraftRequest.Row(student.getId(), "Nhận xét", null))),
+                teacher.getId()))
+                .isInstanceOf(CommentAiDraftRejectedException.class);
+        assertThat(gradeService.listEvaluationResults(schoolClass.id(), gradeSetup.id())).isEmpty();
     }
 
     private String curriculumCode() {
