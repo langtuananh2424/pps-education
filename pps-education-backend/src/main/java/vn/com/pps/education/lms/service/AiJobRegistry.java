@@ -57,7 +57,7 @@ public class AiJobRegistry {
     private final Clock clock;
     private final Duration ttl;
 
-    /** Làn chạy job: {@code DRAFT} — trợ lý soạn nháp của giáo viên (UC-74); {@code REVIEW} — trợ lý duyệt của Quản lý (UC-75). */
+    /** Làn chạy job: {@code DRAFT} — trợ lý soạn nháp của giáo viên (UC-74 hằng ngày, UC-76 Giữa/Cuối kỳ); {@code REVIEW} — trợ lý duyệt của Quản lý (UC-75). */
     public enum Lane {
         DRAFT, REVIEW
     }

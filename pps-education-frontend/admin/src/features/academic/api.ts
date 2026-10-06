@@ -1245,6 +1245,94 @@ export function listEvaluationResults(classId: number, setupId: number): Promise
   return apiRequest<GradeEvaluationResultResponse[]>(`/classes/${classId}/grade-component-setups/${setupId}/results`);
 }
 
+// ---- UC-76: Trợ lý AI soạn nháp Nhận xét Giữa kỳ/Cuối kỳ (bổ sung ngoài SDD gốc, 2026-10-05) ----
+
+/** SIMILAR_IN_CLASS / SIMILAR_TO_PREVIOUS (trùng lặp), HAS_DIGITS (có chữ số), NOT_WRITTEN (AI chưa viết được). */
+export interface TermCommentAiWarning {
+  type: "SIMILAR_IN_CLASS" | "SIMILAR_TO_PREVIOUS" | "HAS_DIGITS" | "NOT_WRITTEN" | string;
+  message: string;
+  similarity: number | null;
+}
+
+export interface TermCommentAiDraftRow {
+  studentId: number;
+  studentFullName: string;
+  /** Phân tích điểm bằng lời (không có con số) để GV đối chiếu. */
+  scoreSummary: string;
+  /** Nhận xét đang lưu trong sổ điểm — dòng có giá trị này không được chọn sẵn (UC-76 A7). */
+  existingComment: string | null;
+  content: string | null;
+  warnings: TermCommentAiWarning[];
+}
+
+export interface TermCommentAiDraftResult {
+  evaluationType: "MID_TERM" | "END_TERM";
+  /** Lời giáo viên nói (audio đã chuyển thành chữ) — null khi không gửi audio. */
+  transcript: string | null;
+  /** Câu trả lời của trợ lý trong sidebar trò chuyện. */
+  assistantMessage: string;
+  rows: TermCommentAiDraftRow[];
+  skippedStudents: { studentId: number; studentFullName: string; reason: string }[];
+}
+
+function appendAiAudio(formData: FormData, audio: Blob | null, baseName: string) {
+  if (!audio) return;
+  const extension = audio.type.includes("mp4") || audio.type.includes("m4a") ? "m4a" : audio.type.includes("wav") ? "wav" : audio.type.includes("mpeg") ? "mp3" : "webm";
+  formData.append("audio", audio, `${baseName}.${extension}`);
+}
+
+/**
+ * UC-76 bước 1-2 — BE trả job chạy nền. Lời giáo viên (audio ≤ 5 phút và/hoặc chữ) là tuỳ chọn — không có thì trợ lý
+ * soạn thuần từ điểm thành phần + Overall.
+ */
+export function startTermCommentAiDraft(classId: number, setupId: number, audio: Blob | null, instruction: string): Promise<AiJob<TermCommentAiDraftResult>> {
+  const formData = new FormData();
+  appendAiAudio(formData, audio, "nhan-xet-ky");
+  if (instruction.trim()) formData.append("instruction", instruction.trim());
+  return apiRequest<AiJob<TermCommentAiDraftResult>>(`/classes/${classId}/grade-component-setups/${setupId}/comments/ai-draft`, {
+    method: "POST",
+    body: formData
+  });
+}
+
+export interface ReviseTermCommentAiDraftRequest {
+  mode: "INSTRUCTION" | "REWRITE_ALL";
+  currentRows: { studentId: number; content: string | null }[];
+  history?: { role: "teacher" | "assistant"; text: string }[];
+}
+
+/** UC-76 bước 7b — sửa bản nháp theo yêu cầu (chữ/audio, chỉ các dòng liên quan) hoặc viết lại câu chữ toàn bộ. */
+export function reviseTermCommentAiDraft(
+  classId: number,
+  setupId: number,
+  request: ReviseTermCommentAiDraftRequest,
+  audio: Blob | null = null,
+  instruction = ""
+): Promise<AiJob<TermCommentAiDraftResult>> {
+  const formData = new FormData();
+  formData.append("request", new Blob([JSON.stringify(request)], { type: "application/json" }));
+  appendAiAudio(formData, audio, "yeu-cau");
+  if (instruction.trim()) formData.append("instruction", instruction.trim());
+  return apiRequest<AiJob<TermCommentAiDraftResult>>(`/classes/${classId}/grade-component-setups/${setupId}/comments/ai-draft/revise`, {
+    method: "POST",
+    body: formData
+  });
+}
+
+export const termCommentAiDraftJobPath = (jobId: string) => `/term-comment-ai-drafts/${jobId}`;
+
+/** UC-76 bước 8 — ghi Nhận xét các dòng đã chọn vào sổ điểm (1 giao dịch; 1 dòng bị khoá thì không ghi dòng nào). */
+export function applyTermCommentAiDraft(
+  classId: number,
+  setupId: number,
+  rows: { studentId: number; comment: string; aiDraftContent: string | null }[]
+): Promise<GradeEvaluationResultResponse[]> {
+  return apiRequest<GradeEvaluationResultResponse[]>(`/classes/${classId}/grade-component-setups/${setupId}/comments/ai-draft/apply`, {
+    method: "POST",
+    body: JSON.stringify({ rows })
+  });
+}
+
 export interface GradeImportResponse {
   id: number;
   sourceFileName: string;
