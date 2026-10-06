@@ -13,10 +13,13 @@ use strict; use warnings; use utf8; use feature 'unicode_strings';
 use JSON::PP qw(decode_json);
 use File::Basename qw(dirname);
 use Cwd qw(abs_path);
+use File::Find;
 
 my $ROOT = dirname(dirname(abs_path($0))); # script nam trong ROOT/scripts/
 my $OUT  = "$ROOT/API.md";
-my $CTRL = "$ROOT/pps-education-backend/src/main/java/vn/com/pps/education/controller";
+# Sau khi chia package theo phan he (package-by-feature, PR #678) controller nam o
+# vn/com/pps/education/<phan-he>/controller/ -- quet de quy moi thu muc "controller".
+my $SRC  = "$ROOT/pps-education-backend/src/main/java/vn/com/pps/education";
 
 my $SPEC = $ARGV[0];
 if (!$SPEC) {
@@ -29,10 +32,12 @@ if (!$SPEC) {
 
 # ---------- 1. Quet @PreAuthorize tu source ----------
 my (%classPerm, %methodPerm); # {Class} = perm ; {Class}{method} = perm
-opendir(my $dh, $CTRL) or die "Khong thay thu muc controller: $CTRL\n";
-for my $f (grep { /\.java$/ } readdir $dh) {
-    my ($class) = $f =~ /^(\w+)\.java$/;
-    open my $fh, '<', "$CTRL/$f" or die $!;
+-d $SRC or die "Khong thay thu muc source: $SRC\n";
+my @ctrlFiles;
+find(sub { push @ctrlFiles, $File::Find::name if /\.java$/ && $File::Find::dir =~ m{/controller$} }, $SRC);
+for my $path (sort @ctrlFiles) {
+    my ($class) = $path =~ m{/(\w+)\.java$};
+    open my $fh, '<', $path or die $!;
     my $pending; my $seenClass = 0;
     while (my $line = <$fh>) {
         if ($line =~ /\@PreAuthorize\("([^"]*hasPermission\(null,\s*'[^']+'\)[^"]*)"\)/) {
@@ -60,7 +65,6 @@ for my $f (grep { /\.java$/ } readdir $dh) {
     }
     close $fh;
 }
-closedir $dh;
 
 # ---------- 2. Doc spec ----------
 local $/;
