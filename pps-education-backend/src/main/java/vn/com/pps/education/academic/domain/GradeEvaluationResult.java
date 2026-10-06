@@ -119,4 +119,12 @@ public class GradeEvaluationResult {
 
     @Column(name = "finalized_at")
     private OffsetDateTime finalizedAt;
+
+    /** V212 (UC-76): Nhận xét xuất phát từ bản nháp của trợ lý AI — chỉ bật lên, không tắt lại. */
+    @Column(name = "ai_drafted", nullable = false)
+    private boolean aiDrafted = false;
+
+    /** V212 (UC-76): nguyên văn bản trợ lý soạn ở lần áp dụng gần nhất — chỉ để đo mức GV sửa, không trả ra API. */
+    @Column(name = "ai_draft_content", columnDefinition = "TEXT")
+    private String aiDraftContent;
 }

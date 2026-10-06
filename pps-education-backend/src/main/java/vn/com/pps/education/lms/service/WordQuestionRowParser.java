@@ -159,7 +159,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
         }
 
         ParsedQuestionRow toParsedRow() {
-            return new ParsedQuestionRow(blockNumber, kind, difficulty, content, choiceA, choiceB, choiceC, choiceD,
+            return new ParsedQuestionRow(blockNumber, null, kind, difficulty, content, choiceA, choiceB, choiceC, choiceD,
                     correctAnswer, audioUrl, imageUrl, referencePassage, defaultPoints, explanation, tags);
         }
     }

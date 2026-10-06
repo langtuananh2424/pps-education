@@ -1275,6 +1275,8 @@ erDiagram
         BIGINT entered_by FK
         TIMESTAMPTZ published_at
         BIGINT published_by FK
+        BOOLEAN ai_drafted
+        TEXT ai_draft_content
     }
 ```
 
@@ -1581,6 +1583,21 @@ bước duyệt (`POST /api/grades/decision`, action=APPROVE, kèm
   published_at        TIMESTAMPTZ      NULL
 
   published_by        BIGINT           FK → users(id), NULL
+
+  ai_drafted          BOOLEAN          NOT NULL, DEFAULT        (V212, bổ sung
+                                       FALSE                     ngoài SDD gốc,
+                                                                 UC-76) TRUE nếu
+                                                                 Nhận xét xuất
+                                                                 phát từ bản
+                                                                 nháp trợ lý AI;
+                                                                 chỉ bật lên
+
+  ai_draft_content    TEXT             NULL                     (V212, UC-76)
+                                                                 nguyên văn bản
+                                                                 AI lúc áp dụng
+                                                                 gần nhất — đo
+                                                                 mức GV sửa,
+                                                                 không trả ra API
 
                                        UNIQUE(class_id,
                                        student_id,

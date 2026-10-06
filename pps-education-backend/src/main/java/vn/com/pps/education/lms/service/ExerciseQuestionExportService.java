@@ -261,7 +261,13 @@ public class ExerciseQuestionExportService {
             sheet.createFreezePane(0, 1);
 
             if (!skipped.isEmpty()) {
-                // Sheet thứ 2 — parser import chỉ đọc sheet đầu (getSheetAt(0)) nên không ảnh hưởng import lại.
+                // Sheet thứ 2 — ExcelQuestionRowParser (bổ sung 2026-10-05, đọc nhiều sheet cho mẫu Excel
+                // nhiều sheet theo nhóm) giờ loop qua MỌI sheet, không còn chỉ đọc sheet đầu nữa, nhưng
+                // vẫn AN TOÀN re-import: sheet này thiếu header "kind" (header thật "Loại câu hỏi (hệ
+                // thống)" không khớp alias "Loại câu hỏi" — có "(hệ thống)" phía sau nên so khớp CHÍNH XÁC
+                // thất bại) dù có khớp "content" ("Nội dung") — hasRequiredHeaders cần CẢ 2 nên sheet này
+                // vẫn bị bỏ qua đúng như ý định ban đầu, chỉ là lý do khác (thiếu header bắt buộc, không
+                // phải "không đọc sheet 2").
                 Sheet skippedSheet = workbook.createSheet(SKIPPED_SHEET);
                 writeRow(skippedSheet.createRow(0), new String[]{"Thứ tự trong Bài", "Loại câu hỏi (hệ thống)", "Nội dung"}, header);
                 for (int i = 0; i < skipped.size(); i++) {
