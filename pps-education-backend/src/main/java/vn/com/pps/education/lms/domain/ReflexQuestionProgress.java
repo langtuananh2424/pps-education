@@ -24,8 +24,12 @@ import java.util.Map;
  * KHÔNG dùng lại {@link ReviewVideoQuestionSubmission} (audioUrl NOT NULL ở đó — không hợp với việc
  * "đã viết nhưng chưa ghi âm"; bảng cũ giữ nguyên cho lịch sử/luồng chấm tay cũ, xem
  * ReviewVideoGradingPanel.tsx). 1 dòng/(câu hỏi, học sinh, lần giao) — SỬA ĐÈ tại chỗ mỗi lần thử lại
- * (không giữ lịch sử từng lần, "không giới hạn số lần thử lại, chỉ cần lưu tiến trình dở" đã xác nhận
- * với người dùng) — *AttemptCount chỉ để hiển thị thống kê, KHÔNG phải rào chặn.
+ * (không giữ lịch sử từng lần nộp).
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07, ĐẢO NGƯỢC quyết định cũ bên dưới — *AttemptCount nay LÀ rào chặn: tối đa
+ * {@link ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần nộp mỗi bước (viết riêng, nói riêng) —
+ * xem Javadoc lớp {@link ReflexSequentialGradingService}. Quyết định cũ V139 ("không giới hạn số lần
+ * thử lại, chỉ cần lưu tiến trình dở, *AttemptCount chỉ để hiển thị thống kê") không còn đúng.
  */
 @Getter
 @Setter

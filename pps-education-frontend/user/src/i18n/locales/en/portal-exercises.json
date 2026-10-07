@@ -232,6 +232,7 @@
     "question": {
       "label": "Question {{index}}",
       "passed": "Passed",
+      "notPassedExhausted": "Not passed — out of attempts",
       "locked": "Locked",
       "waitingForYou": "Waiting for you — tap to continue"
     },
@@ -245,13 +246,16 @@
       "failedFeedbackTitle": "Not passed yet — revise and resubmit",
       "yourAnswerLabel": "Your answer",
       "scoreLabel": "grammar score {{score}}%",
-      "attemptCount": "Submitted {{count}} time(s)",
+      "attemptCount": "Submitted {{count}}/{{max}} time(s)",
       "hintTitle": "How to practise",
       "suggestionTitle": "Suggested answer (grammar corrected)",
       "useSuggestionButton": "Fill answer box with this",
       "passedPopup": {
         "heading": "Passed the writing step",
         "continueButton": "Continue"
+      },
+      "exhaustedPopup": {
+        "heading": "Out of attempts for the writing step — moving on to recording with your current score"
       }
     },
     "speakingStage": {
@@ -272,12 +276,16 @@
       "criteriaScoresLabel": "Score by criteria",
       "transcriptLabel": "Transcript (errors boxed in red)",
       "retryButton": "Record again",
-      "attemptCount": "Recorded {{count}} time(s)",
+      "attemptCount": "Recorded {{count}}/{{max}} time(s)",
       "hintTitle": "How to practise",
       "passThresholdNote": "Goal: score {{threshold}}%+ to pass",
+      "exhaustedFeedbackTitle": "Out of attempts — this question was not passed",
       "passedPopup": {
         "heading": "Passed — next question unlocked",
         "continueButton": "Continue"
+      },
+      "exhaustedPopup": {
+        "heading": "Out of attempts for recording — this question was not passed, moving on"
       }
     },
     "submittedSuccess": "You've completed every question!",
