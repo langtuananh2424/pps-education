@@ -865,6 +865,27 @@ UC-24: Làm bài kiểm tra trực tuyến
 > `PUT .../reflex-progress/speaking`, `GET /api/review-video-assignments/
 > {id}/reflex-progress` (xem `ReflexSequentialGradingController`).
 
+> **Bổ sung (2026-10-07, đã xác nhận với người dùng) — ĐẢO NGƯỢC quyết
+> định "KHÔNG giới hạn số lần thử lại" ở trên:** nay giới hạn tối đa 3
+> lần nộp mỗi BƯỚC (viết riêng, nói riêng) cho 1 câu hỏi/1 lần giao
+> (`ReflexSequentialGradingService.MAX_STEP_ATTEMPTS`). Hết 3 lần mà vẫn
+> CHƯA đạt 70%: bước VIẾT tự mở khoá ghi âm luôn (dùng điểm/nhận xét của
+> lần nộp cuối làm kết quả cuối cùng của bước viết, không chặn học sinh
+> lại ở đó); bước NÓI tự đóng câu — coi câu đó là KHÔNG đạt (dùng điểm/
+> nhận xét lần nộp cuối), tự mở khoá câu tiếp theo (không kẹt học sinh
+> lại mãi ở 1 câu). Đạt trước khi hết lượt thì mở khoá ngay như cũ, không
+> cần dùng hết 3 lần. Mỗi lần giao lại (`ReviewVideoAssignment` mới) thì
+> bộ đếm reset về 0 (tiến trình scope theo lần giao, như cũ). FE phân biệt
+> rõ 2 trạng thái "đạt thật" vs "hết lượt — chưa đạt" (badge/màu khác
+> nhau trong danh sách câu hỏi + popup riêng khi chuyển bước/câu do hết
+> lượt), và hiện số lượt đã dùng/tối đa ở mỗi bước
+> (`ReflexVideoTaskPage.tsx`). Response `ReflexQuestionProgressResponse`
+> thêm `writingExhausted/writingMaxAttempts/writingUnlocked/
+> speakingExhausted/speakingMaxAttempts/questionFinalized` — FE dùng
+> `writingUnlocked`/`questionFinalized` (KHÔNG dùng `writingPassed`/
+> `questionPassed`) để quyết định mở khoá bước/câu tiếp theo, vì hết lượt
+> cũng phải mở khoá dù chưa đạt thật.
+
 > **Bổ sung V150 (2026-09-04, đã xác nhận với người dùng) — BỎ rào chặn
 > chồng lấn khoảng ghi âm lúc soạn câu hỏi (đảo ngược quyết định
 > 2026-08-11):** trước V139 (luồng cũ, "video chạy liên tục, ghi âm tính

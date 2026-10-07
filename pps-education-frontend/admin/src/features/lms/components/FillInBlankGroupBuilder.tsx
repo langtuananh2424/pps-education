@@ -185,7 +185,7 @@ export default function FillInBlankGroupBuilder({
 
       <div>
         <label className={labelClass}>{t("fillInBlankGroupBuilder.sharedNoteLabel")}</label>
-        <p className="text-[13px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.sharedNoteHint")}</p>
+        {/* <p className="text-[13px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.sharedNoteHint")}</p> */}
         <textarea
           value={sharedNote}
           onChange={(e) => setSharedNote(e.target.value)}
@@ -198,7 +198,7 @@ export default function FillInBlankGroupBuilder({
 
       <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-200 space-y-2">
         <label className={labelClass}>{t("fillInBlankGroupBuilder.wordBoxLabel")}</label>
-        <p className="text-[13px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.wordBoxHint")}</p>
+        {/* <p className="text-[13px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.wordBoxHint")}</p> */}
         <div className="flex flex-wrap gap-1.5">
           {sharedWordBox.map((w, idx) => (
             <div key={idx} className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg pl-2.5 pr-1 py-1">

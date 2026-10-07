@@ -785,8 +785,31 @@ export interface ReflexQuestionProgressResponse {
   speakingCriteriaScores: { criterion: string; percent: number }[] | null;
   speakingPassed: boolean;
   speakingAttemptCount: number;
-  /** true khi CẢ 2 bước đã đạt — câu tiếp theo được mở khoá (BE không tự chặn nộp câu sau, FE tự khoá UI theo cờ này). */
+  /** true khi CẢ 2 bước đã đạt THẬT (điểm >= ngưỡng) — KHÁC questionFinalized (xem field đó). */
   questionPassed: boolean;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07 — đã dùng hết writingMaxAttempts lần
+   * nộp bước viết mà vẫn CHƯA đạt ngưỡng %. true thì writingUnlocked cũng true (ghi âm vẫn được mở, chỉ
+   * là mở do hết lượt chứ không phải đạt thật) — dùng để hiện "Hết lượt viết" thay vì "Đạt".
+   */
+  writingExhausted: boolean;
+  /** Số lần nộp tối đa bước viết (mirror ReflexSequentialGradingService#MAX_STEP_ATTEMPTS). */
+  writingMaxAttempts: number;
+  /**
+   * Bước viết đã "xong" (đạt thật HOẶC hết lượt) — dùng field này (KHÔNG dùng writingPassed) để quyết
+   * định mở khoá panel ghi âm, vì hết lượt cũng phải mở khoá.
+   */
+  writingUnlocked: boolean;
+  /** Như writingExhausted, cho bước nói. */
+  speakingExhausted: boolean;
+  /** Số lần nộp tối đa bước nói. */
+  speakingMaxAttempts: number;
+  /**
+   * Câu hỏi đã "xong" (đạt thật CẢ 2 bước HOẶC bước nói hết lượt) — dùng field này (KHÔNG dùng
+   * questionPassed) để quyết định mở khoá câu tiếp theo/chạy tiếp video, vì hết lượt bước nói cũng phải
+   * cho qua câu, dù câu đó coi là KHÔNG đạt (questionPassed=false).
+   */
+  questionFinalized: boolean;
   updatedAt: string;
 }
 

@@ -26,10 +26,19 @@ public interface QuestionRowParser {
      * Dữ liệu 1 câu hỏi đọc thô từ file — toàn String, KHÔNG parse
      * enum/số/bắt buộc ở đây (QuestionImportService làm việc đó, xem
      * mapToRequest). {@code rowNumber} dùng để báo lỗi (số dòng Excel
-     * hoặc số thứ tự block Word, 1-based).
+     * hoặc số thứ tự block Word, 1-based — tính RIÊNG theo từng sheet khi
+     * file Excel nhiều sheet, xem {@code sheetLabel}).
+     *
+     * {@code sheetLabel} (bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng 2026-10-05 — mẫu Excel nhiều sheet theo nhóm loại câu hỏi) — tên
+     * sheet Excel chứa dòng này (VD "Trắc nghiệm"), dùng để báo lỗi rõ hơn
+     * khi file có nhiều sheet (ghép "Tên sheet · dòng N" thay vì chỉ "dòng
+     * N", xem QuestionImportService#rowError). {@code null} khi file chỉ 1
+     * sheet (hành vi cũ) hoặc đọc từ Word (không có khái niệm sheet).
      */
     record ParsedQuestionRow(
             int rowNumber,
+            String sheetLabel,
             String kind,
             String difficulty,
             String content,

@@ -26,6 +26,8 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { useDialog } from "@/components/ui/DialogProvider";
 import GradeSheetTable from "./GradeSheetTable";
+import TermCommentAiAssistantSidebar from "./TermCommentAiAssistantSidebar";
+import AiAssistantFab from "@/components/ai/AiAssistantFab";
 import ClassGradeComparisonTable from "./ClassGradeComparisonTable";
 import GradeExcelImportPanel from "./GradeExcelImportPanel";
 import { useToast } from "@/lib/useToast";
@@ -76,6 +78,12 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
   const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
   const [showComparison, setShowComparison] = useState(false);
   const { message: toastMessage, showToast } = useToast();
+  /** UC-76 — trợ lý AI soạn nháp Nhận xét kỳ (nút nổi + sidebar, như trợ lý nhận xét hằng ngày UC-74). */
+  const canEnterGrades = hasPermission("academic.grade.entry") || hasPermission("academic.grade.edit.override");
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState(false);
+  /** Tăng theo setup sau khi trợ lý ghi vào sổ điểm — bảng của đúng setup đó tải lại. */
+  const [sheetRefresh, setSheetRefresh] = useState<Record<number, number>>({});
 
   useEffect(() => {
     listClassEnrollments(classId).then(setEnrollments).catch(() => undefined);
@@ -97,6 +105,11 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
   }, [classId]);
 
   const selectedTerm = terms.find((t) => t.id === selectedTermId) ?? null;
+  const assistantSetups = (["MID_TERM", "END_TERM"] as const).flatMap((evaluationType) => {
+    const setup = setups.find((s) => s.academicTermId === selectedTermId && s.evaluationType === evaluationType);
+    return setup ? [{ setupId: setup.id, evaluationType, label: `${evaluationTypeLabel(t, evaluationType)} — ${selectedTerm?.name ?? ""}` }] : [];
+  });
+  const showAssistant = !readOnly && canEnterGrades && !showComparison && assistantSetups.length > 0;
 
   return (
     <div className="space-y-3">
@@ -144,11 +157,26 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
               showToast={showToast}
               onSetupCreated={(s) => setSetups((prev) => [...prev, s])}
               onSetupDeleted={(id) => setSetups((prev) => prev.filter((s) => s.id !== id))}
+              refreshVersion={sheetRefresh[setups.find((s) => s.academicTermId === selectedTermId && s.evaluationType === evaluationType)?.id ?? -1] ?? 0}
             />
           ))}
         </div>
       ) : (
         <p className="text-sm text-slate-400 italic p-6 text-center">{t("sheetPanel.selectTermPrompt")}</p>
+      )}
+
+      {showAssistant && (
+        <>
+          <TermCommentAiAssistantSidebar
+            open={assistantOpen}
+            onClose={() => setAssistantOpen(false)}
+            classId={classId}
+            setups={assistantSetups}
+            onApplied={(setupId) => setSheetRefresh((prev) => ({ ...prev, [setupId]: (prev[setupId] ?? 0) + 1 }))}
+            onBusyChange={setAssistantBusy}
+          />
+          <AiAssistantFab label={t("aiAssistant.fabLabel")} onClick={() => setAssistantOpen(true)} busy={assistantBusy} hidden={assistantOpen} />
+        </>
       )}
 
       <Toast message={toastMessage} />
@@ -168,6 +196,8 @@ interface GradeSetupSectionProps {
   showToast: (message: string) => void;
   onSetupCreated: (s: GradeComponentSetupResponse) => void;
   onSetupDeleted: (id: number) => void;
+  /** UC-76 — tăng khi trợ lý AI vừa ghi Nhận xét vào sổ điểm của setup này, để bảng tải lại. */
+  refreshVersion: number;
 }
 
 /** 1 section = đúng 1 setup (lớp, kỳ học, Giữa/Cuối kỳ) — tự quản lý đầu điểm/bảng nhập/gửi duyệt/import Excel riêng. */
@@ -181,7 +211,8 @@ function GradeSetupSection({
   canManage,
   showToast,
   onSetupCreated,
-  onSetupDeleted
+  onSetupDeleted,
+  refreshVersion
 }: GradeSetupSectionProps) {
   const [gradeComponents, setGradeComponents] = useState<GradeEvaluationComponentResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -342,7 +373,7 @@ function GradeSetupSection({
       ) : (
         <>
           <GradeSheetTable
-            key={`${classId}-${setup.id}-${sheetVersion}`}
+            key={`${classId}-${setup.id}-${sheetVersion}-${refreshVersion}`}
             classId={classId}
             setupId={setup.id}
             scaleType={setup.scaleType}

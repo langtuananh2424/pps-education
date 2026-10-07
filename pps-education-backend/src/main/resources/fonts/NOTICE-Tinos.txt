@@ -1,0 +1,3 @@
+Tinos-*.ttf: font Tinos (c) The Tinos Project Authors, https://github.com/googlefonts/tinos
+License: SIL Open Font License 1.1 (https://openfontlicense.org), nguon: github.com/google/fonts/tree/main/ofl/tinos
+Dung thay the Times New Roman khi xuat PDF tu mau Word (xem DocxMergeEngine#convertToPdf).

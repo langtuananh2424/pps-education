@@ -232,6 +232,7 @@
     "question": {
       "label": "Câu hỏi {{index}}",
       "passed": "Đã đạt",
+      "notPassedExhausted": "Chưa đạt — hết lượt",
       "locked": "Chưa mở",
       "waitingForYou": "Đang chờ bạn — bấm để tiếp tục"
     },
@@ -245,13 +246,16 @@
       "failedFeedbackTitle": "Chưa đạt — sửa lại và nộp lại",
       "yourAnswerLabel": "Câu trả lời của bạn",
       "scoreLabel": "điểm ngữ pháp {{score}}%",
-      "attemptCount": "Đã nộp {{count}} lần",
+      "attemptCount": "Đã nộp {{count}}/{{max}} lần",
       "hintTitle": "Cách luyện",
       "suggestionTitle": "Gợi ý câu trả lời (đã sửa lỗi ngữ pháp)",
       "useSuggestionButton": "Điền gợi ý vào ô trả lời",
       "passedPopup": {
         "heading": "Đạt bước viết",
         "continueButton": "Tiếp tục"
+      },
+      "exhaustedPopup": {
+        "heading": "Hết lượt nộp bài viết — chuyển sang ghi âm với điểm hiện tại"
       }
     },
     "speakingStage": {
@@ -272,12 +276,16 @@
       "criteriaScoresLabel": "Điểm theo từng tiêu chí",
       "transcriptLabel": "Bài nói đã chuyển thành chữ (phần lỗi được đóng khung đỏ)",
       "retryButton": "Ghi âm lại",
-      "attemptCount": "Đã ghi âm {{count}} lần",
+      "attemptCount": "Đã ghi âm {{count}}/{{max}} lần",
       "hintTitle": "Cách luyện",
       "passThresholdNote": "Mục tiêu: đạt từ {{threshold}}% để vượt qua",
+      "exhaustedFeedbackTitle": "Hết lượt ghi âm — câu này chưa đạt",
       "passedPopup": {
         "heading": "Đạt — mở khoá câu tiếp theo",
         "continueButton": "Tiếp tục"
+      },
+      "exhaustedPopup": {
+        "heading": "Hết lượt ghi âm — câu này chưa đạt, chuyển câu tiếp theo"
       }
     },
     "submittedSuccess": "Bạn đã hoàn thành tất cả câu hỏi!",

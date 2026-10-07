@@ -358,6 +358,18 @@ app:
     # Nhiệt độ AI ở bước VIẾT câu nhận xét (bổ sung 2026-10-01, đã xác nhận với người dùng) - 0 làm câu chữ cả lớp
     # na ná nhau. Tách ý, sửa theo yêu cầu, trợ lý duyệt (UC-75) và chấm bài vẫn giữ 0. Khoảng hợp lệ 0..1.
     write-temperature: ${COMMENT_AI_WRITE_TEMPERATURE:0.7}
+  ai-term-comment:
+    # UC-76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05) - trợ lý AI soạn nháp Nhận xét Giữa kỳ/Cuối kỳ,
+    # xem TermCommentAiDraftService. Model, ngưỡng trùng lặp, cỡ lô, nhiệt độ dùng chung app.ai-comment-draft ở trên.
+    # Ngưỡng phân tích điểm (TermScoreInsight) - ước lượng ban đầu, chỉnh qua biến môi trường sau khi xem kết quả thật.
+    # Mức kỹ năng theo % điểm tối đa (thang band/IELTS không xếp mức theo %): từ strong-percent là "tốt", dưới weak-percent là "cần cố gắng".
+    strong-percent: ${TERM_COMMENT_AI_STRONG_PERCENT:85}
+    weak-percent: ${TERM_COMMENT_AI_WEAK_PERCENT:50}
+    # Lệch (điểm %) so với trung bình các kỹ năng của CHÍNH học sinh để coi là kỹ năng nổi bật / cần tập trung.
+    relative-gap-points: ${TERM_COMMENT_AI_RELATIVE_GAP_POINTS:10}
+    # Cuối kỳ so với Giữa kỳ: chênh lệch từ mức này là "tiến bộ rõ"/"giảm" (điểm % với thang số/%, band với IELTS).
+    trend-points: ${TERM_COMMENT_AI_TREND_POINTS:10}
+    trend-band: ${TERM_COMMENT_AI_TREND_BAND:0.5}
 
 springdoc:
   swagger-ui:
