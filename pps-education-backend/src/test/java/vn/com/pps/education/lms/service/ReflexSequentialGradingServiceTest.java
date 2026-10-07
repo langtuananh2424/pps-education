@@ -18,6 +18,8 @@ import vn.com.pps.education.lms.domain.ReviewVideoSet;
 import vn.com.pps.education.academic.domain.SchoolClass;
 import vn.com.pps.education.student.domain.Student;
 import vn.com.pps.education.exception.ReflexAudioRejectedException;
+import vn.com.pps.education.exception.RetakeNotAllowedException;
+import vn.com.pps.education.lms.dto.ReflexQuestionProgressResponse;
 import vn.com.pps.education.academic.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.lms.repository.ReflexQuestionProgressHistoryRepository;
 import vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository;
@@ -55,6 +57,7 @@ class ReflexSequentialGradingServiceTest {
     private static final Long STUDENT_ID = 30L;
     private static final Long ACTOR_USER_ID = 40L;
     private static final Long CLASS_ID = 50L;
+    private static final Long PROGRESS_ID = 99L;
     private static final String AUDIO_URL = "https://r2.example/reflex/audio.webm";
 
     private final ReviewVideoQuestionRepository questionRepository = mock(ReviewVideoQuestionRepository.class);
@@ -66,11 +69,13 @@ class ReflexSequentialGradingServiceTest {
     private final MediaStorageService mediaStorageService = mock(MediaStorageService.class);
     private final ReflexV2AiGradingService reflexV2GradingService = mock(ReflexV2AiGradingService.class);
     private final AiGradingTokenUsageRecorder tokenUsageRecorder = mock(AiGradingTokenUsageRecorder.class);
+    private final ReflexWritingGrammarAiGradingService writingGradingService = mock(ReflexWritingGrammarAiGradingService.class);
+    private final ReflexSpeakingContentAiGradingService speakingGradingService = mock(ReflexSpeakingContentAiGradingService.class);
 
     private final ReflexSequentialGradingService service = new ReflexSequentialGradingService(
             questionRepository, assignmentRepository, progressRepository, historyRepository, enrollmentRepository,
-            studentRepository, mediaStorageService, mock(ReflexWritingGrammarAiGradingService.class),
-            mock(ReflexSpeakingContentAiGradingService.class), reflexV2GradingService, tokenUsageRecorder);
+            studentRepository, mediaStorageService, writingGradingService,
+            speakingGradingService, reflexV2GradingService, tokenUsageRecorder);
 
     private final AiTokenUsage transcriptionUsage =
             new AiTokenUsage("gemini-3.6-flash-medium", true, 5200, 0, 310, 900, 6100);
@@ -78,10 +83,16 @@ class ReflexSequentialGradingServiceTest {
     /**
      * Alternate Flow "bản ghi bị từ chối" (nói khác bài viết / không đọc được): lượt phiên âm mù đã gọi AI
      * thật — phải ghi đúng 1 dòng chi phí TRANSCRIPTION (kèm học sinh/bài/câu hỏi) rồi vẫn ném 422 như cũ,
-     * không lưu tiến trình.
+     * không lưu điểm/feedback (progressRepository.save không được gọi).
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07 — từ nay lượt bị từ chối VẪN phải
+     * tính vào giới hạn {@value ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần (trước đó KHÔNG
+     * tính — đã đổi vì phát hiện qua test thật: học sinh gửi bản ghi im lặng liên tục không bao giờ chạm
+     * giới hạn). Việc này đi qua {@code incrementSpeakingAttemptCountInNewTransaction} (REQUIRES_NEW) —
+     * xem Javadoc {@link vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository}.
      */
     @Test
-    void submitSpokenAnswer_UC23b_audioRejected_recordsTranscriptionUsageOnceAndStillRejects() {
+    void submitSpokenAnswer_UC23b_A_audioRejected_recordsTranscriptionUsageOnceAndStillRejectsButCountsAttempt() {
         Fixture f = v2SpeakingFixture();
         // Mô phỏng đúng thứ tự thật: Lượt A phiên âm trả về (đẩy chi phí ra sink) rồi mới bị từ chối.
         when(reflexV2GradingService.gradeSpeaking(any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
@@ -98,6 +109,39 @@ class ReflexSequentialGradingServiceTest {
                 isNull(), eq(transcriptionUsage), eq(f.student()), eq(f.assignment()), eq(f.question()));
         verifyNoMoreInteractions(tokenUsageRecorder);
         verify(progressRepository, never()).save(any());
+        verify(progressRepository, times(1)).incrementSpeakingAttemptCountInNewTransaction(PROGRESS_ID);
+    }
+
+    /**
+     * Alternate Flow — 3 lượt LIÊN TIẾP đều bị AI từ chối (im lặng/không đọc được) vẫn phải tính đủ vào
+     * giới hạn {@value ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần, không để học sinh né giới
+     * hạn bằng cách gửi bản ghi rác — mỗi lượt đều phải gọi {@code incrementSpeakingAttemptCountInNewTransaction}
+     * (REQUIRES_NEW), kể cả khi bị từ chối ngay sau đó.
+     *
+     * Lưu ý giới hạn của test thuần mock này: repository mock không mô phỏng ROLLBACK thật của DB (field
+     * Java trên {@code progress} không tự bị "hoàn tác" như 1 giao dịch thật bị huỷ) — persist thật qua
+     * REQUIRES_NEW không kiểm chứng được ở đây (cần Testcontainers, xem .claude/rules/testing.md). Set
+     * tường minh {@code speakingAttemptCount=3} trước lần gọi thứ 4 để khẳng định RÕ RÀNG tiền đề đang
+     * kiểm: "progress nạp lại từ DB với count=3 (dù 3 lượt trước đều bị từ chối) → cổng chặn phải kích
+     * hoạt", tách biệt khỏi chi tiết triển khai REQUIRES_NEW.
+     */
+    @Test
+    void submitSpokenAnswer_UC23b_A_audioRejectedThreeTimes_thenBlocksFurtherResubmission() {
+        Fixture f = v2SpeakingFixture();
+        when(reflexV2GradingService.gradeSpeaking(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new ReflexAudioRejectedException(ReflexV2AiGradingService.MSG_SPOKE_DIFFERENT));
+
+        for (int i = 1; i <= 3; i++) {
+            assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID))
+                    .isInstanceOf(ReflexAudioRejectedException.class);
+        }
+        verify(progressRepository, times(3)).incrementSpeakingAttemptCountInNewTransaction(PROGRESS_ID);
+        verify(progressRepository, never()).save(any());
+
+        f.progress().setSpeakingAttemptCount(3);
+
+        assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID))
+                .isInstanceOf(RetakeNotAllowedException.class);
     }
 
     /**
@@ -147,7 +191,203 @@ class ReflexSequentialGradingServiceTest {
         assertThat(audit).containsEntry("recordingFilter", true);
     }
 
-    private record Fixture(ReviewVideoQuestion question, ReviewVideoAssignment assignment, Student student) {
+    /**
+     * UC-23b V2 — giới hạn {@value ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần nộp mỗi bước
+     * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07). Main Flow: đạt trước khi hết lượt
+     * vẫn mở khoá ngay như cũ.
+     */
+    @Test
+    void submitWrittenAnswer_UC23b_MainFlow_passingBeforeCapUnlocksSpeakingImmediately() {
+        writingFixture();
+        when(writingGradingService.grade(any(), any(), any())).thenReturn(
+                new ReflexWritingGrammarAiGradingService.GradeResult(80, "marked", null, null, null));
+
+        ReflexQuestionProgressResponse response = service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer", ACTOR_USER_ID);
+
+        assertThat(response.writingAttemptCount()).isEqualTo(1);
+        assertThat(response.writingPassed()).isTrue();
+        assertThat(response.writingExhausted()).isFalse();
+        assertThat(response.writingUnlocked()).isTrue();
+    }
+
+    /**
+     * Alternate Flow — hết {@value ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần nộp bước VIẾT mà
+     * vẫn chưa đạt ngưỡng %: tự mở khoá ghi âm (writingUnlocked=true) dùng điểm của lần nộp cuối, KHÔNG
+     * coi là đạt thật (writingPassed vẫn false).
+     */
+    @Test
+    void submitWrittenAnswer_UC23b_A_writingExhausted_unlocksSpeakingWithoutPassing() {
+        writingFixture();
+        when(writingGradingService.grade(any(), any(), any())).thenReturn(
+                new ReflexWritingGrammarAiGradingService.GradeResult(40, "marked", null, null, null));
+
+        service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer 1", ACTOR_USER_ID);
+        service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer 2", ACTOR_USER_ID);
+        ReflexQuestionProgressResponse third = service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer 3", ACTOR_USER_ID);
+
+        assertThat(third.writingAttemptCount()).isEqualTo(3);
+        assertThat(third.writingPassed()).isFalse();
+        assertThat(third.writingExhausted()).isTrue();
+        assertThat(third.writingUnlocked()).isTrue();
+        assertThat(third.writingScorePercent()).isEqualTo(40);
+    }
+
+    /** Alternate Flow — đã hết lượt bước VIẾT (xem test trên): nộp lần thứ 4 phải bị từ chối. */
+    @Test
+    void submitWrittenAnswer_UC23b_A_writingAlreadyExhausted_rejectsFurtherResubmission() {
+        writingFixture();
+        when(writingGradingService.grade(any(), any(), any())).thenReturn(
+                new ReflexWritingGrammarAiGradingService.GradeResult(40, "marked", null, null, null));
+        service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer 1", ACTOR_USER_ID);
+        service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer 2", ACTOR_USER_ID);
+        service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer 3", ACTOR_USER_ID);
+
+        assertThatThrownBy(() -> service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer 4", ACTOR_USER_ID))
+                .isInstanceOf(RetakeNotAllowedException.class);
+    }
+
+    /**
+     * Alternate Flow — hết {@value ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần nộp bước NÓI mà
+     * vẫn chưa đạt ngưỡng %: câu hỏi coi là KHÔNG đạt (questionPassed=false) nhưng VẪN mở khoá câu tiếp
+     * theo (questionFinalized=true) — không kẹt học sinh lại mãi ở 1 câu.
+     */
+    @Test
+    void submitSpokenAnswer_UC23b_A_speakingExhausted_finalizesQuestionAsNotPassed() {
+        legacySpeakingFixture();
+        when(speakingGradingService.grade(any(), any(), any(), any())).thenReturn(
+                new ReflexSpeakingContentAiGradingService.GradeResult("transcript", List.of(), 50, "feedback", null));
+
+        service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+        service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+        ReflexQuestionProgressResponse third = service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+
+        assertThat(third.speakingAttemptCount()).isEqualTo(3);
+        assertThat(third.speakingPassed()).isFalse();
+        assertThat(third.speakingExhausted()).isTrue();
+        assertThat(third.questionPassed()).isFalse();
+        assertThat(third.questionFinalized()).isTrue();
+    }
+
+    /** Alternate Flow — đã hết lượt bước NÓI (xem test trên): nộp lần thứ 4 phải bị từ chối. */
+    @Test
+    void submitSpokenAnswer_UC23b_A_speakingAlreadyExhausted_rejectsFurtherResubmission() {
+        legacySpeakingFixture();
+        when(speakingGradingService.grade(any(), any(), any(), any())).thenReturn(
+                new ReflexSpeakingContentAiGradingService.GradeResult("transcript", List.of(), 50, "feedback", null));
+        service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+        service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+        service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+
+        assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID))
+                .isInstanceOf(RetakeNotAllowedException.class);
+    }
+
+    private record Fixture(ReviewVideoQuestion question, ReviewVideoAssignment assignment, Student student,
+                            ReflexQuestionProgress progress) {
+    }
+
+    /** Câu hỏi REFLEX mới toanh, chưa nộp bước viết lần nào — curriculum không quan trọng (reflexV2Enabled mặc định tắt ở test, luôn đi luồng cũ). */
+    private Fixture writingFixture() {
+        Curriculum curriculum = mock(Curriculum.class);
+
+        ReviewVideoSet set = mock(ReviewVideoSet.class);
+        when(set.getId()).thenReturn(1L);
+        when(set.getStatus()).thenReturn(ReviewVideoSet.Status.PUBLISHED);
+        when(set.getVideoType()).thenReturn(ReviewVideoSet.VideoType.REFLEX);
+        when(set.getCurriculum()).thenReturn(curriculum);
+
+        ReviewVideo video = mock(ReviewVideo.class);
+        when(video.getReviewVideoSet()).thenReturn(set);
+        when(video.getCompletionThresholdPercent()).thenReturn(70);
+
+        ReviewVideoQuestion question = mock(ReviewVideoQuestion.class);
+        when(question.getId()).thenReturn(QUESTION_ID);
+        when(question.getReviewVideo()).thenReturn(video);
+        when(question.getPrompt()).thenReturn("What is your favourite sport?");
+        when(questionRepository.findById(QUESTION_ID)).thenReturn(Optional.of(question));
+
+        Student student = mock(Student.class);
+        when(student.getId()).thenReturn(STUDENT_ID);
+        when(studentRepository.findByUserId(ACTOR_USER_ID)).thenReturn(Optional.of(student));
+
+        SchoolClass schoolClass = mock(SchoolClass.class);
+        when(schoolClass.getId()).thenReturn(CLASS_ID);
+        ReviewVideoAssignment assignment = mock(ReviewVideoAssignment.class);
+        when(assignment.getId()).thenReturn(ASSIGNMENT_ID);
+        when(assignment.getReviewVideoSet()).thenReturn(set);
+        when(assignment.getStatus()).thenReturn(ReviewVideoAssignment.Status.ACTIVE);
+        when(assignment.getSchoolClass()).thenReturn(schoolClass);
+        when(assignment.getTargetStudentIds()).thenReturn(null);
+        when(assignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.of(assignment));
+        when(enrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(CLASS_ID, STUDENT_ID, ClassEnrollment.Status.ACTIVE))
+                .thenReturn(Optional.of(mock(ClassEnrollment.class)));
+
+        ReflexQuestionProgress progress = new ReflexQuestionProgress();
+        progress.setId(PROGRESS_ID);
+        progress.setReviewVideoQuestion(question);
+        progress.setStudent(student);
+        progress.setReviewVideoAssignment(assignment);
+        when(progressRepository.findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(QUESTION_ID, STUDENT_ID, ASSIGNMENT_ID))
+                .thenReturn(Optional.of(progress));
+        when(progressRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        return new Fixture(question, assignment, student, progress);
+    }
+
+    /**
+     * Câu hỏi REFLEX đã đạt Bước 1 (viết) từ trước, CHƯA bắt đầu Bước 2 (nói) — curriculum=null để đi
+     * đúng luồng chấm nói CŨ ({@link ReflexSpeakingContentAiGradingService}), tránh phải dựng
+     * {@link ReflexV2Task} đầy đủ (không phải mục tiêu của các test giới hạn lượt nộp này).
+     */
+    private Fixture legacySpeakingFixture() {
+        ReviewVideoSet set = mock(ReviewVideoSet.class);
+        when(set.getId()).thenReturn(1L);
+        when(set.getStatus()).thenReturn(ReviewVideoSet.Status.PUBLISHED);
+        when(set.getVideoType()).thenReturn(ReviewVideoSet.VideoType.REFLEX);
+        when(set.getCurriculum()).thenReturn(null);
+
+        ReviewVideo video = mock(ReviewVideo.class);
+        when(video.getReviewVideoSet()).thenReturn(set);
+        when(video.getCompletionThresholdPercent()).thenReturn(70);
+
+        ReviewVideoQuestion question = mock(ReviewVideoQuestion.class);
+        when(question.getId()).thenReturn(QUESTION_ID);
+        when(question.getReviewVideo()).thenReturn(video);
+        when(question.getMaxRecordingSeconds()).thenReturn(20);
+        when(question.getPrompt()).thenReturn("What is your favourite sport?");
+        when(questionRepository.findById(QUESTION_ID)).thenReturn(Optional.of(question));
+
+        Student student = mock(Student.class);
+        when(student.getId()).thenReturn(STUDENT_ID);
+        when(studentRepository.findByUserId(ACTOR_USER_ID)).thenReturn(Optional.of(student));
+
+        SchoolClass schoolClass = mock(SchoolClass.class);
+        when(schoolClass.getId()).thenReturn(CLASS_ID);
+        ReviewVideoAssignment assignment = mock(ReviewVideoAssignment.class);
+        when(assignment.getId()).thenReturn(ASSIGNMENT_ID);
+        when(assignment.getReviewVideoSet()).thenReturn(set);
+        when(assignment.getStatus()).thenReturn(ReviewVideoAssignment.Status.ACTIVE);
+        when(assignment.getSchoolClass()).thenReturn(schoolClass);
+        when(assignment.getTargetStudentIds()).thenReturn(null);
+        when(assignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.of(assignment));
+        when(enrollmentRepository.findBySchoolClassIdAndStudentIdAndStatus(CLASS_ID, STUDENT_ID, ClassEnrollment.Status.ACTIVE))
+                .thenReturn(Optional.of(mock(ClassEnrollment.class)));
+
+        ReflexQuestionProgress progress = new ReflexQuestionProgress();
+        progress.setId(PROGRESS_ID);
+        progress.setReviewVideoQuestion(question);
+        progress.setStudent(student);
+        progress.setReviewVideoAssignment(assignment);
+        progress.setWritingScore(BigDecimal.valueOf(80));
+        progress.setAnswerText("My favourite sport is football.");
+        when(progressRepository.findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(QUESTION_ID, STUDENT_ID, ASSIGNMENT_ID))
+                .thenReturn(Optional.of(progress));
+        when(progressRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        when(mediaStorageService.downloadWithContentType(AUDIO_URL))
+                .thenReturn(new MediaStorageService.DownloadedFile(new byte[]{1, 2, 3}, "audio/webm"));
+
+        return new Fixture(question, assignment, student, progress);
     }
 
     private Fixture v2SpeakingFixture() {
@@ -193,6 +433,7 @@ class ReflexSequentialGradingServiceTest {
                 .thenReturn(Optional.of(mock(ClassEnrollment.class)));
 
         ReflexQuestionProgress progress = new ReflexQuestionProgress();
+        progress.setId(PROGRESS_ID);
         progress.setReviewVideoQuestion(question);
         progress.setStudent(student);
         progress.setReviewVideoAssignment(assignment);
@@ -206,6 +447,6 @@ class ReflexSequentialGradingServiceTest {
 
         when(mediaStorageService.downloadWithContentType(AUDIO_URL))
                 .thenReturn(new MediaStorageService.DownloadedFile(new byte[]{1, 2, 3}, "audio/webm"));
-        return new Fixture(question, assignment, student);
+        return new Fixture(question, assignment, student, progress);
     }
 }

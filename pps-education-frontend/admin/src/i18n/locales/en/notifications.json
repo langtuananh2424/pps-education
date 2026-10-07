@@ -21,7 +21,15 @@
     "missCountValue": "{{count}} sessions",
     "actionReject": "Reject",
     "actionApprove": "Approve",
-    "deciding": "Processing..."
+    "deciding": "Processing...",
+    "itemLabel": "invites",
+    "selectPage": "Select all invites on this page",
+    "selectedCount": "{{count}} invites selected",
+    "clearSelection": "Clear selection",
+    "bulkReject": "Reject selected",
+    "bulkApprove": "Approve selected",
+    "bulkApprovedToast": "Approved {{count}} invites — sent to parents.",
+    "bulkRejectedToast": "Rejected {{count}} invites — they will not be sent."
   },
   "attitudeEscalations": {
     "title": "Approve attitude escalations",
@@ -44,6 +52,14 @@
     "streakCountValue": "{{count}} sessions",
     "actionReject": "Reject",
     "actionApprove": "Approve",
-    "deciding": "Processing..."
+    "deciding": "Processing...",
+    "itemLabel": "escalations",
+    "selectPage": "Select all escalations on this page",
+    "selectedCount": "{{count}} escalations selected",
+    "clearSelection": "Clear selection",
+    "bulkReject": "Reject selected",
+    "bulkApprove": "Approve selected",
+    "bulkApprovedToast": "Approved {{count}} escalations — sent to parents.",
+    "bulkRejectedToast": "Rejected {{count}} escalations — they will not be sent."
   }
 }

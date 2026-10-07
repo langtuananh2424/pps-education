@@ -9,6 +9,8 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import FloatingError from "@/components/ui/FloatingError";
+import Pagination from "@/components/ui/Pagination";
+import { usePagedSelection } from "../usePagedSelection";
 
 /**
  * Duyệt "Thư mời phụ huynh tới làm việc" (học sinh thiếu bài liên tục 4 buổi) trước khi gửi
@@ -21,7 +23,8 @@ export default function MeetingInviteApprovalPage() {
   const [invites, setInvites] = useState<HomeworkParentMeetingInviteResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [decidingId, setDecidingId] = useState<number | null>(null);
+  const [decidingIds, setDecidingIds] = useState<number[]>([]);
+  const paged = usePagedSelection(invites);
   const { promptDialog } = useDialog();
   const { message: toastMessage, showToast } = useToast();
 
@@ -36,22 +39,27 @@ export default function MeetingInviteApprovalPage() {
 
   useEffect(load, []);
 
-  const handleDecide = async (invite: HomeworkParentMeetingInviteResponse, decision: "APPROVED" | "REJECTED") => {
+  const handleDecide = async (ids: number[], decision: "APPROVED" | "REJECTED") => {
+    if (ids.length === 0) return;
     let reason: string | undefined;
     if (decision === "REJECTED") {
       reason = (await promptDialog(t("meetingInvites.rejectReasonPrompt"), { required: true, multiline: true })) ?? undefined;
       if (!reason?.trim()) return;
     }
-    setDecidingId(invite.id);
+    setDecidingIds(ids);
     setError(null);
     try {
-      await decideMeetingInvites([invite.id], decision, reason?.trim());
-      setInvites((prev) => prev.filter((it) => it.id !== invite.id));
-      showToast(decision === "APPROVED" ? t("meetingInvites.approvedToast") : t("meetingInvites.rejectedToast"));
+      await decideMeetingInvites(ids, decision, reason?.trim());
+      setInvites((prev) => prev.filter((it) => !ids.includes(it.id)));
+      showToast(
+        ids.length > 1
+          ? t(decision === "APPROVED" ? "meetingInvites.bulkApprovedToast" : "meetingInvites.bulkRejectedToast", { count: ids.length })
+          : t(decision === "APPROVED" ? "meetingInvites.approvedToast" : "meetingInvites.rejectedToast")
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("meetingInvites.decideError"));
     } finally {
-      setDecidingId(null);
+      setDecidingIds([]);
     }
   };
 
@@ -74,9 +82,53 @@ export default function MeetingInviteApprovalPage() {
         ) : invites.length === 0 ? (
           <p className="text-sm text-slate-400 italic p-5">{t("meetingInvites.empty")}</p>
         ) : (
+          <>
+          {paged.selectedIds.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-amber-50/60">
+              <span className="text-[13px] font-bold text-slate-700">
+                {t("meetingInvites.selectedCount", { count: paged.selectedIds.length })}
+              </span>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={paged.clearSelection}
+                  disabled={decidingIds.length > 0}
+                  className="px-2 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 text-[13px] font-bold rounded-lg disabled:opacity-50"
+                >
+                  {t("meetingInvites.clearSelection")}
+                </button>
+                <button
+                  onClick={() => handleDecide(paged.selectedIds, "REJECTED")}
+                  disabled={decidingIds.length > 0}
+                  className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[13px] font-bold rounded-lg disabled:opacity-50"
+                >
+                  <X className="w-3 h-3 inline mr-0.5" />
+                  {t("meetingInvites.bulkReject")}
+                </button>
+                <button
+                  onClick={() => handleDecide(paged.selectedIds, "APPROVED")}
+                  disabled={decidingIds.length > 0}
+                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-lg disabled:opacity-50"
+                >
+                  <Check className="w-3 h-3 inline mr-0.5" />
+                  {t("meetingInvites.bulkApprove")}
+                </button>
+              </div>
+            </div>
+          )}
           <TableContainer className="rounded-none border-0">
             <thead>
               <tr>
+                <Th className="w-10">
+                  <input
+                    type="checkbox"
+                    aria-label={t("meetingInvites.selectPage")}
+                    checked={paged.allPageSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = !paged.allPageSelected && paged.somePageSelected;
+                    }}
+                    onChange={paged.togglePage}
+                  />
+                </Th>
                 <Th>{t("meetingInvites.columns.student")}</Th>
                 <Th>{t("meetingInvites.columns.class")}</Th>
                 <Th>{t("meetingInvites.columns.channel")}</Th>
@@ -86,8 +138,11 @@ export default function MeetingInviteApprovalPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {invites.map((invite) => (
+              {paged.pageItems.map((invite) => (
                 <tr key={invite.id} className="hover:bg-slate-50/40">
+                  <Td className="w-10">
+                    <input type="checkbox" checked={paged.selectedSet.has(invite.id)} onChange={() => paged.toggleOne(invite.id)} />
+                  </Td>
                   <Td className="font-bold text-slate-900">{invite.studentName}</Td>
                   <Td>{invite.className}</Td>
                   <Td>{invite.channelLabel}</Td>
@@ -96,20 +151,20 @@ export default function MeetingInviteApprovalPage() {
                   <Td className="whitespace-nowrap">
                     <div className="flex gap-1.5">
                       <button
-                        onClick={() => handleDecide(invite, "REJECTED")}
-                        disabled={decidingId === invite.id}
+                        onClick={() => handleDecide([invite.id], "REJECTED")}
+                        disabled={decidingIds.includes(invite.id)}
                         className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[13px] font-bold rounded-lg disabled:opacity-50"
                       >
                         <X className="w-3 h-3 inline mr-0.5" />
                         {t("meetingInvites.actionReject")}
                       </button>
                       <button
-                        onClick={() => handleDecide(invite, "APPROVED")}
-                        disabled={decidingId === invite.id}
+                        onClick={() => handleDecide([invite.id], "APPROVED")}
+                        disabled={decidingIds.includes(invite.id)}
                         className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-lg disabled:opacity-50"
                       >
                         <Check className="w-3 h-3 inline mr-0.5" />
-                        {decidingId === invite.id ? t("meetingInvites.deciding") : t("meetingInvites.actionApprove")}
+                        {decidingIds.includes(invite.id) ? t("meetingInvites.deciding") : t("meetingInvites.actionApprove")}
                       </button>
                     </div>
                   </Td>
@@ -117,6 +172,15 @@ export default function MeetingInviteApprovalPage() {
               ))}
             </tbody>
           </TableContainer>
+          <Pagination
+            page={paged.page}
+            pageSize={paged.pageSize}
+            totalElements={invites.length}
+            itemLabel={t("meetingInvites.itemLabel")}
+            onPageChange={paged.setPage}
+            onPageSizeChange={paged.setPageSize}
+          />
+          </>
         )}
       </Card>
 
