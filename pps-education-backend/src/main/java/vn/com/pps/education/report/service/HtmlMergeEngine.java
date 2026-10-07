@@ -37,6 +37,8 @@ class HtmlMergeEngine {
 
     private static final String FONT_RESOURCE_PATH = "/fonts/NotoSans-Regular.ttf";
     private static final String FONT_FAMILY = "PPSNotoSans";
+    /** Tinos (SIL OFL) — font có chân tương thích Times New Roman, đủ dấu tiếng Việt. */
+    static final String SERIF_FONT_FAMILY = "PPSTinos";
 
     byte[] merge(byte[] templateBytes, List<ReportTemplateFieldMapping> mappings, Map<String, Object> context) {
         String html = new String(templateBytes, StandardCharsets.UTF_8);
@@ -147,7 +149,16 @@ class HtmlMergeEngine {
      * không khai báo @font-face thường không có dấu tiếng Việt.
      */
     byte[] renderToPdf(String html) {
-        String htmlWithFont = "<style>*{font-family:'" + FONT_FAMILY + "',sans-serif;}</style>" + html;
+        return renderToPdf(html, true);
+    }
+
+    /**
+     * {@code forceFont=false} (dùng cho mẫu DOCX): chỉ đặt Noto Sans làm font mặc định ở {@code body},
+     * để font từng run đọc từ file Word (Tinos thay Times New Roman) không bị đè.
+     */
+    byte[] renderToPdf(String html, boolean forceFont) {
+        String selector = forceFont ? "*" : "body";
+        String htmlWithFont = "<style>" + selector + "{font-family:'" + FONT_FAMILY + "',sans-serif;}</style>" + html;
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Document jsoupDoc = Jsoup.parse(htmlWithFont);
             jsoupDoc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
@@ -162,6 +173,15 @@ class HtmlMergeEngine {
                 }
                 return stream;
             }, FONT_FAMILY);
+            for (Object[] f : new Object[][]{
+                    {"Regular", 400, com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle.NORMAL},
+                    {"Bold", 700, com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle.NORMAL},
+                    {"Italic", 400, com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle.ITALIC},
+                    {"BoldItalic", 700, com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle.ITALIC}}) {
+                String path = "/fonts/Tinos-" + f[0] + ".ttf";
+                builder.useFont(() -> getClass().getResourceAsStream(path), SERIF_FONT_FAMILY,
+                        (Integer) f[1], (com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle) f[2], true);
+            }
             builder.withW3cDocument(w3cDoc, "");
             builder.toStream(out);
             builder.run();

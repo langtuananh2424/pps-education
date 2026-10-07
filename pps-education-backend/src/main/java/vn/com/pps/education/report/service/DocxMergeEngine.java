@@ -299,7 +299,7 @@ class DocxMergeEngine {
             StringBuilder html = new StringBuilder();
             html.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
             html.append("<style>");
-            html.append("body { font-family: 'PPSNotoSans', sans-serif; margin: 25px; color: #1e293b; font-size: 13px; line-height: 1.6; }");
+            html.append("body { font-family: ").append(cssFontFamily(defaultFontName(doc))).append("; margin: 25px; color: #1e293b; font-size: 13px; line-height: 1.6; }");
             html.append("p { margin: 4px 0; }");
             html.append("table { width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 12px; }");
             html.append("td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; vertical-align: top; font-size: 12px; }");
@@ -313,28 +313,154 @@ class DocxMergeEngine {
                 }
             }
             html.append("</body></html>");
-            return htmlMergeEngine.renderToPdf(html.toString());
+            return htmlMergeEngine.renderToPdf(html.toString(), false);
         } catch (IOException ex) {
             throw new UncheckedIOException("Không convert được DOCX sang PDF", ex);
         }
     }
 
+    /**
+     * Giữ cấu trúc bảng gốc: ô gộp ngang (gridSpan → colspan), gộp dọc (vMerge → rowspan, ô tiếp
+     * nối bị bỏ), độ rộng cột theo tblGrid, căn lề đoạn văn và căn dọc của ô — nếu không, tiêu đề
+     * gộp ô bị co về 1 cột và ô gộp dọc làm lệch cả hàng.
+     */
+    /** Font mặc định của tài liệu: style Normal, không có thì docDefaults. */
+    private String defaultFontName(XWPFDocument doc) {
+        try {
+            var normal = doc.getStyles() != null ? doc.getStyles().getStyle("Normal") : null;
+            if (normal != null && normal.getCTStyle().getRPr() != null) {
+                for (var f : normal.getCTStyle().getRPr().getRFontsList()) {
+                    if (f.getAscii() != null) return f.getAscii();
+                }
+            }
+            var defaults = doc.getStyle() != null ? doc.getStyle().getDocDefaults() : null;
+            if (defaults != null && defaults.getRPrDefault() != null && defaults.getRPrDefault().getRPr() != null) {
+                for (var f : defaults.getRPrDefault().getRPr().getRFontsList()) {
+                    if (f.getAscii() != null) return f.getAscii();
+                }
+            }
+        } catch (Exception ignored) {
+            // lấy font mặc định chỉ là tối ưu hiển thị — lỗi đọc style thì dùng Noto Sans
+        }
+        return null;
+    }
+
+    /** Times New Roman và các font có chân → Tinos (đã nhúng); còn lại → Noto Sans (đủ dấu tiếng Việt). */
+    private String cssFontFamily(String wordFont) {
+        String f = wordFont == null ? "" : wordFont.toLowerCase(java.util.Locale.ROOT);
+        boolean serif = f.contains("times") || f.contains("cambria") || f.contains("georgia")
+                || f.contains("garamond") || f.contains("palatino") || f.contains("book antiqua")
+                || f.contains("tinos") || (f.contains("serif") && !f.contains("sans"));
+        return serif ? "'" + HtmlMergeEngine.SERIF_FONT_FAMILY + "', serif" : "'PPSNotoSans', sans-serif";
+    }
+
     private String renderTable(XWPFTable table) {
-        StringBuilder sb = new StringBuilder("<table>");
-        for (XWPFTableRow row : table.getRows()) {
+        StringBuilder sb = new StringBuilder("<table style=\"table-layout:fixed;\">");
+        appendColGroup(sb, table);
+        List<XWPFTableRow> rows = table.getRows();
+        for (int r = 0; r < rows.size(); r++) {
             sb.append("<tr>");
-            for (XWPFTableCell cell : row.getTableCells()) {
+            int gridCol = 0;
+            for (XWPFTableCell cell : rows.get(r).getTableCells()) {
+                int colSpan = gridSpan(cell);
+                if (isVMergeContinuation(cell)) {
+                    gridCol += colSpan;
+                    continue;
+                }
+                int rowSpan = isVMergeRestart(cell) ? countRowSpan(rows, r, gridCol) : 1;
+                StringBuilder style = new StringBuilder();
                 String bg = cell.getColor();
-                String style = (bg != null && !bg.equalsIgnoreCase("auto")) ? " style=\"background-color:#" + bg + ";\"" : "";
+                if (bg != null && !bg.equalsIgnoreCase("auto")) {
+                    style.append("background-color:#").append(bg).append(";");
+                }
+                org.apache.poi.xwpf.usermodel.XWPFTableCell.XWPFVertAlign va = cell.getVerticalAlignment();
+                if (va == org.apache.poi.xwpf.usermodel.XWPFTableCell.XWPFVertAlign.CENTER) {
+                    style.append("vertical-align:middle;");
+                } else if (va == org.apache.poi.xwpf.usermodel.XWPFTableCell.XWPFVertAlign.BOTTOM) {
+                    style.append("vertical-align:bottom;");
+                }
                 String content = cell.getParagraphs().stream()
-                        .map(this::renderRuns)
+                        .map(p -> {
+                            String runs = renderRuns(p);
+                            if (runs.isEmpty()) {
+                                return runs;
+                            }
+                            return switch (p.getAlignment()) {
+                                case CENTER -> "<div style=\"text-align:center;\">" + runs + "</div>";
+                                case RIGHT -> "<div style=\"text-align:right;\">" + runs + "</div>";
+                                default -> runs;
+                            };
+                        })
                         .filter(s -> !s.isEmpty())
                         .collect(java.util.stream.Collectors.joining("<br/>"));
-                sb.append("<td").append(style).append(">").append(content).append("</td>");
+                sb.append("<td");
+                if (colSpan > 1) sb.append(" colspan=\"").append(colSpan).append("\"");
+                if (rowSpan > 1) sb.append(" rowspan=\"").append(rowSpan).append("\"");
+                if (style.length() > 0) sb.append(" style=\"").append(style).append("\"");
+                sb.append(">").append(content).append("</td>");
+                gridCol += colSpan;
             }
             sb.append("</tr>");
         }
         return sb.append("</table>").toString();
+    }
+
+    private void appendColGroup(StringBuilder sb, XWPFTable table) {
+        var grid = table.getCTTbl().getTblGrid();
+        if (grid == null || grid.sizeOfGridColArray() == 0) {
+            return;
+        }
+        long total = 0;
+        for (var col : grid.getGridColList()) {
+            total += col.getW() != null ? ((java.math.BigInteger) col.getW()).longValue() : 0;
+        }
+        if (total <= 0) {
+            return;
+        }
+        sb.append("<colgroup>");
+        for (var col : grid.getGridColList()) {
+            long w = col.getW() != null ? ((java.math.BigInteger) col.getW()).longValue() : 0;
+            sb.append("<col style=\"width:").append(String.format(java.util.Locale.ROOT, "%.2f", w * 100.0 / total)).append("%\"/>");
+        }
+        sb.append("</colgroup>");
+    }
+
+    private int gridSpan(XWPFTableCell cell) {
+        var pr = cell.getCTTc().getTcPr();
+        return pr != null && pr.getGridSpan() != null ? ((java.math.BigInteger) pr.getGridSpan().getVal()).intValue() : 1;
+    }
+
+    private boolean isVMergeRestart(XWPFTableCell cell) {
+        var pr = cell.getCTTc().getTcPr();
+        return pr != null && pr.getVMerge() != null
+                && pr.getVMerge().getVal() == org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge.RESTART;
+    }
+
+    private boolean isVMergeContinuation(XWPFTableCell cell) {
+        var pr = cell.getCTTc().getTcPr();
+        return pr != null && pr.getVMerge() != null
+                && pr.getVMerge().getVal() != org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge.RESTART;
+    }
+
+    /** Đếm số hàng ô gộp dọc bắt đầu ở hàng {@code startRow}, cột lưới {@code gridCol} kéo dài qua. */
+    private int countRowSpan(List<XWPFTableRow> rows, int startRow, int gridCol) {
+        int span = 1;
+        for (int r = startRow + 1; r < rows.size(); r++) {
+            XWPFTableCell found = null;
+            int col = 0;
+            for (XWPFTableCell c : rows.get(r).getTableCells()) {
+                if (col == gridCol) {
+                    found = c;
+                    break;
+                }
+                col += gridSpan(c);
+            }
+            if (found == null || !isVMergeContinuation(found)) {
+                break;
+            }
+            span++;
+        }
+        return span;
     }
 
     private String renderParagraph(XWPFParagraph p) {
@@ -362,6 +488,9 @@ class DocxMergeEngine {
         }
         String escaped = escapeHtml(text);
         StringBuilder styleAttrs = new StringBuilder();
+        if (run.getFontFamily() != null) {
+            styleAttrs.append("font-family:").append(cssFontFamily(run.getFontFamily())).append(";");
+        }
         String color = run.getColor();
         if (color != null && !color.equalsIgnoreCase("auto")) {
             styleAttrs.append("color:#").append(color).append(";");
