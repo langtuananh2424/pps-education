@@ -886,6 +886,38 @@ UC-24: Làm bài kiểm tra trực tuyến
 > `questionPassed`) để quyết định mở khoá bước/câu tiếp theo, vì hết lượt
 > cũng phải mở khoá dù chưa đạt thật.
 
+> **Fix bug thật (2026-10-08, phát hiện qua test thật trên staging với
+> giọng nói tổng hợp, đã xác nhận với người dùng):** công thức
+> `questionFinalized` ở bản vá 2026-10-07 phía trên (`questionPassed ||
+> speakingExhausted`) bỏ sót đúng 1 trường hợp — bước VIẾT hết lượt (CHƯA
+> đạt thật) nhưng bước NÓI sau đó đạt THẬT (không hết lượt): lúc đó
+> `questionPassed` luôn `false` (viết chưa đạt thật) và `speakingExhausted`
+> cũng `false` (nói đã đạt, không phải hết lượt) → `questionFinalized`
+> kẹt `false` vĩnh viễn, học sinh bị treo ở câu đó mãi — đúng điều bản vá
+> 2026-10-07 muốn tránh nhưng lại tạo ra 1 kẽ hở khác. Sửa thành
+> `speakingPassed || speakingExhausted` (`ReflexSequentialGradingService
+> #toResponse`): `submitSpokenAnswer` đã chặn không cho nói trước khi
+> `writingUnlocked`, nên `speakingPassed=true` LUÔN kéo theo bước viết đã
+> unlock (đạt thật hoặc hết lượt) — không cần xét lại `writingPassed`.
+
+> **Vá phòng ngừa race condition (2026-10-08, đã xác nhận với người dùng
+> — CHƯA có bằng chứng thật đã xảy ra, chỉ là rủi ro lý thuyết phát hiện
+> qua review code, vá trước cho chắc):** check "còn lượt hay không" ở
+> tầng Java (`isWritingUnlocked`/`isSpeakingFinalized`) dựa trên 1 bản đọc
+> `ReflexQuestionProgress` có thể đã CŨ — 2 request gần như đồng thời cho
+> CÙNG 1 dòng (double-click, mạng chậm bấm lại) có thể cùng đọc trước khi
+> bên nào lưu, cùng qua được check, cùng tăng → vượt
+> `MAX_STEP_ATTEMPTS`. Sửa: biến phép tăng đếm chính nó thành cổng chặn
+> (atomic ở DB, `UPDATE ... WHERE ... AND *_attempt_count < :max`, trả về
+> số dòng bị ảnh hưởng) — `ReflexQuestionProgressRepository
+> #incrementWritingAttemptCountIfBelowLimit` (bước viết, giao dịch
+> thường) và `#incrementSpeakingAttemptCountInNewTransactionIfBelowLimit`
+> (bước nói, vẫn giữ `REQUIRES_NEW` như bản vá 2026-10-07 để sống sót qua
+> rollback khi AI từ chối bản ghi). 0 dòng bị ảnh hưởng → từ chối ngay,
+> KHÔNG gọi AI. Cố tình KHÔNG dùng khóa dòng (`SELECT ... FOR UPDATE`) ở
+> tầng Service cho bước nói — sẽ tự deadlock với chính giao dịch
+> `REQUIRES_NEW` lồng trong cùng 1 luồng.
+
 > **Bổ sung V150 (2026-09-04, đã xác nhận với người dùng) — BỎ rào chặn
 > chồng lấn khoảng ghi âm lúc soạn câu hỏi (đảo ngược quyết định
 > 2026-08-11):** trước V139 (luồng cũ, "video chạy liên tục, ghi âm tính

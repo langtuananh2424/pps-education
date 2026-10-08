@@ -197,6 +197,17 @@ const QUIET_RMS_THRESHOLD = 0.035;
  * ReflexSpeakingContentAiGradingService — báo đúng lý do thay vì lẫn với cảnh báo âm lượng gây hiểu lầm).
  */
 const MIN_VOLUME_SAMPLES_FOR_QUIET_CHECK = 4;
+/**
+ * Fix bug thật (2026-10-08, phát hiện qua test thật — người dùng nghe lại bản ghi rõ to nhưng vẫn bị báo
+ * "hơi nhỏ"): mẫu RMS ĐẦU TIÊN (mốc 500ms) gần như luôn thấp bất thường — `AnalyserNode` vừa được tạo
+ * trong `AudioContext` mới (xem `start()`), bộ đệm nội bộ của Web Audio chưa "bơm" đủ dữ liệu thật ở
+ * thời điểm lấy mẫu đầu, dù mic thu bình thường. Với số mẫu ít (tối thiểu chỉ 4, ~2 giây), 1 mẫu gần-0
+ * này đủ kéo trung bình xuống dưới QUIET_RMS_THRESHOLD dù phần còn lại nói to rõ. Sửa: loại mẫu THẤP
+ * NHẤT trước khi tính trung bình (chịu được đúng 1 mẫu ngoại lệ bất kỳ vị trí nào do khoảng lặng đầu
+ * câu/giữa từ, không chỉ riêng mẫu đầu) — chỉ áp dụng khi còn ĐỦ mẫu sau khi loại để không làm trống hẳn
+ * phép đo (xem MIN_VOLUME_SAMPLES_AFTER_TRIM).
+ */
+const MIN_VOLUME_SAMPLES_AFTER_TRIM = 3;
 
 function useAudioRecorder() {
   const { t } = useTranslation("portal-exercises");
@@ -212,8 +223,7 @@ function useAudioRecorder() {
   const timerRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const volumeSumRef = useRef(0);
-  const volumeSamplesRef = useRef(0);
+  const volumeSamplesRef = useRef<number[]>([]);
 
   const closeVolumeMeter = () => {
     analyserRef.current = null;
@@ -230,8 +240,16 @@ function useAudioRecorder() {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    const avgRms = volumeSamplesRef.current > 0 ? volumeSumRef.current / volumeSamplesRef.current : 0;
-    setQuietWarning(volumeSamplesRef.current >= MIN_VOLUME_SAMPLES_FOR_QUIET_CHECK && avgRms > 0 && avgRms < QUIET_RMS_THRESHOLD);
+    const samples = volumeSamplesRef.current;
+    if (samples.length >= MIN_VOLUME_SAMPLES_FOR_QUIET_CHECK) {
+      // Loại mẫu thấp nhất trước khi tính trung bình — xem comment MIN_VOLUME_SAMPLES_AFTER_TRIM.
+      const trimmed = [...samples].sort((a, b) => a - b).slice(1);
+      const effective = trimmed.length >= MIN_VOLUME_SAMPLES_AFTER_TRIM ? trimmed : samples;
+      const avgRms = effective.reduce((sum, v) => sum + v, 0) / effective.length;
+      setQuietWarning(avgRms > 0 && avgRms < QUIET_RMS_THRESHOLD);
+    } else {
+      setQuietWarning(false);
+    }
     closeVolumeMeter();
   };
 
@@ -280,8 +298,7 @@ function useAudioRecorder() {
 
       // V184 — đo mức âm lượng trong lúc ghi (KHÔNG ảnh hưởng chất lượng audio thật lưu lại, chỉ đọc
       // song song qua AnalyserNode) để cảnh báo học sinh nói quá nhỏ ngay sau khi dừng ghi.
-      volumeSumRef.current = 0;
-      volumeSamplesRef.current = 0;
+      volumeSamplesRef.current = [];
       try {
         const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         if (AudioContextCtor) {
@@ -307,8 +324,7 @@ function useAudioRecorder() {
           analyser.getFloatTimeDomainData(data);
           let sumSquares = 0;
           for (let i = 0; i < data.length; i++) sumSquares += data[i] * data[i];
-          volumeSumRef.current += Math.sqrt(sumSquares / data.length);
-          volumeSamplesRef.current += 1;
+          volumeSamplesRef.current.push(Math.sqrt(sumSquares / data.length));
         }
         if (elapsed >= limitSeconds) stop();
       }, 500);
