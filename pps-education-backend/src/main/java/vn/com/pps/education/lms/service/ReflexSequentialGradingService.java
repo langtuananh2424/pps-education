@@ -131,6 +131,18 @@ public class ReflexSequentialGradingService {
             throw new RetakeNotAllowedException("error.retakeNotAllowed.reflexWriting", new Object[]{MAX_STEP_ATTEMPTS},
                     "Bước viết của câu hỏi này đã hết lượt nộp (tối đa " + MAX_STEP_ATTEMPTS + ").");
         }
+        // Vá phòng ngừa race condition (2026-10-08, đã xác nhận với người dùng, chưa có bằng chứng thật đã xảy
+        // ra — chỉ là rủi ro lý thuyết phát hiện qua review code): check Java ngay trên dựa vào bản đọc CÓ THỂ
+        // CŨ của progress, 2 request gần như đồng thời cho CÙNG 1 dòng có thể cùng qua được check rồi cùng tăng,
+        // vượt MAX_STEP_ATTEMPTS. UPDATE có điều kiện dưới đây mới là cổng chặn THẬT (atomic ở DB) — dòng đã có
+        // sẵn (progress.getId() != null) thì phải qua được UPDATE này mới coi là 1 lượt hợp lệ; dòng mới toanh
+        // (chưa từng lưu) thì không có gì để tranh chấp, bỏ qua bước này. Xem Javadoc
+        // ReflexQuestionProgressRepository#incrementWritingAttemptCountIfBelowLimit.
+        if (progress.getId() != null
+                && reflexQuestionProgressRepository.incrementWritingAttemptCountIfBelowLimit(progress.getId(), MAX_STEP_ATTEMPTS) == 0) {
+            throw new RetakeNotAllowedException("error.retakeNotAllowed.reflexWriting", new Object[]{MAX_STEP_ATTEMPTS},
+                    "Bước viết của câu hỏi này đã hết lượt nộp (tối đa " + MAX_STEP_ATTEMPTS + ").");
+        }
         if (late) {
             progress.setLateSubmission(true);
         }
@@ -181,16 +193,27 @@ public class ReflexSequentialGradingService {
             throw new RetakeNotAllowedException("error.retakeNotAllowed.reflexSpeaking", new Object[]{MAX_STEP_ATTEMPTS},
                     "Bước ghi âm của câu hỏi này đã hết lượt nộp (tối đa " + MAX_STEP_ATTEMPTS + ").");
         }
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07 — tăng ĐỘC LẬP (REQUIRES_NEW)
+        // TRƯỚC khi gọi AI: nếu AI từ chối bản ghi (xem comment ReflexAudioRejectedException bên dưới)
+        // làm rollback cả giao dịch này, lượt vẫn phải tính vào giới hạn MAX_STEP_ATTEMPTS — xem Javadoc
+        // ReflexQuestionProgressRepository#incrementSpeakingAttemptCountInNewTransactionIfBelowLimit.
+        //
+        // Vá phòng ngừa race condition (2026-10-08, đã xác nhận với người dùng, chưa có bằng chứng thật
+        // đã xảy ra — chỉ là rủi ro lý thuyết phát hiện qua review code): check isSpeakingFinalized ở
+        // Java phía trên dựa vào bản đọc CÓ THỂ CŨ, 2 request gần như đồng thời cho CÙNG 1 dòng có thể
+        // cùng qua được rồi cùng tăng, vượt MAX_STEP_ATTEMPTS. UPDATE có điều kiện này mới là cổng chặn
+        // THẬT (atomic ở DB) — 0 dòng bị ảnh hưởng nghĩa là đã đủ giới hạn, chặn NGAY không gọi AI.
+        int updated = reflexQuestionProgressRepository
+                .incrementSpeakingAttemptCountInNewTransactionIfBelowLimit(progress.getId(), MAX_STEP_ATTEMPTS);
+        if (updated == 0) {
+            throw new RetakeNotAllowedException("error.retakeNotAllowed.reflexSpeaking", new Object[]{MAX_STEP_ATTEMPTS},
+                    "Bước ghi âm của câu hỏi này đã hết lượt nộp (tối đa " + MAX_STEP_ATTEMPTS + ").");
+        }
         if (late) {
             progress.setLateSubmission(true);
         }
         progress.setAudioUrl(audioUrl);
         progress.setSpeakingAttemptCount(progress.getSpeakingAttemptCount() + 1);
-        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07 — tăng ĐỘC LẬP (REQUIRES_NEW)
-        // TRƯỚC khi gọi AI: nếu AI từ chối bản ghi (xem comment ReflexAudioRejectedException bên dưới)
-        // làm rollback cả giao dịch này, lượt vẫn phải tính vào giới hạn MAX_STEP_ATTEMPTS — xem Javadoc
-        // ReflexQuestionProgressRepository#incrementSpeakingAttemptCountInNewTransaction.
-        reflexQuestionProgressRepository.incrementSpeakingAttemptCountInNewTransaction(progress.getId());
 
         // V147 (2026-08-25, xác nhận với người dùng) — fix bug thật: TRƯỚC ĐÂY hardcode "audio/webm" cho
         // MỌI audio bất kể định dạng thật do trình duyệt ghi ra (Chrome/Android thường "audio/webm",
@@ -212,7 +235,7 @@ public class ReflexSequentialGradingService {
                     progress.getWritingLockedGrammarPercent().intValue(), progress.getAnswerText());
             // ReflexAudioRejectedException (bản ghi không đọc được / nói khác bài viết) ném thẳng ra → HTTP 422,
             // giao dịch rollback nên KHÔNG ghi điểm/feedback của lượt này. Lượt vẫn ĐƯỢC TÍNH vào giới hạn
-            // MAX_STEP_ATTEMPTS (xem incrementSpeakingAttemptCountInNewTransaction ở trên, đổi từ 2026-10-07 —
+            // MAX_STEP_ATTEMPTS (xem incrementSpeakingAttemptCountInNewTransactionIfBelowLimit ở trên, đổi từ 2026-10-07 —
             // trước đó KHÔNG tính, nhưng học sinh có thể né giới hạn bằng cách gửi bản ghi im lặng liên tục).
             // Chi phí từng lượt AI được ghi qua sink ngay khi AI trả về — kể cả khi sau đó bị từ chối / parse
             // lỗi (recorder chạy REQUIRES_NEW nên không bị rollback theo, cùng lý do với lượt nộp ở trên).
@@ -554,6 +577,14 @@ public class ReflexSequentialGradingService {
         boolean writingExhausted = isWritingExhausted(p);
         boolean speakingExhausted = isSpeakingExhausted(p);
         boolean questionPassed = writingPassed && speakingPassed;
+        // Fix bug thật (2026-10-08, phát hiện qua test thật trên staging, đã xác nhận với người dùng) —
+        // công thức cũ "questionPassed || speakingExhausted" bỏ sót trường hợp bước VIẾT hết lượt (chưa
+        // đạt thật) NHƯNG bước NÓI sau đó đạt THẬT (không hết lượt): questionPassed luôn false (viết
+        // chưa đạt thật) và speakingExhausted cũng false (nói đã đạt, không phải hết lượt) → kẹt học
+        // sinh ở câu đó vĩnh viễn, đúng điều fix 2026-10-07 muốn tránh. submitSpokenAnswer đã chặn không
+        // cho nói trước khi writingUnlocked, nên speakingPassed=true LUÔN kéo theo writing đã unlock (đạt
+        // thật hoặc hết lượt) — không cần xét lại writingPassed ở đây, mirror đúng isSpeakingFinalized.
+        boolean questionFinalized = speakingPassed || speakingExhausted;
         return new ReflexQuestionProgressResponse(
                 p.getReviewVideoQuestion().getId(),
                 p.getAnswerText(),
@@ -578,7 +609,7 @@ public class ReflexSequentialGradingService {
                 writingPassed || writingExhausted,
                 speakingExhausted,
                 MAX_STEP_ATTEMPTS,
-                questionPassed || speakingExhausted,
+                questionFinalized,
                 p.getUpdatedAt());
     }
 
