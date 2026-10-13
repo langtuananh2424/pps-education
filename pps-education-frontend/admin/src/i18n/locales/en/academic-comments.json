@@ -283,7 +283,6 @@
     "savingButton": "Saving...",
     "lessonContentMissingError": "⚠️ You must fill in and save Today's lesson before sending comments — the student content you've typed is still intact; fill it in and press \"Send comments\" again.",
     "lessonContentMissingHint": "Today's lesson hasn't been filled in yet — it's required before sending comments (a session left blank will be rejected on submission).",
-    "blockOnlineHomeworkWarning": "⚠️ This is the last scheduled session for this class — since the class has no upcoming session on the schedule, {{grammarLabel}} (Online)/{{videoLabel}} homework for the next session cannot be assigned yet (it needs a due date = next session). Pick a due date manually in the \"Quick-assign to whole class\" panel below to bypass this, or only enter offline homework (free text, no due date needed).",
     "quickAssign": {
       "title": "Quick-assign to whole class",
       "offlineLabel": "Offline homework",
