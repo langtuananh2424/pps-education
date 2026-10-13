@@ -155,7 +155,17 @@ public class MediaStorageService {
         }
         requireMatchingSignature(file, contentType);
 
-        String key = module.folderPrefix() + "/" + category + "/" + UUID.randomUUID() + extensionOf(file.getOriginalFilename());
+        String extension = extensionOf(file.getOriginalFilename());
+        if ("audio".equals(category)) {
+            // Client có thể khai sai định dạng (iOS ghi MP4 nhưng gắn nhãn webm) → <audio> iOS báo "Lỗi" và AI
+            // nhận sai nhãn. Tin vài byte đầu của file hơn header client khai.
+            AudioKind real = sniffAudioKind(file);
+            if (real != null) {
+                contentType = real.contentType();
+                extension = "." + real.extension();
+            }
+        }
+        String key = module.folderPrefix() + "/" + category + "/" + UUID.randomUUID() + extension;
         try {
             r2Client.putObject(
                     PutObjectRequest.builder()
@@ -295,6 +305,36 @@ public class MediaStorageService {
         if (!expected.matches(head)) {
             throw new IllegalArgumentException("Nội dung tệp không khớp với loại tệp khai báo (" + contentType + ").");
         }
+    }
+
+    /** Container audio nhận diện được qua magic bytes. */
+    private record AudioKind(String contentType, String extension) {
+    }
+
+    private AudioKind sniffAudioKind(MultipartFile file) {
+        byte[] h;
+        try (InputStream in = file.getInputStream()) {
+            h = in.readNBytes(12);
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Không đọc được tệp tải lên.", ex);
+        }
+        if (h.length < 8) {
+            return null;
+        }
+        if ((h[0] & 0xFF) == 0x1A && h[1] == 0x45 && (h[2] & 0xFF) == 0xDF && (h[3] & 0xFF) == 0xA3) {
+            return new AudioKind("audio/webm", "webm");
+        }
+        if (h[4] == 'f' && h[5] == 't' && h[6] == 'y' && h[7] == 'p') {
+            return new AudioKind("audio/mp4", "m4a");
+        }
+        if (h[0] == 'O' && h[1] == 'g' && h[2] == 'g' && h[3] == 'S') {
+            return new AudioKind("audio/ogg", "ogg");
+        }
+        if (h.length >= 12 && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
+                && h[8] == 'W' && h[9] == 'A' && h[10] == 'V' && h[11] == 'E') {
+            return new AudioKind("audio/wav", "wav");
+        }
+        return null;
     }
 
     /** Chữ ký đầu file theo nhóm định dạng - null nghĩa là không kiểm tra (audio/video, HTML mẫu báo cáo). */
