@@ -79,6 +79,8 @@ public class ParentPortalService {
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
     private final HomeworkProgressService homeworkProgressService;
     private final HomeworkAlertSettings homeworkAlertSettings;
+    /** Bổ sung 2026-10-13 — tái dùng {@link StudentCommentService#toResponse(StudentComment)} cho tab Quá trình học tập (xem Javadoc method đó). */
+    private final StudentCommentService studentCommentService;
 
     public ParentPortalService(ParentRepository parentRepository,
                                 ParentStudentRepository parentStudentRepository,
@@ -92,7 +94,8 @@ public class ParentPortalService {
                                 ExerciseAssignmentRepository exerciseAssignmentRepository,
                                 ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                 HomeworkProgressService homeworkProgressService,
-                                HomeworkAlertSettings homeworkAlertSettings) {
+                                HomeworkAlertSettings homeworkAlertSettings,
+                                StudentCommentService studentCommentService) {
         this.parentRepository = parentRepository;
         this.parentStudentRepository = parentStudentRepository;
         this.studentRepository = studentRepository;
@@ -106,6 +109,7 @@ public class ParentPortalService {
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
         this.homeworkProgressService = homeworkProgressService;
         this.homeworkAlertSettings = homeworkAlertSettings;
+        this.studentCommentService = studentCommentService;
     }
 
     /** Main Flow bước 2: nếu Phụ huynh có nhiều con, hiển thị lựa chọn tách riêng dữ liệu. */
@@ -153,13 +157,23 @@ public class ParentPortalService {
         return attendanceMarkRepository.findByStudentIdAndClassId(studentId, classId).stream().map(this::toResponse).toList();
     }
 
-    /** Main Flow bước 3: nhận xét giáo viên đã duyệt (UC-22), bao gồm cảnh báo (is_warning). */
+    /**
+     * Main Flow bước 3: nhận xét giáo viên đã duyệt (UC-22), bao gồm cảnh báo (is_warning).
+     *
+     * Sửa 2026-10-13 (fix bug thật, đã xác nhận với người dùng) — trước đây tự map qua 1 bản
+     * {@code toResponse(StudentComment)} riêng trả NULL cứng cho toàn bộ field BTVN online/Reading-
+     * Writing (tiến độ buổi trước, tên bài/hạn nộp buổi sau...), khiến tab "Quá trình học tập" của Cổng
+     * phụ huynh trống trơn phần BTVN trong khi Portal Học sinh (cùng dữ liệu StudentComment, khác hẳn
+     * kết quả) hiện đầy đủ. Đổi sang tái dùng thẳng
+     * {@link StudentCommentService#toResponse(StudentComment)} — logic tính đúng, không phụ thuộc actor,
+     * đã verify qua check dữ liệu thật.
+     */
     @Transactional(readOnly = true)
     public List<StudentCommentResponse> listComments(Long studentId, Long classId, Long actorUserId) {
         requireAccessToChildClass(studentId, classId, actorUserId);
         return studentCommentRepository
                 .findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(classId, studentId, StudentComment.Status.APPROVED)
-                .stream().map(this::toResponse).toList();
+                .stream().map(studentCommentService::toResponse).toList();
     }
 
     /**
@@ -374,42 +388,6 @@ public class ParentPortalService {
                 m.getStudent().getId(), m.getStudent().getUser().getFullName(),
                 m.getStudent().getStudentCode(), m.getStatus().name(), m.getMinutesLate(), m.getMinutesEarlyLeave(),
                 m.getAbsenceReason(), m.getNotifiedParentAt());
-    }
-
-    private StudentCommentResponse toResponse(StudentComment c) {
-        // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online/Reading-Writing (UC-21 mở rộng,
-        // V55/V130/V137) — để trống hết, bổ sung khi có yêu cầu. Liệt kê tường minh từng field null (thay
-        // vì gộp nhiều null liền nhau) để tránh đếm nhầm khi StudentCommentResponse đổi field sau này.
-        return new StudentCommentResponse(
-                c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
-                c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
-                c.getClassSession().getId(),
-                c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
-                c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
-                c.getCommentDate(), c.getContent(), c.getStructuredContent(), c.getSeverity().name(), c.isWarning(),
-                c.getStatus().name(), c.getSubmittedAt(), c.getApprovedAt(),
-                c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
-                c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
-                c.getHomeworkPreviousSpeakingScore(),
-                null /* homeworkPreviousReadingScore */, null /* homeworkPreviousWritingScore */,
-                c.getHomeworkNext(),
-                null /* homeworkNextReading */, null /* homeworkNextWriting */,
-                null /* homeworkNextExerciseAssignmentId */, null /* homeworkNextExerciseTitle */,
-                null /* homeworkNextReviewVideoAssignmentId */, null /* homeworkNextReviewVideoSetTitle */,
-                null /* homeworkNextReadingExerciseAssignmentId */, null /* homeworkNextReadingExerciseTitle */,
-                null /* homeworkNextWritingExerciseAssignmentId */, null /* homeworkNextWritingExerciseTitle */,
-                null /* homeworkNextDueAt */,
-                false /* homeworkNextLateSubmissionAllowed */,
-                null /* pendingHomeworkNextExerciseId */, null /* pendingHomeworkNextExerciseTitle */,
-                null /* pendingHomeworkNextReviewVideoSetId */, null /* pendingHomeworkNextReviewVideoSetTitle */,
-                null /* pendingHomeworkNextReadingExerciseId */, null /* pendingHomeworkNextReadingExerciseTitle */,
-                null /* pendingHomeworkNextWritingExerciseId */, null /* pendingHomeworkNextWritingExerciseTitle */,
-                null /* pendingHomeworkNextDueDate */,
-                null /* grammarPreviousProgress */, null /* videoPreviousProgress */,
-                null /* readingPreviousProgress */, null /* writingPreviousProgress */,
-                null /* homeworkPreviousOfflineText */,
-                c.getNote(),
-                c.getClassSession().getLessonContent());
     }
 
     private HomeworkProgressResponse toHomeworkProgressResponse(HomeworkRow row, Long studentId) {

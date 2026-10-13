@@ -2653,7 +2653,16 @@ public class StudentCommentService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.accountNotFoundById", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
-    private StudentCommentResponse toResponse(StudentComment c) {
+    /**
+     * Bổ sung 2026-10-13 (đã xác nhận với người dùng) — đổi từ {@code private} sang package-private để
+     * {@link ParentPortalService} (CÙNG package {@code student.service}) tái dùng thẳng, không tự lặp
+     * lại logic tính BTVN buổi trước/buổi sau: trước đây Cổng phụ huynh có 1 bản {@code toResponse}
+     * riêng ở ParentPortalService trả NULL cứng cho toàn bộ field BTVN online/Reading-Writing ("chưa cần
+     * hiển thị... bổ sung khi có yêu cầu") — khiến tab Quá trình học tập của Phụ huynh trống trơn phần
+     * BTVN trong khi Portal Học sinh (gọi đúng method này) hiện đầy đủ. Logic tính không phụ thuộc actor
+     * (chỉ đọc dữ liệu theo đúng StudentComment/buổi truyền vào) nên dùng chung an toàn cho cả 2 phía.
+     */
+    StudentCommentResponse toResponse(StudentComment c) {
         StudentComment previous = previousComment(c.getClassSession(), c.getStudent().getId());
         HomeworkSkillBatch grammarNext = c.getHomeworkNextGrammarBatch();
         ReviewVideoAssignment videoNext = c.getHomeworkNextReviewVideoAssignment();
