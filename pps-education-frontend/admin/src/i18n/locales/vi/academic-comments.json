@@ -283,7 +283,6 @@
     "savingButton": "Đang lưu...",
     "lessonContentMissingError": "⚠️ Bắt buộc điền + Lưu Bài học hôm nay trước khi Gửi nhận xét — nội dung học sinh bạn đã gõ vẫn còn nguyên, điền xong bấm \"Gửi nhận xét\" lại là được.",
     "lessonContentMissingHint": "Chưa điền bài học hôm nay — bắt buộc điền trước khi Gửi nhận xét (buổi chưa điền sẽ bị từ chối khi gửi duyệt).",
-    "blockOnlineHomeworkWarning": "⚠️ Đây là buổi học cuối cùng đã lên lịch của lớp — lớp chưa có buổi kế tiếp nào trong lịch nên chưa thể giao BTVN {{grammarLabel}} (Online)/{{videoLabel}} buổi sau (cần hạn nộp = buổi kế tiếp). Tự chọn hạn nộp ở panel \"Gán nhanh cho cả lớp\" bên dưới để bỏ qua điều kiện này, hoặc chỉ nhập BTVN offline (chữ tự do, không cần hạn nộp).",
     "quickAssign": {
       "title": "Gán nhanh cho cả lớp",
       "offlineLabel": "BTVN offline",
