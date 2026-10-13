@@ -198,8 +198,10 @@ public class HomeworkDeadlineSchedulerService {
     /**
      * "Đã làm bài" = có nộp/có tiến độ, KHÔNG yêu cầu hoàn thành 100% — khớp đúng ví dụ nghiệp vụ
      * người dùng đưa ra ("10 em 7 em làm thì 70%"). Ngữ pháp: khác "Chưa làm bài" (kể cả đang chờ
-     * chấm vẫn tính là đã làm). Video: label luôn dạng "NN%" kể cả 0% (chưa xem/chưa trả lời gì) —
-     * phải tách riêng, coi 0% là CHƯA làm, > 0% là đã làm.
+     * chấm vẫn tính là đã làm). Video: từ 2026-10-13 {@code HomeworkProgressService#videoProgressLabel}
+     * cũng đã trả "Chưa làm bài" khi chưa có lượt làm nào (trước đó luôn là "NN%" kể cả 0%) — vẫn giữ
+     * guard "0% → CHƯA làm" ở đây làm lưới an toàn thứ 2 (VD trường hợp hiếm đã xem/trả lời nhưng % làm
+     * tròn về đúng 0, không phải "chưa làm" theo nghĩa data) — không ảnh hưởng hành vi đã đúng từ trước.
      */
     private record StudentProgress(Student student, String label) {
         boolean completed() {
