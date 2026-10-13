@@ -588,7 +588,7 @@ export interface ReviewVideoResponse {
   fileSizeBytes: number | null;
   durationSeconds: number;
   displayOrder: number;
-  /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 80. */
+  /** V59 — CONNECTION: % xem tối thiểu (mặc định 80). REFLEX (V168): ngưỡng % đạt viết/nói mỗi câu (mặc định 70). */
   completionThresholdPercent: number;
   /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 1. */
   requiredViewCount: number;
@@ -813,7 +813,7 @@ export interface ReflexQuestionProgressResponse {
   updatedAt: string;
 }
 
-/** Bước 1: nộp câu trả lời viết, AI chấm ngữ pháp ngay (>=70% mới đạt). */
+/** Bước 1: nộp câu trả lời viết, AI chấm ngữ pháp ngay (đạt ngưỡng % cấu hình theo video, mặc định 70). */
 export function submitReflexWrittenAnswer(questionId: number, assignmentId: number, answerText: string): Promise<ReflexQuestionProgressResponse> {
   return apiRequest<ReflexQuestionProgressResponse>(`/review-video-questions/${questionId}/reflex-progress/writing?assignmentId=${assignmentId}`, {
     method: "PUT",

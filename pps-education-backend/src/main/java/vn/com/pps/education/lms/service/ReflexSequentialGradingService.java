@@ -200,6 +200,9 @@ public class ReflexSequentialGradingService {
         try {
             audioFile = mediaStorageService.downloadWithContentType(audioUrl);
         } catch (Exception e) {
+            // Trước đây nuốt lỗi không log → học sinh thấy "Không chấm được tự động" mà 9Router không nhận request nào,
+            // không có dấu vết để chẩn đoán (R2 sai khóa/bucket, URL không khớp publicBaseUrl...).
+            log.warn("ReflexSequentialGradingService: không tải được bản ghi để chấm (câu {}, url={}): {}", questionId, audioUrl, e.toString());
             audioFile = null;
         }
         Curriculum curriculum = question.getReviewVideo().getReviewVideoSet().getCurriculum();
