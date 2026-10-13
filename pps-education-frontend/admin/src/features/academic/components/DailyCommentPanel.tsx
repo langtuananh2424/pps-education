@@ -117,13 +117,11 @@ function renderSelectedCountSuffix(group: HomeworkSkillGroupResponse | undefined
 function ExerciseSelectionChecklist({
   group,
   selectedIds,
-  onToggle,
-  disabled
+  onToggle
 }: {
   group: HomeworkSkillGroupResponse | undefined;
   selectedIds: Set<number>;
   onToggle: (exerciseId: number) => void;
-  disabled: boolean;
 }) {
   const { t } = useTranslation("academic-comments");
   const [collapsed, setCollapsed] = useState(false);
@@ -144,7 +142,7 @@ function ExerciseSelectionChecklist({
         <div className="border-t border-slate-100 divide-y divide-slate-100 max-h-28 overflow-y-auto">
           {group.exercises.map((ex) => (
             <label key={ex.id} className="flex items-center gap-1.5 px-2 py-1 text-[13px] cursor-pointer hover:bg-slate-50">
-              <input type="checkbox" checked={selectedIds.has(ex.id)} disabled={disabled} onChange={() => onToggle(ex.id)} />
+              <input type="checkbox" checked={selectedIds.has(ex.id)} onChange={() => onToggle(ex.id)} />
               <span className="flex-1 truncate" title={ex.title}>
                 {ex.title}
               </span>
@@ -491,26 +489,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
-  // Mirror đúng điều kiện findUpcomingSessions() bên BE (ClassSessionRepository) — buổi có sessionDate
-  // SAU buổi đang chọn, loại CANCELLED/RESCHEDULED — để báo TRƯỚC cho Giáo viên biết lớp chưa có buổi
-  // kế tiếp trong lịch (thay vì để họ chọn Online/Video xong bấm Gửi mới gặp lỗi 422, đã xác nhận với
-  // người dùng 2026-07-31: đây là buổi học CUỐI CÙNG đã lên lịch của lớp). Sửa lại 2026-08-14: khi buổi
-  // đang chọn CÓ xác định teacherType, chỉ tính buổi kế tiếp CÙNG loại GV (BE cũng đã sửa tương tự —
-  // xem ClassSessionRepository#findUpcomingSessions) — tránh báo "còn buổi kế tiếp" (buổi khác loại GV
-  // xen giữa) trong khi BE thật ra chặn 422 vì không có buổi kế tiếp CÙNG loại.
-  const hasUpcomingSession =
-    !!selectedSession &&
-    sessions.some(
-      (s) =>
-        s.sessionDate > selectedSession.sessionDate &&
-        s.status !== "CANCELLED" &&
-        s.status !== "RESCHEDULED" &&
-        (!selectedSession.teacherType || s.teacherType === selectedSession.teacherType)
-    );
-  const isLastScheduledSession = !!selectedSession && !hasUpcomingSession;
-  // Lớp chưa có buổi kế tiếp CHỈ còn chặn khi chưa tự chọn hạn nộp (dueDate) — có hạn nộp tùy chỉnh thì
-  // BE bỏ qua điều kiện "phải có buổi kế tiếp" (2026-08-05, xem StudentCommentService#resolveDueAt).
-  const blockOnlineHomework = isLastScheduledSession && !dueDateTime;
   // V150 — BE (listHomeworkSkillGroupsForClass) đã lọc đúng skillCategory sẵn, ở đây chỉ còn lọc theo
   // teacherType đang chọn. V151 (revert V146, đã xác nhận với người dùng 2026-08-25) — kênh "Ngữ pháp"/
   // "Nghe" dùng CHUNG 1 dropdown: buổi FOREIGN lấy từ listeningOptions (skillCategory=LISTENING), buổi
@@ -554,7 +532,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
    * thêm ở auto-fill "buổi hôm nay" phía trên) — chỉ hiện buổi mà chính actor đang đăng nhập là GV
    * chính/phụ/CM: dropdown này TRƯỚC ĐÓ liệt kê MỌI buổi của lớp (kể cả buổi do GV khác dạy/đã gửi
    * duyệt), 1 GV có thể tự bấm chọn sang xem/nhầm tưởng là buổi của mình. KHÔNG lọc `sessions` gốc (vẫn
-   * cần đủ để tính hasUpcomingSession/khớp deep-link) — chỉ lọc danh sách hiện trong dropdown. Component
+   * cần đủ để khớp deep-link) — chỉ lọc danh sách hiện trong dropdown. Component
    * này luôn chạy ở vai trò "Giáo viên viết nhận xét" (kể cả khi tài khoản đó cũng có role Quản lý điểm
    * trường — xem CommentsPage.tsx#showWriteTab), nên lọc vô điều kiện, không cần tách theo permission;
    * màn hình DUYỆT của Quản lý điểm trường dùng hẳn component khác (CommentApprovalByClass.tsx) không
@@ -1616,12 +1594,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
           </div>
         )}
 
-        {selectedSessionId && blockOnlineHomework && (
-          <div className="px-5 py-2.5 border-b border-slate-100 bg-rose-50/60 text-[13px] text-rose-700">
-            {t("dailyCommentPanel.blockOnlineHomeworkWarning", { grammarLabel, videoLabel })}
-          </div>
-        )}
-
         {selectedSessionId && teacherType && (
           <div className="px-5 py-3 border-b border-slate-100 bg-orange-50/40 space-y-2">
             <span className="text-[13px] font-bold uppercase text-slate-500 mb-2">
@@ -1653,7 +1625,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</label>
                     <Select
                       value={quickReadingExerciseId}
-                      disabled={blockOnlineHomework}
                       onChange={(e) => {
                         const examId = e.target.value ? Number(e.target.value) : "";
                         setQuickReadingExerciseId(examId);
@@ -1674,7 +1645,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     <label className="text-[13px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</label>
                     <Select
                       value={quickWritingExerciseId}
-                      disabled={blockOnlineHomework}
                       onChange={(e) => {
                         const examId = e.target.value ? Number(e.target.value) : "";
                         setQuickWritingExerciseId(examId);
@@ -1711,7 +1681,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 </label>
                 <Select
                   value={quickExerciseId}
-                  disabled={blockOnlineHomework}
                   onChange={(e) => {
                     const examId = e.target.value ? Number(e.target.value) : "";
                     setQuickExerciseId(examId);
@@ -1734,7 +1703,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                 </label>
                 <Select
                   value={quickVideoId}
-                  disabled={blockOnlineHomework}
                   onChange={(e) => setQuickVideoId(e.target.value ? Number(e.target.value) : "")}
                   className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
@@ -1803,7 +1771,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     <ExerciseSelectionChecklist
                       group={filteredGrammarOptions.find((g) => g.examId === quickExerciseId)}
                       selectedIds={quickGrammarExerciseIds}
-                      disabled={blockOnlineHomework}
                       onToggle={(id) =>
                         setQuickGrammarExerciseIds((prev) => {
                           const next = new Set(prev);
@@ -1820,7 +1787,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     <ExerciseSelectionChecklist
                       group={readingOptions.find((g) => g.examId === quickReadingExerciseId)}
                       selectedIds={quickReadingExerciseIds}
-                      disabled={blockOnlineHomework}
                       onToggle={(id) =>
                         setQuickReadingExerciseIds((prev) => {
                           const next = new Set(prev);
@@ -1837,7 +1803,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                     <ExerciseSelectionChecklist
                       group={writingOptions.find((g) => g.examId === quickWritingExerciseId)}
                       selectedIds={quickWritingExerciseIds}
-                      disabled={blockOnlineHomework}
                       onToggle={(id) =>
                         setQuickWritingExerciseIds((prev) => {
                           const next = new Set(prev);

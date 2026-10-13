@@ -73,7 +73,6 @@ import vn.com.pps.education.student.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.MissingCommentContentException;
 import vn.com.pps.education.exception.MissingLessonContentException;
-import vn.com.pps.education.exception.NoUpcomingClassSessionException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -1437,25 +1436,35 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(reviewVideoAssignmentRepository.count()).isZero();
     }
 
-    /** Câu hỏi mở #4 (đã chốt 2026-07-30): lớp chưa có buổi kế tiếp -- chặn hẳn, không cho Áp dụng BTVN online với hạn nộp tự động. */
+    /**
+     * Bỏ chặn 2026-10-13 (đã xác nhận với người dùng, thay quyết định 2026-07-30 "lớp chưa có buổi kế
+     * tiếp -- chặn hẳn"): lịch học xếp theo tuần nên buổi kế tiếp thường CHƯA tồn tại trong
+     * class_sessions tại thời điểm GV nhận xét buổi cuối tuần -- không còn là dấu hiệu tin cậy của
+     * "buổi cuối khóa thật". Nay vẫn Áp dụng BTVN online được bình thường, chỉ không có hạn nộp mặc
+     * định (null) -- GV tự chọn tay hạn nộp qua customDueDate nếu muốn (xem StudentCommentService#resolveDueAt).
+     */
     @Test
-    void applyHomeworkToClass_A_rejectsGrammarChoiceWhenNoUpcomingSession() {
+    void applyHomeworkToClass_A_defaultDueDateIsNullWhenNoUpcomingSession() {
         GrammarFixture fixture = createGrammarOnlineExercise();
         // Không tạo buổi kế tiếp -- classSession (từ setUp) là buổi duy nhất/cuối cùng của lớp.
 
-        assertThatThrownBy(() -> applyHomework(classSession, fixture.exercise().examId(), null))
-                .isInstanceOf(NoUpcomingClassSessionException.class);
+        List<StudentCommentResponse> applied = applyHomework(classSession, fixture.exercise().examId(), null);
+
+        StudentCommentResponse comment = applied.stream().filter(c -> c.studentId().equals(student.getId())).findFirst().orElseThrow();
+        assertThat(comment.homeworkNextDueAt()).isNull();
+        assertThat(comment.homeworkNextExerciseAssignmentId()).isNotNull();
     }
 
     /**
      * Sửa lại 2026-08-14 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng -- phát hiện khi lớp có
      * buổi VIETNAMESE/FOREIGN xen kẽ nhau): "buổi kế tiếp" dùng tính hạn nộp mặc định phải CÙNG loại
      * giáo viên với buổi đang nhận xét -- buổi kế tiếp KHÁC loại GV xen giữa (VD classSession=VIETNAMESE,
-     * buổi liền sau=FOREIGN) không được coi là "buổi kế tiếp", vẫn chặn NoUpcomingClassSessionException
-     * dù về lịch có buổi sau đó. Mirror đúng cách previousComment() tra "buổi trước" (cùng loại GV).
+     * buổi liền sau=FOREIGN) không được coi là "buổi kế tiếp". Mirror đúng cách previousComment() tra
+     * "buổi trước" (cùng loại GV). Bỏ chặn 2026-10-13 (xem test trên) -- trường hợp này nay cũng chỉ còn
+     * hạn nộp null, không còn ném NoUpcomingClassSessionException.
      */
     @Test
-    void applyHomeworkToClass_A_rejectsWhenUpcomingSessionIsDifferentTeacherType() {
+    void applyHomeworkToClass_A_defaultDueDateIsNullWhenUpcomingSessionIsDifferentTeacherType() {
         GrammarFixture fixture = createGrammarOnlineExercise();
         User foreignTeacher = assignForeignTeacher();
         Room room = newRoom(siteOf(schoolClass));
@@ -1465,8 +1474,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         // classSession (setUp) = VIETNAMESE; buổi kế tiếp vừa tạo = FOREIGN -- khác loại GV, không tính.
 
-        assertThatThrownBy(() -> applyHomework(classSession, fixture.exercise().examId(), null))
-                .isInstanceOf(NoUpcomingClassSessionException.class);
+        List<StudentCommentResponse> applied = applyHomework(classSession, fixture.exercise().examId(), null);
+
+        StudentCommentResponse comment = applied.stream().filter(c -> c.studentId().equals(student.getId())).findFirst().orElseThrow();
+        assertThat(comment.homeworkNextDueAt()).isNull();
+        assertThat(comment.homeworkNextExerciseAssignmentId()).isNotNull();
     }
 
     /**
