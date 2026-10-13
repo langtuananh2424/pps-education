@@ -14,6 +14,7 @@ import {
   uploadMedia
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
+import { relabelAudioBlob } from "../lib/audioContainer";
 import { filterRecording, recordingFilterSupported } from "../lib/reflexRecordingFilter";
 
 /** V200 — mirror ReflexSequentialGradingService.DEFAULT_PICTURE_PROMPT ở backend. */
@@ -268,7 +269,9 @@ function useAudioRecorder() {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
-        setAudioBlob(new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" }));
+        const raw = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        // Gắn lại nhãn theo nội dung thật (iOS có thể ghi MP4 nhưng mimeType rỗng) — xem lib/audioContainer.ts.
+        void relabelAudioBlob(raw).then(({ blob }) => setAudioBlob(blob));
         // KHÔNG dừng track ở đây nữa — giữ nguyên stream để tái dùng cho câu tiếp theo (xem ghi chú
         // trên hàm), tránh xin quyền mic lại liên tục.
       };
@@ -557,6 +560,9 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null; exhausted: boolean } | null>(null);
   const [writingPassedPopup, setWritingPassedPopup] = useState<{ scorePercent: number | null; exhausted: boolean } | null>(null);
   const recorder = useAudioRecorder();
+  // Ngưỡng % đạt viết/nói mỗi câu do giáo viên cấu hình theo từng video REFLEX (BE: ReflexSequentialGradingService
+  // #passThresholdPercent đọc cùng field này) — trước đây FE hiện cứng 70 nên lệch khi giáo viên đổi ngưỡng.
+  const passThreshold = video.completionThresholdPercent;
   // V199 — công tắc bộ lọc thu âm (Quản trị hệ thống → Cài đặt hệ thống). Lỗi tải cấu hình → coi như tắt (bản thô).
   const [recordingFilterEnabled, setRecordingFilterEnabled] = useState(false);
   useEffect(() => {
@@ -982,7 +988,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     try {
       // V199 — công tắc BẬT thì lọc bản ghi thành WAV 16 kHz trước khi nộp; lọc lỗi (trình duyệt không giải mã
       // được) thì nộp bản thô và báo đúng chế độ đã dùng, để việc so sánh hai chế độ không bị lẫn.
-      let file = new File([blob], "reflex-answer.webm", { type: blob.type || "audio/webm" });
+      const { blob: labeled, container } = await relabelAudioBlob(blob);
+      let file = new File([labeled], `reflex-answer.${container?.extension ?? "webm"}`, { type: labeled.type || "audio/webm" });
       let filtered = false;
       if (recordingFilterEnabled && recordingFilterSupported()) {
         try {
@@ -1736,7 +1743,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                               <div className="flex items-center gap-2">
                                 <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full ${item.percent >= 70 ? "bg-emerald-500" : "bg-gradient-to-r from-gold to-coral"}`}
+                                    className={`h-full rounded-full ${item.percent >= passThreshold ? "bg-emerald-500" : "bg-gradient-to-r from-gold to-coral"}`}
                                     style={{ width: `${Math.min(100, Math.max(0, item.percent))}%` }}
                                   />
                                 </div>
@@ -1800,7 +1807,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                         <span />
                       )}
                       <span className="text-[12px] font-bold text-muted normal-case">
-                        {t("reflexVideoTask.speakingStage.passThresholdNote", { threshold: 70 })}
+                        {t("reflexVideoTask.speakingStage.passThresholdNote", { threshold: passThreshold })}
                       </span>
                     </div>
                   </div>
