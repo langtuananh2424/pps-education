@@ -417,6 +417,7 @@ public class ParentPortalService {
         String readingProgress = homeworkProgressService.grammarProgressLabel(row.readingAssignments, studentId);
         String writingProgress = homeworkProgressService.grammarProgressLabel(row.writingAssignments, studentId);
         ReviewVideoAssignment video = row.video;
+        String videoProgress = video == null ? null : homeworkProgressService.videoProgressLabel(video, studentId);
 
         return new HomeworkProgressResponse(
                 row.id, row.classSessionId, row.date,
@@ -447,8 +448,8 @@ public class ParentPortalService {
                 batchUnitTitle(row.writingBatch),
                 video == null ? null : video.getId(),
                 video == null ? null : video.getReviewVideoSet().getTitle(),
-                homeworkProgressService.videoProgressLabel(video, studentId),
-                video == null ? null : homeworkProgressService.videoPassed(video, studentId, homeworkAlertSettings.reflexPassThresholdPercent()),
+                videoProgress,
+                videoAggregatePassed(videoProgress, video, studentId),
                 video == null ? null : video.getReviewVideoSet().getVideoType().name(),
                 video == null ? null : video.getReviewVideoSet().getTeacherType().name(),
                 video == null ? null : video.getDueAt(),
@@ -489,6 +490,21 @@ public class ParentPortalService {
             return null;
         }
         return homeworkProgressService.grammarPassed(assignment, studentId);
+    }
+
+    /**
+     * Mirror {@link #aggregatePassed} cho kênh Video (CONNECTION/REFLEX) — bổ sung ngoài SDD gốc
+     * (2026-10-13, đã xác nhận với người dùng, cùng đợt fix {@link HomeworkProgressService#videoProgressLabel}
+     * trả {@code NOT_DONE_LABEL} khi chưa có lượt làm nào). Trước đây gọi thẳng
+     * {@code homeworkProgressService.videoPassed(...)} — {@code boolean} nguyên thuỷ không bao giờ null,
+     * nên FE (ProgressBadge) hiện nhầm pill đỏ "Chưa đạt" cho Video CHƯA làm, giống hệt bug grammar/
+     * reading/writing đã sửa 2026-09-22 ở {@link #aggregatePassed}.
+     */
+    private Boolean videoAggregatePassed(String progress, ReviewVideoAssignment video, Long studentId) {
+        if (video == null || progress == null || !progress.endsWith("%")) {
+            return null;
+        }
+        return homeworkProgressService.videoPassed(video, studentId, homeworkAlertSettings.reflexPassThresholdPercent());
     }
 
     /**
