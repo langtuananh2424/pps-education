@@ -1029,10 +1029,16 @@ export interface ReviewVideoAssignmentStudentRow {
   studentFullName: string;
   viewCount: number;
   requiredViewCount: number;
+  /**
+   * CONNECTION: đã xem hết % thời lượng yêu cầu. REFLEX (bổ sung ngoài SDD gốc, đã xác nhận với người
+   * dùng 2026-10-14): đã LÀM xong hết mọi câu hỏi (đạt thật HOẶC hết lượt nộp mà vẫn chưa đạt) — KHÁC
+   * `passed` (đạt điểm ngưỡng). Trước đây field này bị gộp nhầm với `passed` cho REFLEX (V145).
+   */
   completed: boolean;
   /** CONNECTION only */
   correctCount: number | null;
   totalQuestions: number | null;
+  /** CONNECTION: điểm trắc nghiệm ≥ ngưỡng % pass. REFLEX: MỌI câu hỏi đạt ngưỡng % (cả viết lẫn nói). */
   passed: boolean | null;
   /** REFLEX only */
   answeredQuestionCount: number | null;
