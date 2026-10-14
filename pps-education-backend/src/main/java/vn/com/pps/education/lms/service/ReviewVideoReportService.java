@@ -102,6 +102,24 @@ public class ReviewVideoReportService {
                 && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — fix nhầm lẫn thật phát hiện qua
+     * phản hồi người dùng: trước đây cột "Hoàn thành" của REFLEX dùng chung {@link #isReflexQuestionPassed}
+     * (ĐÃ ĐẠT hết, không phải ĐÃ LÀM hết), nên học sinh nộp đủ 9/9 câu nhưng chưa đạt hết vẫn hiện
+     * "Chưa hoàn thành" — gây hiểu lầm với GV/Admin ("đã nộp 9/9" mà lại "chưa hoàn thành"?). Tách 2
+     * khái niệm: {@link #isReflexQuestionPassed} = "Đạt" (điểm đạt ngưỡng), hàm này = "Hoàn thành" (đã
+     * LÀM xong câu — đạt thật HOẶC hết lượt nộp mà vẫn chưa đạt, không còn gì để làm thêm). Mirror
+     * chính xác {@code questionFinalized} ở {@link ReflexSequentialGradingService#toResponse} (bước
+     * nói đạt thật HOẶC hết lượt nói — do {@code submitSpokenAnswer} chặn không cho nói trước khi bước
+     * viết đã xong, speakingPassed/speakingExhausted kéo theo bước viết cũng đã xong, không cần xét lại).
+     */
+    private boolean isReflexQuestionFinalized(ReflexQuestionProgress p) {
+        int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
+        boolean speakingPassed = p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
+        boolean speakingExhausted = !speakingPassed && p.getSpeakingAttemptCount() >= ReflexSequentialGradingService.MAX_STEP_ATTEMPTS;
+        return speakingPassed || speakingExhausted;
+    }
+
     public ReviewVideoReportService(ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                      ReviewVideoService reviewVideoService,
                                      ReviewVideoRepository reviewVideoRepository,
@@ -463,8 +481,16 @@ public class ReviewVideoReportService {
         // (xem/nghe hết % thời lượng), NHƯNG luồng phát video REFLEX mới (ReflexVideoTaskPage.tsx,
         // "nhảy thẳng theo mốc câu hỏi") KHÔNG CÒN gọi API cập nhật ReviewVideoProgress nữa — cột này
         // sẽ mãi mãi 0/CHƯA HOÀN THÀNH bất kể học sinh làm gì. Đổi định nghĩa "hoàn thành" cho REFLEX
-        // sang đúng tiêu chí thực tế UC-23b V2 đang dùng ở FE (ReflexVideoTaskPage.tsx#allQuestionsPassed)
-        // — MỌI câu hỏi của video đó đã questionPassed=true (đạt cả viết lẫn nói).
+        // sang tiêu chí dựa trên reflex_question_progress thay vì ReviewVideoProgress.
+        //
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — fix nhầm lẫn thật phát hiện qua
+        // phản hồi người dùng: định nghĩa V145 ở trên dùng "MỌI câu đã questionPassed=true" (ĐÃ ĐẠT hết),
+        // nên 1 học sinh nộp đủ 9/9 câu nhưng vài câu chưa đạt (hết lượt) vẫn hiện "Chưa hoàn thành" —
+        // trông như mâu thuẫn với cột "Đã nộp câu hỏi" (9/9) ngay bên cạnh. Tách 2 khái niệm riêng:
+        // `allQuestionsPassed` → field {@code passed} (badge "Đạt"/"Chưa đạt", mirror CONNECTION), và
+        // `allQuestionsFinalized` (xem {@link #isReflexQuestionFinalized}) → field {@code completed}
+        // (badge "Hoàn thành"/"Chưa hoàn thành" — đã LÀM xong hết, không còn gì để làm thêm, bất kể đạt
+        // hay không).
         Map<Long, List<ReviewVideoQuestion>> questionsByVideoId = questions.stream()
                 .collect(Collectors.groupingBy(q -> q.getReviewVideo().getId()));
 
@@ -480,11 +506,18 @@ public class ReviewVideoReportService {
                 viewCount += progress == null ? 0 : progress.getViewCount();
                 requiredViewCount += video.getRequiredViewCount();
             }
-            boolean allVideosCompleted = !videos.isEmpty() && videos.stream().allMatch(video -> {
+            boolean allQuestionsPassed = !videos.isEmpty() && videos.stream().allMatch(video -> {
                 List<ReviewVideoQuestion> videoQuestions = questionsByVideoId.getOrDefault(video.getId(), List.of());
                 return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q -> {
                     ReflexQuestionProgress p = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
                     return p != null && isReflexQuestionPassed(p);
+                });
+            });
+            boolean allQuestionsFinalized = !videos.isEmpty() && videos.stream().allMatch(video -> {
+                List<ReviewVideoQuestion> videoQuestions = questionsByVideoId.getOrDefault(video.getId(), List.of());
+                return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q -> {
+                    ReflexQuestionProgress p = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
+                    return p != null && isReflexQuestionFinalized(p);
                 });
             });
 
@@ -525,8 +558,8 @@ public class ReviewVideoReportService {
 
             return new ReviewVideoAssignmentStudentStatsResponse.StudentRow(
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
-                    viewCount, requiredViewCount, allVideosCompleted,
-                    null, null, null,
+                    viewCount, requiredViewCount, allQuestionsFinalized,
+                    null, null, allQuestionsPassed,
                     answered, totalReflexQuestions, averageScore, averageMaxScore, lateSubmission, grammarReviewRequired);
         }).filter(java.util.Objects::nonNull).toList();
     }

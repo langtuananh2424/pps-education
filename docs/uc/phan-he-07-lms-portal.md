@@ -918,6 +918,24 @@ UC-24: Làm bài kiểm tra trực tuyến
 > tầng Service cho bước nói — sẽ tự deadlock với chính giao dịch
 > `REQUIRES_NEW` lồng trong cùng 1 luồng.
 
+> **Fix nhầm lẫn thật (2026-10-14, phát hiện qua phản hồi người dùng, đã
+> xác nhận):** `questionFinalized` (đạt thật HOẶC hết lượt, bản vá
+> 2026-10-07/08 ở trên) chỉ mới dùng để mở khoá bước/câu NGAY TRONG lúc
+> học sinh làm video (`ReflexVideoTaskPage.tsx`) — danh sách "Bài tập về
+> nhà (BTVN)" ở Portal (`AssignmentsTab.tsx`, tab "Cần hoàn thành"/badge
+> "Đã nộp X/Y câu") vẫn đọc theo công thức CŨ hơn (2026-08-23, trước khi
+> có khái niệm hết lượt): `reflexStats.answeredQuestions` đếm số câu
+> `questionPassed` (ĐÃ ĐẠT), không phải số câu đã LÀM XONG. Hậu quả thật:
+> học sinh làm hết 9/9 câu (1 số câu hết lượt mà vẫn chưa đạt) vẫn thấy
+> badge "Đã nộp 5/9 câu" (chỉ đếm câu đạt) và BTVN kẹt vĩnh viễn ở tab
+> "Cần hoàn thành" dù không còn gì để làm thêm — khác hẳn trang thống kê
+> Admin (`ReviewVideoReportService`, sửa cùng ngày — xem UC-66 ở
+> `docs/uc/phan-he-06-hoc-thuat.md`) hiện đúng "9/9" + "Hoàn thành". Đổi
+> `answeredQuestions` sang đếm theo `questionFinalized` — badge "Đã nộp"
+> và ngưỡng `REFLEX_PASS_THRESHOLD_PERCENT` (80%, `isReflexFullyAnswered`)
+> nay tính đúng theo số câu đã LÀM XONG, khớp với trang Admin và với chính
+> hành vi "không kẹt học sinh lại mãi" mà bản vá 2026-10-07 đã nhắm tới.
+
 > **Bổ sung V150 (2026-09-04, đã xác nhận với người dùng) — BỎ rào chặn
 > chồng lấn khoảng ghi âm lúc soạn câu hỏi (đảo ngược quyết định
 > 2026-08-11):** trước V139 (luồng cũ, "video chạy liên tục, ghi âm tính

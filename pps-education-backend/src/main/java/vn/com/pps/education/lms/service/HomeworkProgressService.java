@@ -257,6 +257,57 @@ public class HomeworkProgressService {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — "đã làm xong" (KHÁC "đã đạt" ở
+     * {@link #videoPassed}), dùng RIÊNG cho {@code HomeworkDueSoonReminderSchedulerService} (nhắc Phụ
+     * huynh/học sinh TRƯỚC hạn nộp): fix bug thật phát hiện qua phản hồi người dùng — Javadoc scheduler
+     * đó ghi rõ "học sinh đã làm xong không cần nhắc", nhưng trước đây dùng {@link #videoPassed} (nghĩa
+     * "đã ĐẠT ngưỡng %") nên học sinh REFLEX đã hết lượt nộp (3 lần viết + 3 lần nói,
+     * {@code ReflexSequentialGradingService#MAX_STEP_ATTEMPTS}) mà vẫn chưa đạt hết vẫn bị nhắc "làm bài
+     * sớm" dù không còn gì để làm thêm. KHÔNG áp dụng cho cảnh báo GV sau hạn
+     * ({@code HomeworkDeadlineSchedulerService} vẫn dùng {@link #videoPassed} — GV cần biết con còn yếu
+     * dù đã hết lượt, giữ nguyên theo xác nhận người dùng). CONNECTION: không có khái niệm hết lượt (xem
+     * lại vẫn tính thêm lượt bình thường tới khi đủ view), "đã làm xong" = "đã đạt" y hệt
+     * {@link #videoPassed}, không đổi.
+     */
+    public boolean videoFinalized(ReviewVideoAssignment assignment, Long studentId) {
+        if (assignment == null) {
+            return false;
+        }
+        ReviewVideoSet set = assignment.getReviewVideoSet();
+        List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(set.getId());
+        if (videos.isEmpty()) {
+            return false;
+        }
+        if (set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
+            return videos.stream().allMatch(v -> reviewVideoProgressRepository
+                    .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentId(v.getId(), studentId, assignment.getId())
+                    .map(ReviewVideoProgress::isCompleted).orElse(false));
+        }
+        return videos.stream().allMatch(v -> reflexAllQuestionsFinalized(v, studentId, assignment.getId()));
+    }
+
+    /** Mirror {@link #reflexPercent} nhưng "xong" = đạt thật HOẶC hết lượt (questionFinalized) thay vì chỉ đạt — xem Javadoc {@link #videoFinalized}. */
+    private boolean reflexAllQuestionsFinalized(ReviewVideo v, Long studentId, Long assignmentId) {
+        List<ReviewVideoQuestion> questions = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId());
+        if (questions.isEmpty()) {
+            return false;
+        }
+        int threshold = v.getCompletionThresholdPercent();
+        Map<Long, ReflexQuestionProgress> progressByQuestionId = reflexQuestionProgressRepository
+                .findByReviewVideoAssignmentIdAndStudentId(assignmentId, studentId).stream()
+                .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId(), p -> p));
+        return questions.stream().allMatch(q -> {
+            ReflexQuestionProgress p = progressByQuestionId.get(q.getId());
+            if (p == null) {
+                return false;
+            }
+            boolean speakingPassed = p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
+            boolean speakingExhausted = !speakingPassed && p.getSpeakingAttemptCount() >= ReflexSequentialGradingService.MAX_STEP_ATTEMPTS;
+            return speakingPassed || speakingExhausted;
+        });
+    }
+
+    /**
      * V71 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03,
      * sửa lại công thức tính % — trước đây dùng watchedSeconds/duration,
      * SAI vì không phản ánh đúng khái niệm nghiệp vụ "lượt xem": xem 99%
