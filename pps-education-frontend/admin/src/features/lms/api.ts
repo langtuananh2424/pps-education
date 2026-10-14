@@ -99,6 +99,13 @@ export interface QuestionStructuredContent {
   inputMode?: "select" | "text";
   /** Bổ sung 2026-10-03 — "form" = Nghe điền phiếu thông tin (NGHE_PHIEU_THONG_TIN): giữ xuống dòng, hiện **chữ đậm**, mỗi ô nhận nhiều đáp án "a/b" và chuẩn hóa số/giờ khi chấm. */
   format?: "form";
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn TÙY CHỌN hiện phía
+   * trên câu hỏi WORD_BANK (chữ nghiêng, VD "Ex. 1: Fill in each blank..."), đọc từ cột Excel/Word
+   * "Hướng dẫn" (xem QuestionImportService). Không áp dụng khi `format === "form"` — loại đó vẫn tái
+   * dùng `referencePassage` như cũ (xem WordBankBlock/WordBankPreview).
+   */
+  instruction?: string;
 }
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */

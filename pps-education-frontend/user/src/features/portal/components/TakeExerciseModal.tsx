@@ -1407,7 +1407,15 @@ export function QuestionBlock({
           }
           inputMode={question.structuredContent.inputMode}
           formMode={question.structuredContent.format === "form"}
-          instruction={question.structuredContent.format === "form" ? question.referencePassage : null}
+          // 2026-10-14 (đã xác nhận với người dùng) — form (phiếu thông tin) vẫn tái dùng referencePassage
+          // như cũ; các loại WORD_BANK khác (DIEN_TU_HOP_TU_VUNG/_ANH, DIEN_TU_DOAN_VAN) nay đọc
+          // structuredContent.instruction (cột Excel/Word "Hướng dẫn" riêng, xem QuestionImportService) —
+          // trước đây luôn null, không có cách nào hiện dòng chỉ dẫn "Ex. 1: ..." cho các loại này.
+          instruction={
+            question.structuredContent.format === "form"
+              ? question.referencePassage
+              : (question.structuredContent.instruction ?? null)
+          }
           initialAnswer={answer?.structuredAnswer ?? undefined}
           readOnly={readOnly}
           saving={saving}
@@ -1876,7 +1884,9 @@ function WordBankBlock({
   // duyệt tự ngắt dòng theo TỪNG TỪ như văn bản thật (mirror ExerciseStudentPreviewModal#WordBankPreview).
   return (
     <div className="space-y-2">
-      {instruction && <p className="text-xs sm:text-sm italic text-muted">{instruction}</p>}
+      {/* 2026-10-14 (đã xác nhận với người dùng) — tăng cỡ chữ dòng hướng dẫn, mirror QuestionPreview.tsx
+       * (trước đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc). */}
+      {instruction && <p className="text-sm sm:text-base italic text-muted">{instruction}</p>}
       {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{title}</p>}
       <p className={`text-sm sm:text-base lg:text-lg ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-ink leading-8 lg:leading-10`}>
         {parts.map((part, idx) => (

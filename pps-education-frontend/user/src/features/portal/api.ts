@@ -1071,6 +1071,13 @@ export interface ExerciseQuestionResponse {
     inputMode?: "select" | "text";
     /** Bổ sung 2026-10-03 — "form" = Nghe điền phiếu thông tin (NGHE_PHIEU_THONG_TIN): giữ xuống dòng, hiện **chữ đậm**, mỗi ô nhận nhiều đáp án "a/b" và chuẩn hóa số/giờ khi chấm. */
     format?: "form";
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn TÙY CHỌN hiện phía
+     * trên câu hỏi WORD_BANK (chữ nghiêng, VD "Ex. 1: Fill in each blank..."), đọc từ cột Excel/Word
+     * "Hướng dẫn" lúc soạn đề (xem QuestionImportService). Không áp dụng khi `format === "form"` — loại
+     * đó vẫn tái dùng `referencePassage` như cũ (xem TakeExerciseModal#WordBankBlock).
+     */
+    instruction?: string;
   } | null;
   groupKey: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa dùng cho ESSAY/WORD_BANK/SENTENCE_BUILDING. */
