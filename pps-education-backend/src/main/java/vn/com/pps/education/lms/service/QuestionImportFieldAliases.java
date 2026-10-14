@@ -54,7 +54,12 @@ final class QuestionImportFieldAliases {
 
             Map.entry("giai thich", "explanation"), Map.entry("explanation", "explanation"),
 
-            Map.entry("tags", "tags")
+            Map.entry("tags", "tags"),
+
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn hiện phía
+            // trên câu hỏi dạng Điền từ (xem Javadoc QuestionRowParser.ParsedQuestionRow#instruction).
+            Map.entry("huong dan", "instruction"), Map.entry("instruction", "instruction"),
+            Map.entry("chi dan", "instruction"), Map.entry("direction", "instruction")
     );
 
     /** Trả về tên field nội bộ ({@code ParsedQuestionRow}) khớp với 1 header/nhãn, hoặc null nếu không nhận diện được. */
