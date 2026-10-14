@@ -58,7 +58,6 @@ import vn.com.pps.education.student.dto.UpdateStudentCommentRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.MissingCommentContentException;
 import vn.com.pps.education.exception.MissingLessonContentException;
-import vn.com.pps.education.exception.NoUpcomingClassSessionException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -1896,7 +1895,7 @@ public class StudentCommentService {
         Set<Long> desiredExerciseIds = new HashSet<>(exerciseIds);
         HomeworkSkillBatch reusable = existing != null ? existing : previous;
         if (reusable != null && reusable.getExam().getId().equals(examId)
-                && batchDueAt(reusable).isEqual(dueAt) && batchLateSubmissionAllowed(reusable) == lateSubmissionAllowed
+                && sameDueAt(batchDueAt(reusable), dueAt) && batchLateSubmissionAllowed(reusable) == lateSubmissionAllowed
                 && new HashSet<>(batchExerciseIds(reusable)).equals(desiredExerciseIds)) {
             if (previous != null && !previous.getId().equals(reusable.getId())) {
                 homeworkSkillBatchService.cancelBatch(previous);
@@ -1925,7 +1924,7 @@ public class StudentCommentService {
         }
         ReviewVideoAssignment reusable = existing != null ? existing : previous;
         if (reusable != null && reusable.getReviewVideoSet().getId().equals(videoSetId)
-                && reusable.getDueAt().isEqual(dueAt) && reusable.isLateSubmissionAllowed() == lateSubmissionAllowed) {
+                && sameDueAt(reusable.getDueAt(), dueAt) && reusable.isLateSubmissionAllowed() == lateSubmissionAllowed) {
             if (previous != null && !previous.getId().equals(reusable.getId())) {
                 reviewVideoService.cancelAssignment(previous);
             }
@@ -1944,7 +1943,7 @@ public class StudentCommentService {
      * Câu hỏi mở #4 (đã chốt với người dùng 2026-07-30): hạn nộp BTVN
      * buổi sau = ngày/giờ buổi học KẾ TIẾP của lớp (tính từ sessionDate
      * của buổi đang nhận xét, không phải "hôm nay" — GV có thể nhập bù
-     * buổi cũ). Lớp chưa có buổi kế tiếp → chặn hẳn, không cho giao.
+     * buổi cũ).
      *
      * Sửa lại 2026-08-14: "buổi kế tiếp" phải CÙNG loại giáo viên với
      * buổi đang nhận xét khi buổi đó có xác định teacherType — mirror
@@ -1953,17 +1952,23 @@ public class StudentCommentService {
      * mặc định tính theo buổi kế tiếp TUYỆT ĐỐI (bất kể loại GV), lệch
      * với nơi điểm/% thực sự hiển thị — xem Javadoc
      * ClassSessionRepository#findUpcomingSessions.
+     *
+     * Bỏ chặn 2026-10-13 (đã xác nhận với người dùng, thay quyết định
+     * 2026-07-30 "lớp chưa có buổi kế tiếp → chặn hẳn"): lịch học được
+     * xếp theo tuần (buổi tuần sau chưa tồn tại trong class_sessions tại
+     * thời điểm GV nhận xét buổi cuối tuần), nên "chưa có buổi kế tiếp"
+     * hầu như luôn đúng ở MỌI buổi cuối mỗi tuần — không còn là dấu hiệu
+     * tin cậy của "buổi cuối khóa thật", chặn cứng (NoUpcomingClassSessionException)
+     * gây cản trở giao bài sai chỗ. Nay trả về null (không có hạn nộp mặc
+     * định) khi chưa xác định được buổi kế tiếp — GV vẫn luôn tự chọn tay
+     * hạn nộp qua {@code customDueDate} nếu muốn (xem {@link #resolveDueAt}).
      */
     private OffsetDateTime resolveNextSessionDueAt(ClassSession session) {
         List<ClassSession> upcoming = classSessionRepository.findUpcomingSessions(
                 session.getSchoolClass().getId(), session.getSessionDate(), session.getId(),
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED), session.getTeacherType());
         if (upcoming.isEmpty()) {
-            throw new NoUpcomingClassSessionException(
-                    "error.noUpcomingClassSession.default", new Object[]{session.getTeacherType()},
-                    "Lớp này chưa có buổi học kế tiếp"
-                            + (session.getTeacherType() != null ? " cùng loại giáo viên (" + session.getTeacherType() + ")" : "")
-                            + " trong lịch — không thể đặt hạn nộp cho BTVN buổi sau.");
+            return null;
         }
         ClassSession next = upcoming.get(0);
         return next.getSessionDate().atTime(next.getStartTime()).atZone(APP_ZONE).toOffsetDateTime();
@@ -2088,6 +2093,18 @@ public class StudentCommentService {
     private boolean batchLateSubmissionAllowed(HomeworkSkillBatch batch) {
         return exerciseAssignmentRepository.findByHomeworkBatchId(batch.getId()).stream()
                 .findFirst().map(ExerciseAssignment::isLateSubmissionAllowed).orElse(false);
+    }
+
+    /**
+     * Bổ sung 2026-10-13 — so 2 due_at theo INSTANT thực (isEqual), null-safe (từ khi
+     * {@link #resolveNextSessionDueAt} có thể trả về null). Mirror ExerciseService#sameDueAt/
+     * ReviewVideoService#sameDueAt.
+     */
+    private static boolean sameDueAt(OffsetDateTime a, OffsetDateTime b) {
+        if (a == null || b == null) {
+            return a == b;
+        }
+        return a.isEqual(b);
     }
 
     /**
@@ -2636,7 +2653,16 @@ public class StudentCommentService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.accountNotFoundById", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
-    private StudentCommentResponse toResponse(StudentComment c) {
+    /**
+     * Bổ sung 2026-10-13 (đã xác nhận với người dùng) — đổi từ {@code private} sang package-private để
+     * {@link ParentPortalService} (CÙNG package {@code student.service}) tái dùng thẳng, không tự lặp
+     * lại logic tính BTVN buổi trước/buổi sau: trước đây Cổng phụ huynh có 1 bản {@code toResponse}
+     * riêng ở ParentPortalService trả NULL cứng cho toàn bộ field BTVN online/Reading-Writing ("chưa cần
+     * hiển thị... bổ sung khi có yêu cầu") — khiến tab Quá trình học tập của Phụ huynh trống trơn phần
+     * BTVN trong khi Portal Học sinh (gọi đúng method này) hiện đầy đủ. Logic tính không phụ thuộc actor
+     * (chỉ đọc dữ liệu theo đúng StudentComment/buổi truyền vào) nên dùng chung an toàn cho cả 2 phía.
+     */
+    StudentCommentResponse toResponse(StudentComment c) {
         StudentComment previous = previousComment(c.getClassSession(), c.getStudent().getId());
         HomeworkSkillBatch grammarNext = c.getHomeworkNextGrammarBatch();
         ReviewVideoAssignment videoNext = c.getHomeworkNextReviewVideoAssignment();

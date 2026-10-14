@@ -35,9 +35,16 @@ import java.util.function.Predicate;
  * con làm bài, mirror cấu trúc {@link HomeworkDeadlineSchedulerService}
  * (cùng cron 5 phút, cùng cách quét theo `due_at`, tái dùng thẳng
  * {@code targetStudents(...)} của service đó thay vì lặp lại logic
- * enrollment). Chỉ nhắc học sinh CHƯA đạt (tái dùng
- * {@link HomeworkProgressService#grammarPassed}/{@code videoPassed}) —
+ * enrollment). Chỉ nhắc học sinh CHƯA làm xong (tái dùng
+ * {@link HomeworkProgressService#grammarPassed}/{@code videoFinalized}) —
  * học sinh đã làm xong không cần nhắc.
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — fix bug thật: trước đây kênh Video Ôn
+ * tập dùng {@code videoPassed} ("đã ĐẠT ngưỡng %"), KHÔNG khớp đúng ý "đã làm xong" ở trên — học sinh
+ * REFLEX hết lượt nộp mà vẫn chưa đạt hết vẫn bị nhắc dù không còn gì để làm thêm. Đổi sang
+ * {@code videoFinalized} (xem Javadoc field đó) — CHỈ đổi ở kênh nhắc nhở này, KHÔNG đổi
+ * {@link HomeworkDeadlineSchedulerService} (cảnh báo GV sau hạn, vẫn dùng {@code videoPassed} theo xác
+ * nhận người dùng — GV cần biết con còn yếu dù đã hết lượt).
  * <p>
  * Khung đêm (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-25,
  * migration V195): nếu mốc nhắc (hạn nộp − reminder_before_due_hours) rơi vào
@@ -154,7 +161,10 @@ public class HomeworkDueSoonReminderSchedulerService {
         for (ReviewVideoAssignment assignment : dueSoon) {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             for (Student s : students) {
-                if (!homeworkProgressService.videoPassed(assignment, s.getId(), homeworkAlertSettings.reflexPassThresholdPercent())) {
+                // 2026-10-14 — videoFinalized (KHÔNG videoPassed): "đã làm xong" (đạt thật HOẶC hết lượt
+                // nộp), đúng ý Javadoc lớp này "học sinh đã làm xong không cần nhắc" — xem Javadoc
+                // HomeworkProgressService#videoFinalized.
+                if (!homeworkProgressService.videoFinalized(assignment, s.getId())) {
                     notifyParents(s, assignment.getSchoolClass(), "Video Ôn tập \"" + assignment.getReviewVideoSet().getTitle() + "\"", assignment.getDueAt(),
                             null, assignment.getId());
                 }

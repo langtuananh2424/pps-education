@@ -123,6 +123,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
         String defaultPoints;
         String explanation;
         String tags;
+        String instruction;
         String lastField = "content";
 
         MutableRow(int blockNumber) {
@@ -140,6 +141,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
                 case "imageUrl" -> imageUrl = value;
                 case "referencePassage" -> referencePassage = value;
                 case "tags" -> tags = value;
+                case "instruction" -> instruction = value;
                 default -> { }
             }
         }
@@ -150,6 +152,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
                 case "correctAnswer" -> correctAnswer = correctAnswer == null ? extra : correctAnswer + "\n" + extra;
                 case "explanation" -> explanation = explanation == null ? extra : explanation + "\n" + extra;
                 case "referencePassage" -> referencePassage = referencePassage == null ? extra : referencePassage + "\n" + extra;
+                case "instruction" -> instruction = instruction == null ? extra : instruction + "\n" + extra;
                 case "choiceA" -> choiceA = choiceA == null ? extra : choiceA + " " + extra;
                 case "choiceB" -> choiceB = choiceB == null ? extra : choiceB + " " + extra;
                 case "choiceC" -> choiceC = choiceC == null ? extra : choiceC + " " + extra;
@@ -160,7 +163,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
 
         ParsedQuestionRow toParsedRow() {
             return new ParsedQuestionRow(blockNumber, null, kind, difficulty, content, choiceA, choiceB, choiceC, choiceD,
-                    correctAnswer, audioUrl, imageUrl, referencePassage, defaultPoints, explanation, tags);
+                    correctAnswer, audioUrl, imageUrl, referencePassage, defaultPoints, explanation, tags, instruction);
         }
     }
 }

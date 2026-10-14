@@ -116,7 +116,7 @@ public class GlobalExceptionHandler {
             DepartmentNotDeletableException.class, PositionNotDeletableException.class,
             GradeComponentNotDeletableException.class, GradeComponentSetupNotDeletableException.class,
             MissingLessonContentException.class, MissingCommentContentException.class, HomeworkNextConflictException.class,
-            NoUpcomingClassSessionException.class, VideoNotYetQualifiedException.class,
+            VideoNotYetQualifiedException.class,
             QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class,
             ClassSessionNotCheckableException.class, SitePeriodTemplateNotDeletableException.class,
             EntranceAssessmentNotDeletableException.class, ReflexAudioRejectedException.class,

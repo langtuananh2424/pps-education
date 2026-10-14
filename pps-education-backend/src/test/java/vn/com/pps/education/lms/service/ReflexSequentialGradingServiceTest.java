@@ -88,8 +88,8 @@ class ReflexSequentialGradingServiceTest {
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07 — từ nay lượt bị từ chối VẪN phải
      * tính vào giới hạn {@value ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần (trước đó KHÔNG
      * tính — đã đổi vì phát hiện qua test thật: học sinh gửi bản ghi im lặng liên tục không bao giờ chạm
-     * giới hạn). Việc này đi qua {@code incrementSpeakingAttemptCountInNewTransaction} (REQUIRES_NEW) —
-     * xem Javadoc {@link vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository}.
+     * giới hạn). Việc này đi qua {@code incrementSpeakingAttemptCountInNewTransactionIfBelowLimit}
+     * (REQUIRES_NEW) — xem Javadoc {@link vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository}.
      */
     @Test
     void submitSpokenAnswer_UC23b_A_audioRejected_recordsTranscriptionUsageOnceAndStillRejectsButCountsAttempt() {
@@ -109,14 +109,16 @@ class ReflexSequentialGradingServiceTest {
                 isNull(), eq(transcriptionUsage), eq(f.student()), eq(f.assignment()), eq(f.question()));
         verifyNoMoreInteractions(tokenUsageRecorder);
         verify(progressRepository, never()).save(any());
-        verify(progressRepository, times(1)).incrementSpeakingAttemptCountInNewTransaction(PROGRESS_ID);
+        verify(progressRepository, times(1))
+                .incrementSpeakingAttemptCountInNewTransactionIfBelowLimit(PROGRESS_ID, ReflexSequentialGradingService.MAX_STEP_ATTEMPTS);
     }
 
     /**
      * Alternate Flow — 3 lượt LIÊN TIẾP đều bị AI từ chối (im lặng/không đọc được) vẫn phải tính đủ vào
      * giới hạn {@value ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần, không để học sinh né giới
-     * hạn bằng cách gửi bản ghi rác — mỗi lượt đều phải gọi {@code incrementSpeakingAttemptCountInNewTransaction}
-     * (REQUIRES_NEW), kể cả khi bị từ chối ngay sau đó.
+     * hạn bằng cách gửi bản ghi rác — mỗi lượt đều phải gọi
+     * {@code incrementSpeakingAttemptCountInNewTransactionIfBelowLimit} (REQUIRES_NEW), kể cả khi bị từ
+     * chối ngay sau đó.
      *
      * Lưu ý giới hạn của test thuần mock này: repository mock không mô phỏng ROLLBACK thật của DB (field
      * Java trên {@code progress} không tự bị "hoàn tác" như 1 giao dịch thật bị huỷ) — persist thật qua
@@ -135,7 +137,8 @@ class ReflexSequentialGradingServiceTest {
             assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID))
                     .isInstanceOf(ReflexAudioRejectedException.class);
         }
-        verify(progressRepository, times(3)).incrementSpeakingAttemptCountInNewTransaction(PROGRESS_ID);
+        verify(progressRepository, times(3))
+                .incrementSpeakingAttemptCountInNewTransactionIfBelowLimit(PROGRESS_ID, ReflexSequentialGradingService.MAX_STEP_ATTEMPTS);
         verify(progressRepository, never()).save(any());
 
         f.progress().setSpeakingAttemptCount(3);
@@ -247,6 +250,26 @@ class ReflexSequentialGradingServiceTest {
     }
 
     /**
+     * Vá phòng ngừa race condition (2026-10-08, đã xác nhận với người dùng, chưa có bằng chứng thật đã
+     * xảy ra) — dù check Java (isWritingUnlocked) dựa trên bản đọc progress TRONG BỘ NHỚ cho qua
+     * (writingAttemptCount=0, chưa hết lượt), UPDATE có điều kiện ở DB vẫn phải là cổng chặn CUỐI CÙNG:
+     * giả lập 1 request đồng thời khác đã tăng đủ giới hạn ngay trước đó (DB trả 0 dòng bị ảnh hưởng) —
+     * phải từ chối NGAY, KHÔNG gọi AI chấm (tốn chi phí vô ích cho 1 lượt chắc chắn bị từ chối).
+     */
+    @Test
+    void submitWrittenAnswer_UC23b_A_dbGuardBlocksEvenWhenJavaCheckWouldHaveAllowed() {
+        writingFixture();
+        when(progressRepository.incrementWritingAttemptCountIfBelowLimit(PROGRESS_ID, ReflexSequentialGradingService.MAX_STEP_ATTEMPTS))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> service.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer", ACTOR_USER_ID))
+                .isInstanceOf(RetakeNotAllowedException.class);
+
+        verify(writingGradingService, never()).grade(any(), any(), any());
+        verify(progressRepository, never()).save(any());
+    }
+
+    /**
      * Alternate Flow — hết {@value ReflexSequentialGradingService#MAX_STEP_ATTEMPTS} lần nộp bước NÓI mà
      * vẫn chưa đạt ngưỡng %: câu hỏi coi là KHÔNG đạt (questionPassed=false) nhưng VẪN mở khoá câu tiếp
      * theo (questionFinalized=true) — không kẹt học sinh lại mãi ở 1 câu.
@@ -280,6 +303,51 @@ class ReflexSequentialGradingServiceTest {
 
         assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID))
                 .isInstanceOf(RetakeNotAllowedException.class);
+    }
+
+    /**
+     * Vá phòng ngừa race condition (2026-10-08, đã xác nhận với người dùng, chưa có bằng chứng thật đã
+     * xảy ra) — như {@code submitWrittenAnswer_UC23b_A_dbGuardBlocksEvenWhenJavaCheckWouldHaveAllowed},
+     * cho bước NÓI: dù check Java (isSpeakingFinalized) cho qua, UPDATE có điều kiện REQUIRES_NEW ở DB
+     * trả 0 dòng (giả lập request đồng thời khác đã dùng hết lượt) phải chặn NGAY, không tải audio/gọi AI.
+     */
+    @Test
+    void submitSpokenAnswer_UC23b_A_dbGuardBlocksEvenWhenJavaCheckWouldHaveAllowed() {
+        legacySpeakingFixture();
+        when(progressRepository.incrementSpeakingAttemptCountInNewTransactionIfBelowLimit(PROGRESS_ID, ReflexSequentialGradingService.MAX_STEP_ATTEMPTS))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID))
+                .isInstanceOf(RetakeNotAllowedException.class);
+
+        verify(speakingGradingService, never()).grade(any(), any(), any(), any());
+        verify(progressRepository, never()).save(any());
+    }
+
+    /**
+     * Fix bug thật (2026-10-08, tái hiện bằng giọng nói tổng hợp thật qua UI, đã xác nhận với người
+     * dùng) — bước VIẾT hết lượt (CHƯA đạt thật) nhưng bước NÓI sau đó đạt THẬT ngay (KHÔNG hết lượt):
+     * công thức cũ {@code questionPassed || speakingExhausted} kẹt {@code questionFinalized=false} vĩnh
+     * viễn (writingPassed=false nên questionPassed luôn false; speakingPassed=true nên speakingExhausted
+     * cũng false) — học sinh bị treo ở câu đó mãi, video không chạy tiếp, dù chẳng còn gì để làm thêm.
+     */
+    @Test
+    void submitSpokenAnswer_UC23b_A_writingExhaustedThenSpeakingPassed_finalizesQuestion() {
+        Fixture f = legacySpeakingFixture();
+        f.progress().setWritingScore(BigDecimal.valueOf(40));
+        f.progress().setWritingAttemptCount(3);
+        when(speakingGradingService.grade(any(), any(), any(), any())).thenReturn(
+                new ReflexSpeakingContentAiGradingService.GradeResult("transcript", List.of(), 70, "feedback", null));
+
+        ReflexQuestionProgressResponse response =
+                service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+
+        assertThat(response.writingPassed()).isFalse();
+        assertThat(response.writingExhausted()).isTrue();
+        assertThat(response.speakingPassed()).isTrue();
+        assertThat(response.speakingExhausted()).isFalse();
+        assertThat(response.questionPassed()).isFalse();
+        assertThat(response.questionFinalized()).isTrue();
     }
 
     private record Fixture(ReviewVideoQuestion question, ReviewVideoAssignment assignment, Student student,
@@ -330,6 +398,10 @@ class ReflexSequentialGradingServiceTest {
         when(progressRepository.findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(QUESTION_ID, STUDENT_ID, ASSIGNMENT_ID))
                 .thenReturn(Optional.of(progress));
         when(progressRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // Mặc định: DB luôn còn lượt (mô phỏng không có request đồng thời nào khác) — test race condition
+        // riêng sẽ override lại thành 0 để mô phỏng DB từ chối dù check Java phía trên đã cho qua.
+        when(progressRepository.incrementWritingAttemptCountIfBelowLimit(PROGRESS_ID, ReflexSequentialGradingService.MAX_STEP_ATTEMPTS))
+                .thenReturn(1);
 
         return new Fixture(question, assignment, student, progress);
     }
@@ -383,6 +455,10 @@ class ReflexSequentialGradingServiceTest {
         when(progressRepository.findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(QUESTION_ID, STUDENT_ID, ASSIGNMENT_ID))
                 .thenReturn(Optional.of(progress));
         when(progressRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // Mặc định: DB luôn còn lượt (mô phỏng không có request đồng thời nào khác) — test race condition
+        // riêng sẽ override lại thành 0 để mô phỏng DB từ chối dù check Java phía trên đã cho qua.
+        when(progressRepository.incrementSpeakingAttemptCountInNewTransactionIfBelowLimit(PROGRESS_ID, ReflexSequentialGradingService.MAX_STEP_ATTEMPTS))
+                .thenReturn(1);
 
         when(mediaStorageService.downloadWithContentType(AUDIO_URL))
                 .thenReturn(new MediaStorageService.DownloadedFile(new byte[]{1, 2, 3}, "audio/webm"));
@@ -444,6 +520,10 @@ class ReflexSequentialGradingServiceTest {
         progress.setAnswerText("My favourite sport is football because I play it with my friends every weekend.");
         when(progressRepository.findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(QUESTION_ID, STUDENT_ID, ASSIGNMENT_ID))
                 .thenReturn(Optional.of(progress));
+        // Mặc định: DB luôn còn lượt (mô phỏng không có request đồng thời nào khác) — test race condition
+        // riêng sẽ override lại thành 0 để mô phỏng DB từ chối dù check Java phía trên đã cho qua.
+        when(progressRepository.incrementSpeakingAttemptCountInNewTransactionIfBelowLimit(PROGRESS_ID, ReflexSequentialGradingService.MAX_STEP_ATTEMPTS))
+                .thenReturn(1);
 
         when(mediaStorageService.downloadWithContentType(AUDIO_URL))
                 .thenReturn(new MediaStorageService.DownloadedFile(new byte[]{1, 2, 3}, "audio/webm"));

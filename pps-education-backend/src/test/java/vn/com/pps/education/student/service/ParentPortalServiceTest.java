@@ -61,8 +61,10 @@ import vn.com.pps.education.academic.dto.SubmitGradesRequest;
 import vn.com.pps.education.lms.dto.QuestionBankResponse;
 import vn.com.pps.education.lms.dto.QuestionChoiceRequest;
 import vn.com.pps.education.lms.dto.QuestionResponse;
+import vn.com.pps.education.lms.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.lms.dto.ReviewVideoResponse;
 import vn.com.pps.education.lms.dto.ReviewVideoSetResponse;
+import vn.com.pps.education.lms.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.student.dto.StudentCommentResponse;
 import vn.com.pps.education.student.dto.SubmitCommentsRequest;
 import vn.com.pps.education.academic.dto.UpdateCurriculumRequest;
@@ -460,21 +462,25 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
      * đề), nên phải gán trước khi writeComment (gọi deliverToClass bên
      * trong) mới thành công.
      */
-    private ReviewVideoSetResponse createConnectionVideoAssignedToClass() {
+    /** Bổ sung 2026-10-13 — mang kèm {@code video} (trước chỉ trả {@code set}) để test mô phỏng được lượt xem thật qua {@code reviewVideoService.startWatchSession/reportProgress}. */
+    private record ConnectionVideoFixture(ReviewVideoSetResponse set, ReviewVideoResponse video) {}
+
+    private ConnectionVideoFixture createConnectionVideoAssignedToClass() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
                 new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
         ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
                 new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
-        reviewVideoService.addVideo(set.id(),
+        // completionThresholdPercent/requiredViewCount để null → mặc định 80%/1 lượt (xem Javadoc AddReviewVideoRequest).
+        ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
                         1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
         // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
         // commit Bộ video vừa tạo trước.
         commitCurrentTransactionAndStartNew();
-        return published;
+        return new ConnectionVideoFixture(published, video);
     }
 
     /**
@@ -630,18 +636,34 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         assertThat(result.get(0).grammarItems()).allSatisfy(item -> assertThat(item.progress()).isEqualTo("Chưa làm bài"));
     }
 
+    /**
+     * Sửa 2026-10-13 (cùng đợt fix bug thật ở {@code HomeworkProgressService#videoProgressLabel}) —
+     * trước đây test này KHÔNG mô phỏng lượt xem nào (chỉ giao Video, chưa xem) nhưng lại assert "0%",
+     * đúng ra phải là "Chưa làm bài" (xem test
+     * {@link #listHomeworkProgress_boSung_onlineVideoVisibleEvenWhenDailyCommentNotApprovedYet} cho ca
+     * CHƯA xem). Đổi tên đúng ý nghĩa thật + mô phỏng 1 lượt xem ĐẠT (reportProgress 100/100s, qua
+     * ngưỡng completionThresholdPercent mặc định 80%, rồi nộp đủ câu hỏi — ở đây bộ rỗng — để
+     * recomputeProgress tính viewCount=1/1 yêu cầu → đúng 100%) để giữ coverage cho luồng "đã xem thì
+     * ra đúng %".
+     */
     @Test
-    void listHomeworkProgress_MainFlow_connectionVideoShowsWatchPercent() {
-        ReviewVideoSetResponse set = createConnectionVideoAssignedToClass();
+    void listHomeworkProgress_MainFlow_connectionVideoShowsWatchPercentAfterQualifiedView() {
+        ConnectionVideoFixture fixture = createConnectionVideoAssignedToClass();
         createNextSession();
-        StudentCommentResponse comment = writeDailyComment(null, set.id(), null);
+        StudentCommentResponse comment = writeDailyComment(null, fixture.set().id(), null);
+        Long assignmentId = comment.homeworkNextReviewVideoAssignmentId();
+        assertThat(assignmentId).isNotNull();
+
+        Long sessionId = reviewVideoService.startWatchSession(fixture.video().id(), assignmentId, student.getUser().getId()).sessionId();
+        reviewVideoService.reportProgress(fixture.video().id(), new ReportVideoProgressRequest(sessionId, 100), student.getUser().getId());
+        reviewVideoService.submitConnectionAnswers(sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(result).hasSize(1);
-        assertThat(comment.homeworkNextReviewVideoAssignmentId()).isNotNull();
-        assertThat(result.get(0).videoAssignmentId()).isEqualTo(comment.homeworkNextReviewVideoAssignmentId());
-        assertThat(result.get(0).videoProgress()).isEqualTo("0%");
+        assertThat(result.get(0).videoAssignmentId()).isEqualTo(assignmentId);
+        assertThat(result.get(0).videoProgress()).isEqualTo("100%");
+        assertThat(result.get(0).videoPassed()).isTrue();
     }
 
     /**
@@ -655,10 +677,10 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
      */
     @Test
     void listHomeworkProgress_boSung_onlineVideoVisibleEvenWhenDailyCommentNotApprovedYet() {
-        ReviewVideoSetResponse set = createConnectionVideoAssignedToClass();
+        ConnectionVideoFixture fixture = createConnectionVideoAssignedToClass();
         createNextSession();
         List<StudentCommentResponse> applied = studentCommentService.applyHomeworkToClass(session.id(),
-                new ApplyClassHomeworkRequest(null, null, set.id(), null, null, null, null, null, null), teacher.getId());
+                new ApplyClassHomeworkRequest(null, null, fixture.set().id(), null, null, null, null, null, null), teacher.getId());
         assertThat(applied).hasSize(1);
         assertThat(applied.get(0).status()).isEqualTo("DRAFT");
 
@@ -666,7 +688,12 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).videoAssignmentId()).isEqualTo(applied.get(0).homeworkNextReviewVideoAssignmentId());
-        assertThat(result.get(0).videoProgress()).isEqualTo("0%");
+        // Sửa 2026-10-13 (fix bug thật, xem Javadoc HomeworkProgressService#videoProgressLabel) — học
+        // sinh CHƯA xem video nào ở đây (chỉ vừa được giao), đúng ra phải là "Chưa làm bài" như grammar
+        // (xem listHomeworkProgress_boSung_onlineGrammarVisibleEvenWhenDailyCommentNotApprovedYet),
+        // không phải "0%" (giá trị cũ SAI do bug).
+        assertThat(result.get(0).videoProgress()).isEqualTo("Chưa làm bài");
+        assertThat(result.get(0).videoPassed()).isNull();
     }
 
     /**

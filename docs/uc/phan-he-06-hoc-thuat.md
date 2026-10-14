@@ -1898,6 +1898,27 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     hạn BTVN — các loại thông báo khác không đổi. Đặt 2 giờ bằng nhau để
     tắt khung đêm. Xem `HomeworkDueSoonReminderSchedulerService#reminderSendAt`.
 
+-   **Fix nhầm lẫn thật (2026-10-14, phát hiện qua phản hồi người dùng, đã
+    xác nhận) — tách nghĩa "đã ĐẠT" (`videoPassed`) khỏi "đã LÀM XONG"
+    (`videoFinalized`, mới) ở `HomeworkProgressService` cho kênh Video Ôn
+    tập REFLEX:** trước đây nhắc trước hạn (bullet V195 ở trên,
+    `HomeworkDueSoonReminderSchedulerService`) VÀ cảnh báo GV sau hạn
+    (bullet V82 ở trên, `HomeworkDeadlineSchedulerService`) đều dùng chung
+    `videoPassed` (so % số câu ĐÃ ĐẠT thật với
+    `homework_alert.reflex_pass_threshold_percent`) — học sinh REFLEX hết
+    lượt nộp (3 lần viết + 3 lần nói, UC-23b) mà vẫn chưa đạt đủ ngưỡng
+    vẫn bị nhắc "làm bài sớm" dù không còn gì để làm thêm, trái với chính
+    ý Javadoc gốc của scheduler nhắc nhở ("học sinh đã làm xong không cần
+    nhắc"). Quyết định (đã xác nhận với người dùng):
+    - Kênh **nhắc trước hạn**: đổi sang `videoFinalized` — "làm xong" =
+      đạt thật HOẶC hết lượt (mirror `questionFinalized`, xem UC-23b ở
+      `docs/uc/phan-he-07-lms-portal.md`). CONNECTION không đổi (không có
+      khái niệm hết lượt).
+    - Kênh **cảnh báo GV sau hạn** + **% hiển thị Cổng phụ huynh**
+      (`ParentPortalService`/`ParentHomeworkProgressTab.tsx`): GIỮ NGUYÊN
+      `videoPassed` ("đã đạt") — GV cần biết con còn yếu dù đã hết lượt để
+      kèm thêm, không đổi theo yêu cầu người dùng.
+
 -   Excel round-trip theo buổi học (**V65: dropdown cột Ngữ pháp đổi
     nguồn từ "bài đã giao sẵn cho lớp" sang mọi `Exercise` loại ASSIGNED
     đang PUBLISHED trong khung chương trình của lớp — chọn ở đây mới là
@@ -3324,6 +3345,24 @@ cho Video phản xạ/Video từ kết nối). Với dòng Video Ôn tập:
     động qua `ReflexSequentialGradingService` (AI chấm ngay lúc nộp),
     KHÔNG phải chấm tay ở trang "Chấm bài Video phản xạ" cũ (đó là luồng
     UC-23b V1, không còn dùng cho REFLEX từ V139 — xem UC-23b).
+    - Bổ sung 2026-10-14 (fix nhầm lẫn thật phát hiện qua phản hồi người
+      dùng, đã xác nhận) — bảng REFLEX ở trang chi tiết tách RÕ 2 cột
+      trước đây bị gộp chung vào 1 ("Hoàn thành"):
+      - **"Hoàn thành"** (`StudentRow.completed`) — học sinh đã LÀM xong
+        hết mọi câu hỏi: mỗi câu đã đạt thật HOẶC hết lượt nộp (3 lần viết
+        + 3 lần nói, `ReflexSequentialGradingService#MAX_STEP_ATTEMPTS`)
+        mà vẫn chưa đạt — mirror đúng `questionFinalized` FE Portal học
+        sinh dùng để cho qua câu (`ReflexVideoTaskPage.tsx#stageForProgress`).
+      - **"Kết quả"** (`StudentRow.passed`, badge Đạt/Chưa đạt, mirror
+        CONNECTION) — MỌI câu hỏi đều đạt ngưỡng % (cả viết lẫn nói,
+        `ReviewVideoReportService#isReflexQuestionPassed`).
+      - Trước đó (V145, 2026-08-23) cột "Hoàn thành" dùng đúng tiêu chí
+        "Kết quả" ở trên (MỌI câu `questionPassed=true`) — gây hiểu lầm
+        thật: học sinh nộp đủ N/N câu nhưng vài câu chưa đạt (hết lượt)
+        vẫn hiện "Chưa hoàn thành", trông như mâu thuẫn với cột "Đã nộp
+        câu hỏi" (N/N) ngay bên cạnh. Field `passed` ở
+        `ReviewVideoAssignmentStudentStatsResponse.StudentRow` trước đây
+        chỉ dùng cho CONNECTION (null ở REFLEX) — nay dùng chung cho cả 2.
   - Bổ sung V191 (2026-09-21, đã xác nhận với người dùng) — mỗi dòng
     REFLEX có nút "Xem chi tiết" (icon mắt) mở modal nghe lại audio đã
     nộp + xem kết quả AI chấm (điểm, feedback, transcript, breakdown theo
