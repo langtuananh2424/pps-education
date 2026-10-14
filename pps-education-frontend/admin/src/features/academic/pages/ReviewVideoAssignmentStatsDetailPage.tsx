@@ -304,6 +304,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                     ) : (
                       <>
                         <Th className="text-center">{t("reviewVideoDetail.table.submittedQuestions")}</Th>
+                        <Th className="text-center">{t("reviewVideoDetail.table.result")}</Th>
                         <Th className="text-center">{t("reviewVideoDetail.table.averageScore")}</Th>
                         <Th className="text-center">{t("reviewVideoDetail.table.lateSubmission")}</Th>
                         <Th className="text-center">{t("reviewVideoDetail.table.viewDetail")}</Th>
@@ -342,6 +343,13 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                         <>
                           <Td className="text-center">
                             {s.answeredQuestionCount ?? 0}/{s.totalReflexQuestions ?? 0}
+                          </Td>
+                          <Td className="text-center">
+                            {s.passed == null ? (
+                              <span className="text-slate-300">—</span>
+                            ) : (
+                              <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? t("shared.passed") : t("shared.notPassed")}</Badge>
+                            )}
                           </Td>
                           <Td className="text-center">
                             {s.averageScore != null && s.averageMaxScore != null

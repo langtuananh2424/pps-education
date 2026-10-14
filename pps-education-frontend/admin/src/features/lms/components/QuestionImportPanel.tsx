@@ -115,37 +115,41 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   // local trong handleDownloadTemplate như trước) để dùng chung cho cả preview inline trong panel.
   const sampleRows: string[][] = [
     ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.geo"), "geo,easy"],
+      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.geo"), "geo,easy", ""],
     ["TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
-      "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", ""],
+      "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", "", ""],
     ["DIEN_TU", "", "She ___ (go) to school every day.", "", "", "", "", "goes",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), ""],
+      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), "", ""],
     ["DIEN_TU_NHOM", "", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.", "", "", "", "", "smart|favourite|coach",
       "", "", "activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice", "1",
-      t("questionImportPanel.excelSampleExplanations.fillInBlankGroup"), ""],
+      t("questionImportPanel.excelSampleExplanations.fillInBlankGroup"), "", ""],
+    // Cột cuối "Hướng dẫn" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14) — dòng chỉ dẫn
+    // TÙY CHỌN hiện phía trên đề (chữ nghiêng, mirror "Ex. 1: ..."/"B. ..." trong đề giấy gốc) — để trống
+    // thì không hiện, không ảnh hưởng gì (xem QuestionImportService#instructionText).
     ["DIEN_TU_DOAN_VAN", "",
       "In recent years, tourism has become a (1) ___ industry. Many travellers now book a (2) ___ that includes both transport and accommodation.",
-      "", "", "", "", "growing|package deal", "", "", "growing, package deal, accommodation, destination, resort", "1", "", ""],
+      "", "", "", "", "growing|package deal", "", "", "growing, package deal, accommodation, destination, resort", "1", "", "",
+      "Ex. 1: Fill in each blank (1-2) with the most appropriate word or phrase."],
     ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "",
-      "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), ""],
+      "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), "", ""],
     ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "",
-      "", "", "enthusiasm, literature, variety", "1", "", ""],
+      "", "", "enthusiasm, literature, variety", "1", "", "", ""],
     ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "goes|plays",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), ""],
+      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), "", ""],
     ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "under|next to",
       "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
-      t("questionImportPanel.excelSampleExplanations.wordBankPicture"), ""],
+      t("questionImportPanel.excelSampleExplanations.wordBankPicture"), "", ""],
     ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "This|is|a|pen",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), ""],
+      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), "", ""],
     ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "s|m|i|l|e",
       "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
-      t("questionImportPanel.excelSampleExplanations.letterScramble"), ""],
+      t("questionImportPanel.excelSampleExplanations.letterScramble"), "", ""],
     ["NGHE_NOP_AUDIO", "", "Listen to the audio and record your answer.", "", "", "", "", "",
       "https://example-r2.dev/lms/questions/audio/mau-nghe.mp3", "", "", "1",
-      t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), ""],
+      t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), "", ""],
     ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
       "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
-      t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""],
+      t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), "", ""],
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-06 (qua ảnh chụp đề giấy thật GV gửi) —
     // nội dung mẫu dựng lại gần sát đề thật: dòng đầu "The Sea Lady" đứng riêng (cách phần sau bằng 1
     // dòng trống) → tự thành TIÊU ĐỀ in đậm căn giữa; "**Main Facts:**"/"**Dinner:**" dùng cú pháp đậm
@@ -154,19 +158,19 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
     // giản nên không lộ ra được hết khả năng này.
     ["NGHE_PHIEU_THONG_TIN", "", "The Sea Lady\n\n**Main Facts:**\nBuilt in: (14) ___\nFirst tour: The Mediterranean Sea\n\n**Dinner:**\nTime: (15) ___ p.m. to 9.30 p.m.", "", "", "", "", "1999/nineteen ninety-nine|7:30/7.30/7h30",
       "https://example-r2.dev/lms/questions/audio/mau-phieu-thong-tin.mp3", "", "Write one or two words or a number or a date or a time.", "1",
-      t("questionImportPanel.excelSampleExplanations.listeningFormCompletion"), ""],
+      t("questionImportPanel.excelSampleExplanations.listeningFormCompletion"), "", ""],
     ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "B",
       "https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
       "https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",
-      "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), ""],
+      "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), "", ""],
     ["DOC_HIEU_LUOI", "", "Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
       "Tom", "Max", "Anna", "", "B|A|C",
       "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",
-      t("questionImportPanel.excelSampleExplanations.gridReading"), ""],
+      t("questionImportPanel.excelSampleExplanations.gridReading"), "", ""],
     ["DOC_DIEN_TU", "", "",
       "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", "", "B|A|C",
       "", "", "The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.", "1",
-      t("questionImportPanel.excelSampleExplanations.clozeReading"), ""]
+      t("questionImportPanel.excelSampleExplanations.clozeReading"), "", ""]
   ];
 
   const handleDownloadTemplate = async () => {

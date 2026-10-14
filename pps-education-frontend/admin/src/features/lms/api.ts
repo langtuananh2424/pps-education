@@ -99,6 +99,13 @@ export interface QuestionStructuredContent {
   inputMode?: "select" | "text";
   /** Bổ sung 2026-10-03 — "form" = Nghe điền phiếu thông tin (NGHE_PHIEU_THONG_TIN): giữ xuống dòng, hiện **chữ đậm**, mỗi ô nhận nhiều đáp án "a/b" và chuẩn hóa số/giờ khi chấm. */
   format?: "form";
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn TÙY CHỌN hiện phía
+   * trên câu hỏi WORD_BANK (chữ nghiêng, VD "Ex. 1: Fill in each blank..."), đọc từ cột Excel/Word
+   * "Hướng dẫn" (xem QuestionImportService). Không áp dụng khi `format === "form"` — loại đó vẫn tái
+   * dùng `referencePassage` như cũ (xem WordBankBlock/WordBankPreview).
+   */
+  instruction?: string;
 }
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */
@@ -1022,10 +1029,16 @@ export interface ReviewVideoAssignmentStudentRow {
   studentFullName: string;
   viewCount: number;
   requiredViewCount: number;
+  /**
+   * CONNECTION: đã xem hết % thời lượng yêu cầu. REFLEX (bổ sung ngoài SDD gốc, đã xác nhận với người
+   * dùng 2026-10-14): đã LÀM xong hết mọi câu hỏi (đạt thật HOẶC hết lượt nộp mà vẫn chưa đạt) — KHÁC
+   * `passed` (đạt điểm ngưỡng). Trước đây field này bị gộp nhầm với `passed` cho REFLEX (V145).
+   */
   completed: boolean;
   /** CONNECTION only */
   correctCount: number | null;
   totalQuestions: number | null;
+  /** CONNECTION: điểm trắc nghiệm ≥ ngưỡng % pass. REFLEX: MỌI câu hỏi đạt ngưỡng % (cả viết lẫn nói). */
   passed: boolean | null;
   /** REFLEX only */
   answeredQuestionCount: number | null;

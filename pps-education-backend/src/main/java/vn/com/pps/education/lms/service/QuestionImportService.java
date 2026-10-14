@@ -412,10 +412,11 @@ public class QuestionImportService {
                 "---"));
         blocks.put("DIEN_TU_DOAN_VAN", List.of(
                 "[DIEN_TU_DOAN_VAN]",
+                "Hướng dẫn: Ex. 1: Fill in each blank (1-2) with the most appropriate word or phrase.",
                 "Nội dung: In recent years, tourism has become a (1) ___ industry. Many travellers now book a (2) ___ that includes both transport and accommodation.",
                 "Đáp án đúng: growing|package deal",
                 "Transcript: growing, package deal, accommodation, destination, resort",
-                "Giải thích: Giống hệt Điền từ - Hộp từ vựng (Ảnh) về cách chấm (mỗi chỗ trống 1 đáp án, phân tách |, đúng thứ tự) nhưng học sinh GÕ TAY vào ô nhập chữ thay vì chọn từ danh sách sổ xuống — phù hợp khi muốn hiện đoạn văn liền mạch kèm hộp từ vựng CHỈ ĐỂ THAM KHẢO (không bắt buộc chọn đúng từ trong hộp). Cột Transcript (tùy chọn) = hộp từ vựng tham khảo, để trống thì không hiện hộp từ.",
+                "Giải thích: Giống hệt Điền từ - Hộp từ vựng (Ảnh) về cách chấm (mỗi chỗ trống 1 đáp án, phân tách |, đúng thứ tự) nhưng học sinh GÕ TAY vào ô nhập chữ thay vì chọn từ danh sách sổ xuống — phù hợp khi muốn hiện đoạn văn liền mạch kèm hộp từ vựng CHỈ ĐỂ THAM KHẢO (không bắt buộc chọn đúng từ trong hộp). Cột Transcript (tùy chọn) = hộp từ vựng tham khảo, để trống thì không hiện hộp từ. Dòng Hướng dẫn (tùy chọn, mới) = chỉ dẫn hiện phía trên đề (VD \"Ex. 1: ...\"), để trống thì không hiện.",
                 "---"));
         blocks.put(KIND_FILL_IN_BLANK_GROUP, List.of(
                 "[DIEN_TU_NHOM]",
@@ -715,6 +716,17 @@ public class QuestionImportService {
             }
             if (kind.equals("DIEN_TU_DOAN_VAN")) {
                 sc.put("inputMode", "text");
+            }
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn TÙY CHỌN hiện
+            // phía trên câu hỏi (chữ nghiêng, VD "Ex. 1: Fill in each blank (1-10)..."), cột Excel/Word
+            // riêng "Hướng dẫn"/"Instruction" (xem QuestionRowParser#instruction) — trước đây đề dạng
+            // "A. ... B. ..." gộp nhiều nhóm trong 1 bộ không có chỗ nào chứa chỉ dẫn (cột "Transcript" đã
+            // dùng cho Hộp từ vựng ở trên), dù WordBankBlock/WordBankPreview (FE) đã có sẵn chỗ hiện (prop
+            // `instruction`, trước đó chỉ truyền cho NGHE_PHIEU_THONG_TIN qua referencePassage). Để trống
+            // thì không sao — KHÔNG hiện dòng này, không ảnh hưởng gì (FE: `instruction && <p>...`).
+            String instructionText = blankToNull(row.instruction());
+            if (instructionText != null) {
+                sc.put("instruction", instructionText.trim());
             }
             structuredContent = sc;
         } else if (kind.equals(KIND_FORM_COMPLETION)) {

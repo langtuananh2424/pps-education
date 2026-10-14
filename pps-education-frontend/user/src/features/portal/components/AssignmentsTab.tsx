@@ -222,10 +222,21 @@ function isReflexAnswerable(item: ReviewVideoHomeworkItem): boolean {
   return item.videoType === "REFLEX" && !!item.reflexStats && item.reflexStats.totalQuestions > 0;
 }
 
-/** Ngưỡng % số câu đã trả lời để tính REFLEX "đạt" — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 (trước đây yêu cầu đủ 100%). */
+/** Ngưỡng % số câu đã LÀM XONG (đạt thật hoặc hết lượt — xem Javadoc isReflexFullyAnswered) để tính REFLEX "hoàn thành" — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 (trước đây yêu cầu đủ 100%). */
 const REFLEX_PASS_THRESHOLD_PERCENT = 80;
 
-/** "Hoàn thành" (V57, sửa 2026-08-06) = trả lời đủ ngưỡng % câu hỏi trong video (mặc định 80%, không cần đủ 100%) — REFLEX không qua khâu giáo viên chấm điểm nữa (đã xác nhận với người dùng 2026-07-29), đạt ngưỡng là xong. */
+/**
+ * "Hoàn thành" (V57, sửa 2026-08-06) = đã LÀM XONG đủ ngưỡng % câu hỏi trong video (mặc định 80%,
+ * không cần đủ 100%) — REFLEX không qua khâu giáo viên chấm điểm nữa (đã xác nhận với người dùng
+ * 2026-07-29), không cần đợi GV duyệt mới tính xong.
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — fix nhầm lẫn thật: trước đây
+ * `reflexStats.answeredQuestions` đếm theo số câu ĐÃ ĐẠT (`questionPassed`), nên hàm này thực chất
+ * kiểm tra "≥80% câu đã ĐẠT", không phải "≥80% câu đã LÀM XONG" như tên hàm/comment mô tả — học sinh
+ * làm hết mọi câu (1 số hết lượt mà vẫn chưa đạt) có thể mãi mãi không được tính "hoàn thành" dù
+ * không còn gì để làm thêm. `answeredQuestions` nay đếm theo `questionFinalized` (xem chỗ gọi API
+ * `listMyReflexProgress` ở trên) nên hàm này giờ đúng nghĩa tên gọi.
+ */
 function isReflexFullyAnswered(item: ReviewVideoHomeworkItem): boolean {
   if (!item.reflexStats || item.reflexStats.totalQuestions <= 0) return false;
   return (item.reflexStats.answeredQuestions / item.reflexStats.totalQuestions) * 100 >= REFLEX_PASS_THRESHOLD_PERCENT;
@@ -456,8 +467,9 @@ function buildUnitGroups(entries: FeedEntry[], t: (key: string) => string): Unit
  * nằm trong "E-Learning & LMS" đã CHUYỂN HẲN sang đây, không hiển thị lại ở LMS nữa.
  *
  * Video từ kết nối (CONNECTION): "đạt" = xem ≥ ngưỡng % cấu hình theo lượt (UC-23a). Video phản xạ
- * (REFLEX): "đạt" = đã nộp đủ audio trả lời cho mọi câu hỏi (UC-23b) — KHÔNG qua khâu giáo viên chấm
- * điểm (đã bỏ theo yêu cầu người dùng 2026-07-29, nộp bài là hoàn thành ngay). LƯU Ý: backend chưa có
+ * (REFLEX): "hoàn thành" = ≥ ngưỡng % câu hỏi đã LÀM XONG (đạt thật HOẶC hết lượt nộp mà vẫn chưa đạt
+ * — xem isReflexFullyAnswered, sửa 2026-10-14) — KHÔNG qua khâu giáo viên chấm điểm (đã bỏ theo yêu
+ * cầu người dùng 2026-07-29, nộp bài là hoàn thành ngay, không đợi GV duyệt). LƯU Ý: backend chưa có
  * API đọc lại tiến độ xem đã lưu cho CONNECTION (chỉ có PUT report, không có GET) nên KHÔNG thể hiện
  * đúng trạng thái "đã xem xong" trong danh sách này — các mục CONNECTION vì vậy không tính vào bộ đếm
  * "Cần hoàn thành"/"Đã nộp", chỉ hiện ở tab "Tất cả".
@@ -688,14 +700,22 @@ export default function AssignmentsTab({
             // video") — luồng REFLEX từ V139 đã chuyển hẳn sang `ReflexSequentialGradingService`/bảng
             // `reflex_question_progress`, không còn tạo submission kiểu cũ nữa nên API cũ luôn trả về
             // rỗng, khiến "Đã nộp 0/5 câu" dù học sinh đã làm/đạt hết qua luồng mới. Đổi sang đọc đúng
-            // tiến độ mới qua `listMyReflexProgress` (cùng API ReflexVideoTaskPage đang dùng); "đã nộp"
-            // tính theo số câu ĐÃ ĐẠT (`questionPassed`) — khớp ngưỡng REFLEX_PASS_THRESHOLD_PERCENT bên
-            // dưới (REFLEX không qua khâu GV chấm, đạt ngưỡng % câu ĐÃ ĐẠT là xong, không phải % câu đã
-            // nộp bất kể đúng/sai).
+            // tiến độ mới qua `listMyReflexProgress` (cùng API ReflexVideoTaskPage đang dùng).
+            //
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14, ĐẢO NGƯỢC quyết định cũ
+            // bên trên ("đã nộp" tính theo `questionPassed`) — fix nhầm lẫn thật phát hiện qua phản hồi
+            // người dùng: quyết định cũ (2026-08-23) đặt TRƯỚC khi có cơ chế hết lượt nộp/`questionFinalized`
+            // (2026-10-07, xem ReflexVideoTaskPage.tsx#stageForProgress) — học sinh làm hết 9/9 câu
+            // (1 số câu đạt thật, 1 số hết lượt mà vẫn chưa đạt) nhưng badge vẫn hiện "Đã nộp 5/9 câu"
+            // (chỉ đếm câu ĐÃ ĐẠT) và BTVN mãi mãi nằm ở tab "Cần hoàn thành" dù học sinh không còn gì để
+            // làm thêm — khác hẳn trang thống kê Admin (đã sửa cùng ngày, xem ReviewVideoReportService)
+            // hiện đúng "9/9" + "Hoàn thành". Đổi "đã nộp" sang đếm theo `questionFinalized` (đạt thật
+            // HOẶC hết lượt) — mirror đúng field đã dùng để chuyển bước/mở câu tiếp theo trong chính
+            // video, không còn đếm theo `questionPassed` nữa.
             const progressList = await listMyReflexProgress(x.assignmentId).catch(() => []);
             return {
               totalQuestions: questions.length,
-              answeredQuestions: progressList.filter((p) => p.questionPassed).length
+              answeredQuestions: progressList.filter((p) => p.questionFinalized).length
             };
           })
         );

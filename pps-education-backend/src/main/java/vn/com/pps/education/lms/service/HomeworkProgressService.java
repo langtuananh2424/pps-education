@@ -155,6 +155,16 @@ public class HomeworkProgressService {
      * {@link ReviewVideoAssignment} thay vì {@code ReviewVideoSet} trực
      * tiếp — chỉ cần {@code getReviewVideoSet()} bên trong, cách tính %
      * không đổi.
+     *
+     * Fix bug thật (2026-10-13, phát hiện qua check dữ liệu thật trên Cổng phụ huynh, đã xác nhận với
+     * người dùng) — khác {@link #grammarProgressLabel(ExerciseAssignment, Long)} (trả {@link #NOT_DONE_LABEL}
+     * khi chưa có lượt làm nào), hàm này TRƯỚC ĐÂY luôn trả về 1 con số "%" (kể cả 0% khi học sinh CHƯA
+     * làm gì — connectionPercent/reflexPercent đều trả 0 khi không có dòng tiến độ nào), khiến các nơi
+     * dùng chung (Cổng phụ huynh, Nhận xét hàng ngày, báo cáo) hiển thị nhầm BTVN Video CHƯA làm thành
+     * "Đã nộp & Đã chấm — 0% Chưa đạt" thay vì "Chưa làm bài" (mirror đúng bug grammar/reading/writing đã
+     * sửa 2026-09-22 ở {@code ParentPortalService#aggregatePassed} nhưng khi đó chưa áp dụng cho Video).
+     * Nay kiểm tra {@link #videoAttempted} trước — chưa có bất kỳ dòng tiến độ nào (chưa xem video nào/
+     * chưa trả lời câu nào) thì trả {@link #NOT_DONE_LABEL}, đúng tinh thần "chưa làm" của grammar.
      */
     public String videoProgressLabel(ReviewVideoAssignment assignment, Long studentId) {
         if (assignment == null) {
@@ -165,12 +175,32 @@ public class HomeworkProgressService {
         if (videos.isEmpty()) {
             return null;
         }
+        if (!videoAttempted(set, videos, studentId, assignment.getId())) {
+            return NOT_DONE_LABEL;
+        }
         int total = 0;
         for (ReviewVideo v : videos) {
             total += set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION
                     ? connectionPercent(v, studentId, assignment.getId()) : reflexPercent(v, studentId, assignment.getId());
         }
         return Math.round(total / (float) videos.size()) + "%";
+    }
+
+    /**
+     * Học sinh đã có ÍT NHẤT 1 dòng tiến độ (xem video nào đó dù chưa đạt lượt, hoặc trả lời câu REFLEX
+     * nào đó dù chưa đạt điểm) cho ĐÚNG lần giao này chưa — bổ sung ngoài SDD gốc (2026-10-13, đã xác
+     * nhận với người dùng), tách riêng khỏi {@link #videoProgressLabel} để {@link #videoPassed} tái dùng
+     * mà không phải gọi lại {@code videoProgressLabel} 2 lần. CONNECTION: có {@link ReviewVideoProgress}
+     * cho video nào trong bộ (hàng chỉ được tạo khi {@code ReviewVideoService#reportProgress} nhận lượt
+     * xem đầu tiên — xem Javadoc {@code getOrCreateProgress}). REFLEX: có {@link ReflexQuestionProgress}
+     * cho câu nào trong bộ (hàng chỉ được tạo khi nộp bước Viết đầu tiên của câu đó).
+     */
+    private boolean videoAttempted(ReviewVideoSet set, List<ReviewVideo> videos, Long studentId, Long assignmentId) {
+        if (set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
+            return videos.stream().anyMatch(v -> reviewVideoProgressRepository
+                    .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentId(v.getId(), studentId, assignmentId).isPresent());
+        }
+        return !reflexQuestionProgressRepository.findByReviewVideoAssignmentIdAndStudentId(assignmentId, studentId).isEmpty();
     }
 
     /**
@@ -224,6 +254,57 @@ public class HomeworkProgressService {
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — "đã làm xong" (KHÁC "đã đạt" ở
+     * {@link #videoPassed}), dùng RIÊNG cho {@code HomeworkDueSoonReminderSchedulerService} (nhắc Phụ
+     * huynh/học sinh TRƯỚC hạn nộp): fix bug thật phát hiện qua phản hồi người dùng — Javadoc scheduler
+     * đó ghi rõ "học sinh đã làm xong không cần nhắc", nhưng trước đây dùng {@link #videoPassed} (nghĩa
+     * "đã ĐẠT ngưỡng %") nên học sinh REFLEX đã hết lượt nộp (3 lần viết + 3 lần nói,
+     * {@code ReflexSequentialGradingService#MAX_STEP_ATTEMPTS}) mà vẫn chưa đạt hết vẫn bị nhắc "làm bài
+     * sớm" dù không còn gì để làm thêm. KHÔNG áp dụng cho cảnh báo GV sau hạn
+     * ({@code HomeworkDeadlineSchedulerService} vẫn dùng {@link #videoPassed} — GV cần biết con còn yếu
+     * dù đã hết lượt, giữ nguyên theo xác nhận người dùng). CONNECTION: không có khái niệm hết lượt (xem
+     * lại vẫn tính thêm lượt bình thường tới khi đủ view), "đã làm xong" = "đã đạt" y hệt
+     * {@link #videoPassed}, không đổi.
+     */
+    public boolean videoFinalized(ReviewVideoAssignment assignment, Long studentId) {
+        if (assignment == null) {
+            return false;
+        }
+        ReviewVideoSet set = assignment.getReviewVideoSet();
+        List<ReviewVideo> videos = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(set.getId());
+        if (videos.isEmpty()) {
+            return false;
+        }
+        if (set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
+            return videos.stream().allMatch(v -> reviewVideoProgressRepository
+                    .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentId(v.getId(), studentId, assignment.getId())
+                    .map(ReviewVideoProgress::isCompleted).orElse(false));
+        }
+        return videos.stream().allMatch(v -> reflexAllQuestionsFinalized(v, studentId, assignment.getId()));
+    }
+
+    /** Mirror {@link #reflexPercent} nhưng "xong" = đạt thật HOẶC hết lượt (questionFinalized) thay vì chỉ đạt — xem Javadoc {@link #videoFinalized}. */
+    private boolean reflexAllQuestionsFinalized(ReviewVideo v, Long studentId, Long assignmentId) {
+        List<ReviewVideoQuestion> questions = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId());
+        if (questions.isEmpty()) {
+            return false;
+        }
+        int threshold = v.getCompletionThresholdPercent();
+        Map<Long, ReflexQuestionProgress> progressByQuestionId = reflexQuestionProgressRepository
+                .findByReviewVideoAssignmentIdAndStudentId(assignmentId, studentId).stream()
+                .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId(), p -> p));
+        return questions.stream().allMatch(q -> {
+            ReflexQuestionProgress p = progressByQuestionId.get(q.getId());
+            if (p == null) {
+                return false;
+            }
+            boolean speakingPassed = p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
+            boolean speakingExhausted = !speakingPassed && p.getSpeakingAttemptCount() >= ReflexSequentialGradingService.MAX_STEP_ATTEMPTS;
+            return speakingPassed || speakingExhausted;
+        });
     }
 
     /**

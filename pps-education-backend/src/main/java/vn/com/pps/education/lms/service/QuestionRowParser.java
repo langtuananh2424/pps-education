@@ -52,6 +52,17 @@ public interface QuestionRowParser {
             String referencePassage,
             String defaultPoints,
             String explanation,
-            String tags
+            String tags,
+            /**
+             * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn hiện phía
+             * trên câu hỏi (chữ nghiêng, VD "Ex. 1: Fill in each blank..."), TÙY CHỌN, để trống không
+             * sao. Chỉ có ý nghĩa với các loại WORD_BANK soạn tay nội dung đoạn văn/nhiều chỗ trống
+             * (DIEN_TU_HOP_TU_VUNG/_ANH, DIEN_TU_DOAN_VAN) — xem QuestionImportService. Trước đây KHÔNG
+             * có cột nào chứa được dòng này (cột "Transcript" đã dùng cho Hộp từ vựng), khiến đề dạng
+             * "A. ... B. ..." phân nhóm trong 1 bộ không hiện được chỉ dẫn, học sinh khó hình dung đề yêu
+             * cầu gì dù component hiển thị (WordBankBlock/WordBankPreview) đã có sẵn chỗ hiện (prop
+             * `instruction`), trước đó chỉ truyền cho NGHE_PHIEU_THONG_TIN (tái dùng referencePassage).
+             */
+            String instruction
     ) {}
 }
