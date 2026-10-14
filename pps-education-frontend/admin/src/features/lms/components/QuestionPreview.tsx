@@ -231,7 +231,9 @@ function WordBankPreview({
   // duyệt tự ngắt dòng theo TỪNG TỪ như văn bản thật.
   return (
     <div className="space-y-2">
-      {instruction && <p className="text-xs italic text-slate-500">{instruction}</p>}
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — tăng cỡ chữ dòng hướng dẫn (trước
+       * đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc khi xem trước thật). */}
+      {instruction && <p className="text-sm sm:text-base italic text-slate-500">{instruction}</p>}
       {title && <p className="text-sm font-black text-slate-800 text-center">{title}</p>}
       {/*
        * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — hộp từ hiện NGAY TRÊN câu hỏi
@@ -401,7 +403,15 @@ export function QuestionPreview({
           }
           inputMode={question.structuredContent.inputMode}
           formMode={question.structuredContent.format === "form"}
-          instruction={question.structuredContent.format === "form" ? question.referencePassage : null}
+          // 2026-10-14 (đã xác nhận với người dùng) — form (phiếu thông tin) vẫn tái dùng referencePassage
+          // như cũ; các loại WORD_BANK khác (DIEN_TU_HOP_TU_VUNG/_ANH, DIEN_TU_DOAN_VAN) nay đọc
+          // structuredContent.instruction (cột Excel/Word "Hướng dẫn" riêng, xem QuestionImportService) —
+          // trước đây luôn null, không có cách nào nhập dòng chỉ dẫn "Ex. 1: ..." cho các loại này.
+          instruction={
+            question.structuredContent.format === "form"
+              ? question.referencePassage
+              : (question.structuredContent.instruction ?? null)
+          }
           prefillAnswers={revealAnswers ? question.structuredContent.blanks : undefined}
         />
       ) : question.questionType === "SENTENCE_BUILDING" && question.structuredContent?.chunks ? (
