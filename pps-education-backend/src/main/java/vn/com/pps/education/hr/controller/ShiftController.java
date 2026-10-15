@@ -81,4 +81,11 @@ public class ShiftController {
     public ResponseEntity<List<EmployeeShiftResponse>> listEmployeeShifts(@PathVariable Long id) {
         return ResponseEntity.ok(employeeShiftService.listByEmployee(id));
     }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-10-15: tra ngược nhân sự đang active trên 1 ca (trang Ca làm việc). */
+    @GetMapping("/api/shifts/{id}/employees")
+    @PreAuthorize("hasPermission(null, 'hrm.employee-shift.assign') or hasPermission(null, 'hrm.employee-schedule.view')")
+    public ResponseEntity<List<EmployeeShiftResponse>> listShiftEmployees(@PathVariable Long id) {
+        return ResponseEntity.ok(employeeShiftService.listActiveByShift(id));
+    }
 }

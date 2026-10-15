@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Clock3, Plus, Users } from "lucide-react";
+import { Clock3, Plus, UserMinus, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
@@ -8,13 +8,17 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
+import { useDialog } from "@/components/ui/DialogProvider";
 import {
   assignEmployeeShift,
   deactivateShift,
   DepartmentResponse,
   EmployeeResponse,
+  EmployeeShiftResponse,
+  endEmployeeShift,
   listDepartments,
   listEmployees,
+  listShiftEmployees,
   listShifts,
   ShiftResponse
 } from "../api";
@@ -45,6 +49,7 @@ export default function ShiftsPage() {
   const canAssign = hasPermission("hrm.employee-shift.assign");
 
   const [shifts, setShifts] = useState<ShiftResponse[]>([]);
+  const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -61,6 +66,11 @@ export default function ShiftsPage() {
   };
 
   useEffect(load, []);
+  useEffect(() => {
+    listEmployees()
+      .then(setEmployees)
+      .catch(() => setEmployees([]));
+  }, []);
 
   const handleDeactivate = async (shift: ShiftResponse) => {
     try {
@@ -165,7 +175,16 @@ export default function ShiftsPage() {
       {canAssign && (
         <BulkAssignShiftPanel
           shifts={shifts.filter((s) => s.active)}
+          employees={employees}
           onAssigned={(count) => showToast(t("shiftsPage.bulkAssign.assignedToast", { count }))}
+        />
+      )}
+
+      {canAssign && (
+        <ShiftMembersPanel
+          shifts={shifts.filter((s) => s.active)}
+          employees={employees}
+          onChanged={(msg) => showToast(msg)}
         />
       )}
 
@@ -200,9 +219,16 @@ interface BulkAssignResult {
  * (409) không chặn các nhân sự còn lại; kết quả từng người hiện ở bảng
  * bên dưới sau khi gán.
  */
-function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onAssigned: (count: number) => void }) {
+function BulkAssignShiftPanel({
+  shifts,
+  employees,
+  onAssigned
+}: {
+  shifts: ShiftResponse[];
+  employees: EmployeeResponse[];
+  onAssigned: (count: number) => void;
+}) {
   const { t } = useTranslation("hrm-shifts");
-  const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [departmentId, setDepartmentId] = useState<number | "">("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -213,9 +239,6 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
   const [results, setResults] = useState<BulkAssignResult[]>([]);
 
   useEffect(() => {
-    listEmployees()
-      .then(setEmployees)
-      .catch(() => setEmployees([]));
     listDepartments()
       .then(setDepartments)
       .catch(() => setDepartments([]));
@@ -381,6 +404,118 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-15: trang "Ca làm
+ * việc" trước đây chỉ có form gán ca (BulkAssignShiftPanel), không có chỗ
+ * tra ngược nhân sự nào đang active trên 1 ca để kiểm tra lại hoặc gỡ khi
+ * cần -- dùng GET /api/shifts/{id}/employees + PUT /api/employee-shifts/{id}/end.
+ */
+function ShiftMembersPanel({
+  shifts,
+  employees,
+  onChanged
+}: {
+  shifts: ShiftResponse[];
+  employees: EmployeeResponse[];
+  onChanged: (message: string) => void;
+}) {
+  const { t } = useTranslation("hrm-shifts");
+  const { confirmDialog } = useDialog();
+  const [shiftId, setShiftId] = useState<number | "">("");
+  const [assignments, setAssignments] = useState<EmployeeShiftResponse[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const employeeById = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
+
+  const load = (id: number) => {
+    setError(null);
+    listShiftEmployees(id)
+      .then(setAssignments)
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("shiftsPage.members.loadError")));
+  };
+
+  useEffect(() => {
+    if (shiftId === "") {
+      setAssignments(null);
+      return;
+    }
+    load(shiftId);
+  }, [shiftId]);
+
+  const handleRemove = async (assignment: EmployeeShiftResponse) => {
+    const emp = employeeById.get(assignment.employeeId);
+    const name = emp?.fullName ?? `#${assignment.employeeId}`;
+    if (!(await confirmDialog(t("shiftsPage.members.removeConfirm", { name }), { danger: true }))) {
+      return;
+    }
+    try {
+      await endEmployeeShift(assignment.id, { effectiveTo: new Date().toISOString().slice(0, 10) });
+      if (shiftId !== "") load(shiftId);
+      onChanged(t("shiftsPage.members.removedToast", { name }));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("shiftsPage.members.removeError"));
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Users className="w-4 h-4 text-slate-400" />
+        <span className="text-sm font-bold text-slate-700 font-display">{t("shiftsPage.members.title")}</span>
+      </div>
+
+      <FloatingError message={error} onClose={() => setError(null)} />
+
+      <Select
+        value={shiftId}
+        onChange={(e) => setShiftId(e.target.value === "" ? "" : Number(e.target.value))}
+        className="bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none min-w-[220px]"
+      >
+        <option value="">{t("shiftsPage.members.selectShiftPlaceholder")}</option>
+        {shifts.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </Select>
+
+      {shiftId !== "" && (
+        <div className="border border-slate-200 rounded-lg">
+          {assignments == null ? (
+            <p className="text-sm text-slate-400 p-3">{t("shiftsPage.members.loading")}</p>
+          ) : assignments.length === 0 ? (
+            <p className="text-sm text-slate-400 italic p-3">{t("shiftsPage.members.empty")}</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {assignments.map((a) => {
+                const emp = employeeById.get(a.employeeId);
+                return (
+                  <div key={a.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <span className="font-semibold text-slate-700">{emp?.fullName ?? `#${a.employeeId}`}</span>
+                      {emp?.employeeCode && <span className="text-slate-400 ml-2">({emp.employeeCode})</span>}
+                      <span className="text-[12px] text-slate-400 ml-2">
+                        {t("shiftsPage.members.effectiveFrom", { date: a.effectiveFrom })}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleRemove(a)}
+                      title={t("shiftsPage.members.removeButton")}
+                      className="text-slate-400 hover:text-rose-600 shrink-0"
+                    >
+                      <UserMinus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

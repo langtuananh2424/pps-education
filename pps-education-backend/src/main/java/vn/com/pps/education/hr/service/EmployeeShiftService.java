@@ -107,6 +107,18 @@ public class EmployeeShiftService {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-15: nhân sự đang
+     * active trên 1 ca -- trang "Ca làm việc" cần tra ngược danh sách này để
+     * biết ai đã gán (tránh gán trùng) và gỡ (endShift) khi cần.
+     */
+    @Transactional(readOnly = true)
+    public List<EmployeeShiftResponse> listActiveByShift(Long shiftId) {
+        return employeeShiftRepository.findByShiftIdAndEffectiveToIsNull(shiftId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /**
      * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: batch nhiều nhân viên cho
      * trang roster "Lịch làm việc" toàn công ty (EmployeeScheduleService).
      * employeeIds rỗng nghĩa là "không có nhân viên nào trong phạm vi lọc

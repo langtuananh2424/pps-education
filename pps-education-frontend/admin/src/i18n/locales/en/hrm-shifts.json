@@ -54,6 +54,18 @@
       "resultError": "Failed to assign shift.",
       "partialFailure": "{{failed}}/{{total}} staff failed to be assigned -- see details below.",
       "assignedToast": "Shift assigned to {{count}} staff successfully!"
+    },
+    "members": {
+      "title": "Staff assigned to shift",
+      "selectShiftPlaceholder": "-- Select a shift to view staff --",
+      "loading": "Loading...",
+      "loadError": "Failed to load staff for this shift.",
+      "empty": "No staff assigned to this shift yet.",
+      "effectiveFrom": "since {{date}}",
+      "removeButton": "Remove from shift",
+      "removeConfirm": "Remove \"{{name}}\" from this shift? They will no longer count as working this shift starting today.",
+      "removedToast": "Removed \"{{name}}\" from the shift.",
+      "removeError": "Failed to remove from shift."
     }
   },
   "shiftForm": {
