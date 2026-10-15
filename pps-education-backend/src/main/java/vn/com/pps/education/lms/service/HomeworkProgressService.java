@@ -351,7 +351,7 @@ public class HomeworkProgressService {
      * lời" trước đây chỉ cần CÓ dòng progress (có thể mới nộp Viết, CHƯA làm Nói, CHƯA đạt) — khiến % ở
      * đây KHÔNG khớp với "kết quả làm bài" thật của học sinh hiển thị ở Portal (AssignmentsTab.tsx,
      * yêu cầu ĐẠT cả Viết lẫn Nói mới tính). Đổi sang đếm đúng số câu ĐÃ ĐẠT (writingScore VÀ
-     * speakingScore đều >= ngưỡng của video — mirror ReviewVideoService#isReflexQuestionPassed/
+     * speakingScore đều >= ngưỡng của video — mirror
      * ReviewVideoReportService#isReflexQuestionPassed/ReflexSequentialGradingService#passThresholdPercent,
      * đều private ở nơi đó nên phải lặp lại logic ở đây) để đồng nhất với kết quả thật học sinh đã làm.
      */
