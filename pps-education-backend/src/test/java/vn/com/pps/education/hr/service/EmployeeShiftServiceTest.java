@@ -279,4 +279,20 @@ class EmployeeShiftServiceTest extends AbstractIntegrationTest {
 
         assertThat(employeeShiftService.listByEmployee(employee.getId())).isEmpty();
     }
+
+    /** Tra ngược nhân sự đang active theo ca: bỏ qua bản ghi đã kết thúc. */
+    @Test
+    void listActiveByShift_UC70_MainFlow_returnsOnlyActiveAssignments() {
+        Shift shift = newShift();
+        Employee active = newEmployee();
+        Employee ended = newEmployee();
+        employeeShiftService.assignShift(new AssignEmployeeShiftRequest(active.getId(), shift.getId(), LocalDate.now().minusDays(5)));
+        EmployeeShiftResponse endedAssignment = employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(ended.getId(), shift.getId(), LocalDate.now().minusDays(5)));
+        employeeShiftService.endShift(endedAssignment.id(), new EndEmployeeShiftRequest(LocalDate.now()));
+
+        assertThat(employeeShiftService.listActiveByShift(shift.getId()))
+                .extracting(EmployeeShiftResponse::employeeId)
+                .containsExactly(active.getId());
+    }
 }
