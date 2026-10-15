@@ -223,14 +223,22 @@ b)  Bảng review_videos --- Video/audio trong 1 bộ
   display_order         INT                     NOT NULL,
                                                  DEFAULT 0
 
-  completion_threshold_ INT                     NOT NULL,      Chỉ có ý nghĩa
-  percent                                       DEFAULT 80     videoType=
-                                                                CONNECTION —
-                                                                % ngưỡng để 1
+  completion_threshold_ INT                     NOT NULL,      Ý nghĩa khác
+  percent                                       DEFAULT 80     nhau theo
+                                                                videoType (V59,
+                                                                bổ sung ngoài
+                                                                SDD gốc):
+                                                                CONNECTION — %
+                                                                ngưỡng để 1
                                                                 LƯỢT xem được
-                                                                tính "hợp lệ"
-                                                                (V59, bổ sung
-                                                                ngoài SDD gốc)
+                                                                tính "hợp lệ";
+                                                                REFLEX (V168,
+                                                                mặc định tạo
+                                                                mới 70) —
+                                                                ngưỡng % đạt
+                                                                (viết VÀ nói)
+                                                                của TỪNG câu
+                                                                hỏi riêng lẻ
 
   required_view_count   INT                     NOT NULL,      Chỉ có ý nghĩa
                                                  DEFAULT 1      videoType=
@@ -240,6 +248,38 @@ b)  Bảng review_videos --- Video/audio trong 1 bộ
                                                                 video được
                                                                 tính "đạt"
                                                                 (V59)
+
+  session_pass_ratio_   INT                     NOT NULL,      Chỉ có ý nghĩa
+  threshold_percent                             DEFAULT 70     videoType=
+                                                                CONNECTION — %
+                                                                (số lượt đạt/
+                                                                tổng lượt yêu
+                                                                cầu) để hiện
+                                                                popup nhắc
+                                                                "dừng hay làm
+                                                                tiếp" giữa
+                                                                chừng (V167,
+                                                                bổ sung ngoài
+                                                                SDD gốc)
+
+  pass_ratio_threshold_ INT                     NOT NULL,      Chỉ có ý nghĩa
+  percent                                       DEFAULT 70     videoType=
+                                                                REFLEX — ngưỡng
+                                                                % SỐ CÂU đạt
+                                                                (số câu đạt cả
+                                                                viết lẫn nói /
+                                                                tổng số câu) để
+                                                                tính Đạt/Chưa
+                                                                đạt TỔNG THỂ
+                                                                của 1 học sinh
+                                                                (V213, bổ sung
+                                                                ngoài SDD gốc,
+                                                                KHÁC
+                                                                completion_
+                                                                threshold_
+                                                                percent là
+                                                                ngưỡng điểm của
+                                                                TỪNG câu)
 
   created_at,           TIMESTAMPTZ             NOT NULL       BaseAuditEntity
   updated_at

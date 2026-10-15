@@ -13,5 +13,7 @@ import jakarta.validation.constraints.NotNull;
 public record UpdateReviewVideoThresholdsRequest(
         @NotNull Integer completionThresholdPercent,
         @NotNull Integer requiredViewCount,
-        @NotNull Integer sessionPassRatioThresholdPercent
+        @NotNull Integer sessionPassRatioThresholdPercent,
+        /** Chỉ có ý nghĩa với videoType=REFLEX — ngưỡng % số câu đạt tổng thể (V213). */
+        @NotNull Integer passRatioThresholdPercent
 ) {}

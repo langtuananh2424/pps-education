@@ -94,30 +94,12 @@ public class ReviewVideoReportService {
     /**
      * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — ngưỡng % đạt (viết VÀ
      * nói) đọc từ cấu hình của chính video (trước đây hardcode 70 cố định, lặp lại ở 3 nơi — mirror
-     * ReflexSequentialGradingService#passThresholdPercent/ReviewVideoService#isReflexQuestionPassed).
+     * ReflexSequentialGradingService#passThresholdPercent).
      */
     private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
         int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
         return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
                 && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
-    }
-
-    /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — fix nhầm lẫn thật phát hiện qua
-     * phản hồi người dùng: trước đây cột "Hoàn thành" của REFLEX dùng chung {@link #isReflexQuestionPassed}
-     * (ĐÃ ĐẠT hết, không phải ĐÃ LÀM hết), nên học sinh nộp đủ 9/9 câu nhưng chưa đạt hết vẫn hiện
-     * "Chưa hoàn thành" — gây hiểu lầm với GV/Admin ("đã nộp 9/9" mà lại "chưa hoàn thành"?). Tách 2
-     * khái niệm: {@link #isReflexQuestionPassed} = "Đạt" (điểm đạt ngưỡng), hàm này = "Hoàn thành" (đã
-     * LÀM xong câu — đạt thật HOẶC hết lượt nộp mà vẫn chưa đạt, không còn gì để làm thêm). Mirror
-     * chính xác {@code questionFinalized} ở {@link ReflexSequentialGradingService#toResponse} (bước
-     * nói đạt thật HOẶC hết lượt nói — do {@code submitSpokenAnswer} chặn không cho nói trước khi bước
-     * viết đã xong, speakingPassed/speakingExhausted kéo theo bước viết cũng đã xong, không cần xét lại).
-     */
-    private boolean isReflexQuestionFinalized(ReflexQuestionProgress p) {
-        int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
-        boolean speakingPassed = p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
-        boolean speakingExhausted = !speakingPassed && p.getSpeakingAttemptCount() >= ReflexSequentialGradingService.MAX_STEP_ATTEMPTS;
-        return speakingPassed || speakingExhausted;
     }
 
     public ReviewVideoReportService(ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
@@ -488,12 +470,16 @@ public class ReviewVideoReportService {
         // nên 1 học sinh nộp đủ 9/9 câu nhưng vài câu chưa đạt (hết lượt) vẫn hiện "Chưa hoàn thành" —
         // trông như mâu thuẫn với cột "Đã nộp câu hỏi" (9/9) ngay bên cạnh. Tách 2 khái niệm riêng:
         // `allQuestionsPassed` → field {@code passed} (badge "Đạt"/"Chưa đạt", mirror CONNECTION), và
-        // `allQuestionsFinalized` (xem {@link #isReflexQuestionFinalized}) → field {@code completed}
-        // (badge "Hoàn thành"/"Chưa hoàn thành" — đã LÀM xong hết, không còn gì để làm thêm, bất kể đạt
-        // hay không).
-        Map<Long, List<ReviewVideoQuestion>> questionsByVideoId = questions.stream()
-                .collect(Collectors.groupingBy(q -> q.getReviewVideo().getId()));
-
+        // "đã nộp ĐỦ mọi câu" → field {@code completed} (badge "Hoàn thành"/"Chưa hoàn thành").
+        //
+        // V213 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-15) — sửa tiếp định nghĩa
+        // "đã LÀM xong": trước đó dùng isReflexQuestionFinalized (đạt thật HOẶC hết lượt nộp — vẫn đòi
+        // hỏi câu phải "chốt kết quả cuối"), nhưng người dùng xác nhận chỉ cần học sinh ĐÃ NỘP câu trả
+        // lời (có progress) cho ĐỦ mọi câu là tính "đã nộp bài", không cần đợi hết lượt retry của câu
+        // sai mới tính — mirror đúng tiêu chí Exercise (ExerciseReportService#COMPLETED_ATTEMPT_STATUSES
+        // = đã NỘP, không yêu cầu hết lượt làm lại). completed = answered == totalReflexQuestions, dùng
+        // CHUNG 1 số với field {@code answeredQuestionCount} bên dưới — không còn khái niệm "finalized"
+        // riêng cho mục đích hiển thị "Hoàn thành" nữa.
         return scopedStudentIds.stream().map(studentId -> {
             ClassEnrollment enrollment = enrollmentByStudentId.get(studentId);
             if (enrollment == null) return null;
@@ -506,44 +492,33 @@ public class ReviewVideoReportService {
                 viewCount += progress == null ? 0 : progress.getViewCount();
                 requiredViewCount += video.getRequiredViewCount();
             }
-            boolean allQuestionsPassed = !videos.isEmpty() && videos.stream().allMatch(video -> {
-                List<ReviewVideoQuestion> videoQuestions = questionsByVideoId.getOrDefault(video.getId(), List.of());
-                return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q -> {
-                    ReflexQuestionProgress p = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
-                    return p != null && isReflexQuestionPassed(p);
-                });
-            });
-            boolean allQuestionsFinalized = !videos.isEmpty() && videos.stream().allMatch(video -> {
-                List<ReviewVideoQuestion> videoQuestions = questionsByVideoId.getOrDefault(video.getId(), List.of());
-                return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q -> {
-                    ReflexQuestionProgress p = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
-                    return p != null && isReflexQuestionFinalized(p);
-                });
-            });
 
+            // V213 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-15) — fix nhầm công thức
+            // thật: trước đây "Đạt" đòi hỏi 100% câu phải đạt (all-or-nothing) và "Điểm TB" là trung bình
+            // cộng thô của điểm Viết/Nói — 2 con số KHÔNG liên quan nhau, gây hiểu nhầm (VD điểm TB cao
+            // nhưng vẫn "Chưa đạt" vì chỉ 1 câu không đạt). Đổi "Điểm TB" THÀNH tỉ lệ % SỐ CÂU đạt (câu đạt
+            // = CẢ Viết lẫn Nói đều ≥ ngưỡng điểm/câu, xem isReflexQuestionPassed — không đổi), và "Đạt"
+            // = tỉ lệ này ≥ ngưỡng ReviewVideo#passRatioThresholdPercent (mirror cơ chế CONNECTION đang
+            // dùng ở isConnectionVideoPassed). Giả định 1 video/assignment (đúng thực tế đang dùng) —
+            // lấy ngưỡng của video đầu tiên nếu có nhiều video.
             int answered = 0;
-            BigDecimal scoreSum = BigDecimal.ZERO;
-            BigDecimal maxScoreSum = BigDecimal.ZERO;
-            int gradedCount = 0;
+            int passedQuestionCount = 0;
             for (ReviewVideoQuestion q : questions) {
                 ReflexQuestionProgress progress = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
                 if (progress == null) continue;
                 answered++;
-                // Viết và nói được AI chấm ĐỘC LẬP (2 lượt riêng, xem ReflexSequentialGradingService) —
-                // gộp cả 2 vào chung 1 tổng "điểm TB" theo % thay vì chỉ 1 điểm/câu như luồng cũ.
-                if (progress.getWritingScore() != null) {
-                    scoreSum = scoreSum.add(progress.getWritingScore());
-                    maxScoreSum = maxScoreSum.add(progress.getWritingMaxScore() == null ? BigDecimal.ZERO : progress.getWritingMaxScore());
-                    gradedCount++;
-                }
-                if (progress.getSpeakingScore() != null) {
-                    scoreSum = scoreSum.add(progress.getSpeakingScore());
-                    maxScoreSum = maxScoreSum.add(progress.getSpeakingMaxScore() == null ? BigDecimal.ZERO : progress.getSpeakingMaxScore());
-                    gradedCount++;
-                }
+                if (isReflexQuestionPassed(progress)) passedQuestionCount++;
             }
-            BigDecimal averageScore = gradedCount == 0 ? null : scoreSum.divide(BigDecimal.valueOf(gradedCount), 2, RoundingMode.HALF_UP);
-            BigDecimal averageMaxScore = gradedCount == 0 ? null : maxScoreSum.divide(BigDecimal.valueOf(gradedCount), 2, RoundingMode.HALF_UP);
+            boolean completed = totalReflexQuestions > 0 && answered == totalReflexQuestions;
+            BigDecimal passRatioPercent = totalReflexQuestions == 0 ? null
+                    : BigDecimal.valueOf(passedQuestionCount * 100.0 / totalReflexQuestions).setScale(2, RoundingMode.HALF_UP);
+            // Cột "Điểm TB" chỉ hiện số khi đã nộp ít nhất 1 câu (answered > 0) — giữ nguyên hành vi cũ
+            // "Chưa chấm" cho học sinh chưa làm gì, dù tỉ lệ đạt (0%) vẫn tính được để quyết định Đạt/Chưa đạt.
+            BigDecimal averageScore = answered == 0 ? null : passRatioPercent;
+            BigDecimal averageMaxScore = answered == 0 ? null : BigDecimal.valueOf(100);
+            int passRatioThreshold = videos.isEmpty() ? 70 : videos.get(0).getPassRatioThresholdPercent();
+            Boolean allQuestionsPassed = passRatioPercent == null ? null
+                    : passRatioPercent.compareTo(BigDecimal.valueOf(passRatioThreshold)) >= 0;
             boolean lateSubmission = questions.stream().anyMatch(q -> {
                 ReflexQuestionProgress progress = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
                 return progress != null && progress.isLateSubmission();
@@ -558,7 +533,7 @@ public class ReviewVideoReportService {
 
             return new ReviewVideoAssignmentStudentStatsResponse.StudentRow(
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
-                    viewCount, requiredViewCount, allQuestionsFinalized,
+                    viewCount, requiredViewCount, completed,
                     null, null, allQuestionsPassed,
                     answered, totalReflexQuestions, averageScore, averageMaxScore, lateSubmission, grammarReviewRequired);
         }).filter(java.util.Objects::nonNull).toList();
