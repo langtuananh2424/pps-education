@@ -57,6 +57,18 @@
       "replaceOverlapping": "Thay thế ca đang chồng chéo (đổi ca)",
       "replaceOverlappingHint": "Ca cũ kết thúc vào ngày trước ngày áp dụng; các ngày đã chấm công không bị sửa.",
       "viewShifts": "Xem / sửa ca"
+    },
+    "members": {
+      "title": "Nhân sự đã gán theo ca",
+      "selectShiftPlaceholder": "-- Chọn ca để xem nhân sự --",
+      "loading": "Đang tải...",
+      "loadError": "Không tải được danh sách nhân sự theo ca.",
+      "empty": "Chưa có nhân sự nào được gán ca này.",
+      "effectiveFrom": "từ {{date}}",
+      "removeButton": "Gỡ khỏi ca",
+      "removeConfirm": "Gỡ \"{{name}}\" khỏi ca này? Nhân sự sẽ không còn được tính là đi làm theo ca này từ hôm nay.",
+      "removedToast": "Đã gỡ \"{{name}}\" khỏi ca làm việc.",
+      "removeError": "Gỡ khỏi ca thất bại."
     }
   },
   "shiftForm": {

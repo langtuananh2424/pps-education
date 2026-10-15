@@ -825,6 +825,11 @@ export function listEmployeeShiftHistory(employeeId: number): Promise<EmployeeSh
   return apiRequest<EmployeeShiftResponse[]>(`/employees/${employeeId}/shifts`);
 }
 
+/** Nhân sự đang active (effectiveTo=null) trên 1 ca -- dùng để tra ngược + gỡ (endEmployeeShift). */
+export function listShiftEmployees(shiftId: number): Promise<EmployeeShiftResponse[]> {
+  return apiRequest<EmployeeShiftResponse[]>(`/shifts/${shiftId}/employees`);
+}
+
 export interface WorkCalendarResponse {
   id: number;
   calendarDate: string;
