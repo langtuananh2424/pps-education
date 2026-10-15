@@ -186,6 +186,8 @@ interface ConnectionThresholdValue {
   completionThresholdPercent: string;
   requiredViewCount: string;
   sessionPassRatioThresholdPercent: string;
+  /** V213 — chỉ REFLEX, để trống = công thức cũ. */
+  overallPassThresholdPercent: string;
 }
 
 /**
@@ -228,6 +230,21 @@ function ConnectionThresholdFields({
           className={inputClass}
         />
       </div>
+      {videoType === "REFLEX" && (
+        <div>
+          <label className={labelClass}>{t("lectures.connectionThreshold.reflexOverallPassPercentLabel")}</label>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={value.overallPassThresholdPercent}
+            onChange={(e) => onChange({ ...value, overallPassThresholdPercent: e.target.value })}
+            placeholder={t("lectures.connectionThreshold.reflexOverallPassPercentPlaceholder")}
+            className={inputClass}
+          />
+          <p className="mt-1 text-[11px] text-slate-500">{t("lectures.connectionThreshold.reflexOverallPassPercentHint")}</p>
+        </div>
+      )}
       {videoType === "CONNECTION" && (
         <>
           <div>
@@ -1183,7 +1200,7 @@ function CreateSetModal({
     displayOrder: ""
   });
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
+  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "", overallPassThresholdPercent: "" });
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — Bộ thuộc Sub Topic nào trong mục lục
   // sách, mirror CreateExamModal (ExerciseAssignPage.tsx).
   const [subTopicId, setSubTopicId] = useState<number | null>(null);
@@ -1244,7 +1261,8 @@ function CreateSetModal({
         displayOrder: 0,
         completionThresholdPercent: connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
         requiredViewCount: form.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined,
-        sessionPassRatioThresholdPercent: form.videoType === "CONNECTION" && connSettings.sessionPassRatioThresholdPercent ? Number(connSettings.sessionPassRatioThresholdPercent) : undefined
+        sessionPassRatioThresholdPercent: form.videoType === "CONNECTION" && connSettings.sessionPassRatioThresholdPercent ? Number(connSettings.sessionPassRatioThresholdPercent) : undefined,
+        overallPassThresholdPercent: form.videoType === "REFLEX" && connSettings.overallPassThresholdPercent ? Number(connSettings.overallPassThresholdPercent) : undefined
       };
       const video = await addReviewVideo(set.id, videoRequest);
       createdVideoId = video.id;
@@ -1600,14 +1618,14 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
+  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "", overallPassThresholdPercent: "" });
   const [submitting, setSubmitting] = useState(false);
   const [expandedVideoId, setExpandedVideoId] = useState<number | null>(null);
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại ngưỡng của 1 video CONNECTION
   // đã tạo (trước đây chỉ set được lúc tạo mới, không sửa lại được).
   const [editingVideo, setEditingVideo] = useState<ReviewVideoResponse | null>(null);
-  const [editThresholds, setEditThresholds] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
+  const [editThresholds, setEditThresholds] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "", overallPassThresholdPercent: "" });
   const [savingThresholds, setSavingThresholds] = useState(false);
   const { message: toastMessage, showToast } = useToast();
   const { confirmDialog } = useDialog();
@@ -1641,11 +1659,12 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
         displayOrder: videos.length,
         completionThresholdPercent: connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
         requiredViewCount: set.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined,
-        sessionPassRatioThresholdPercent: set.videoType === "CONNECTION" && connSettings.sessionPassRatioThresholdPercent ? Number(connSettings.sessionPassRatioThresholdPercent) : undefined
+        sessionPassRatioThresholdPercent: set.videoType === "CONNECTION" && connSettings.sessionPassRatioThresholdPercent ? Number(connSettings.sessionPassRatioThresholdPercent) : undefined,
+        overallPassThresholdPercent: set.videoType === "REFLEX" && connSettings.overallPassThresholdPercent ? Number(connSettings.overallPassThresholdPercent) : undefined
       });
       setTitle("");
       setContent({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-      setConnSettings({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
+      setConnSettings({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "", overallPassThresholdPercent: "" });
       setShowAddForm(false);
       load();
       showToast(t("lectures.toast.videoAdded"));
@@ -1677,7 +1696,8 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
     setEditThresholds({
       completionThresholdPercent: String(video.completionThresholdPercent),
       requiredViewCount: String(video.requiredViewCount),
-      sessionPassRatioThresholdPercent: String(video.sessionPassRatioThresholdPercent)
+      sessionPassRatioThresholdPercent: String(video.sessionPassRatioThresholdPercent),
+      overallPassThresholdPercent: video.overallPassThresholdPercent == null ? "" : String(video.overallPassThresholdPercent)
     });
   };
 
@@ -1689,7 +1709,9 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
       await updateReviewVideoThresholds(editingVideo.id, {
         completionThresholdPercent: Number(editThresholds.completionThresholdPercent),
         requiredViewCount: Number(editThresholds.requiredViewCount),
-        sessionPassRatioThresholdPercent: Number(editThresholds.sessionPassRatioThresholdPercent)
+        sessionPassRatioThresholdPercent: Number(editThresholds.sessionPassRatioThresholdPercent),
+        overallPassThresholdPercent:
+          set.videoType === "REFLEX" && editThresholds.overallPassThresholdPercent ? Number(editThresholds.overallPassThresholdPercent) : null
       });
       setEditingVideo(null);
       load();
@@ -1748,6 +1770,8 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
                   {set.videoType === "CONNECTION" &&
                     t("lectures.videoList.connectionMeta", { percent: v.completionThresholdPercent, count: v.requiredViewCount })}
                   {set.videoType === "REFLEX" && t("lectures.videoList.reflexMeta", { percent: v.completionThresholdPercent })}
+                  {set.videoType === "REFLEX" && v.overallPassThresholdPercent != null &&
+                    t("lectures.videoList.reflexOverallMeta", { percent: v.overallPassThresholdPercent })}
                 </p>
                 {(set.videoType === "REFLEX" || set.videoType === "CONNECTION") && (
                   <button

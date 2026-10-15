@@ -53,7 +53,10 @@
       "passPercentLabel": "Ngưỡng % pass điểm trắc nghiệm",
       "requiredViewsLabel": "Số lượt xem bắt buộc hoàn thành",
       "sessionPassRatioLabel": "Ngưỡng % nhắc giữa chừng",
-      "reflexPassPercentLabel": "Ngưỡng % đạt viết/nói mỗi câu"
+      "reflexPassPercentLabel": "Ngưỡng % đạt viết/nói mỗi câu",
+      "reflexOverallPassPercentLabel": "Ngưỡng % đạt cả bài (tuỳ chọn)",
+      "reflexOverallPassPercentPlaceholder": "Để trống",
+      "reflexOverallPassPercentHint": "Để trống: Đạt khi MỌI câu đều đạt ngưỡng mỗi câu. Có giá trị: Đạt khi điểm trung bình (viết + nói) của cả bài từ ngưỡng này trở lên."
     },
     "reflexBuilder": {
       "label": "Câu hỏi (mốc thời gian) — ít nhất 1 câu *",
@@ -204,6 +207,7 @@
       "durationMinutes": "{{minutes}} phút",
       "connectionMeta": " · Ngưỡng pass {{percent}}% · Chia đều qua {{count}} lượt",
       "reflexMeta": " · Ngưỡng đạt viết/nói {{percent}}%/câu",
+      "reflexOverallMeta": " · Ngưỡng đạt cả bài {{percent}}%",
       "closeQuestions": "Đóng câu hỏi",
       "manageQuestions": "Quản lý câu hỏi",
       "fields": { "title": "Tiêu đề *" },

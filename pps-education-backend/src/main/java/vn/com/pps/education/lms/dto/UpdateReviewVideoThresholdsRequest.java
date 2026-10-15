@@ -1,5 +1,7 @@
 package vn.com.pps.education.lms.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 /**
@@ -13,5 +15,7 @@ import jakarta.validation.constraints.NotNull;
 public record UpdateReviewVideoThresholdsRequest(
         @NotNull Integer completionThresholdPercent,
         @NotNull Integer requiredViewCount,
-        @NotNull Integer sessionPassRatioThresholdPercent
+        @NotNull Integer sessionPassRatioThresholdPercent,
+        /** V213 — CHỈ REFLEX: ngưỡng % đạt cả bài, null = xoá cấu hình (dùng lại công thức cũ). */
+        @Min(1) @Max(100) Integer overallPassThresholdPercent
 ) {}

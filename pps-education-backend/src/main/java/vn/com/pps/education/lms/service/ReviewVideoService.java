@@ -682,6 +682,8 @@ public class ReviewVideoService {
         video.setRequiredViewCount(request.requiredViewCount() == null ? 1 : request.requiredViewCount());
         video.setSessionPassRatioThresholdPercent(
                 request.sessionPassRatioThresholdPercent() == null ? 70 : request.sessionPassRatioThresholdPercent());
+        // V213 — chỉ REFLEX có ngưỡng đạt cả bài; CONNECTION luôn để null.
+        video.setOverallPassThresholdPercent(set.getVideoType() == ReviewVideoSet.VideoType.REFLEX ? request.overallPassThresholdPercent() : null);
         video = reviewVideoRepository.save(video);
         return toResponse(video);
     }
@@ -701,6 +703,9 @@ public class ReviewVideoService {
         video.setCompletionThresholdPercent(request.completionThresholdPercent());
         video.setRequiredViewCount(request.requiredViewCount());
         video.setSessionPassRatioThresholdPercent(request.sessionPassRatioThresholdPercent());
+        // V213 — chỉ REFLEX có ngưỡng đạt cả bài; null = xoá cấu hình, quay lại công thức cũ.
+        video.setOverallPassThresholdPercent(
+                video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.REFLEX ? request.overallPassThresholdPercent() : null);
         video = reviewVideoRepository.save(video);
         return toResponse(video);
     }
@@ -2045,7 +2050,8 @@ public class ReviewVideoService {
         return new ReviewVideoResponse(
                 v.getId(), v.getReviewVideoSet().getId(), v.getSourceType().name(), v.getTitle(), v.getFileUrl(),
                 v.getFileSizeBytes(), v.getDurationSeconds(), v.getDisplayOrder(),
-                v.getCompletionThresholdPercent(), v.getRequiredViewCount(), v.getSessionPassRatioThresholdPercent());
+                v.getCompletionThresholdPercent(), v.getRequiredViewCount(), v.getSessionPassRatioThresholdPercent(),
+                v.getOverallPassThresholdPercent());
     }
 
     private ReviewVideoProgressResponse toResponse(ReviewVideoProgress p, ReviewVideo video) {

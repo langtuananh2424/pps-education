@@ -1,5 +1,7 @@
 package vn.com.pps.education.lms.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -22,5 +24,15 @@ public record AddReviewVideoRequest(
         /** Chỉ có ý nghĩa với videoType=CONNECTION — để trống dùng mặc định 1 (V59). */
         Integer requiredViewCount,
         /** Chỉ có ý nghĩa với videoType=CONNECTION — để trống dùng mặc định 70 (V167). */
-        Integer sessionPassRatioThresholdPercent
-) {}
+        Integer sessionPassRatioThresholdPercent,
+        /** Chỉ có ý nghĩa với videoType=REFLEX — ngưỡng % đạt cả bài (V213), để trống = công thức cũ. */
+        @Min(1) @Max(100) Integer overallPassThresholdPercent
+) {
+    /** Giữ chữ ký 9 tham số cũ (chưa có ngưỡng đạt cả bài V213) cho các nơi tạo video không cần field này. */
+    public AddReviewVideoRequest(String sourceType, String title, String fileUrl, Long fileSizeBytes, Integer durationSeconds,
+                                 Integer displayOrder, Integer completionThresholdPercent, Integer requiredViewCount,
+                                 Integer sessionPassRatioThresholdPercent) {
+        this(sourceType, title, fileUrl, fileSizeBytes, durationSeconds, displayOrder, completionThresholdPercent,
+                requiredViewCount, sessionPassRatioThresholdPercent, null);
+    }
+}

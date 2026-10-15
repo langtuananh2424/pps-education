@@ -120,6 +120,32 @@ public class ReviewVideoReportService {
         return speakingPassed || speakingExhausted;
     }
 
+    /**
+     * V213 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-15) — "đạt cả bài" REFLEX khi cấu
+     * hình {@code overallPassThresholdPercent}: học sinh đã nộp đủ mọi câu của video VÀ điểm trung bình
+     * (gộp mọi điểm viết + nói đã chấm, cùng cách tính "Điểm TB" hiển thị ở cột bên cạnh) >= ngưỡng.
+     */
+    static boolean isReflexVideoOverallPassed(List<ReviewVideoQuestion> videoQuestions, Long studentId,
+                                               Map<String, ReflexQuestionProgress> progressByQuestionAndStudent, int overallThreshold) {
+        BigDecimal sum = BigDecimal.ZERO;
+        int graded = 0;
+        for (ReviewVideoQuestion q : videoQuestions) {
+            ReflexQuestionProgress p = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
+            if (p == null) return false;
+            if (p.getWritingScore() != null) {
+                sum = sum.add(p.getWritingScore());
+                graded++;
+            }
+            if (p.getSpeakingScore() != null) {
+                sum = sum.add(p.getSpeakingScore());
+                graded++;
+            }
+        }
+        if (graded == 0) return false;
+        BigDecimal average = sum.divide(BigDecimal.valueOf(graded), 2, RoundingMode.HALF_UP);
+        return average.compareTo(BigDecimal.valueOf(overallThreshold)) >= 0;
+    }
+
     public ReviewVideoReportService(ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                      ReviewVideoService reviewVideoService,
                                      ReviewVideoRepository reviewVideoRepository,
@@ -508,7 +534,13 @@ public class ReviewVideoReportService {
             }
             boolean allQuestionsPassed = !videos.isEmpty() && videos.stream().allMatch(video -> {
                 List<ReviewVideoQuestion> videoQuestions = questionsByVideoId.getOrDefault(video.getId(), List.of());
-                return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q -> {
+                if (videoQuestions.isEmpty()) return false;
+                // V213 — video có cấu hình "ngưỡng % đạt cả bài" thì đạt = điểm TB viết + nói >= ngưỡng đó
+                // (phải làm đủ mọi câu); chưa cấu hình (null) giữ nguyên công thức cũ "mọi câu đều đạt".
+                if (video.getOverallPassThresholdPercent() != null) {
+                    return isReflexVideoOverallPassed(videoQuestions, studentId, progressByQuestionAndStudent, video.getOverallPassThresholdPercent());
+                }
+                return videoQuestions.stream().allMatch(q -> {
                     ReflexQuestionProgress p = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
                     return p != null && isReflexQuestionPassed(p);
                 });

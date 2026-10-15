@@ -58,6 +58,14 @@ public class ReviewVideo extends BaseAuditEntity {
     @Column(name = "completion_threshold_percent", nullable = false)
     private int completionThresholdPercent = 80;
 
+    /**
+     * V213 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-15) — CHỈ REFLEX: ngưỡng % ĐẠT CẢ BÀI.
+     * NULL = dùng công thức cũ (mọi câu đều đạt completionThresholdPercent); có giá trị = đạt khi điểm
+     * trung bình viết + nói của mọi câu >= ngưỡng này (xem ReviewVideoReportService).
+     */
+    @Column(name = "overall_pass_threshold_percent")
+    private Integer overallPassThresholdPercent;
+
     /** Chỉ có ý nghĩa với videoType=CONNECTION — số lượt xem đạt ngưỡng % tối thiểu để video được tính "đạt" (V59, mặc định 1). */
     @Column(name = "required_view_count", nullable = false)
     private int requiredViewCount = 1;
