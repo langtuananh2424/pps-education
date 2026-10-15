@@ -174,17 +174,6 @@ public class ReviewVideoService {
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
     private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
-    /**
-     * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — ngưỡng % đạt (viết VÀ
-     * nói) đọc từ cấu hình của chính video (trước đây hardcode 70 cố định, lặp lại ở 3 nơi — mirror
-     * ReflexSequentialGradingService#passThresholdPercent/ReviewVideoReportService#isReflexQuestionPassed).
-     */
-    private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
-        int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
-        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
-                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
-    }
-
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoSetClassAssignmentRepository reviewVideoSetClassAssignmentRepository,
                                ReviewVideoRepository reviewVideoRepository,
@@ -682,12 +671,16 @@ public class ReviewVideoService {
         video.setRequiredViewCount(request.requiredViewCount() == null ? 1 : request.requiredViewCount());
         video.setSessionPassRatioThresholdPercent(
                 request.sessionPassRatioThresholdPercent() == null ? 70 : request.sessionPassRatioThresholdPercent());
+        // V213 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-15) — chỉ REFLEX dùng, mặc
+        // định 70 (xem ReviewVideoReportService#buildReflexStudentRows).
+        video.setPassRatioThresholdPercent(
+                request.passRatioThresholdPercent() == null ? 70 : request.passRatioThresholdPercent());
         video = reviewVideoRepository.save(video);
         return toResponse(video);
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại 3 ngưỡng cấu hình của 1
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại các ngưỡng cấu hình của 1
      * video đã tạo (không sửa title/fileUrl/sourceType — giữ nguyên "video đã tạo không sửa nội dung
      * gốc"). Áp dụng cho các lượt xem/báo cáo TỪ THỜI ĐIỂM sửa trở đi, không backfill lại tiến độ đã
      * tính trước đó (VD progress.completed của học sinh đang xem dở chỉ được tính lại ở lần
@@ -701,6 +694,7 @@ public class ReviewVideoService {
         video.setCompletionThresholdPercent(request.completionThresholdPercent());
         video.setRequiredViewCount(request.requiredViewCount());
         video.setSessionPassRatioThresholdPercent(request.sessionPassRatioThresholdPercent());
+        video.setPassRatioThresholdPercent(request.passRatioThresholdPercent());
         video = reviewVideoRepository.save(video);
         return toResponse(video);
     }
@@ -1482,9 +1476,14 @@ public class ReviewVideoService {
         // thành" REFLEX trước đây dùng CHUNG tiêu chí với CONNECTION (ReviewVideoProgress#isCompleted,
         // % thời lượng đã xem/nghe) — nhưng luồng phát video REFLEX mới (ReflexVideoTaskPage.tsx, "nhảy
         // thẳng theo mốc câu hỏi") KHÔNG CÒN gọi API cập nhật ReviewVideoProgress nữa, khiến "% LÀM BÀI"
-        // ở "Thống kê BTVN theo lớp" mãi mãi 0% dù học sinh đã làm/đạt hết. Đổi tiêu chí REFLEX sang
-        // đúng UC-23b V2 đang dùng ở FE (allQuestionsPassed) — MỌI câu của MỌI video trong bộ đã đạt cả
-        // 2 bước viết+nói (mirror ReviewVideoReportService#isReflexQuestionPassed — đã sửa cùng đợt).
+        // ở "Thống kê BTVN theo lớp" mãi mãi 0% dù học sinh đã làm/đạt hết.
+        //
+        // V213 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-15) — fix tiếp: định nghĩa
+        // V145 dùng isReflexQuestionPassed (ĐÃ ĐẠT hết), nên học sinh nộp đủ 9/9 câu nhưng chưa đạt hết
+        // vẫn không được tính vào "% LÀM BÀI". Sau khi hỏi lại, người dùng xác nhận "% LÀM BÀI" chỉ cần
+        // ĐÃ NỘP câu trả lời (có progress) cho ĐỦ mọi câu — không cần đạt ngưỡng điểm, không cần hết
+        // lượt retry của câu sai — mirror đúng tiêu chí Exercise
+        // (ExerciseReportService#COMPLETED_ATTEMPT_STATUSES = đã NỘP, không yêu cầu hết lượt làm lại).
         // CONNECTION giữ nguyên logic cũ (chưa đổi luồng phát, ReviewVideoProgress vẫn được cập nhật đều).
         int completedCount;
         if (set.getVideoType() == ReviewVideoSet.VideoType.REFLEX) {
@@ -1500,10 +1499,8 @@ public class ReviewVideoService {
             completedCount = (int) scopedStudentIds.stream().filter(studentId ->
                     !videos.isEmpty() && videos.stream().allMatch(v -> {
                         List<ReviewVideoQuestion> videoQuestions = questionsByVideoId.getOrDefault(v.getId(), List.of());
-                        return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q -> {
-                            ReflexQuestionProgress p = reflexProgressByKey.get(q.getId() + ":" + studentId);
-                            return p != null && isReflexQuestionPassed(p);
-                        });
+                        return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q ->
+                                reflexProgressByKey.get(q.getId() + ":" + studentId) != null);
                     })
             ).count();
         } else {
@@ -2045,7 +2042,8 @@ public class ReviewVideoService {
         return new ReviewVideoResponse(
                 v.getId(), v.getReviewVideoSet().getId(), v.getSourceType().name(), v.getTitle(), v.getFileUrl(),
                 v.getFileSizeBytes(), v.getDurationSeconds(), v.getDisplayOrder(),
-                v.getCompletionThresholdPercent(), v.getRequiredViewCount(), v.getSessionPassRatioThresholdPercent());
+                v.getCompletionThresholdPercent(), v.getRequiredViewCount(), v.getSessionPassRatioThresholdPercent(),
+                v.getPassRatioThresholdPercent());
     }
 
     private ReviewVideoProgressResponse toResponse(ReviewVideoProgress p, ReviewVideo video) {

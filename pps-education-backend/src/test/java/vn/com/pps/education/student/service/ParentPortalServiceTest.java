@@ -475,7 +475,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // completionThresholdPercent/requiredViewCount để null → mặc định 80%/1 lượt (xem Javadoc AddReviewVideoRequest).
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
-                        1_000_000L, 100, 1, null, null, null),
+                        1_000_000L, 100, 1, null, null, null, null),
                 teacher.getId());
         // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
         // commit Bộ video vừa tạo trước.

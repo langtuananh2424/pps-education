@@ -11,5 +11,6 @@ public record ReviewVideoResponse(
         Integer displayOrder,
         Integer completionThresholdPercent,
         Integer requiredViewCount,
-        Integer sessionPassRatioThresholdPercent
+        Integer sessionPassRatioThresholdPercent,
+        Integer passRatioThresholdPercent
 ) {}

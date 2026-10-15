@@ -21,9 +21,9 @@ public record ReviewVideoAssignmentStudentStatsResponse(
             int requiredViewCount,
             /**
              * CONNECTION: đã xem hết % thời lượng video yêu cầu. REFLEX (bổ sung ngoài SDD gốc, đã xác
-             * nhận với người dùng 2026-10-14): đã LÀM xong hết mọi câu hỏi (đạt thật HOẶC hết lượt nộp
-             * mà vẫn chưa đạt) — KHÁC {@link #passed} (đạt điểm ngưỡng), xem Javadoc
-             * {@code ReviewVideoReportService#isReflexQuestionFinalized}.
+             * nhận với người dùng 2026-10-14, sửa lại định nghĩa 2026-10-15): đã NỘP câu trả lời cho ĐỦ
+             * mọi câu hỏi (answeredQuestionCount == totalReflexQuestions, không cần đạt ngưỡng điểm,
+             * không cần hết lượt retry) — KHÁC {@link #passed} (đạt điểm ngưỡng % số câu).
              */
             boolean completed,
             // CONNECTION only — null cho REFLEX

@@ -1151,7 +1151,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/v55.mp4",
-                        1_000_000L, durationSeconds, 1, null, null, null),
+                        1_000_000L, durationSeconds, 1, null, null, null, null),
                 teacher.getId());
         // applyHomeworkToClass gọi reviewVideoService.deliverToClass bên trong bằng
         // PROPAGATION_REQUIRES_NEW — phải commit Bộ video vừa tạo trước.

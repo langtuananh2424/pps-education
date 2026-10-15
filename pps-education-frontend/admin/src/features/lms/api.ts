@@ -1159,6 +1159,8 @@ export interface AddReviewVideoRequest {
   requiredViewCount?: number;
   /** V167 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 70 — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để phía học viên hiện popup nhắc giữa chừng. */
   sessionPassRatioThresholdPercent?: number;
+  /** V213 — chỉ có ý nghĩa với videoType=REFLEX, để trống dùng mặc định 70 — ngưỡng % SỐ CÂU đạt (khác completionThresholdPercent là ngưỡng điểm từng câu) để tính Đạt/Chưa đạt tổng thể. */
+  passRatioThresholdPercent?: number;
 }
 
 export interface ReviewVideoResponse {
@@ -1173,6 +1175,7 @@ export interface ReviewVideoResponse {
   completionThresholdPercent: number;
   requiredViewCount: number;
   sessionPassRatioThresholdPercent: number;
+  passRatioThresholdPercent: number;
 }
 
 export function addReviewVideo(setId: number, request: AddReviewVideoRequest): Promise<ReviewVideoResponse> {
@@ -1193,6 +1196,7 @@ export interface UpdateReviewVideoThresholdsRequest {
   completionThresholdPercent: number;
   requiredViewCount: number;
   sessionPassRatioThresholdPercent: number;
+  passRatioThresholdPercent: number;
 }
 
 export function updateReviewVideoThresholds(videoId: number, request: UpdateReviewVideoThresholdsRequest): Promise<ReviewVideoResponse> {
