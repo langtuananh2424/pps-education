@@ -66,6 +66,7 @@
     "processing": "Processing...",
     "checkInButton": "Check in",
     "checkOutButton": "Check out",
+    "checkOutWithoutCheckInButton": "Missed check-in? Check out",
     "doneToday": "Done for today",
     "checkInFailedUnknown": "Check-in failed — open Console (F12) to see the error details.",
     "checkInTimeLabel": "Check-in: ",
