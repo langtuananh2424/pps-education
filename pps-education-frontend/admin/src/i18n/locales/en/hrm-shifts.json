@@ -53,7 +53,22 @@
       "resultSuccess": "Success",
       "resultError": "Failed to assign shift.",
       "partialFailure": "{{failed}}/{{total}} staff failed to be assigned -- see details below.",
-      "assignedToast": "Shift assigned to {{count}} staff successfully!"
+      "assignedToast": "Shift assigned to {{count}} staff successfully!",
+      "replaceOverlapping": "Replace overlapping shift (change shift)",
+      "replaceOverlappingHint": "The old shift ends the day before the effective date; past attendance days are not changed.",
+      "viewShifts": "View / edit shifts"
+    },
+    "members": {
+      "title": "Staff assigned to shift",
+      "selectShiftPlaceholder": "-- Select a shift to view staff --",
+      "loading": "Loading...",
+      "loadError": "Failed to load staff for this shift.",
+      "empty": "No staff assigned to this shift yet.",
+      "effectiveFrom": "since {{date}}",
+      "removeButton": "Remove from shift",
+      "removeConfirm": "Remove \"{{name}}\" from this shift? They will no longer count as working this shift starting today.",
+      "removedToast": "Removed \"{{name}}\" from the shift.",
+      "removeError": "Failed to remove from shift."
     }
   },
   "shiftForm": {
@@ -204,5 +219,25 @@
       "sessionsTitle": "Teaching sessions ({{count}})",
       "noSessions": "No teaching sessions on this day."
     }
+  },
+  "employeeShifts": {
+    "title": "Shifts of {{name}}",
+    "loading": "Loading...",
+    "empty": "No shift assigned to this employee.",
+    "loadError": "Could not load shifts.",
+    "columns": {
+      "shift": "Shift",
+      "from": "From",
+      "to": "To"
+    },
+    "ongoing": "Ongoing",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "required": "Please select a shift and a start date.",
+    "saveError": "Could not update the shift.",
+    "deleteConfirm": "Remove shift {{name}} from this employee? Recorded attendance is not affected.",
+    "deleteError": "Could not delete the shift."
   }
 }

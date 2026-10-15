@@ -26,6 +26,13 @@ public interface EmployeeShiftRepository extends JpaRepository<EmployeeShift, Lo
     List<EmployeeShift> findByEmployeeIdOrderByEffectiveFromDesc(Long employeeId);
 
     /**
+     * Bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-15: trang "Ca làm
+     * việc" chỉ có form gán ca, không có chỗ tra ngược nhân sự nào đang active
+     * trên 1 ca để gỡ khi cần -- dùng cho GET /api/shifts/{id}/employees.
+     */
+    List<EmployeeShift> findByShiftIdAndEffectiveToIsNull(Long shiftId);
+
+    /**
      * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: batch nhiều nhân viên cùng
      * lúc cho trang roster "Lịch làm việc" toàn công ty
      * (EmployeeScheduleService) -- employeeIds LUÔN non-empty (Service tự
