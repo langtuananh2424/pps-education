@@ -208,6 +208,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [shiftId, setShiftId] = useState<number | "">("");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [replaceOverlapping, setReplaceOverlapping] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<BulkAssignResult[]>([]);
@@ -268,7 +269,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
     const outcomes = await Promise.all(
       targets.map(async (emp): Promise<BulkAssignResult> => {
         try {
-          await assignEmployeeShift({ employeeId: emp.id, shiftId, effectiveFrom });
+          await assignEmployeeShift({ employeeId: emp.id, shiftId, effectiveFrom, replaceOverlapping });
           return { employeeId: emp.id, employeeName: emp.fullName, ok: true };
         } catch (err) {
           return {
@@ -343,6 +344,12 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
             : t("shiftsPage.bulkAssign.assignButtonNoCount")}
         </Button>
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <input type="checkbox" checked={replaceOverlapping} onChange={(e) => setReplaceOverlapping(e.target.checked)} />
+        <span className="font-semibold">{t("shiftsPage.bulkAssign.replaceOverlapping")}</span>
+        <span className="text-slate-400">{t("shiftsPage.bulkAssign.replaceOverlappingHint")}</span>
+      </label>
 
       <div className="border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
         <label className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 sticky top-0 cursor-pointer">

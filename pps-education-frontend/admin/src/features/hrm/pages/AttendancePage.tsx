@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
@@ -20,6 +20,10 @@ import {
 import { attendanceMethodLabel, attendanceStatusLabel, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
 import SelfAttendanceCard from "../components/SelfAttendanceCard";
 import FloatingError from "@/components/ui/FloatingError";
+import Button from "@/components/ui/Button";
+import Toast from "@/components/ui/Toast";
+import { useToast } from "@/lib/useToast";
+import ManualAttendanceModal from "../components/ManualAttendanceModal";
 
 export default function AttendancePage() {
   const { t } = useTranslation("hrm-attendance");
@@ -77,6 +81,8 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
   const [records, setRecords] = useState<AttendanceRecordAdminResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
     listEmployees()
@@ -148,10 +154,28 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
               </option>
             ))}
           </Select>
+          <Button variant="primary" size="sm" onClick={() => setManualOpen(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            {t("attendancePage.addButton")}
+          </Button>
         </div>
       </div>
 
       <FloatingError message={error} onClose={() => setError(null)} />
+
+      {manualOpen && (
+        <ManualAttendanceModal
+          employees={employees}
+          sites={sites}
+          onClose={() => setManualOpen(false)}
+          onSaved={() => {
+            setManualOpen(false);
+            showToast(t("attendancePage.manualForm.saved"));
+            load();
+          }}
+        />
+      )}
+      <Toast message={toastMessage} />
 
       <TableContainer className="rounded-none border-0">
         <thead>

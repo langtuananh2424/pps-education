@@ -53,7 +53,9 @@
       "resultSuccess": "Thành công",
       "resultError": "Gán ca thất bại.",
       "partialFailure": "{{failed}}/{{total}} nhân sự gán thất bại -- xem chi tiết bên dưới.",
-      "assignedToast": "Đã gán ca cho {{count}} nhân sự thành công!"
+      "assignedToast": "Đã gán ca cho {{count}} nhân sự thành công!",
+      "replaceOverlapping": "Thay thế ca đang chồng chéo (đổi ca)",
+      "replaceOverlappingHint": "Ca cũ kết thúc vào ngày trước ngày áp dụng; các ngày đã chấm công không bị sửa."
     }
   },
   "shiftForm": {

@@ -652,6 +652,20 @@ export function listAttendanceRecords(params: ListAttendanceRecordsParams): Prom
   return apiRequest<AttendanceRecordAdminResponse[]>(`/attendance/records?${query.toString()}`);
 }
 
+export interface ManualAttendanceRequest {
+  employeeId: number;
+  workDate: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  siteId?: number;
+  reason: string;
+}
+
+/** UC-09: quản trị viên nhập chấm công thủ công — POST /api/attendance/records/manual (quyền hrm.attendance.view-all). */
+export function createManualAttendanceRecord(request: ManualAttendanceRequest): Promise<AttendanceRecordAdminResponse> {
+  return apiRequest<AttendanceRecordAdminResponse>("/attendance/records/manual", { method: "POST", body: JSON.stringify(request) });
+}
+
 /**
  * UC-71: Nhận lớp — bổ sung ngoài SDD/SRS gốc, đã xác nhận với người dùng
  * 2026-09-11. Khớp ClassSessionCheckInAdminResponse thật, xem GET
@@ -768,6 +782,8 @@ export interface AssignEmployeeShiftRequest {
   employeeId: number;
   shiftId: number;
   effectiveFrom: string;
+  /** true = đổi ca: ca đang active chồng chéo tự kết thúc ngày liền trước effectiveFrom. */
+  replaceOverlapping?: boolean;
 }
 
 /**

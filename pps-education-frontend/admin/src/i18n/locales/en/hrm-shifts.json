@@ -53,7 +53,9 @@
       "resultSuccess": "Success",
       "resultError": "Failed to assign shift.",
       "partialFailure": "{{failed}}/{{total}} staff failed to be assigned -- see details below.",
-      "assignedToast": "Shift assigned to {{count}} staff successfully!"
+      "assignedToast": "Shift assigned to {{count}} staff successfully!",
+      "replaceOverlapping": "Replace overlapping shift (change shift)",
+      "replaceOverlappingHint": "The old shift ends the day before the effective date; past attendance days are not changed."
     }
   },
   "shiftForm": {

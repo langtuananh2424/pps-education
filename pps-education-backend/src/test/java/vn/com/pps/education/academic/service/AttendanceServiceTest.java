@@ -16,7 +16,10 @@ import vn.com.pps.education.facility.domain.Site;
 import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.hr.domain.WorkCalendar;
 import vn.com.pps.education.academic.dto.AttendanceCheckRequest;
+import vn.com.pps.education.academic.dto.AttendanceRecordAdminResponse;
 import vn.com.pps.education.academic.dto.AttendanceRecordResponse;
+import vn.com.pps.education.academic.dto.ManualAttendanceRequest;
+import vn.com.pps.education.academic.repository.AttendanceRecordHistoryRepository;
 import vn.com.pps.education.exception.AlreadyCheckedInException;
 import vn.com.pps.education.exception.AlreadyCheckedOutException;
 import vn.com.pps.education.exception.AttendanceMethodNotAvailableException;
@@ -98,6 +101,9 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private WorkCalendarRepository workCalendarRepository;
+
+    @Autowired
+    private AttendanceRecordHistoryRepository attendanceRecordHistoryRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -652,5 +658,65 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
                 "UPDATE sites SET geo_location = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography WHERE id = ?",
                 lng, lat, newSite.getId());
         return newSite;
+    }
+
+    // ---- UC-09 bổ sung: quản trị viên nhập chấm công thủ công ----
+
+    @Test
+    void createManualRecord_UC09_Extension_createsRecordWithReasonAndActorInHistory() {
+        User admin = newUser();
+        LocalDate day = LocalDate.now().minusDays(1);
+
+        AttendanceRecordAdminResponse response = attendanceService.createManualRecord(admin.getId(),
+                new ManualAttendanceRequest(employee.getId(), day, LocalTime.of(8, 0), LocalTime.of(17, 30), site.getId(), "Quên chấm công"));
+
+        assertThat(response.checkInMethod()).isEqualTo("MANUAL");
+        assertThat(response.checkOutMethod()).isEqualTo("MANUAL");
+        assertThat(response.siteId()).isEqualTo(site.getId());
+        var history = attendanceRecordHistoryRepository.findAll().stream()
+                .filter(h -> h.getAttendanceRecord().getId().equals(response.id()))
+                .findFirst().orElseThrow();
+        assertThat(history.getChangedBy().getId()).isEqualTo(admin.getId());
+        assertThat(history.getDetails()).containsEntry("reason", "Quên chấm công").containsEntry("manualEntry", true);
+    }
+
+    @Test
+    void createManualRecord_UC09_Extension_updatesExistingMissingRecordForSameDay() {
+        User admin = newUser();
+        LocalDate day = LocalDate.now().minusDays(2);
+        AttendanceRecord missing = new AttendanceRecord();
+        missing.setEmployee(employee);
+        missing.setWorkDate(day);
+        missing.setStatus(AttendanceRecord.Status.MISSING);
+        missing = attendanceRecordRepository.save(missing);
+
+        AttendanceRecordAdminResponse response = attendanceService.createManualRecord(admin.getId(),
+                new ManualAttendanceRequest(employee.getId(), day, LocalTime.of(8, 0), null, null, "Bổ sung giờ vào"));
+
+        assertThat(response.id()).isEqualTo(missing.getId());
+        assertThat(response.checkInAt()).isNotNull();
+        assertThat(response.status()).isEqualTo("NORMAL");
+    }
+
+    @Test
+    void createManualRecord_UC09_A1_rejectsFutureDate() {
+        User admin = newUser();
+
+        assertThatThrownBy(() -> attendanceService.createManualRecord(admin.getId(),
+                new ManualAttendanceRequest(employee.getId(), LocalDate.now().plusDays(1), LocalTime.of(8, 0), null, null, "x")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void createManualRecord_UC09_A2_rejectsCheckOutNotAfterCheckInOrNoTimes() {
+        User admin = newUser();
+        LocalDate day = LocalDate.now().minusDays(1);
+
+        assertThatThrownBy(() -> attendanceService.createManualRecord(admin.getId(),
+                new ManualAttendanceRequest(employee.getId(), day, LocalTime.of(17, 0), LocalTime.of(8, 0), null, "x")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> attendanceService.createManualRecord(admin.getId(),
+                new ManualAttendanceRequest(employee.getId(), day, null, null, null, "x")))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

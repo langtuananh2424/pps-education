@@ -174,4 +174,55 @@ class EmployeeShiftServiceTest extends AbstractIntegrationTest {
 
         assertThat(second.effectiveTo()).isNull();
     }
+
+    /** Đổi ca: replaceOverlapping=true tự đóng ca cũ chồng chéo tại effectiveFrom-1, ca mới active. */
+    @Test
+    void assignShift_UC70_MainFlow_replaceOverlappingClosesOldShiftDayBefore() {
+        Employee employee = newEmployee();
+        Shift oldShift = newShift("1,2,3,4,5,6", Shift.WeekParity.ALL);
+        Shift newShift = newShift("1,2,3,4,5,6", Shift.WeekParity.ALL);
+        EmployeeShiftResponse old = employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(employee.getId(), oldShift.getId(), LocalDate.now().minusDays(30)));
+
+        EmployeeShiftResponse replaced = employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(employee.getId(), newShift.getId(), LocalDate.now(), true));
+
+        assertThat(replaced.effectiveTo()).isNull();
+        assertThat(employeeShiftService.listByEmployee(employee.getId()))
+                .filteredOn(es -> es.id().equals(old.id()))
+                .singleElement()
+                .satisfies(es -> assertThat(es.effectiveTo()).isEqualTo(LocalDate.now().minusDays(1)));
+    }
+
+    /** replaceOverlapping không đụng tới ca active không chồng chéo (VD ca T7 xen kẽ song song). */
+    @Test
+    void assignShift_UC70_MainFlow_replaceOverlappingKeepsNonOverlappingShifts() {
+        Employee employee = newEmployee();
+        Shift weekdays = newShift("1,2,3,4,5", Shift.WeekParity.ALL);
+        Shift saturday = newShift("6", Shift.WeekParity.ALL);
+        Shift replacement = newShift("1,2,3,4,5", Shift.WeekParity.ALL);
+        employeeShiftService.assignShift(new AssignEmployeeShiftRequest(employee.getId(), weekdays.getId(), LocalDate.now().minusDays(30)));
+        EmployeeShiftResponse sat = employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(employee.getId(), saturday.getId(), LocalDate.now().minusDays(30)));
+
+        employeeShiftService.assignShift(new AssignEmployeeShiftRequest(employee.getId(), replacement.getId(), LocalDate.now(), true));
+
+        assertThat(employeeShiftService.listByEmployee(employee.getId()))
+                .filteredOn(es -> es.id().equals(sat.id()))
+                .singleElement()
+                .satisfies(es -> assertThat(es.effectiveTo()).isNull());
+    }
+
+    /** Ngày áp dụng ca mới không được làm ca cũ có effectiveTo < effectiveFrom. */
+    @Test
+    void assignShift_UC70_A3_replaceOverlappingRejectsEffectiveFromNotAfterOldStart() {
+        Employee employee = newEmployee();
+        Shift oldShift = newShift("1,2,3,4,5,6", Shift.WeekParity.ALL);
+        Shift newShift = newShift("1,2,3,4,5,6", Shift.WeekParity.ALL);
+        employeeShiftService.assignShift(new AssignEmployeeShiftRequest(employee.getId(), oldShift.getId(), LocalDate.now()));
+
+        assertThatThrownBy(() -> employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(employee.getId(), newShift.getId(), LocalDate.now(), true)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

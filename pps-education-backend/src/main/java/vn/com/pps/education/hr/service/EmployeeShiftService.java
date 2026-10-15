@@ -16,6 +16,7 @@ import vn.com.pps.education.hr.repository.EmployeeShiftRepository;
 import vn.com.pps.education.hr.repository.ShiftRepository;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -50,7 +51,8 @@ public class EmployeeShiftService {
      * Gán 1 ca cho nhân sự -- KHÔNG còn tự đóng các ca active khác (V124, xem
      * Javadoc lớp). Chặn gán nếu ca mới chồng chéo lịch (cùng ngày trong tuần +
      * week_parity giao nhau) với bất kỳ ca nào đang active của nhân sự đó.
-     * Muốn đổi ca: gọi endShift() để kết thúc ca cũ trước, rồi mới gọi lại đây.
+     * Muốn đổi ca: truyền replaceOverlapping=true (ca cũ chồng chéo tự kết thúc tại
+     * effectiveFrom-1) hoặc gọi endShift() trước rồi gán lại.
      */
     @Transactional
     public EmployeeShiftResponse assignShift(AssignEmployeeShiftRequest request) {
@@ -59,9 +61,14 @@ public class EmployeeShiftService {
         Shift shift = shiftRepository.findById(request.shiftId())
                 .orElseThrow(() -> new ResourceNotFoundException("error.employeeShift.shiftNotFound", new Object[]{request.shiftId()}, "Không tìm thấy ca làm việc id=" + request.shiftId()));
 
+        boolean replaceOverlapping = Boolean.TRUE.equals(request.replaceOverlapping());
         List<EmployeeShift> activeShifts = employeeShiftRepository.findByEmployeeIdAndEffectiveToIsNull(employee.getId());
+        List<EmployeeShift> toClose = new ArrayList<>();
         for (EmployeeShift existing : activeShifts) {
-            if (overlaps(shift, existing.getShift())) {
+            if (!overlaps(shift, existing.getShift())) {
+                continue;
+            }
+            if (!replaceOverlapping) {
                 throw new ShiftAssignmentOverlapException("error.shiftAssignmentOverlap.default",
                         new Object[]{shift.getId(), existing.getShift().getId(), existing.getId(), employee.getId()},
                         "Ca id=" + shift.getId() + " chồng chéo lịch với ca đang active id=" + existing.getShift().getId()
@@ -69,6 +76,18 @@ public class EmployeeShiftService {
                                 + ") của nhân sự id=" + employee.getId()
                                 + " -- kết thúc ca đang chồng chéo (endShift) trước khi gán ca mới.");
             }
+            // Đổi ca: ca cũ kết thúc ngày liền trước ngày áp dụng ca mới -- các ngày đã chấm công
+            // trước effectiveFrom không bị ảnh hưởng.
+            LocalDate closeAt = request.effectiveFrom().minusDays(1);
+            if (closeAt.isBefore(existing.getEffectiveFrom())) {
+                throw new IllegalArgumentException("Ngày áp dụng ca mới (" + request.effectiveFrom()
+                        + ") phải sau ngày bắt đầu của ca đang chồng chéo (" + existing.getEffectiveFrom() + ").");
+            }
+            toClose.add(existing);
+        }
+        for (EmployeeShift existing : toClose) {
+            existing.setEffectiveTo(request.effectiveFrom().minusDays(1));
+            employeeShiftRepository.save(existing);
         }
 
         EmployeeShift assignment = new EmployeeShift();
