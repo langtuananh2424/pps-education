@@ -127,8 +127,11 @@ public class HomeworkDeadlineSchedulerService {
                         "Video Ôn tập \"" + assignment.getReviewVideoSet().getTitle() + "\"", progress,
                         "REVIEW_VIDEO_ASSIGNMENT", assignment.getId());
                 for (Student s : students) {
-                    boolean passed = homeworkProgressService.videoPassed(assignment, s.getId(), homeworkAlertSettings.reflexPassThresholdPercent());
-                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.VIDEO, passed, assignment.getId());
+                    // 2026-10-15 (đã xác nhận với người dùng) — cảnh báo thiếu bài gửi Phụ huynh chỉ xét đã hoàn
+                    // thành hay chưa (REFLEX: nộp đủ mọi câu), KHÔNG xét đạt/chưa đạt — trước đây videoPassed
+                    // so với homework_alert.reflex_pass_threshold_percent. Xem HomeworkProgressService#videoCompleted.
+                    boolean completed = homeworkProgressService.videoCompleted(assignment, s.getId());
+                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.VIDEO, completed, assignment.getId());
                 }
             }
             assignment.setTeacherNotifiedAt(now);
