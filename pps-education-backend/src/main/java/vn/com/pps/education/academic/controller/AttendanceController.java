@@ -15,6 +15,7 @@ import vn.com.pps.education.academic.dto.AttendanceCheckRequest;
 import vn.com.pps.education.academic.dto.AttendanceRecordAdminResponse;
 import vn.com.pps.education.academic.dto.AttendanceRecordResponse;
 import vn.com.pps.education.academic.dto.DetectedSiteResponse;
+import vn.com.pps.education.academic.dto.ManualAttendanceRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.academic.service.AttendanceService;
 
@@ -88,5 +89,17 @@ public class AttendanceController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return ResponseEntity.ok(attendanceService.listRecords(employeeId, siteId, from, to));
+    }
+
+    /**
+     * UC-09 — bổ sung ngoài Main Flow gốc: quản trị viên/HR nhập chấm công thủ công, dùng cùng quyền
+     * hrm.attendance.view-all với màn "Dữ liệu chấm công". Xem AttendanceService.createManualRecord.
+     */
+    @PostMapping("/records/manual")
+    @PreAuthorize("hasPermission(null, 'hrm.attendance.view-all')")
+    public ResponseEntity<AttendanceRecordAdminResponse> createManualRecord(
+            @Valid @RequestBody ManualAttendanceRequest request,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(attendanceService.createManualRecord(actor.userId(), request));
     }
 }

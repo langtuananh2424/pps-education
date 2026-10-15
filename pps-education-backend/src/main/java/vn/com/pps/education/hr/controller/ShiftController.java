@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +15,7 @@ import vn.com.pps.education.hr.dto.AssignEmployeeShiftRequest;
 import vn.com.pps.education.hr.dto.CreateShiftRequest;
 import vn.com.pps.education.hr.dto.EmployeeShiftResponse;
 import vn.com.pps.education.hr.dto.EndEmployeeShiftRequest;
+import vn.com.pps.education.hr.dto.UpdateEmployeeShiftRequest;
 import vn.com.pps.education.hr.dto.ShiftResponse;
 import vn.com.pps.education.hr.dto.UpdateShiftRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -73,6 +75,22 @@ public class ShiftController {
     public ResponseEntity<EmployeeShiftResponse> endEmployeeShift(@PathVariable Long id,
                                                                     @Valid @RequestBody EndEmployeeShiftRequest request) {
         return ResponseEntity.ok(employeeShiftService.endShift(id, request));
+    }
+
+    /** UC-70 (bổ sung): sửa bản ghi gán ca (đổi ca/ngày áp dụng), cùng quyền gán ca. */
+    @PutMapping("/api/employee-shifts/{id}")
+    @PreAuthorize("hasPermission(null, 'hrm.employee-shift.assign')")
+    public ResponseEntity<EmployeeShiftResponse> updateEmployeeShift(@PathVariable Long id,
+                                                                       @Valid @RequestBody UpdateEmployeeShiftRequest request) {
+        return ResponseEntity.ok(employeeShiftService.updateAssignment(id, request));
+    }
+
+    /** UC-70 (bổ sung): xoá bản ghi gán ca, cùng quyền gán ca. */
+    @DeleteMapping("/api/employee-shifts/{id}")
+    @PreAuthorize("hasPermission(null, 'hrm.employee-shift.assign')")
+    public ResponseEntity<Void> deleteEmployeeShift(@PathVariable Long id) {
+        employeeShiftService.deleteAssignment(id);
+        return ResponseEntity.noContent().build();
     }
 
     /** V125 (2026-08-17): xem ca làm của nhân sự khác cần quyền gán ca hoặc quyền xem lịch tổng hợp. */

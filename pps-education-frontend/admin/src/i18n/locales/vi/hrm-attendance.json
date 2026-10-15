@@ -37,7 +37,26 @@
       "session": "Buổi học"
     },
     "loading": "Đang tải...",
-    "empty": "Không có bản ghi chấm công trong khoảng đã chọn."
+    "empty": "Không có bản ghi chấm công trong khoảng đã chọn.",
+    "addButton": "Thêm chấm công",
+    "manualForm": {
+      "title": "Thêm dữ liệu chấm công thủ công",
+      "employee": "Nhân sự",
+      "selectEmployee": "-- Chọn nhân sự --",
+      "date": "Ngày",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "site": "Điểm trường",
+      "noSite": "-- Không chọn --",
+      "reason": "Lý do nhập thủ công",
+      "reasonPlaceholder": "VD: Quên chấm công, lỗi thiết bị...",
+      "hint": "Nếu nhân sự đã có bản ghi ngày này, các giờ nhập sẽ ghi đè giờ cũ. Người nhập và lý do được lưu lại để đối soát.",
+      "required": "Vui lòng chọn nhân sự, ngày, ít nhất một giờ (vào/ra) và nhập lý do.",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "saveError": "Không lưu được dữ liệu chấm công.",
+      "saved": "Đã thêm dữ liệu chấm công."
+    }
   },
   "selfAttendance": {
     "currentTimeLabel": "Giờ chấm công",
@@ -76,8 +95,15 @@
     "editButton": "Sửa",
     "updatedToast": "Đã cập nhật địa điểm thành công!",
     "createdToast": "Đã tạo địa điểm thành công!",
-    "siteStatus": { "ACTIVE": "Đang hoạt động", "INACTIVE": "Ngừng hoạt động", "PENDING": "Chờ kích hoạt" },
-    "siteType": { "OWNED": "Trung tâm", "PARTNER": "Trường liên kết" }
+    "siteStatus": {
+      "ACTIVE": "Đang hoạt động",
+      "INACTIVE": "Ngừng hoạt động",
+      "PENDING": "Chờ kích hoạt"
+    },
+    "siteType": {
+      "OWNED": "Trung tâm",
+      "PARTNER": "Trường liên kết"
+    }
   },
   "attendanceSiteForm": {
     "editTitle": "Sửa địa điểm chấm công",

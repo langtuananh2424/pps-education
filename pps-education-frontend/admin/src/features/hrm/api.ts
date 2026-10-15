@@ -652,6 +652,20 @@ export function listAttendanceRecords(params: ListAttendanceRecordsParams): Prom
   return apiRequest<AttendanceRecordAdminResponse[]>(`/attendance/records?${query.toString()}`);
 }
 
+export interface ManualAttendanceRequest {
+  employeeId: number;
+  workDate: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  siteId?: number;
+  reason: string;
+}
+
+/** UC-09: quản trị viên nhập chấm công thủ công — POST /api/attendance/records/manual (quyền hrm.attendance.view-all). */
+export function createManualAttendanceRecord(request: ManualAttendanceRequest): Promise<AttendanceRecordAdminResponse> {
+  return apiRequest<AttendanceRecordAdminResponse>("/attendance/records/manual", { method: "POST", body: JSON.stringify(request) });
+}
+
 /**
  * UC-71: Nhận lớp — bổ sung ngoài SDD/SRS gốc, đã xác nhận với người dùng
  * 2026-09-11. Khớp ClassSessionCheckInAdminResponse thật, xem GET
@@ -768,6 +782,8 @@ export interface AssignEmployeeShiftRequest {
   employeeId: number;
   shiftId: number;
   effectiveFrom: string;
+  /** true = đổi ca: ca đang active chồng chéo tự kết thúc ngày liền trước effectiveFrom. */
+  replaceOverlapping?: boolean;
 }
 
 /**
@@ -786,6 +802,23 @@ export interface EndEmployeeShiftRequest {
 /** V124 (2026-08-14): chủ động kết thúc 1 ca đang active. */
 export function endEmployeeShift(id: number, request: EndEmployeeShiftRequest): Promise<EmployeeShiftResponse> {
   return apiRequest<EmployeeShiftResponse>(`/employee-shifts/${id}/end`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export interface UpdateEmployeeShiftRequest {
+  shiftId: number;
+  effectiveFrom: string;
+  /** null = đang áp dụng. */
+  effectiveTo: string | null;
+}
+
+/** UC-70 (bổ sung): sửa bản ghi gán ca. */
+export function updateEmployeeShift(id: number, request: UpdateEmployeeShiftRequest): Promise<EmployeeShiftResponse> {
+  return apiRequest<EmployeeShiftResponse>(`/employee-shifts/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** UC-70 (bổ sung): xoá bản ghi gán ca. */
+export function deleteEmployeeShift(id: number): Promise<void> {
+  return apiRequest<void>(`/employee-shifts/${id}`, { method: "DELETE" });
 }
 
 export function listEmployeeShiftHistory(employeeId: number): Promise<EmployeeShiftResponse[]> {

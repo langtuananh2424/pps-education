@@ -19,6 +19,7 @@ import {
   ShiftResponse
 } from "../api";
 import ShiftFormModal from "../components/ShiftFormModal";
+import EmployeeShiftsModal from "../components/EmployeeShiftsModal";
 import FloatingError from "@/components/ui/FloatingError";
 
 function formatWeekdays(csv: string, t: (key: string) => string): string {
@@ -165,6 +166,7 @@ export default function ShiftsPage() {
       {canAssign && (
         <BulkAssignShiftPanel
           shifts={shifts.filter((s) => s.active)}
+          allShifts={shifts}
           onAssigned={(count) => showToast(t("shiftsPage.bulkAssign.assignedToast", { count }))}
         />
       )}
@@ -200,7 +202,15 @@ interface BulkAssignResult {
  * (409) không chặn các nhân sự còn lại; kết quả từng người hiện ở bảng
  * bên dưới sau khi gán.
  */
-function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onAssigned: (count: number) => void }) {
+function BulkAssignShiftPanel({
+  shifts,
+  allShifts,
+  onAssigned
+}: {
+  shifts: ShiftResponse[];
+  allShifts: ShiftResponse[];
+  onAssigned: (count: number) => void;
+}) {
   const { t } = useTranslation("hrm-shifts");
   const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
@@ -208,9 +218,11 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [shiftId, setShiftId] = useState<number | "">("");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [replaceOverlapping, setReplaceOverlapping] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<BulkAssignResult[]>([]);
+  const [viewingEmployee, setViewingEmployee] = useState<EmployeeResponse | null>(null);
 
   useEffect(() => {
     listEmployees()
@@ -268,7 +280,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
     const outcomes = await Promise.all(
       targets.map(async (emp): Promise<BulkAssignResult> => {
         try {
-          await assignEmployeeShift({ employeeId: emp.id, shiftId, effectiveFrom });
+          await assignEmployeeShift({ employeeId: emp.id, shiftId, effectiveFrom, replaceOverlapping });
           return { employeeId: emp.id, employeeName: emp.fullName, ok: true };
         } catch (err) {
           return {
@@ -344,6 +356,12 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
         </Button>
       </div>
 
+      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <input type="checkbox" checked={replaceOverlapping} onChange={(e) => setReplaceOverlapping(e.target.checked)} />
+        <span className="font-semibold">{t("shiftsPage.bulkAssign.replaceOverlapping")}</span>
+        <span className="text-slate-400">{t("shiftsPage.bulkAssign.replaceOverlappingHint")}</span>
+      </label>
+
       <div className="border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
         <label className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 sticky top-0 cursor-pointer">
           <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} />
@@ -360,11 +378,30 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
                 <input type="checkbox" checked={selectedIds.has(emp.id)} onChange={() => toggleEmployee(emp.id)} />
                 <span className="font-semibold text-slate-700">{emp.fullName}</span>
                 <span className="text-slate-400">({emp.employeeCode})</span>
+                <button
+                  type="button"
+                  className="ml-auto text-[13px] font-semibold text-brand-orange hover:underline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setViewingEmployee(emp);
+                  }}
+                >
+                  {t("shiftsPage.bulkAssign.viewShifts")}
+                </button>
               </label>
             ))}
           </div>
         )}
       </div>
+
+      {viewingEmployee && (
+        <EmployeeShiftsModal
+          employee={viewingEmployee}
+          shifts={allShifts}
+          onClose={() => setViewingEmployee(null)}
+          onChanged={() => undefined}
+        />
+      )}
 
       {results.length > 0 && (
         <div className="pt-1">

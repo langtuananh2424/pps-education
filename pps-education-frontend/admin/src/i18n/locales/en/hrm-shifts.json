@@ -53,7 +53,10 @@
       "resultSuccess": "Success",
       "resultError": "Failed to assign shift.",
       "partialFailure": "{{failed}}/{{total}} staff failed to be assigned -- see details below.",
-      "assignedToast": "Shift assigned to {{count}} staff successfully!"
+      "assignedToast": "Shift assigned to {{count}} staff successfully!",
+      "replaceOverlapping": "Replace overlapping shift (change shift)",
+      "replaceOverlappingHint": "The old shift ends the day before the effective date; past attendance days are not changed.",
+      "viewShifts": "View / edit shifts"
     }
   },
   "shiftForm": {
@@ -204,5 +207,25 @@
       "sessionsTitle": "Teaching sessions ({{count}})",
       "noSessions": "No teaching sessions on this day."
     }
+  },
+  "employeeShifts": {
+    "title": "Shifts of {{name}}",
+    "loading": "Loading...",
+    "empty": "No shift assigned to this employee.",
+    "loadError": "Could not load shifts.",
+    "columns": {
+      "shift": "Shift",
+      "from": "From",
+      "to": "To"
+    },
+    "ongoing": "Ongoing",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "required": "Please select a shift and a start date.",
+    "saveError": "Could not update the shift.",
+    "deleteConfirm": "Remove shift {{name}} from this employee? Recorded attendance is not affected.",
+    "deleteError": "Could not delete the shift."
   }
 }

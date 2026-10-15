@@ -37,7 +37,26 @@
       "session": "Session"
     },
     "loading": "Loading...",
-    "empty": "No attendance records in the selected range."
+    "empty": "No attendance records in the selected range.",
+    "addButton": "Add attendance",
+    "manualForm": {
+      "title": "Add manual attendance entry",
+      "employee": "Employee",
+      "selectEmployee": "-- Select employee --",
+      "date": "Date",
+      "checkIn": "Check-in time",
+      "checkOut": "Check-out time",
+      "site": "Site",
+      "noSite": "-- None --",
+      "reason": "Reason for manual entry",
+      "reasonPlaceholder": "E.g. forgot to check in, device failure...",
+      "hint": "If the employee already has a record for this date, the entered times overwrite the old ones. The enterer and reason are kept for reconciliation.",
+      "required": "Please select an employee, a date, at least one time (in/out) and enter a reason.",
+      "save": "Save",
+      "saving": "Saving...",
+      "saveError": "Could not save the attendance entry.",
+      "saved": "Attendance entry added."
+    }
   },
   "selfAttendance": {
     "currentTimeLabel": "Attendance time",
@@ -76,8 +95,15 @@
     "editButton": "Edit",
     "updatedToast": "Site updated successfully!",
     "createdToast": "Site created successfully!",
-    "siteStatus": { "ACTIVE": "Active", "INACTIVE": "Inactive", "PENDING": "Pending activation" },
-    "siteType": { "OWNED": "Center", "PARTNER": "Partner school" }
+    "siteStatus": {
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "PENDING": "Pending activation"
+    },
+    "siteType": {
+      "OWNED": "Center",
+      "PARTNER": "Partner school"
+    }
   },
   "attendanceSiteForm": {
     "editTitle": "Edit attendance site",
