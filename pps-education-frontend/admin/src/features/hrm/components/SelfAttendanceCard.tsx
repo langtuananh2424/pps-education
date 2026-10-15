@@ -235,6 +235,21 @@ export default function SelfAttendanceCard({ todayRecord, onChecked, onRequestCl
         )}
       </div>
 
+      {/* Đến muộn/quên chấm vào vẫn được chấm ra (đổi business logic 2026-10-15) -- nút phụ chỉ hiện khi
+          chưa có giờ vào; bản ghi sẽ ở trạng thái "Thiếu chấm công" để quản lý bổ sung giờ vào. */}
+      {nextAction === "in" && (
+        <div className="text-center">
+          <button
+            type="button"
+            disabled={processing !== null}
+            onClick={() => handleCheck("out")}
+            className="text-sm font-semibold text-brand-orange hover:underline disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {t("selfAttendance.checkOutWithoutCheckInButton")}
+          </button>
+        </div>
+      )}
+
       {(alreadyCheckedIn || alreadyCheckedOut) && lastRecord && (
         <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3">
           <span>
