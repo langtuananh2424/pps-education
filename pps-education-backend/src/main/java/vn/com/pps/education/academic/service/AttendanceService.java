@@ -211,6 +211,9 @@ public class AttendanceService {
     }
 
     private AttendanceRecord.Status computeManualStatus(Employee employee, AttendanceRecord record) {
+        if (record.getCheckInAt() == null) {
+            return AttendanceRecord.Status.MISSING;
+        }
         List<EmployeeShift> shifts = employeeShiftRepository.findByEmployeeIdAndEffectiveToIsNull(employee.getId());
         EmployeeShift matched = windowResolver.resolveApplicableShift(shifts, record.getWorkDate());
         if (matched == null) {
@@ -335,6 +338,13 @@ public class AttendanceService {
                     "error.alreadyCheckedIn.attendance", new Object[]{record.getCheckInAt()},
                     "Đã chấm công vào lúc " + record.getCheckInAt() + " hôm nay, không thể chấm công vào lại.");
         }
+        // Thay đổi business logic 2026-10-15 (yêu cầu của chủ dự án): nhân sự đến muộn/quên chấm vào
+        // VẪN được chấm ra -- không còn ràng buộc "phải chấm vào mới chấm ra được". Ngược lại, đã chấm ra
+        // rồi thì không chấm vào bù được (giờ vào sau giờ ra vô nghĩa) -- bổ sung qua nhập tay.
+        if (isCheckIn && record.getCheckOutAt() != null) {
+            throw new IllegalArgumentException("Đã chấm công ra lúc " + record.getCheckOutAt()
+                    + " hôm nay, không thể chấm công vào sau đó. Liên hệ quản lý để bổ sung giờ vào.");
+        }
         if (!isCheckIn && record.getCheckOutAt() != null) {
             throw new AlreadyCheckedOutException(
                     "error.alreadyCheckedOut.default", new Object[]{record.getCheckOutAt()},
@@ -354,9 +364,14 @@ public class AttendanceService {
         } else {
             record.setCheckOutAt(now);
             record.setCheckOutMethod(method);
+            if (record.getCheckInAt() == null) {
+                // Chấm ra khi chưa có giờ vào: dùng MISSING (thiếu giờ vào) để không tính đủ công và để
+                // quản lý thấy cần bổ sung giờ vào bằng nhập tay; không thêm trạng thái mới ngoài SDD.
+                record.setStatus(AttendanceRecord.Status.MISSING);
+            }
             // Chỉ ghi đè status nếu check-in không phải LATE -- không có trạng thái
             // gộp LATE+EARLY_LEAVE trong SDD, giữ nguyên cảnh báo sớm nhất đã ghi nhận.
-            if (record.getStatus() == AttendanceRecord.Status.NORMAL
+            else if (record.getStatus() == AttendanceRecord.Status.NORMAL
                     && now.toLocalTime().isBefore(windowMatch.anchorTime())) {
                 record.setStatus(AttendanceRecord.Status.EARLY_LEAVE);
             }
