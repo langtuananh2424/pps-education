@@ -174,6 +174,18 @@ public class ReviewVideoService {
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
     private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
+    /**
+     * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — ngưỡng % đạt (viết VÀ
+     * nói) đọc từ cấu hình của chính video. Mirror ReviewVideoReportService#isReflexQuestionPassed
+     * (lặp lại vì method đó private ở class khác) — dùng trong {@link #toAssignmentStats} để tính
+     * "% ĐẠT" (V213).
+     */
+    private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
+        int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
+        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
+                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
+    }
+
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoSetClassAssignmentRepository reviewVideoSetClassAssignmentRepository,
                                ReviewVideoRepository reviewVideoRepository,
@@ -1485,7 +1497,10 @@ public class ReviewVideoService {
         // lượt retry của câu sai — mirror đúng tiêu chí Exercise
         // (ExerciseReportService#COMPLETED_ATTEMPT_STATUSES = đã NỘP, không yêu cầu hết lượt làm lại).
         // CONNECTION giữ nguyên logic cũ (chưa đổi luồng phát, ReviewVideoProgress vẫn được cập nhật đều).
+        int totalStudents = scopedStudentIds.size();
         int completedCount;
+        Integer passedCount = null;
+        Integer passRatePercent = null;
         if (set.getVideoType() == ReviewVideoSet.VideoType.REFLEX) {
             List<ReviewVideoQuestion> questions = videoIds.stream()
                     .flatMap(id -> reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(id).stream())
@@ -1503,23 +1518,38 @@ public class ReviewVideoService {
                                 reflexProgressByKey.get(q.getId() + ":" + studentId) != null);
                     })
             ).count();
-        } else {
+
+            // V213 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-15) — "% ĐẠT" trước đây
+            // luôn null cho REFLEX ("chưa có khái niệm đạt/rớt"), nhưng từ V213 đã có
+            // ReviewVideo#passRatioThresholdPercent (ngưỡng % số câu đạt) nên tính được, mirror ĐÚNG công
+            // thức per-student ở ReviewVideoReportService#buildReflexStudentRows (isReflexQuestionPassed
+            // từng câu, rồi so tỉ lệ % câu đạt với ngưỡng). Giả định 1 video/assignment như đã xác nhận.
+            int totalReflexQuestions = questions.size();
+            if (totalReflexQuestions > 0) {
+                int passRatioThreshold = videos.isEmpty() ? 70 : videos.get(0).getPassRatioThresholdPercent();
+                int passed = 0;
+                for (Long studentId : scopedStudentIds) {
+                    int passedQuestionCount = 0;
+                    for (ReviewVideoQuestion q : questions) {
+                        ReflexQuestionProgress p = reflexProgressByKey.get(q.getId() + ":" + studentId);
+                        if (p != null && isReflexQuestionPassed(p)) passedQuestionCount++;
+                    }
+                    double percent = passedQuestionCount * 100.0 / totalReflexQuestions;
+                    if (percent >= passRatioThreshold) passed++;
+                }
+                passedCount = passed;
+                passRatePercent = totalStudents == 0 ? 0 : passed * 100 / totalStudents;
+            }
+        } else if (set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
             completedCount = (int) scopedStudentIds.stream().filter(studentId ->
                     !videos.isEmpty() && videos.stream().allMatch(v -> {
                         ReviewVideoProgress p = progressByKey.get(v.getId() + ":" + studentId);
                         return p != null && p.isCompleted();
                     })
             ).count();
-        }
-        int totalStudents = scopedStudentIds.size();
-        int completionPercent = totalStudents == 0 ? 0 : completedCount * 100 / totalStudents;
-
-        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CHỈ CONNECTION có "% đạt" (điểm
-        // trắc nghiệm tổng ≥ ngưỡng % pass MỌI video CONNECTION trong bộ, mirror quy tắc "làm hết mới
-        // tính" của completedCount ở trên). REFLEX chưa có khái niệm đạt/rớt nào, giữ null (FE hiện "—").
-        Integer passedCount = null;
-        Integer passRatePercent = null;
-        if (set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — % đạt = điểm trắc nghiệm
+            // tổng ≥ ngưỡng % pass MỌI video CONNECTION trong bộ, mirror quy tắc "làm hết mới tính" của
+            // completedCount ở trên.
             int passed = 0;
             for (Long studentId : scopedStudentIds) {
                 boolean allPassed = !videos.isEmpty() && videos.stream().allMatch(v -> isConnectionVideoPassed(v, studentId));
@@ -1529,7 +1559,10 @@ public class ReviewVideoService {
             }
             passedCount = passed;
             passRatePercent = totalStudents == 0 ? 0 : passed * 100 / totalStudents;
+        } else {
+            throw new IllegalStateException("Unknown video type: " + set.getVideoType());
         }
+        int completionPercent = totalStudents == 0 ? 0 : completedCount * 100 / totalStudents;
 
         return new ReviewVideoAssignmentStatsResponse(
                 assignment.getId(), set.getId(), set.getCode(), set.getTitle(), set.getVideoType(), set.getTeacherType(),
