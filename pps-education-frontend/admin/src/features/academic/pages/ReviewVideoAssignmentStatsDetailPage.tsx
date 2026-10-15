@@ -294,7 +294,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                 <thead>
                   <tr>
                     <Th>{t("shared.table.student")}</Th>
-                    <Th className="text-center">{t("reviewVideoDetail.table.viewed")}</Th>
+                    {isConnection && <Th className="text-center">{t("reviewVideoDetail.table.viewed")}</Th>}
                     <Th className="text-center">{t("reviewVideoDetail.table.completed")}</Th>
                     {isConnection ? (
                       <>
@@ -318,9 +318,11 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                       <Td className="font-semibold text-slate-900">
                         {s.studentFullName} <span className="text-slate-400 font-mono text-[12px]">({s.studentCode})</span>
                       </Td>
-                      <Td className="text-center">
-                        {t("reviewVideoDetail.table.viewCountSuffix", { viewed: s.viewCount, required: s.requiredViewCount })}
-                      </Td>
+                      {isConnection && (
+                        <Td className="text-center">
+                          {t("reviewVideoDetail.table.viewCountSuffix", { viewed: s.viewCount, required: s.requiredViewCount })}
+                        </Td>
+                      )}
                       <Td className="text-center">
                         <Badge variant={s.completed ? "success" : "neutral"}>
                           {s.completed ? t("reviewVideoDetail.table.completedBadge") : t("reviewVideoDetail.table.notCompletedBadge")}
