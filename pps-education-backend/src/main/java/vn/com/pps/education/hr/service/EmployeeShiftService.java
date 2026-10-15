@@ -8,6 +8,7 @@ import vn.com.pps.education.hr.domain.Shift;
 import vn.com.pps.education.hr.dto.AssignEmployeeShiftRequest;
 import vn.com.pps.education.hr.dto.EmployeeShiftResponse;
 import vn.com.pps.education.hr.dto.EndEmployeeShiftRequest;
+import vn.com.pps.education.hr.dto.UpdateEmployeeShiftRequest;
 import vn.com.pps.education.exception.EmployeeShiftAlreadyEndedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.ShiftAssignmentOverlapException;
@@ -116,6 +117,50 @@ public class EmployeeShiftService {
         assignment.setEffectiveTo(request.effectiveTo());
         assignment = employeeShiftRepository.save(assignment);
         return toResponse(assignment);
+    }
+
+    /**
+     * UC-70 (bổ sung): sửa 1 bản ghi gán ca. Chặn nếu sau khi sửa, khoảng ngày + lịch ca chồng chéo
+     * với 1 bản ghi gán ca khác của cùng nhân sự (khác với assignShift chỉ xét ca đang active).
+     * Không sửa dữ liệu chấm công đã ghi.
+     */
+    @Transactional
+    public EmployeeShiftResponse updateAssignment(Long id, UpdateEmployeeShiftRequest request) {
+        EmployeeShift assignment = employeeShiftRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.employeeShift.assignmentNotFound", new Object[]{id}, "Không tìm thấy bản ghi gán ca id=" + id));
+        Shift shift = shiftRepository.findById(request.shiftId())
+                .orElseThrow(() -> new ResourceNotFoundException("error.employeeShift.shiftNotFound", new Object[]{request.shiftId()}, "Không tìm thấy ca làm việc id=" + request.shiftId()));
+        if (request.effectiveTo() != null && request.effectiveTo().isBefore(request.effectiveFrom())) {
+            throw new IllegalArgumentException(
+                    "effectiveTo không được trước effectiveFrom (" + request.effectiveFrom() + "): " + request.effectiveTo());
+        }
+        Long employeeId = assignment.getEmployee().getId();
+        for (EmployeeShift other : employeeShiftRepository.findByEmployeeIdOrderByEffectiveFromDesc(employeeId)) {
+            if (other.getId().equals(id) || !overlaps(shift, other.getShift())
+                    || !dateRangesIntersect(request.effectiveFrom(), request.effectiveTo(), other.getEffectiveFrom(), other.getEffectiveTo())) {
+                continue;
+            }
+            throw new ShiftAssignmentOverlapException("error.shiftAssignmentOverlap.default",
+                    new Object[]{shift.getId(), other.getShift().getId(), other.getId(), employeeId},
+                    "Ca id=" + shift.getId() + " chồng chéo lịch với ca id=" + other.getShift().getId()
+                            + " (employee_shift id=" + other.getId() + ") của nhân sự id=" + employeeId + ".");
+        }
+        assignment.setShift(shift);
+        assignment.setEffectiveFrom(request.effectiveFrom());
+        assignment.setEffectiveTo(request.effectiveTo());
+        return toResponse(employeeShiftRepository.save(assignment));
+    }
+
+    /** UC-70 (bổ sung): xoá hẳn 1 bản ghi gán ca (gán nhầm). Không đụng tới bản ghi chấm công đã có. */
+    @Transactional
+    public void deleteAssignment(Long id) {
+        EmployeeShift assignment = employeeShiftRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.employeeShift.assignmentNotFound", new Object[]{id}, "Không tìm thấy bản ghi gán ca id=" + id));
+        employeeShiftRepository.delete(assignment);
+    }
+
+    private boolean dateRangesIntersect(LocalDate fromA, LocalDate toA, LocalDate fromB, LocalDate toB) {
+        return (toA == null || !fromB.isAfter(toA)) && (toB == null || !fromA.isAfter(toB));
     }
 
     @Transactional(readOnly = true)

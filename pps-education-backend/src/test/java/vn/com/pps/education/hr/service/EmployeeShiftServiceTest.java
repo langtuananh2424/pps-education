@@ -9,6 +9,7 @@ import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.hr.dto.AssignEmployeeShiftRequest;
 import vn.com.pps.education.hr.dto.EmployeeShiftResponse;
 import vn.com.pps.education.hr.dto.EndEmployeeShiftRequest;
+import vn.com.pps.education.hr.dto.UpdateEmployeeShiftRequest;
 import vn.com.pps.education.exception.EmployeeShiftAlreadyEndedException;
 import vn.com.pps.education.exception.ShiftAssignmentOverlapException;
 import vn.com.pps.education.hr.repository.EmployeeRepository;
@@ -224,5 +225,58 @@ class EmployeeShiftServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> employeeShiftService.assignShift(
                 new AssignEmployeeShiftRequest(employee.getId(), newShift.getId(), LocalDate.now(), true)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void updateAssignment_UC70_MainFlow_changesShiftAndDates() {
+        Employee employee = newEmployee();
+        Shift oldShift = newShift("1,2,3,4,5,6", Shift.WeekParity.ALL);
+        Shift other = newShift("1,2,3,4,5", Shift.WeekParity.ALL);
+        EmployeeShiftResponse assigned = employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(employee.getId(), oldShift.getId(), LocalDate.now().minusDays(5)));
+
+        EmployeeShiftResponse updated = employeeShiftService.updateAssignment(assigned.id(),
+                new UpdateEmployeeShiftRequest(other.getId(), LocalDate.now().minusDays(3), null));
+
+        assertThat(updated.shiftId()).isEqualTo(other.getId());
+        assertThat(updated.effectiveFrom()).isEqualTo(LocalDate.now().minusDays(3));
+    }
+
+    @Test
+    void updateAssignment_UC70_A4_rejectsOverlapWithAnotherAssignment() {
+        Employee employee = newEmployee();
+        Shift weekdays = newShift("1,2,3,4,5", Shift.WeekParity.ALL);
+        Shift saturday = newShift("6", Shift.WeekParity.ALL);
+        employeeShiftService.assignShift(new AssignEmployeeShiftRequest(employee.getId(), weekdays.getId(), LocalDate.now().minusDays(30)));
+        EmployeeShiftResponse sat = employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(employee.getId(), saturday.getId(), LocalDate.now().minusDays(30)));
+
+        assertThatThrownBy(() -> employeeShiftService.updateAssignment(sat.id(),
+                new UpdateEmployeeShiftRequest(weekdays.getId(), LocalDate.now().minusDays(30), null)))
+                .isInstanceOf(ShiftAssignmentOverlapException.class);
+    }
+
+    @Test
+    void updateAssignment_UC70_A5_rejectsEffectiveToBeforeEffectiveFrom() {
+        Employee employee = newEmployee();
+        Shift shift = newShift();
+        EmployeeShiftResponse assigned = employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(employee.getId(), shift.getId(), LocalDate.now()));
+
+        assertThatThrownBy(() -> employeeShiftService.updateAssignment(assigned.id(),
+                new UpdateEmployeeShiftRequest(shift.getId(), LocalDate.now(), LocalDate.now().minusDays(1))))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void deleteAssignment_UC70_MainFlow_removesAssignment() {
+        Employee employee = newEmployee();
+        Shift shift = newShift();
+        EmployeeShiftResponse assigned = employeeShiftService.assignShift(
+                new AssignEmployeeShiftRequest(employee.getId(), shift.getId(), LocalDate.now()));
+
+        employeeShiftService.deleteAssignment(assigned.id());
+
+        assertThat(employeeShiftService.listByEmployee(employee.getId())).isEmpty();
     }
 }

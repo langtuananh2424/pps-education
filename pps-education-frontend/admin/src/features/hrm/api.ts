@@ -804,6 +804,23 @@ export function endEmployeeShift(id: number, request: EndEmployeeShiftRequest): 
   return apiRequest<EmployeeShiftResponse>(`/employee-shifts/${id}/end`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+export interface UpdateEmployeeShiftRequest {
+  shiftId: number;
+  effectiveFrom: string;
+  /** null = đang áp dụng. */
+  effectiveTo: string | null;
+}
+
+/** UC-70 (bổ sung): sửa bản ghi gán ca. */
+export function updateEmployeeShift(id: number, request: UpdateEmployeeShiftRequest): Promise<EmployeeShiftResponse> {
+  return apiRequest<EmployeeShiftResponse>(`/employee-shifts/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** UC-70 (bổ sung): xoá bản ghi gán ca. */
+export function deleteEmployeeShift(id: number): Promise<void> {
+  return apiRequest<void>(`/employee-shifts/${id}`, { method: "DELETE" });
+}
+
 export function listEmployeeShiftHistory(employeeId: number): Promise<EmployeeShiftResponse[]> {
   return apiRequest<EmployeeShiftResponse[]>(`/employees/${employeeId}/shifts`);
 }
