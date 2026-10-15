@@ -13,6 +13,7 @@ import vn.com.pps.education.academic.dto.AttendanceCheckRequest;
 import vn.com.pps.education.academic.dto.AttendanceRecordAdminResponse;
 import vn.com.pps.education.academic.dto.AttendanceRecordResponse;
 import vn.com.pps.education.academic.dto.DetectedSiteResponse;
+import vn.com.pps.education.academic.dto.ManualAttendanceRequest;
 import vn.com.pps.education.exception.AlreadyCheckedInException;
 import vn.com.pps.education.exception.AlreadyCheckedOutException;
 import vn.com.pps.education.exception.AttendanceMethodNotAvailableException;
@@ -34,6 +35,8 @@ import vn.com.pps.education.academic.service.attendance.AttendanceSettings;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -135,6 +138,93 @@ public class AttendanceService {
         return attendanceRecordRepository.search(employeeId, siteId, from, to).stream()
                 .map(this::toAdminResponse)
                 .toList();
+    }
+
+    /**
+     * UC-09 — bổ sung ngoài Main Flow gốc: quản trị viên/HR nhập chấm công thủ công thay cho nhân sự.
+     * Không áp cửa sổ chấm công/GPS/ngày làm việc (đây là điều chỉnh sau sự việc) nhưng không cho nhập
+     * ngày tương lai. Đã có bản ghi cùng ngày (kể cả MISSING do hệ thống quét) thì bổ sung/ghi đè các
+     * giờ được cung cấp, giữ nguyên giờ còn lại. Người nhập = changed_by và lý do nằm trong
+     * attendance_records_history.details để đối soát. Trạng thái LATE/EARLY_LEAVE tính theo ca áp dụng
+     * của ngày đó (nếu có), ngược lại NORMAL.
+     */
+    @Transactional
+    public AttendanceRecordAdminResponse createManualRecord(Long actorUserId, ManualAttendanceRequest request) {
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.attendance.userNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
+        Employee employee = employeeRepository.findById(request.employeeId())
+                .orElseThrow(() -> new ResourceNotFoundException("error.attendance.employeeNotFound", new Object[]{request.employeeId()}, "Không tìm thấy nhân sự id=" + request.employeeId()));
+        if (request.checkInTime() == null && request.checkOutTime() == null) {
+            throw new IllegalArgumentException("Cần nhập ít nhất giờ vào hoặc giờ ra.");
+        }
+        if (request.workDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Không thể nhập chấm công cho ngày trong tương lai.");
+        }
+        if (request.checkInTime() != null && request.checkOutTime() != null
+                && !request.checkOutTime().isAfter(request.checkInTime())) {
+            throw new IllegalArgumentException("Giờ ra phải sau giờ vào.");
+        }
+
+        AttendanceRecord record = attendanceRecordRepository
+                .findByEmployeeIdAndWorkDate(employee.getId(), request.workDate())
+                .orElseGet(() -> {
+                    AttendanceRecord created = new AttendanceRecord();
+                    created.setEmployee(employee);
+                    created.setWorkDate(request.workDate());
+                    return created;
+                });
+        boolean isNewRecord = record.getId() == null;
+        Map<String, Object> previous = isNewRecord ? null : snapshot(record);
+
+        ZoneId zone = ZoneId.systemDefault();
+        if (request.checkInTime() != null) {
+            record.setCheckInAt(ZonedDateTime.of(request.workDate(), request.checkInTime(), zone).toOffsetDateTime());
+            record.setCheckInMethod(AttendanceRecord.CheckMethod.MANUAL);
+            record.setCheckInMatchedSource(AttendanceRecord.MatchedSource.MANUAL_OVERRIDE);
+            record.setCheckInMatchedReferenceId(null);
+        }
+        if (request.checkOutTime() != null) {
+            record.setCheckOutAt(ZonedDateTime.of(request.workDate(), request.checkOutTime(), zone).toOffsetDateTime());
+            record.setCheckOutMethod(AttendanceRecord.CheckMethod.MANUAL);
+        }
+        if (request.siteId() != null) {
+            record.setSite(siteRepository.findById(request.siteId())
+                    .orElseThrow(() -> new ResourceNotFoundException("error.attendance.siteNotFound", new Object[]{request.siteId()}, "Không tìm thấy điểm trường id=" + request.siteId())));
+        }
+        record.setStatus(computeManualStatus(employee, record));
+        record = attendanceRecordRepository.save(record);
+
+        AttendanceRecordHistory history = new AttendanceRecordHistory();
+        history.setAttendanceRecord(record);
+        history.setChangedBy(actor);
+        history.setAction(isNewRecord ? AttendanceRecordHistory.Action.CREATED : AttendanceRecordHistory.Action.UPDATED);
+        Map<String, Object> details = snapshot(record);
+        details.put("manualEntry", true);
+        details.put("reason", request.reason().trim());
+        if (previous != null) {
+            details.put("previous", previous);
+        }
+        history.setDetails(details);
+        attendanceRecordHistoryRepository.save(history);
+
+        return toAdminResponse(record);
+    }
+
+    private AttendanceRecord.Status computeManualStatus(Employee employee, AttendanceRecord record) {
+        List<EmployeeShift> shifts = employeeShiftRepository.findByEmployeeIdAndEffectiveToIsNull(employee.getId());
+        EmployeeShift matched = windowResolver.resolveApplicableShift(shifts, record.getWorkDate());
+        if (matched == null) {
+            return AttendanceRecord.Status.NORMAL;
+        }
+        if (record.getCheckInAt() != null
+                && record.getCheckInAt().toLocalTime().isAfter(matched.getShift().getCheckInTime())) {
+            return AttendanceRecord.Status.LATE;
+        }
+        if (record.getCheckOutAt() != null
+                && record.getCheckOutAt().toLocalTime().isBefore(matched.getShift().getCheckOutTime())) {
+            return AttendanceRecord.Status.EARLY_LEAVE;
+        }
+        return AttendanceRecord.Status.NORMAL;
     }
 
     /**

@@ -53,7 +53,22 @@
       "resultSuccess": "Thành công",
       "resultError": "Gán ca thất bại.",
       "partialFailure": "{{failed}}/{{total}} nhân sự gán thất bại -- xem chi tiết bên dưới.",
-      "assignedToast": "Đã gán ca cho {{count}} nhân sự thành công!"
+      "assignedToast": "Đã gán ca cho {{count}} nhân sự thành công!",
+      "replaceOverlapping": "Thay thế ca đang chồng chéo (đổi ca)",
+      "replaceOverlappingHint": "Ca cũ kết thúc vào ngày trước ngày áp dụng; các ngày đã chấm công không bị sửa.",
+      "viewShifts": "Xem / sửa ca"
+    },
+    "members": {
+      "title": "Nhân sự đã gán theo ca",
+      "selectShiftPlaceholder": "-- Chọn ca để xem nhân sự --",
+      "loading": "Đang tải...",
+      "loadError": "Không tải được danh sách nhân sự theo ca.",
+      "empty": "Chưa có nhân sự nào được gán ca này.",
+      "effectiveFrom": "từ {{date}}",
+      "removeButton": "Gỡ khỏi ca",
+      "removeConfirm": "Gỡ \"{{name}}\" khỏi ca này? Nhân sự sẽ không còn được tính là đi làm theo ca này từ hôm nay.",
+      "removedToast": "Đã gỡ \"{{name}}\" khỏi ca làm việc.",
+      "removeError": "Gỡ khỏi ca thất bại."
     }
   },
   "shiftForm": {
@@ -204,5 +219,25 @@
       "sessionsTitle": "Buổi dạy ({{count}})",
       "noSessions": "Không có buổi dạy trong ngày này."
     }
+  },
+  "employeeShifts": {
+    "title": "Ca làm việc của {{name}}",
+    "loading": "Đang tải...",
+    "empty": "Nhân sự này chưa được gán ca nào.",
+    "loadError": "Không tải được danh sách ca.",
+    "columns": {
+      "shift": "Ca",
+      "from": "Từ ngày",
+      "to": "Đến ngày"
+    },
+    "ongoing": "Đang áp dụng",
+    "edit": "Sửa",
+    "delete": "Xoá",
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "required": "Vui lòng chọn ca và ngày bắt đầu.",
+    "saveError": "Không sửa được ca.",
+    "deleteConfirm": "Xoá ca {{name}} khỏi nhân sự này? Dữ liệu chấm công đã ghi không bị ảnh hưởng.",
+    "deleteError": "Không xoá được ca."
   }
 }

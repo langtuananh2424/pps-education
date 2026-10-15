@@ -256,7 +256,7 @@ public class ReviewVideoCatalogImportService {
                         int durationSeconds = youTubeDurationService.getDurationSeconds(videoId);
                         AddReviewVideoRequest request = new AddReviewVideoRequest(
                                 "YOUTUBE_URL", videoTitle.trim(), videoLink.trim(), null, durationSeconds,
-                                displayOrder, null, null, null);
+                                displayOrder, null, null, null, null);
                         reviewVideoService.addVideo(set.getId(), request, actorUserId);
                         existingFileUrls.add(videoLink.trim());
                         nextDisplayOrderBySetId.put(set.getId(), displayOrder + 1);

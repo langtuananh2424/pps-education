@@ -53,7 +53,8 @@
       "passPercentLabel": "Quiz pass threshold % (default 80)",
       "requiredViewsLabel": "Required view count — questions are split evenly across attempts (default 1)",
       "sessionPassRatioLabel": "Mid-way reminder threshold % (passed sessions/required, default 70)",
-      "reflexPassPercentLabel": "Pass threshold % per question (writing & speaking, default 70)"
+      "reflexPassPercentLabel": "Pass threshold % per question (writing & speaking, default 70)",
+      "reflexPassRatioLabel": "Overall pass ratio threshold (% of questions, default 70)"
     },
     "reflexBuilder": {
       "label": "Questions (timestamps) — at least 1 question required *",
@@ -203,7 +204,7 @@
       "sizeUnknown": "—",
       "durationMinutes": "{{minutes}} min",
       "connectionMeta": " · Pass threshold {{percent}}% · Split evenly across {{count}} attempts",
-      "reflexMeta": " · Writing/speaking pass threshold {{percent}}%/question",
+      "reflexMeta": " · Writing/speaking pass threshold {{percent}}%/question · Overall pass threshold {{ratioPercent}}%",
       "closeQuestions": "Close questions",
       "manageQuestions": "Manage questions",
       "fields": { "title": "Title *" },

@@ -70,4 +70,14 @@ public class ReviewVideo extends BaseAuditEntity {
      */
     @Column(name = "session_pass_ratio_threshold_percent", nullable = false)
     private int sessionPassRatioThresholdPercent = 70;
+
+    /**
+     * Chỉ có ý nghĩa với videoType=REFLEX (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-10-15, xem migration V213) — ngưỡng % SỐ CÂU đạt (số câu questionPassed=true /
+     * tổng số câu, xem ReviewVideoReportService#isReflexQuestionPassed) để tính Đạt/Chưa đạt
+     * TỔNG THỂ của 1 học sinh. KHÁC với completionThresholdPercent (ngưỡng điểm Viết/Nói của
+     * TỪNG câu riêng lẻ). Mặc định 70, mirror cơ chế isConnectionVideoPassed đã có của CONNECTION.
+     */
+    @Column(name = "pass_ratio_threshold_percent", nullable = false)
+    private int passRatioThresholdPercent = 70;
 }
