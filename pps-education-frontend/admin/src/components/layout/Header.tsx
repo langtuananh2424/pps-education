@@ -91,7 +91,9 @@ export default function Header() {
   // status=MISSING (có id, checkInAt=null) khi cửa sổ chấm công đã đóng mà nhân sự chưa chấm --
   // trước đây xét id != null nên pill hiện xanh "đã chấm công" sai (lỗi người dùng báo 2026-09-29).
   const attendanceCheckedIn = myAttendance?.checkInAt != null;
-  const attendanceMissing = !attendanceCheckedIn && myAttendance?.status === "MISSING";
+  // Chấm ra khi chưa có giờ vào (status=MISSING nhưng đã có checkOutAt) không phải "quá giờ chưa chấm".
+  const attendanceCheckedOutOnly = !attendanceCheckedIn && myAttendance?.checkOutAt != null;
+  const attendanceMissing = !attendanceCheckedIn && !attendanceCheckedOutOnly && myAttendance?.status === "MISSING";
 
   // UC-71 "Nhận lớp" (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — pill Header giống pattern
   // "Chấm công" ở trên, nhưng theo TỪNG buổi dạy hôm nay thay vì 1 lần/ngày. Rỗng (mảng []) với
@@ -478,12 +480,16 @@ export default function Header() {
             className={`flex items-center gap-1.5 text-sm font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
               attendanceMissing
                 ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
-                : !attendanceCheckedIn
+                : attendanceCheckedOutOnly
+                  ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+                  : !attendanceCheckedIn
                   ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
                   : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
             }`}
           >
             {attendanceMissing ? (
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            ) : attendanceCheckedOutOnly ? (
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             ) : !attendanceCheckedIn ? (
               <span className="relative flex w-2.5 h-2.5 shrink-0">
@@ -495,6 +501,10 @@ export default function Header() {
             )}
             {attendanceMissing ? (
               <span className="hidden sm:inline font-semibold">{t("header.attendance.missing")}</span>
+            ) : attendanceCheckedOutOnly ? (
+              <span className="hidden sm:inline font-semibold">
+                {t("header.attendance.checkedOutOnly", { checkOut: formatTimeHm(myAttendance.checkOutAt, i18n.language) })}
+              </span>
             ) : !attendanceCheckedIn ? (
               <span className="hidden sm:inline font-semibold">{t("header.attendance.checkIn")}</span>
             ) : myAttendance.checkOutAt ? (

@@ -66,6 +66,7 @@
     "processing": "Đang xử lý...",
     "checkInButton": "Chấm công vào",
     "checkOutButton": "Chấm công ra",
+    "checkOutWithoutCheckInButton": "Chưa chấm vào? Chấm công ra",
     "doneToday": "Đã hoàn tất hôm nay",
     "checkInFailedUnknown": "Chấm công thất bại — mở Console (F12) để xem chi tiết lỗi.",
     "checkInTimeLabel": "Giờ vào: ",
