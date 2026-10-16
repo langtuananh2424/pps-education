@@ -1378,6 +1378,44 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(QuizAlreadyCompletedException.class);
     }
 
+    /**
+     * 2026-10-16 — CONNECTION "hoàn thành" = xem hết + làm xong câu hỏi đủ số lượt, KỂ CẢ làm sai: học sinh
+     * sai toàn bộ qua 2/2 lượt vẫn completed=true dù viewCount (lượt ĐẠT) = 0; sau lượt 1 thì chưa.
+     */
+    @Test
+    void submitConnectionAnswers_completedCountsFinishedSessionsEvenWhenAllWrong() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 2);
+        ReviewVideoConnectionQuestionResponse q1 = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        ReviewVideoConnectionQuestionResponse q2 = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("3+3 = ?", 2, List.of(
+                        new ConnectionChoiceRequest("A", "5", false, 1),
+                        new ConnectionChoiceRequest("B", "6", true, 2))),
+                teacher.getId());
+        Student student = enrollStudent(schoolClass.id());
+
+        ReviewVideoConnectionQuizResultResponse last = null;
+        for (int session = 1; session <= 2; session++) {
+            Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+            reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+            // Mỗi lượt chỉ nhận 1 trong 2 câu (chia nhóm ngẫu nhiên) — lấy đúng nhóm qua API câu hỏi của lượt.
+            var assigned = reviewVideoService.listConnectionQuestionsForSession(sessionId, student.getUser().getId());
+            var answers = assigned.stream().map(q -> new ConnectionAnswerItem(q.id(),
+                    q.choices().stream().filter(c -> c.choiceLabel().equals("A")).findFirst().orElseThrow().id())).toList();
+            for (int attempt = 0; attempt < 2; attempt++) {
+                last = reviewVideoService.submitConnectionAnswers(sessionId,
+                        new SubmitConnectionAnswersRequest(answers), student.getUser().getId());
+            }
+            assertThat(last.finalized()).isTrue();
+            assertThat(last.passed()).isFalse();
+            assertThat(last.progress().viewCount()).isZero();
+            assertThat(last.progress().completed()).isEqualTo(session == 2);
+        }
+    }
+
     /** V160 — sai lần 1, đúng lần 2 (làm lại cả form): lượt vẫn "đạt", cộng viewCount. */
     @Test
     void submitConnectionAnswers_V160_MainFlow_correctOnRetryStillCountsAsPassed() {

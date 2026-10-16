@@ -1994,7 +1994,14 @@ public class ReviewVideoService {
                 : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrue(
                         video.getId(), student.getId(), assignment.getId());
         progress.setViewCount(viewCount);
-        boolean completed = viewCount >= video.getRequiredViewCount() || progress.isStoppedEarly();
+        // 2026-10-16 (đã xác nhận với người dùng) — CONNECTION "hoàn thành" = đã xem hết VÀ làm xong câu hỏi
+        // đủ requiredViewCount lượt, KỂ CẢ lượt làm sai (học sinh không đạt vẫn hoàn thành); viewCount ở
+        // trên vẫn chỉ đếm lượt ĐẠT cho popup ngưỡng giữa chừng và kết quả. REFLEX giữ công thức cũ.
+        int finishedCount = requiresQuiz
+                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(
+                        video.getId(), student.getId(), assignment.getId())
+                : viewCount;
+        boolean completed = finishedCount >= video.getRequiredViewCount() || progress.isStoppedEarly();
         progress.setCompleted(completed);
         return reviewVideoProgressRepository.save(progress);
     }

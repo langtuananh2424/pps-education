@@ -29,6 +29,15 @@ public interface ReviewVideoWatchSessionRepository extends JpaRepository<ReviewV
     int countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrue(
             Long reviewVideoId, Long studentId, Long reviewVideoAssignmentId);
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-16 — số lượt CONNECTION đã xem hết VÀ
+     * đã nộp xong câu hỏi (đúng 100% hoặc hết lượt thử mà vẫn sai, quizCompletedAt khác NULL), KHÔNG
+     * phân biệt đúng/sai. Dùng tính "hoàn thành" (xem ReviewVideoService#recomputeProgress); viewCount
+     * vẫn chỉ đếm lượt ĐẠT (quizPassed=true).
+     */
+    int countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(
+            Long reviewVideoId, Long studentId, Long reviewVideoAssignmentId);
+
     /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — đếm TOÀN BỘ lượt đã có (kể cả chưa qualified) TRƯỚC lượt mới, dùng tính slotIndex theo chu kỳ modulo M. */
     int countByReviewVideoIdAndStudentId(Long reviewVideoId, Long studentId);
 
