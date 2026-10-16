@@ -24,12 +24,13 @@ import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import ManualAttendanceModal from "../components/ManualAttendanceModal";
+import AttendanceTimesheetTab from "../components/AttendanceTimesheetTab";
 
 export default function AttendancePage() {
   const { t } = useTranslation("hrm-attendance");
   const { hasPermission } = useApp();
   const canViewAll = hasPermission("hrm.attendance.view-all");
-  const [activeTab, setActiveTab] = useState<"shift" | "classSession">("shift");
+  const [activeTab, setActiveTab] = useState<"shift" | "classSession" | "timesheet">("shift");
 
   const [sites, setSites] = useState<SiteResponse[]>([]);
 
@@ -55,13 +56,16 @@ export default function AttendancePage() {
           <Tabs
             items={[
               { id: "shift", label: t("attendancePage.tabs.shift") },
-              { id: "classSession", label: t("attendancePage.tabs.classSession") }
+              { id: "classSession", label: t("attendancePage.tabs.classSession") },
+              { id: "timesheet", label: t("attendancePage.tabs.timesheet") }
             ]}
             activeId={activeTab}
-            onChange={(id) => setActiveTab(id as "shift" | "classSession")}
+            onChange={(id) => setActiveTab(id as "shift" | "classSession" | "timesheet")}
             className="self-start"
           />
-          {activeTab === "shift" ? <AttendanceAdminSummary sites={sites} /> : <ClassSessionCheckInAdminSummary sites={sites} />}
+          {activeTab === "shift" && <AttendanceAdminSummary sites={sites} />}
+          {activeTab === "classSession" && <ClassSessionCheckInAdminSummary sites={sites} />}
+          {activeTab === "timesheet" && <AttendanceTimesheetTab sites={sites} />}
         </>
       )}
     </div>
