@@ -39,4 +39,17 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     Set<Long> findEmployeeIdsOnApprovedFullDayLeave(@Param("employeeIds") List<Long> employeeIds,
                                                       @Param("date") LocalDate date,
                                                       @Param("fullDayTypes") List<LeaveRequest.LeaveType> fullDayTypes);
+
+    /**
+     * Bảng chấm công tháng (2026-10-16) — đơn nghỉ nguyên ngày ĐÃ DUYỆT giao với khoảng [from, to], để
+     * đánh dấu ô nghỉ phép (P/KP) cho ngày chưa có bản ghi chấm công hợp lệ.
+     */
+    @Query("""
+            SELECT lr FROM LeaveRequest lr
+            WHERE lr.status = vn.com.pps.education.hr.domain.LeaveRequest.Status.APPROVED
+            AND lr.startDate <= :to AND lr.endDate >= :from
+            AND lr.leaveType IN :fullDayTypes
+            """)
+    List<LeaveRequest> findApprovedFullDayOverlapping(@Param("from") LocalDate from, @Param("to") LocalDate to,
+                                                       @Param("fullDayTypes") List<LeaveRequest.LeaveType> fullDayTypes);
 }

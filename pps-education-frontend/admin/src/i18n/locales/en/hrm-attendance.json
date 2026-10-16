@@ -22,7 +22,8 @@
     "loadError": "Couldn't load attendance data.",
     "tabs": {
       "shift": "Shift attendance data",
-      "classSession": "Class check-in data"
+      "classSession": "Class check-in data",
+      "timesheet": "Monthly timesheet"
     },
     "columns": {
       "employee": "Employee",
@@ -56,6 +57,27 @@
       "saving": "Saving...",
       "saveError": "Could not save the attendance entry.",
       "saved": "Attendance entry added."
+    },
+    "timesheet": {
+      "title": "Monthly timesheet",
+      "subtitle": "Generated automatically from attendance records and approved leave.",
+      "month": "Month",
+      "allDepartments": "All departments",
+      "exportButton": "Export Excel",
+      "exporting": "Exporting...",
+      "exportError": "Could not export the Excel file.",
+      "empty": "No employees in this month's timesheet.",
+      "legend": "X: present · M: late · S: early leave · V: missing · P: paid leave · KP: unpaid leave",
+      "columns": {
+        "employee": "Employee",
+        "workDays": "Days",
+        "late": "Late",
+        "earlyLeave": "Early",
+        "missing": "Missing",
+        "paidLeave": "Leave",
+        "unpaidLeave": "Unpaid",
+        "hours": "Hours"
+      }
     }
   },
   "selfAttendance": {
@@ -73,6 +95,7 @@
     "checkOutTimeLabel": "Check-out: ",
     "successTitleIn": "Checked in successfully!",
     "successTitleOut": "Checked out successfully!",
+    "successSubtitleOut": "You checked out successfully at {{time}}",
     "successSubtitle": "You checked in successfully at {{time}}",
     "backButton": "Back",
     "viewDetailButton": "View details"
