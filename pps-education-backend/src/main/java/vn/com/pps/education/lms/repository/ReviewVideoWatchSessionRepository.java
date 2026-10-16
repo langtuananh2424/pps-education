@@ -8,13 +8,12 @@ import java.util.List;
 public interface ReviewVideoWatchSessionRepository extends JpaRepository<ReviewVideoWatchSession, Long> {
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ các lượt xem ĐÃ ĐẠT
-     * (qualified=true, quizPassed=true — đúng điều kiện đang được tính vào viewCount, xem
-     * {@link #countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrue}),
-     * sắp theo thời điểm nộp quiz tăng dần — dùng dựng popup "Hoàn thành"/"Kết quả" liệt kê câu đã
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ các lượt xem ĐÃ HOÀN TẤT
+     * (qualified=true, quizCompletedAt khác NULL; 2026-10-16 gồm cả lượt làm sai, vì lượt sai cũng tính
+     * vào "hoàn thành"), sắp theo thời điểm nộp quiz tăng dần — dùng dựng popup "Hoàn thành"/"Kết quả" liệt kê câu đã
      * trả lời qua từng lượt (xem ReviewVideoService#getConnectionAnswerHistory).
      */
-    List<ReviewVideoWatchSession> findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrueOrderByQuizCompletedAtAsc(
+    List<ReviewVideoWatchSession> findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNullOrderByQuizCompletedAtAsc(
             Long reviewVideoId, Long studentId, Long reviewVideoAssignmentId);
 
     /** V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — thêm lọc theo lần giao, mirror ghi chú ReviewVideoProgressRepository. */
