@@ -911,3 +911,60 @@ export function getEmployeeScheduleOverview(params: {
   if (params.employeeId) qs.set("employeeId", String(params.employeeId));
   return apiRequest<EmployeeScheduleOverviewResponse>(`/hrm/employee-schedules?${qs.toString()}`);
 }
+
+/** Khớp AttendanceTimesheetResponse thật — bảng chấm công tháng (2026-10-16), gate quyền hrm.attendance.view-all. */
+export interface TimesheetCell {
+  date: string;
+  /** X đủ công · M đi muộn · S về sớm · V thiếu chấm công · P nghỉ phép · KP nghỉ không lương */
+  code: "X" | "M" | "S" | "V" | "P" | "KP";
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  hours: number | null;
+}
+
+export interface TimesheetRow {
+  employeeId: number;
+  employeeCode: string;
+  employeeFullName: string;
+  departmentName: string | null;
+  cells: TimesheetCell[];
+  totals: {
+    workDays: number;
+    lateDays: number;
+    earlyLeaveDays: number;
+    missingDays: number;
+    paidLeaveDays: number;
+    unpaidLeaveDays: number;
+    totalHours: number;
+  };
+}
+
+export interface AttendanceTimesheetResponse {
+  year: number;
+  month: number;
+  fromDate: string;
+  toDate: string;
+  rows: TimesheetRow[];
+}
+
+export interface TimesheetParams {
+  year: number;
+  month: number;
+  siteId?: number;
+  departmentId?: number;
+}
+
+function timesheetQuery(params: TimesheetParams): string {
+  const query = new URLSearchParams({ year: String(params.year), month: String(params.month) });
+  if (params.siteId != null) query.set("siteId", String(params.siteId));
+  if (params.departmentId != null) query.set("departmentId", String(params.departmentId));
+  return query.toString();
+}
+
+export function getAttendanceTimesheet(params: TimesheetParams): Promise<AttendanceTimesheetResponse> {
+  return apiRequest<AttendanceTimesheetResponse>(`/attendance/timesheet?${timesheetQuery(params)}`);
+}
+
+export function exportAttendanceTimesheet(params: TimesheetParams): Promise<Blob> {
+  return apiRequestBlob(`/attendance/timesheet/export?${timesheetQuery(params)}`);
+}
