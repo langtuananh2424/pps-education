@@ -158,6 +158,20 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void checkOut_UC09_Extension_withoutCheckIn_allowedEvenAfterShiftWindowClosed() {
+        // Ca đã kết thúc từ lâu, cửa sổ chấm ra hẹp -- có giờ vào thì bị từ chối, chưa có giờ vào thì vẫn chấm ra được.
+        Shift shift = newShift(LocalTime.now().minusHours(6), LocalTime.now().minusHours(2), 0, 0, 0, 0);
+        assignShift(shift);
+
+        AttendanceRecordResponse checkedOut = attendanceService.checkOut(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null));
+
+        assertThat(checkedOut.checkInAt()).isNull();
+        assertThat(checkedOut.checkOutAt()).isNotNull();
+        assertThat(checkedOut.status()).isEqualTo("MISSING");
+    }
+
+    @Test
     void checkIn_UC09_Extension_rejectsAfterCheckOutWithoutCheckIn() {
         assignWideOpenShift();
         attendanceService.checkOut(user.getId(),

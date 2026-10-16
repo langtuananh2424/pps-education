@@ -1004,7 +1004,7 @@ public class ReviewVideoService {
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ câu trả lời của học
-     * sinh qua các lượt xem ĐÃ ĐẠT (qualified + quizPassed — đúng điều kiện đang tính vào viewCount,
+     * sinh qua các lượt xem ĐÃ HOÀN TẤT (qualified + đã nộp xong quiz, kể cả lượt làm sai — 2026-10-16,
      * xem {@link #recomputeProgress}) của 1 video CONNECTION/1 bản giao, sắp theo thứ tự lượt xem
      * (viewNumber 1..N). Dùng cho popup "Hoàn thành"/"Kết quả" phía học viên (FE) khi đạt ngưỡng
      * sessionPassRatioThresholdPercent giữa chừng hoặc hoàn thành đủ requiredViewCount — các lượt cũ
@@ -1016,7 +1016,7 @@ public class ReviewVideoService {
         ReviewVideo video = getVideoOrThrow(videoId);
         StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
         List<ReviewVideoWatchSession> sessions = reviewVideoWatchSessionRepository
-                .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrueOrderByQuizCompletedAtAsc(
+                .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNullOrderByQuizCompletedAtAsc(
                         videoId, access.student().getId(), access.assignment().getId());
         if (sessions.isEmpty()) {
             return new ReviewVideoConnectionAnswerHistoryResponse(List.of());
@@ -1994,7 +1994,14 @@ public class ReviewVideoService {
                 : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrue(
                         video.getId(), student.getId(), assignment.getId());
         progress.setViewCount(viewCount);
-        boolean completed = viewCount >= video.getRequiredViewCount() || progress.isStoppedEarly();
+        // 2026-10-16 (đã xác nhận với người dùng) — CONNECTION "hoàn thành" = đã xem hết VÀ làm xong câu hỏi
+        // đủ requiredViewCount lượt, KỂ CẢ lượt làm sai (học sinh không đạt vẫn hoàn thành); viewCount ở
+        // trên vẫn chỉ đếm lượt ĐẠT cho popup ngưỡng giữa chừng và kết quả. REFLEX giữ công thức cũ.
+        int finishedCount = requiresQuiz
+                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(
+                        video.getId(), student.getId(), assignment.getId())
+                : viewCount;
+        boolean completed = finishedCount >= video.getRequiredViewCount() || progress.isStoppedEarly();
         progress.setCompleted(completed);
         return reviewVideoProgressRepository.save(progress);
     }

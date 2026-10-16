@@ -292,11 +292,26 @@ public class AttendanceService {
         // EmployeeShiftService đảm bảo tối đa 1 ca khớp mỗi ngày -- xem overlaps()).
         EmployeeShift matchedShift = windowResolver.resolveApplicableShift(activeShifts, workDate);
 
+        // Bản ghi hôm nay (nếu có) -- cần biết sớm để xử lý chấm ra khi chưa có giờ vào.
+        AttendanceRecord existingRecord = attendanceRecordRepository
+                .findByEmployeeIdAndWorkDate(employee.getId(), workDate).orElse(null);
+        boolean checkOutWithoutCheckIn = !isCheckIn && (existingRecord == null || existingRecord.getCheckInAt() == null);
+
         // Main Flow bước 4-5 -- xác định cửa sổ hợp lệ: A12/A13 cửa sổ theo lịch dạy
         // (GV có tiết dạy hôm nay) ưu tiên trước, A14/A15 cửa sổ ca cố định xét sau.
         AttendanceWindowResolver.WindowMatch windowMatch = windowResolver.resolveTeachingScheduleWindow(todaySessions, now, isCheckIn);
         if (windowMatch == null) {
             windowMatch = windowResolver.resolveShiftWindow(matchedShift, employee.isDefaultShiftRequired(), now, isCheckIn);
+        }
+        if (windowMatch == null && checkOutWithoutCheckIn) {
+            // Thay đổi business logic 2026-10-16: người đến muộn/quên chấm vào phải chấm ra được bất kể
+            // giờ (ca/tiết dạy đã kết thúc, hoặc chấm ra trễ hơn cửa sổ ca). Ngày vẫn phải là ngày làm
+            // việc (kiểm tra ở trên); bản ghi là MISSING nên không tính đủ công, quản lý đối soát sau.
+            windowMatch = new AttendanceWindowResolver.WindowMatch(
+                    matchedShift != null ? AttendanceRecord.MatchedSource.SHIFT
+                            : !todaySessions.isEmpty() ? AttendanceRecord.MatchedSource.TEACHING_SCHEDULE
+                            : AttendanceRecord.MatchedSource.MANUAL_OVERRIDE,
+                    null, now.toLocalTime());
         }
         if (windowMatch == null) {
             throw new OutsideAttendanceWindowException(
