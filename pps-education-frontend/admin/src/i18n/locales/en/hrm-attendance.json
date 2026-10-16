@@ -73,6 +73,7 @@
     "checkOutTimeLabel": "Check-out: ",
     "successTitleIn": "Checked in successfully!",
     "successTitleOut": "Checked out successfully!",
+    "successSubtitleOut": "You checked out successfully at {{time}}",
     "successSubtitle": "You checked in successfully at {{time}}",
     "backButton": "Back",
     "viewDetailButton": "View details"
