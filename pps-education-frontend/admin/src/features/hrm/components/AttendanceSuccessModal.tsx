@@ -30,7 +30,7 @@ export default function AttendanceSuccessModal({ kind, record, onViewDetail, onB
         <h3 className="text-lg font-bold font-display text-brand-gradient">
           {kind === "in" ? t("selfAttendance.successTitleIn") : t("selfAttendance.successTitleOut")}
         </h3>
-        <p className="text-sm text-slate-500">{t("selfAttendance.successSubtitle", { time })}</p>
+        <p className="text-sm text-slate-500">{kind === "in" ? t("selfAttendance.successSubtitle", { time }) : t("selfAttendance.successSubtitleOut", { time })}</p>
       </div>
       <div className="mt-4 flex gap-2.5 justify-center">
         <Button variant="secondary" onClick={onBack} className="flex-1 justify-center">

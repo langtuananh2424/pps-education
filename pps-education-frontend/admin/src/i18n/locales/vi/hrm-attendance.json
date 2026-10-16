@@ -95,6 +95,7 @@
     "checkOutTimeLabel": "Giờ ra: ",
     "successTitleIn": "Chấm công thành công!",
     "successTitleOut": "Chấm công ra thành công!",
+    "successSubtitleOut": "Bạn đã chấm công ra thành công lúc {{time}}",
     "successSubtitle": "Bạn đã chấm công thành công vào {{time}}",
     "backButton": "Quay lại",
     "viewDetailButton": "Xem chi tiết"
