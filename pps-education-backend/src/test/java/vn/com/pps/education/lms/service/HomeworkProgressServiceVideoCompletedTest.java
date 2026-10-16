@@ -34,7 +34,9 @@ class HomeworkProgressServiceVideoCompletedTest {
     private final ReflexQuestionProgressRepository reflexQuestionProgressRepository = mock(ReflexQuestionProgressRepository.class);
     private final HomeworkProgressService service = new HomeworkProgressService(
             mock(ExerciseAttemptRepository.class), reviewVideoRepository, mock(ReviewVideoProgressRepository.class),
-            reviewVideoQuestionRepository, reflexQuestionProgressRepository);
+            reviewVideoQuestionRepository, reflexQuestionProgressRepository,
+            mock(vn.com.pps.education.lms.repository.ReviewVideoConnectionQuestionRepository.class),
+            mock(vn.com.pps.education.lms.repository.ReviewVideoConnectionAnswerRepository.class));
 
     private ReviewVideoAssignment assignment;
     private ReviewVideoQuestion q1;

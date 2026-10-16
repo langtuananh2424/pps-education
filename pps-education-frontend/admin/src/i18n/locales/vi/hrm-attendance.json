@@ -22,7 +22,8 @@
     "loadError": "Không tải được dữ liệu chấm công.",
     "tabs": {
       "shift": "Dữ liệu chấm công ca làm việc",
-      "classSession": "Dữ liệu chấm công nhận lớp"
+      "classSession": "Dữ liệu chấm công nhận lớp",
+      "timesheet": "Bảng công tháng"
     },
     "columns": {
       "employee": "Nhân sự",
@@ -56,6 +57,27 @@
       "saving": "Đang lưu...",
       "saveError": "Không lưu được dữ liệu chấm công.",
       "saved": "Đã thêm dữ liệu chấm công."
+    },
+    "timesheet": {
+      "title": "Bảng chấm công tháng",
+      "subtitle": "Tự sinh từ dữ liệu chấm công và đơn nghỉ đã duyệt.",
+      "month": "Tháng",
+      "allDepartments": "Tất cả phòng ban",
+      "exportButton": "Xuất Excel",
+      "exporting": "Đang xuất...",
+      "exportError": "Không xuất được file Excel.",
+      "empty": "Không có nhân sự nào trong bảng công của tháng này.",
+      "legend": "X: đủ công · M: đi muộn · S: về sớm · V: thiếu chấm công · P: nghỉ phép · KP: nghỉ không lương",
+      "columns": {
+        "employee": "Nhân sự",
+        "workDays": "Ngày công",
+        "late": "Muộn",
+        "earlyLeave": "Sớm",
+        "missing": "Thiếu",
+        "paidLeave": "Phép",
+        "unpaidLeave": "KL",
+        "hours": "Giờ"
+      }
     }
   },
   "selfAttendance": {
@@ -73,6 +95,7 @@
     "checkOutTimeLabel": "Giờ ra: ",
     "successTitleIn": "Chấm công thành công!",
     "successTitleOut": "Chấm công ra thành công!",
+    "successSubtitleOut": "Bạn đã chấm công ra thành công lúc {{time}}",
     "successSubtitle": "Bạn đã chấm công thành công vào {{time}}",
     "backButton": "Quay lại",
     "viewDetailButton": "Xem chi tiết"
