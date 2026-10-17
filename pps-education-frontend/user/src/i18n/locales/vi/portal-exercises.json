@@ -195,6 +195,12 @@
       "closeButton": "Đóng",
       "retakeButton": "Làm lại từ đầu",
       "retakeError": "Không bắt đầu làm lại được — thử lại."
+    },
+    "retakeConfirm": {
+      "title": "Làm lại từ đầu?",
+      "description": "Kết quả hiện tại sẽ được xoá, bạn phải xem lại đủ {{required}} lượt và trả lời lại toàn bộ câu hỏi. Kết quả cũ vẫn được lưu để giáo viên xem.",
+      "cancelButton": "Huỷ",
+      "confirmButton": "Làm lại"
     }
   },
   "reflexVideoTask": {

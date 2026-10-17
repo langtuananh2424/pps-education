@@ -195,6 +195,12 @@
       "closeButton": "Close",
       "retakeButton": "Start over",
       "retakeError": "Could not start over — please try again."
+    },
+    "retakeConfirm": {
+      "title": "Start over?",
+      "description": "Your current result will be cleared. You must watch all {{required}} rounds and answer every question again. Your old result is kept for your teacher.",
+      "cancelButton": "Cancel",
+      "confirmButton": "Start over"
     }
   },
   "reflexVideoTask": {

@@ -505,9 +505,12 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
    * BE lưu trữ các lượt cũ (giáo viên vẫn xem được lịch sử) và reset tiến độ/đáp án về 0, rồi mở ngay lượt xem đầu tiên.
    */
   const [retaking, setRetaking] = useState(false);
+  // 2026-10-17 (đã xác nhận với người dùng) — hỏi xác nhận trước khi làm lại từ đầu (xoá tiến độ hiện tại).
+  const [retakeConfirmOpen, setRetakeConfirmOpen] = useState(false);
   const handleRetake = () => {
     if (assignmentId == null || retaking) return;
     setRetaking(true);
+    setRetakeConfirmOpen(false);
     retakeReviewVideo(video.id, assignmentId)
       .then((p) => {
         setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed });
@@ -819,7 +822,7 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
             )}
 
             <button
-              onClick={handleRetake}
+              onClick={() => setRetakeConfirmOpen(true)}
               disabled={retaking}
               className="w-full px-3 py-2.5 sm:py-3 bg-white border border-teal text-teal-deep hover:bg-teal/10 rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
             >
@@ -831,6 +834,32 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
             >
               {t("reviewVideoTask.finalPopup.closeButton")}
             </button>
+          </div>
+        </div>
+      )}
+
+      {retakeConfirmOpen && progressSummary && (
+        <div className="fixed inset-0 bg-ink/60 z-[120] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
+            <h3 className="text-base font-extrabold text-ink">{t("reviewVideoTask.retakeConfirm.title")}</h3>
+            <p className="text-xs font-bold text-muted">
+              {t("reviewVideoTask.retakeConfirm.description", { required: progressSummary.requiredViewCount })}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => setRetakeConfirmOpen(false)}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                {t("reviewVideoTask.retakeConfirm.cancelButton")}
+              </button>
+              <button
+                onClick={handleRetake}
+                disabled={retaking}
+                className="flex-1 px-4 py-2.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold disabled:opacity-50"
+              >
+                {t("reviewVideoTask.retakeConfirm.confirmButton")}
+              </button>
+            </div>
           </div>
         </div>
       )}
