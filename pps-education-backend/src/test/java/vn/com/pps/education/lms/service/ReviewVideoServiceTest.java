@@ -1379,6 +1379,24 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * 2026-10-17 — đã hoàn thành đủ requiredViewCount lượt thì KHÔNG mở thêm lượt (trước đây mỗi lần mở lại
+     * video đều tạo lượt mới, viewCount vượt giới hạn: 14/4).
+     */
+    @Test
+    void startWatchSession_afterCompleted_isRejected() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse result = reviewVideoService.submitConnectionAnswers(
+                sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+        assertThat(result.progress().completed()).isTrue();
+
+        assertThatThrownBy(() -> startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId()))
+                .isInstanceOf(QuizAlreadyCompletedException.class);
+    }
+
+    /**
      * 2026-10-16 — CONNECTION "hoàn thành" = xem hết + làm xong câu hỏi đủ số lượt, KỂ CẢ làm sai: học sinh
      * sai toàn bộ qua 2/2 lượt vẫn completed=true dù viewCount (lượt ĐẠT) = 0; sau lượt 1 thì chưa.
      */

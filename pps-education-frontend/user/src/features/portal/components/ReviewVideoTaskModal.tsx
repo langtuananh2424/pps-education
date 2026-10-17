@@ -323,15 +323,27 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     setQuizOutcome(null);
     setQuizError(null);
     if (assignmentId == null) return;
-    startReviewVideoWatchSession(video.id, assignmentId)
-      .then((r) => setWatchSessionId(r.sessionId))
-      .catch(() => undefined);
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc lại tiến độ ĐÃ LƯU ngay khi
     // mở modal (trước đây "Tổng số lượt đã đạt" chỉ hiện SAU khi có report sống trong phiên đang mở,
     // nên mở lần đầu luôn thấy trống dù đã có tiến độ từ trước).
+    // 2026-10-17 — đã hoàn thành (đủ số lượt bắt buộc hoặc đã Dừng) thì KHÔNG mở lượt mới (BE cũng chặn):
+    // hiện thẳng kết quả các lượt đã làm; trước đây mở lại là tạo thêm lượt, viewCount vượt giới hạn (14/4).
     getReviewVideoProgress(video.id, assignmentId)
-      .then((p) => setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed }))
-      .catch(() => undefined);
+      .then((p) => {
+        setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed });
+        if (p.completed) {
+          setFinalPopup({ variant: "completed" });
+          loadAnswerHistory();
+        }
+        return p.completed;
+      })
+      .catch(() => false)
+      .then((alreadyCompleted) => {
+        if (alreadyCompleted) return;
+        return startReviewVideoWatchSession(video.id, assignmentId)
+          .then((r) => setWatchSessionId(r.sessionId))
+          .catch(() => undefined);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video.id, assignmentId]);
 

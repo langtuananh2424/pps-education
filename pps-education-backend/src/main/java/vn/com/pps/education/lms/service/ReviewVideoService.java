@@ -1075,6 +1075,17 @@ public class ReviewVideoService {
         session.setStudent(student);
         session.setReviewVideoAssignment(access.assignment());
         if (video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
+            // 2026-10-17 (đã xác nhận với người dùng) — đã hoàn thành (đủ requiredViewCount lượt hoặc đã bấm
+            // Dừng) thì KHÔNG mở thêm lượt: trước đây mỗi lần mở lại video đều tạo lượt mới, học sinh xem/làm
+            // quiz tiếp và viewCount vượt quá giới hạn (VD 14/4 lượt).
+            boolean alreadyCompleted = reviewVideoProgressRepository
+                    .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentId(videoId, student.getId(), access.assignment().getId())
+                    .map(ReviewVideoProgress::isCompleted).orElse(false);
+            if (alreadyCompleted) {
+                throw new QuizAlreadyCompletedException(
+                        "error.reviewVideo.alreadyCompleted", new Object[]{},
+                        "Bạn đã hoàn thành đủ số lượt xem bắt buộc của video này, không thể xem thêm lượt tính điểm.");
+            }
             ensureConnectionQuestionSlotsAssigned(video, student);
             // Cố tình vẫn đếm TOÀN CỤC (video, học sinh), KHÔNG lọc theo assignment — bộ câu hỏi random
             // (ensureConnectionQuestionSlotsAssigned) là 1 lần duy nhất cho cả đời học sinh+video, chu
