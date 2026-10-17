@@ -2176,22 +2176,35 @@ UC-40: Soạn & giao đề kiểm tra
 >    lập vào 1 bank) lẫn trong bước Soạn đề (import rồi tự gắn luôn vào đề
 >    đang soạn). Hỗ trợ 2 định dạng, mẫu CỨNG (không AI/OCR nhận diện tự
 >    do — đã đánh giá đổi lấy độ chính xác, tránh sai sót khó kiểm soát):
->    - `.xlsx` — cột cố định vị trí A→N (Loại câu hỏi/Độ khó/Nội dung/
->      Đáp án A-D/Đáp án đúng/URL Audio/URL Hình ảnh/Transcript-Từ khóa
->      phát âm/Điểm/Giải thích/Tags). Mẫu dựng client-side (không endpoint
->      backend), theo đúng tiền lệ `ImportExcelButton.tsx`/
->      `GradeExcelImportPanel.tsx` (tránh phụ thuộc thư viện đọc/ghi Excel
->      ngoài có lỗ hổng chưa vá).
+>    - `.xlsx` — **cập nhật 2026-07-30 (đã lỗi thời trong bản mô tả trước
+>      đây của mục này — sửa lại cho đúng code hiện tại):** đọc theo TÊN
+>      header ở dòng 1 (`ExcelQuestionRowParser`/`QuestionImportFieldAliases`
+>      — chấp nhận cả tiếng Việt lẫn tiếng Anh), KHÔNG còn theo vị trí cột
+>      cố định — thứ tự cột trong file không quan trọng, chỉ cần tên header
+>      khớp alias đã biết. Mẫu dựng client-side (không endpoint backend),
+>      theo đúng tiền lệ `ImportExcelButton.tsx`/`GradeExcelImportPanel.tsx`
+>      (tránh phụ thuộc thư viện đọc/ghi Excel ngoài có lỗ hổng chưa vá).
+>      Cột thứ 15 "Hướng dẫn" (bổ sung 2026-10-14) — dòng chỉ dẫn tùy chọn
+>      hiện phía trên đề; cột 16-19 "Đáp án E/F/G/H" (bổ sung 2026-10-17) —
+>      phục vụ `DOC_HIEU_NOI_DAP_AN`, xem bên dưới.
 >    - `.docx` — mỗi câu hỏi 1 block, các block cách nhau 1 dòng `---`,
 >      dòng đầu block dạng `[LOAI_CAU_HOI]`, các dòng sau `Nhãn: giá trị`
->      (so khớp không phân biệt hoa/thường/dấu) hoặc `A.`-`D.` cho đáp án.
->      Mẫu sinh ở backend bằng Apache POI (`GET /api/question-imports/
->      template.docx`, `QuestionImportService.buildWordTemplate()`).
->    - Phạm vi loại câu hỏi: CHỈ 5 loại UI mà `QuestionEditorForm.tsx` hỗ
->      trợ (`TRAC_NGHIEM`/`TRAC_NGHIEM_VOICE`/`DIEN_TU`/`TU_LUAN`/
->      `SPEAKING`) — KHÔNG mở rộng sang `TRUE_FALSE`/`MULTIPLE_ANSWER` dù
->      `Question.QuestionType` có 6 giá trị, để câu hỏi tạo qua import
->      luôn sửa lại được bằng form tay sẵn có.
+>      (so khớp không phân biệt hoa/thường/dấu) hoặc `A.`-`H.` cho đáp án
+>      (A-D cho hầu hết loại; A-H cho `DOC_HIEU_NOI_DAP_AN`, bổ sung
+>      2026-10-17). Mẫu sinh ở backend bằng Apache POI (`GET
+>      /api/question-imports/template.docx`,
+>      `QuestionImportService.buildWordTemplate()`).
+>    - Phạm vi loại câu hỏi: **cập nhật — danh sách đã mở rộng nhiều lần kể
+>      từ bản mô tả gốc (5 loại UI ban đầu) và còn tiếp tục thay đổi** —
+>      nguồn chân lý DUY NHẤT là hằng số `VALID_KINDS` trong
+>      `QuestionImportService.java` (không liệt kê lại đầy đủ ở đây để
+>      tránh lệch code/docs lần nữa). Đáng chú ý 3 loại "composite" (1 dòng
+>      file → N câu hỏi), bổ sung 2026-09-08/2026-10-17: `DOC_HIEU_LUOI`
+>      (đọc hiểu — lưới, N câu dùng chung 1 đoạn văn + tối đa 4 đáp án
+>      chung A-D), `DOC_HIEU_NOI_DAP_AN` (đọc hiểu — nối đáp án, giống
+>      `DOC_HIEU_LUOI` nhưng tối đa 8 đáp án chung A-H, phục vụ dạng bài
+>      "multiple matching"), và `DOC_DIEN_TU` (đọc điền từ — cloze, 1 đoạn
+>      văn + N chỗ trống MỖI chỗ 1 bộ đáp án riêng).
 >    - Lỗi từng dòng/block không chặn phần còn lại của file (mirror UC-53
 >      Nhập điểm qua Excel); file đọc hỏng hoàn toàn → job `FAILED` ngay.
 >      Dùng chung bảng `import_jobs` (`ImportJob.ImportType.QUESTIONS`,

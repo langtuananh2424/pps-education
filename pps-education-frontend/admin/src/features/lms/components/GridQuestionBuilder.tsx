@@ -21,6 +21,12 @@ interface QuestionRow {
 
 const EMPTY_PASSAGE: PassageRow = { name: "", text: "" };
 const emptyQuestion = (): QuestionRow => ({ content: "", correctIndex: 0 });
+// Bổ sung 2026-10-17 (đã xác nhận với người dùng) — trước đây cố định ĐÚNG 3 đoạn (không có nút
+// thêm/bớt), nay cho 2-8 đoạn dùng chung (mirror MAX_CHOICES=8 ở QuestionEditorForm.tsx — component
+// này tạo thẳng MULTIPLE_CHOICE qua createExamQuestion, không đi qua "Loại câu hỏi" import nên không
+// cần phân biệt DOC_HIEU_LUOI/DOC_HIEU_NOI_DAP_AN ở tầng này, chỉ cần đúng khoảng 2-8).
+const MIN_PASSAGES = 2;
+const MAX_PASSAGES = 8;
 
 /**
  * V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — dạng "Đọc hiểu — lưới" (Ex5
@@ -47,6 +53,24 @@ export default function GridQuestionBuilder({
 
   const updatePassage = (idx: number, field: keyof PassageRow, value: string) => {
     setPassages((prev) => prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p)));
+  };
+
+  const handleAddPassage = () => {
+    if (passages.length >= MAX_PASSAGES) return;
+    setPassages((prev) => [...prev, { ...EMPTY_PASSAGE }]);
+  };
+
+  // Xoá 1 đoạn: chặn nếu đang có câu hỏi trỏ tới đúng đoạn này (correctIndex === idx) — an toàn hơn tự
+  // re-index, đúng tinh thần "không có lỗ hổng âm thầm" đã dùng ở backend (buildSharedGroupChoices).
+  const handleRemovePassage = (idx: number) => {
+    if (passages.length <= MIN_PASSAGES) return;
+    if (questions.some((q) => q.correctIndex === idx)) {
+      setError(t("gridQuestionBuilder.errors.passageInUse"));
+      return;
+    }
+    setPassages((prev) => prev.filter((_, i) => i !== idx));
+    // Đáp án của các câu đang trỏ tới đoạn PHÍA SAU đoạn vừa xoá phải lùi lại 1 bậc theo đúng vị trí mới.
+    setQuestions((prev) => prev.map((q) => (q.correctIndex > idx ? { ...q, correctIndex: q.correctIndex - 1 } : q)));
   };
 
   const updateQuestionContent = (idx: number, value: string) => {
@@ -114,9 +138,14 @@ export default function GridQuestionBuilder({
       <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-        <div className="flex items-center gap-1 text-slate-700 font-bold uppercase tracking-wider text-[13px]">
-          <BookOpen className="w-4 h-4 text-slate-500" />
-          <span>{t("gridQuestionBuilder.passagesSectionTitle")}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 text-slate-700 font-bold uppercase tracking-wider text-[13px]">
+            <BookOpen className="w-4 h-4 text-slate-500" />
+            <span>{t("gridQuestionBuilder.passagesSectionTitle")}</span>
+          </div>
+          <Button type="button" variant="secondary" size="sm" disabled={passages.length >= MAX_PASSAGES} onClick={handleAddPassage}>
+            <Plus className="w-3.5 h-3.5" /> {t("gridQuestionBuilder.addPassageButton")}
+          </Button>
         </div>
         {passages.map((p, idx) => (
           <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
@@ -127,17 +156,28 @@ export default function GridQuestionBuilder({
               placeholder={t("gridQuestionBuilder.passageNamePlaceholder", { index: idx + 1 })}
               className={inputClass}
             />
-            <textarea
-              required
-              rows={2}
-              value={p.text}
-              onChange={(e) => updatePassage(idx, "text", e.target.value)}
-              placeholder={t("gridQuestionBuilder.passageTextPlaceholder")}
-              className={`md:col-span-3 ${inputClass}`}
-            />
+            <div className="md:col-span-3 flex items-start gap-2">
+              <textarea
+                required
+                rows={2}
+                value={p.text}
+                onChange={(e) => updatePassage(idx, "text", e.target.value)}
+                placeholder={t("gridQuestionBuilder.passageTextPlaceholder")}
+                className={`flex-1 ${inputClass}`}
+              />
+              {passages.length > MIN_PASSAGES && (
+                <button
+                  type="button"
+                  onClick={() => handleRemovePassage(idx)}
+                  className="text-slate-400 hover:text-rose-600 shrink-0 mt-2"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         ))}
-        <p className="text-[13px] text-slate-400">{t("gridQuestionBuilder.passagesHint")}</p>
+        <p className="text-[13px] text-slate-400">{t("gridQuestionBuilder.passagesHint", { min: MIN_PASSAGES, max: MAX_PASSAGES })}</p>
       </div>
 
       <div className="space-y-2">
