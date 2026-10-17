@@ -2185,12 +2185,13 @@ UC-40: Soạn & giao đề kiểm tra
 >      theo đúng tiền lệ `ImportExcelButton.tsx`/`GradeExcelImportPanel.tsx`
 >      (tránh phụ thuộc thư viện đọc/ghi Excel ngoài có lỗ hổng chưa vá).
 >      Cột thứ 15 "Hướng dẫn" (bổ sung 2026-10-14) — dòng chỉ dẫn tùy chọn
->      hiện phía trên đề; cột 16-19 "Đáp án E/F/G/H" (bổ sung 2026-10-17) —
->      phục vụ `DOC_HIEU_NOI_DAP_AN`, xem bên dưới.
+>      hiện phía trên đề; cột 16-21 "Đáp án E/F/G/H/I/J" (bổ sung 2026-10-17,
+>      trần ban đầu E-H rồi nới tiếp I/J cùng ngày) — phục vụ
+>      `DOC_HIEU_NOI_DAP_AN`, xem bên dưới.
 >    - `.docx` — mỗi câu hỏi 1 block, các block cách nhau 1 dòng `---`,
 >      dòng đầu block dạng `[LOAI_CAU_HOI]`, các dòng sau `Nhãn: giá trị`
->      (so khớp không phân biệt hoa/thường/dấu) hoặc `A.`-`H.` cho đáp án
->      (A-D cho hầu hết loại; A-H cho `DOC_HIEU_NOI_DAP_AN`, bổ sung
+>      (so khớp không phân biệt hoa/thường/dấu) hoặc `A.`-`J.` cho đáp án
+>      (A-D cho hầu hết loại; A-J cho `DOC_HIEU_NOI_DAP_AN`, bổ sung
 >      2026-10-17). Mẫu sinh ở backend bằng Apache POI (`GET
 >      /api/question-imports/template.docx`,
 >      `QuestionImportService.buildWordTemplate()`).
@@ -2202,9 +2203,11 @@ UC-40: Soạn & giao đề kiểm tra
 >      file → N câu hỏi), bổ sung 2026-09-08/2026-10-17: `DOC_HIEU_LUOI`
 >      (đọc hiểu — lưới, N câu dùng chung 1 đoạn văn + tối đa 4 đáp án
 >      chung A-D), `DOC_HIEU_NOI_DAP_AN` (đọc hiểu — nối đáp án, giống
->      `DOC_HIEU_LUOI` nhưng tối đa 8 đáp án chung A-H, phục vụ dạng bài
->      "multiple matching"), và `DOC_DIEN_TU` (đọc điền từ — cloze, 1 đoạn
->      văn + N chỗ trống MỖI chỗ 1 bộ đáp án riêng).
+>      `DOC_HIEU_LUOI` nhưng tối đa 10 đáp án chung A-J — trần ban đầu 8
+>      [A-H], nới tiếp lên 10 [A-J] cùng ngày sau khi phát hiện 1 bài ngữ
+>      pháp nối câu IELTS thực tế dùng tới J — phục vụ dạng bài "multiple
+>      matching"), và `DOC_DIEN_TU` (đọc điền từ — cloze, 1 đoạn văn + N chỗ
+>      trống MỖI chỗ 1 bộ đáp án riêng).
 >    - Lỗi từng dòng/block không chặn phần còn lại của file (mirror UC-53
 >      Nhập điểm qua Excel); file đọc hỏng hoàn toàn → job `FAILED` ngay.
 >      Dùng chung bảng `import_jobs` (`ImportJob.ImportType.QUESTIONS`,
