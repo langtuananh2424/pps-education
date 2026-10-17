@@ -232,6 +232,24 @@
       "recordingRaw": "Recording: raw",
       "grammarReviewTitle": "Teacher review needed for the Grammar score",
       "grammarReviewBody": "This recording has 2 or more red grammar errors, so the Grammar score was lowered. The AI transcribes only once and may mishear — listen to these parts before confirming the score:"
+    },
+    "connectionHistoryModal": {
+      "title": "Attempt details — {{studentName}}",
+      "loading": "Loading...",
+      "loadFailed": "Could not load attempt details.",
+      "empty": "This student hasn't watched any attempt yet.",
+      "sessionLabel": "Attempt {{number}}",
+      "archivedBadge": "Retaken (archived)",
+      "currentBadge": "Current",
+      "startedAt": "Started: {{time}}",
+      "watched": "Watched {{watched}}/{{duration}} s",
+      "notWatchedFully": "Not fully watched",
+      "quizNotSubmitted": "Quiz not submitted",
+      "quizAttempts": "Submitted {{count}} time(s)",
+      "passedBadge": "Passed",
+      "failedBadge": "Not passed",
+      "selected": "Chose: {{answer}}",
+      "correctAnswer": "Correct answer: {{answer}}"
     }
   }
 }

@@ -6,6 +6,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.lms.dto.ConnectionStudentHistoryResponse;
 import vn.com.pps.education.lms.dto.ReflexQuestionProgressHistoryResponse;
 import vn.com.pps.education.lms.dto.ReviewVideoAssignmentQuestionStatsResponse;
 import vn.com.pps.education.lms.dto.ReviewVideoAssignmentStudentStatsResponse;
@@ -46,6 +47,14 @@ public class ReviewVideoReportController {
     public ResponseEntity<List<ReflexQuestionProgressHistoryResponse>> getStudentReflexHistory(
             @PathVariable Long assignmentId, @PathVariable Long studentId, @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoReportService.getStudentReflexHistory(assignmentId, studentId, actor.userId()));
+    }
+
+    /** 2026-10-17 — chi tiết từng lượt làm clip Kết nối của 1 học sinh (icon con mắt ở trang thống kê), gồm cả lượt đã lưu trữ khi làm lại. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.view')")
+    @GetMapping("/api/review-video-assignments/{assignmentId}/stats/students/{studentId}/connection-history")
+    public ResponseEntity<ConnectionStudentHistoryResponse> getStudentConnectionHistory(
+            @PathVariable Long assignmentId, @PathVariable Long studentId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoReportService.getStudentConnectionHistory(assignmentId, studentId, actor.userId()));
     }
 
     /** V191 — xuất toàn bộ audio (mọi lần ghi âm, mọi học sinh) + kết quả AI chấm thành 1 file ZIP. */

@@ -6,11 +6,13 @@ import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, ShieldAlert, XCirc
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
+  ConnectionHistorySession,
   ReflexQuestionProgressHistoryEntry,
   ReviewVideoAssignmentQuestionRow,
   ReviewVideoAssignmentQuestionStatsResponse,
   ReviewVideoAssignmentStudentStatsResponse,
   exportReflexAssignmentData,
+  getConnectionStudentHistory,
   getReflexStudentHistory,
   getReviewVideoAssignmentQuestionStats,
   getReviewVideoAssignmentStudentStats,
@@ -300,6 +302,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                       <>
                         <Th className="text-center">{t("reviewVideoDetail.table.quizScore")}</Th>
                         <Th className="text-center">{t("reviewVideoDetail.table.result")}</Th>
+                        <Th className="text-center">{t("reviewVideoDetail.table.viewDetail")}</Th>
                       </>
                     ) : (
                       <>
@@ -339,6 +342,16 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                             ) : (
                               <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? t("shared.passed") : t("shared.notPassed")}</Badge>
                             )}
+                          </Td>
+                          <Td className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => setViewingStudent({ id: s.studentId, name: s.studentFullName })}
+                              className="text-slate-400 hover:text-brand-orange"
+                              title={t("reviewVideoDetail.table.viewDetail")}
+                            >
+                              <Eye className="w-4 h-4 inline" />
+                            </button>
                           </Td>
                         </>
                       ) : (
@@ -441,7 +454,15 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
         </div>
       </Modal>
 
-      {viewingStudent && numAssignmentId && (
+      {viewingStudent && numAssignmentId && isConnection && (
+        <ConnectionStudentHistoryModal
+          assignmentId={numAssignmentId}
+          studentId={viewingStudent.id}
+          studentName={viewingStudent.name}
+          onClose={() => setViewingStudent(null)}
+        />
+      )}
+      {viewingStudent && numAssignmentId && !isConnection && (
         <ReflexStudentHistoryModal
           assignmentId={numAssignmentId}
           studentId={viewingStudent.id}
@@ -450,6 +471,97 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * 2026-10-17 (đã xác nhận với người dùng) — Video kết nối: chi tiết TỪNG lượt làm của 1 học sinh (thời gian
+ * xem, số lần nộp trắc nghiệm, từng câu chọn gì/đúng sai), kể cả các lượt đã lưu trữ khi học sinh
+ * "Làm lại từ đầu". Mirror ReflexStudentHistoryModal.
+ */
+function ConnectionStudentHistoryModal({
+  assignmentId,
+  studentId,
+  studentName,
+  onClose
+}: {
+  assignmentId: number;
+  studentId: number;
+  studentName: string;
+  onClose: () => void;
+}) {
+  const { t, i18n } = useTranslation("academic-homework");
+  const [sessions, setSessions] = useState<ConnectionHistorySession[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setLoadError(null);
+    getConnectionStudentHistory(assignmentId, studentId)
+      .then((res) => setSessions(res.sessions))
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("reviewVideoDetail.connectionHistoryModal.loadFailed")))
+      .finally(() => setLoading(false));
+  }, [assignmentId, studentId]);
+
+  return (
+    <Modal open onClose={onClose} title={t("reviewVideoDetail.connectionHistoryModal.title", { studentName })}>
+      <div className="max-h-[70vh] overflow-y-auto space-y-3">
+        {loading ? (
+          <p className="text-sm text-slate-500">{t("reviewVideoDetail.connectionHistoryModal.loading")}</p>
+        ) : loadError ? (
+          <FloatingError message={loadError} />
+        ) : sessions.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">{t("reviewVideoDetail.connectionHistoryModal.empty")}</p>
+        ) : (
+          sessions.map((session) => (
+            <div key={session.watchSessionId} className={`border rounded-lg p-3 space-y-2 ${session.archived ? "border-slate-200 bg-slate-50" : "border-slate-300"}`}>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-slate-700">
+                  {t("reviewVideoDetail.connectionHistoryModal.sessionLabel", { number: session.sessionNumber })} · {session.videoTitle}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Badge variant={session.archived ? "neutral" : "success"}>
+                    {session.archived ? t("reviewVideoDetail.connectionHistoryModal.archivedBadge") : t("reviewVideoDetail.connectionHistoryModal.currentBadge")}
+                  </Badge>
+                  {session.quizCompletedAt && (
+                    <Badge variant={session.quizPassed ? "success" : "danger"}>
+                      {session.quizPassed ? t("reviewVideoDetail.connectionHistoryModal.passedBadge") : t("reviewVideoDetail.connectionHistoryModal.failedBadge")}
+                    </Badge>
+                  )}
+                </span>
+              </div>
+              <p className="text-[12px] text-slate-500">
+                {t("reviewVideoDetail.connectionHistoryModal.startedAt", { time: formatDateTime(session.startedAt, i18n.language) })} ·{" "}
+                {t("reviewVideoDetail.connectionHistoryModal.watched", { watched: session.watchedSeconds, duration: session.durationSeconds })}
+                {!session.qualified && ` · ${t("reviewVideoDetail.connectionHistoryModal.notWatchedFully")}`}
+                {session.qualified && !session.quizCompletedAt && ` · ${t("reviewVideoDetail.connectionHistoryModal.quizNotSubmitted")}`}
+                {session.quizAttemptCount > 0 && ` · ${t("reviewVideoDetail.connectionHistoryModal.quizAttempts", { count: session.quizAttemptCount })}`}
+              </p>
+              {session.answers.length > 0 && (
+                <ul className="space-y-1.5">
+                  {session.answers.map((a) => (
+                    <li key={a.questionOrder} className="text-[13px] bg-white border border-slate-100 rounded-md p-2">
+                      <p className="font-medium text-slate-700">
+                        {a.questionOrder}. {a.prompt}
+                      </p>
+                      <p className={a.correct ? "text-emerald-700" : "text-rose-700"}>
+                        {t("reviewVideoDetail.connectionHistoryModal.selected", { answer: `${a.selectedLabel}. ${a.selectedContent}` })}
+                      </p>
+                      {!a.correct && a.correctLabel && (
+                        <p className="text-slate-500">
+                          {t("reviewVideoDetail.connectionHistoryModal.correctAnswer", { answer: `${a.correctLabel}. ${a.correctContent ?? ""}` })}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </Modal>
   );
 }
 

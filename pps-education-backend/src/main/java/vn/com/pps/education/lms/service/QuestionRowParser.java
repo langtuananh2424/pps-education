@@ -63,6 +63,18 @@ public interface QuestionRowParser {
              * cầu gì dù component hiển thị (WordBankBlock/WordBankPreview) đã có sẵn chỗ hiện (prop
              * `instruction`), trước đó chỉ truyền cho NGHE_PHIEU_THONG_TIN (tái dùng referencePassage).
              */
-            String instruction
+            String instruction,
+            /**
+             * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-17 — phục vụ loại
+             * DOC_HIEU_NOI_DAP_AN (đọc hiểu — nối đáp án), cho tới 8 đáp án dùng chung (A-H) thay vì tối
+             * đa 4 như DOC_HIEU_LUOI (VD bài "ghép N người với 1-trong-8 mô tả"). CHỈ
+             * QuestionImportService#mapToMatchingGroupRequests đọc 4 field này — DOC_HIEU_LUOI
+             * (buildSharedGroupChoices gọi với maxChoices=4), TRAC_NGHIEM (buildChoices) và DOC_DIEN_TU
+             * (mapToClozeGroupRequests) không đụng tới, vẫn cap ở D như cũ.
+             */
+            String choiceE,
+            String choiceF,
+            String choiceG,
+            String choiceH
     ) {}
 }

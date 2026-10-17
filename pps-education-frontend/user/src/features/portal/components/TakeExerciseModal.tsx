@@ -325,7 +325,7 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * coi là TIÊU ĐỀ bài đọc (VD "THE BENEFITS OF GARDENING") -- in đậm giống hệt "Nhãn:" thay vì hiện như
  * một đoạn văn thường.
  */
-function parsePassageParagraphs(text: string): { name: string | null; content: string; isTitle: boolean }[] {
+function parsePassageParagraphs(text: string): { name: string | null; content: string; isTitle: boolean; isSectionBreak: boolean }[] {
   const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
   const rawParagraphs = withTurnBreaks
     .split(/\n\s*\n/)
@@ -335,9 +335,19 @@ function parsePassageParagraphs(text: string): { name: string | null; content: s
   // "COLLECTING: A VALUABLE ACTIVITY OR JUST A HOBBY?"), tach theo ":" truoc se lam mat 1 nua tieu de.
   return rawParagraphs.map((para, i) => {
     const isTitle = i === 0 && rawParagraphs.length > 1 && para.length <= 100 && !/[.!?]\s+[A-Z]/.test(para);
-    if (isTitle) return { name: null, content: para, isTitle: true };
+    if (isTitle) return { name: null, content: para, isTitle: true, isSectionBreak: false };
+    // Bổ sung 2026-10-17 (đã xác nhận với người dùng qua ảnh chụp — đoạn "SCHOOL FACILITIES" đứng GIỮA
+    // referencePassage, phân 2 nhóm nội dung "THE PEOPLE"/"SCHOOL FACILITIES" trong CÙNG 1 đoạn văn,
+    // không in đậm vì isTitle CHỈ áp dụng đoạn ĐẦU TIÊN) — đoạn VIẾT HOA TOÀN BỘ, ngắn, không chứa ":"
+    // (chặt hơn isTitle — bắt buộc viết hoa toàn bộ để tránh nhận nhầm 1 đoạn ngắn thường không phải tiêu
+    // đề) ở BẤT KỲ vị trí nào đều coi là tiêu đề PHỤ — in đậm + có đường kẻ ngăn cách phía trên (xem nơi
+    // render) để tách rõ với nhóm nội dung ngay trước đó.
+    const isAllCapsHeading = i > 0 && para.length <= 100 && /[A-Za-z]/.test(para) && para === para.toUpperCase() && !para.includes(":");
+    if (isAllCapsHeading) return { name: null, content: para, isTitle: false, isSectionBreak: true };
     const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
-    return match ? { name: match[1].trim(), content: match[2].trim(), isTitle: false } : { name: null, content: para, isTitle: false };
+    return match
+      ? { name: match[1].trim(), content: match[2].trim(), isTitle: false, isSectionBreak: false }
+      : { name: null, content: para, isTitle: false, isSectionBreak: false };
   });
 }
 
@@ -2078,9 +2088,9 @@ export function GridQuestionGroup({
       {block.referencePassage && (
         <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
-            <div key={i}>
+            <div key={i} className={p.isSectionBreak ? "pt-2.5 sm:pt-3 mt-1 border-t border-line/60" : undefined}>
               {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{p.name}</p>}
-              {p.isTitle ? (
+              {p.isTitle || p.isSectionBreak ? (
                 <p className="text-xs sm:text-sm lg:text-base font-black text-ink text-center">{p.content}</p>
               ) : (
                 <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{p.content}</p>
