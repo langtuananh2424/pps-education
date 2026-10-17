@@ -117,8 +117,10 @@ public class QuestionImportService {
     /**
      * Bổ sung 2026-10-17 (đã xác nhận với người dùng) — "DOC_HIEU_NOI_DAP_AN" (đọc hiểu — nối đáp án):
      * cùng cơ chế với KIND_GRID_GROUP (N câu dùng CHUNG 1 referencePassage + CHUNG 1 bộ đáp án, mỗi câu
-     * 1 chữ cái đúng) nhưng cho tới 8 đáp án dùng chung (A-H) thay vì tối đa 4 — phục vụ dạng bài
-     * "multiple matching" kinh điển (VD SGK Cambridge: 5 người ghép 1-trong-8 mô tả cơ sở vật chất).
+     * 1 chữ cái đúng) nhưng cho tới 10 đáp án dùng chung (A-J, trần ban đầu 8 [A-H] nới tiếp lên 10 [A-J]
+     * cùng ngày sau khi phát hiện 1 bài ngữ pháp nối câu IELTS thực tế dùng tới J) thay vì tối đa 4 —
+     * phục vụ dạng bài "multiple matching" kinh điển (VD SGK Cambridge: 5 người ghép 1-trong-8 mô tả cơ
+     * sở vật chất; VD IELTS: 10 câu nối đáp án ngữ pháp dùng hết A-J).
      * Giữ KIND_GRID_GROUP nguyên vẹn (không đổi giới hạn 4) để không ảnh hưởng câu hỏi đã import trước
      * đó — xem mapToMatchingGroupRequests()/buildSharedGroupChoices() (tham số hoá maxChoices).
      */
@@ -506,8 +508,10 @@ public class QuestionImportService {
                 "---"));
         // Bổ sung 2026-10-17 (đã xác nhận với người dùng, chỉnh lại CÙNG NGÀY sau khi hỏi lại — đổi từ
         // MULTIPLE_CHOICE bấm chọn sang FILL_IN_BLANK gõ chữ cái, khớp đúng định dạng "Your Answers:
-        // Sarah: [...]" trong đề giấy gốc) — "Đọc hiểu — Nối đáp án": học sinh GÕ chữ cái đúng (A-H) vào
-        // 1 ô nhập cho mỗi câu, KHÔNG bấm chọn nút — xem mapToMatchingGroupRequests().
+        // Sarah: [...]" trong đề giấy gốc) — "Đọc hiểu — Nối đáp án": học sinh GÕ chữ cái đúng (A-J, trần
+        // nới từ 8 lên 10 cùng ngày) vào 1 ô nhập cho mỗi câu, KHÔNG bấm chọn nút — xem
+        // mapToMatchingGroupRequests(). Ví dụ mẫu dưới đây chỉ minh hoạ 8 lựa chọn (A-H) cho ngắn gọn —
+        // vẫn hợp lệ, không bắt buộc dùng hết tới J.
         blocks.put(KIND_MATCHING_GROUP, List.of(
                 "[DOC_HIEU_NOI_DAP_AN]",
                 "Đoạn văn tham chiếu: A. The School Library — a quiet place with books.",
@@ -516,7 +520,7 @@ public class QuestionImportService {
                 "A. The School Library", "B. The Gymnasium", "C. The Art Studio", "D. The Music Room",
                 "E. The Computer Lab", "F. The Schoolyard", "G. The Science Laboratory", "H. The Main Canteen",
                 "Đáp án đúng: A|B",
-                "Giải thích: Khác [DOC_HIEU_LUOI] (bấm chọn nút) — đây là dạng HỌC SINH TỰ GÕ chữ cái đúng vào 1 ô nhập cho mỗi câu (y hệt \"Your Answers: ...\" trong đề giấy), chấm không phân biệt hoa/thường. Mỗi câu trong \"Nội dung\" phân tách bằng dấu |, dùng CHUNG 1 đoạn văn (BẮT BUỘC tự liệt kê \"A. ...\"...\"H. ...\" kèm mô tả trong \"Đoạn văn tham chiếu\" để học sinh đọc — không tự dựng từ cột Đáp án A-H). Cột Đáp án A-H (2-8, không phân tách |) CHỈ dùng để xác định phạm vi chữ cái hợp lệ cho \"Đáp án đúng\" — không hiện ra nút bấm. \"Đáp án đúng\" là chữ cái A-H theo ĐÚNG thứ tự khớp \"Nội dung\".",
+                "Giải thích: Khác [DOC_HIEU_LUOI] (bấm chọn nút) — đây là dạng HỌC SINH TỰ GÕ chữ cái đúng vào 1 ô nhập cho mỗi câu (y hệt \"Your Answers: ...\" trong đề giấy), chấm không phân biệt hoa/thường. Mỗi câu trong \"Nội dung\" phân tách bằng dấu |, dùng CHUNG 1 đoạn văn (BẮT BUỘC tự liệt kê \"A. ...\"...\"J. ...\" kèm mô tả trong \"Đoạn văn tham chiếu\" để học sinh đọc — không tự dựng từ cột Đáp án A-J). Cột Đáp án A-J (2-10, không phân tách |) CHỈ dùng để xác định phạm vi chữ cái hợp lệ cho \"Đáp án đúng\" — không hiện ra nút bấm. \"Đáp án đúng\" là chữ cái A-J theo ĐÚNG thứ tự khớp \"Nội dung\".",
                 "---"));
         blocks.put(KIND_CLOZE_GROUP, List.of(
                 "[DOC_DIEN_TU]",
@@ -1012,12 +1016,13 @@ public class QuestionImportService {
     /**
      * DOC_HIEU_NOI_DAP_AN (bổ sung 2026-10-17, đã xác nhận với người dùng — "Đọc hiểu — Nối đáp án"):
      * 1 dòng file → N CreateQuestionRequest (1/câu), TẤT CẢ dùng CHUNG 1 referencePassage (liệt kê sẵn
-     * các lựa chọn A-H kèm mô tả, GV tự gõ trực tiếp vào "Đoạn văn tham chiếu" — KHÔNG dựng lại từ
-     * "Đáp án A-H"). Khác DOC_HIEU_LUOI (MULTIPLE_CHOICE, học sinh BẤM chọn 1 trong các nút hiện sẵn):
+     * các lựa chọn A-J kèm mô tả, GV tự gõ trực tiếp vào "Đoạn văn tham chiếu" — KHÔNG dựng lại từ
+     * "Đáp án A-J"). Khác DOC_HIEU_LUOI (MULTIPLE_CHOICE, học sinh BẤM chọn 1 trong các nút hiện sẵn):
      * đây là FILL_IN_BLANK — mỗi câu chỉ có 1 Ô NHẬP CHỮ, học sinh tự GÕ chữ cái đúng (VD "H"), đúng y
      * hệt định dạng "Your Answers: Sarah: [...] David: [...]" trong đề giấy gốc — xác nhận lại với
      * người dùng 2026-10-17 sau khi làm bản MULTIPLE_CHOICE trước đó, đổi hẳn sang kiểu gõ tay thay vì
-     * bấm chọn. "Đáp án A-H" (2-8, dùng lại buildSharedGroupChoices để validate) CHỈ dùng để xác định
+     * bấm chọn. "Đáp án A-J" (2-10, trần nới từ 8 lên 10 cùng ngày sau khi phát hiện 1 bài ngữ pháp nối
+     * câu thực tế dùng tới J, dùng lại buildSharedGroupChoices để validate) CHỈ dùng để xác định
      * PHẠM VI chữ cái hợp lệ cho "Đáp án đúng" (VD khai 5 lựa chọn A-E thì "Đáp án đúng" không được là
      * F trở lên) — không tạo QuestionChoiceRequest nào, không hiện nút bấm. Chấm tự động case-insensitive
      * (mirror DIEN_TU_NHOM/ExerciseAttemptService — so khớp đúng 1 chữ cái).
@@ -1027,7 +1032,7 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
         }
         if (isBlank(row.referencePassage())) {
-            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần \"Đoạn văn tham chiếu\" (liệt kê các lựa chọn A-H kèm mô tả) dùng chung cho cả nhóm câu hỏi.");
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần \"Đoạn văn tham chiếu\" (liệt kê các lựa chọn A-J kèm mô tả) dùng chung cho cả nhóm câu hỏi.");
         }
         List<String> questions = splitPipeKeepBlanks(row.content());
         for (int i = 0; i < questions.size(); i++) {
@@ -1039,9 +1044,9 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần tối thiểu 2 câu hỏi trong \"Nội dung\", phân tách bằng dấu |.");
         }
         // Chỉ dùng để biết PHẠM VI chữ cái hợp lệ (A-?), KHÔNG tạo nút bấm — xem Javadoc.
-        int optionCount = buildSharedGroupChoices(row, 8).size();
+        int optionCount = buildSharedGroupChoices(row, 10).size();
         if (isBlank(row.correctAnswer())) {
-            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần \"Đáp án đúng\" cho từng câu (chữ cái A-H), phân tách bằng dấu |.");
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần \"Đáp án đúng\" cho từng câu (chữ cái A-J), phân tách bằng dấu |.");
         }
         List<String> answerLetters = splitPipeKeepBlanks(row.correctAnswer());
         if (answerLetters.size() != questions.size()) {
@@ -1176,13 +1181,14 @@ public class QuestionImportService {
 
     /**
      * Đáp án dùng CHUNG cho mọi câu trong nhóm (khác DOC_DIEN_TU — mỗi chỗ trống riêng). {@code
-     * maxChoices} = 4 cho DOC_HIEU_LUOI (đọc A-D), = 8 cho DOC_HIEU_NOI_DAP_AN (đọc A-H, bổ sung
+     * maxChoices} = 4 cho DOC_HIEU_LUOI (đọc A-D), = 10 cho DOC_HIEU_NOI_DAP_AN (đọc A-J, bổ sung
      * 2026-10-17 đã xác nhận với người dùng — tham số hoá thay vì hard-code 4 để tái dùng nguyên hàm
-     * này cho cả 2 kind, xem mapToGridGroupRequests()/mapToMatchingGroupRequests()).
+     * này cho cả 2 kind, xem mapToGridGroupRequests()/mapToMatchingGroupRequests(); trần ban đầu là 8
+     * [A-H], nới tiếp lên 10 [A-J] cùng ngày sau khi phát hiện 1 bài ngữ pháp nối câu thực tế dùng J).
      */
     private List<QuestionChoiceRequest> buildSharedGroupChoices(QuestionRowParser.ParsedQuestionRow row, int maxChoices) {
         String[] all = {row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD(),
-                row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH()};
+                row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH(), row.choiceI(), row.choiceJ()};
         List<String> raw = new ArrayList<>();
         for (int i = 0; i < maxChoices; i++) {
             if (!isBlank(all[i])) {
@@ -1225,13 +1231,14 @@ public class QuestionImportService {
 
     /**
      * Dùng chung bởi mapToGridGroupRequests (optionCount ≤ 4), mapToMatchingGroupRequests (optionCount ≤
-     * 8, bổ sung 2026-10-17 đã xác nhận với người dùng — nới "ABCD" thành "ABCDEFGH") và
-     * mapToClozeGroupRequests (optionCount = optionColumns.size(), bị chặn cứng ≤ 4 bởi chính cấu trúc
-     * gọi addOptionColumnIfPresent đúng 3 lần B/C/D — nới chuỗi ở đây KHÔNG ảnh hưởng Cloze).
+     * 10, bổ sung 2026-10-17 đã xác nhận với người dùng — nới "ABCD" thành "ABCDEFGH" rồi tiếp tục nới
+     * thành "ABCDEFGHIJ" cùng ngày) và mapToClozeGroupRequests (optionCount = optionColumns.size(), bị
+     * chặn cứng ≤ 4 bởi chính cấu trúc gọi addOptionColumnIfPresent đúng 3 lần B/C/D — nới chuỗi ở đây
+     * KHÔNG ảnh hưởng Cloze).
      */
     private String answerLetterAt(List<String> answerLetters, int index, int optionCount) {
         String letter = answerLetters.get(index).trim().toUpperCase(Locale.ROOT);
-        String allowedLetters = "ABCDEFGH".substring(0, optionCount);
+        String allowedLetters = "ABCDEFGHIJ".substring(0, optionCount);
         if (letter.length() != 1 || allowedLetters.indexOf(letter.charAt(0)) < 0) {
             throw new IllegalArgumentException("Đáp án đúng ở vị trí thứ " + (index + 1) + " phải là 1 chữ cái trong "
                     + String.join("/", allowedLetters.split("")) + " (đang có: '" + answerLetters.get(index) + "').");
