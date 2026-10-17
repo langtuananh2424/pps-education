@@ -1575,3 +1575,34 @@ export interface PendingListeningGradingResponse {
 export function listPendingListeningGrading(): Promise<PendingListeningGradingResponse[]> {
   return apiRequest<PendingListeningGradingResponse[]>("/listening-practice/grading/pending");
 }
+
+export interface ConnectionHistoryAnswer {
+  questionOrder: number;
+  prompt: string;
+  selectedLabel: string;
+  selectedContent: string;
+  correctLabel: string | null;
+  correctContent: string | null;
+  correct: boolean;
+}
+
+export interface ConnectionHistorySession {
+  watchSessionId: number;
+  sessionNumber: number;
+  videoTitle: string;
+  startedAt: string;
+  watchedSeconds: number;
+  durationSeconds: number;
+  qualified: boolean;
+  quizAttemptCount: number;
+  quizPassed: boolean;
+  quizCompletedAt: string | null;
+  /** true = lượt đã lưu trữ khi học sinh "Làm lại từ đầu" (chỉ còn để xem lịch sử). */
+  archived: boolean;
+  answers: ConnectionHistoryAnswer[];
+}
+
+/** 2026-10-17 — chi tiết từng lượt làm clip Kết nối của 1 học sinh (icon con mắt ở trang thống kê), gồm cả lượt đã lưu trữ. */
+export function getConnectionStudentHistory(assignmentId: number, studentId: number): Promise<{ sessions: ConnectionHistorySession[] }> {
+  return apiRequest<{ sessions: ConnectionHistorySession[] }>(`/review-video-assignments/${assignmentId}/stats/students/${studentId}/connection-history`);
+}
