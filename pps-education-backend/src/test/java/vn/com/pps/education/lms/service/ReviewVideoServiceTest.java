@@ -65,6 +65,7 @@ import java.time.OffsetDateTime;
 import org.springframework.test.util.AopTestUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 import vn.com.pps.education.lms.domain.ReviewVideoWatchSession;
+import vn.com.pps.education.lms.dto.ConnectionStudentHistoryResponse;
 import vn.com.pps.education.lms.repository.ReviewVideoWatchSessionRepository;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -103,6 +104,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ReviewVideoWatchSessionRepository watchSessionRepository;
+
+    @Autowired
+    private ReviewVideoReportService reviewVideoReportService;
 
     @Autowired
     private ClassService classService;
@@ -530,24 +534,71 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         });
     }
 
+    /** 2026-10-17: hoàn thành rồi thì không mở lượt xem tự do nữa — phải "Làm lại từ đầu". */
     @Test
-    void reportProgress_UC23a_connectionQuickRetryAllowedAfterCompleted() {
-        withMinWatchRatio(0.5, () -> {
-            ReviewVideoResponse video = createPublishedSetWithVideo(100, null, 1);
-            Student student = enrollStudent(schoolClass.id());
-            Long first = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
-            backdateSession(first, 60);
-            reportProgress(video.id(), first, 100, student.getUser().getId());
-            assertThat(reviewVideoService.submitConnectionAnswers(
-                    first, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId())
-                    .progress().completed()).isTrue();
+    void startWatchSession_UC23a_connectionRejectsNewSessionAfterCompleted() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, null, 1);
+        Student student = enrollStudent(schoolClass.id());
+        completeOneSession(video, student);
 
-            // Đã hoàn thành → lượt xem lại nhanh (học sinh làm lại cho đạt 100%) không bị chặn.
-            Long retry = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
-            reportProgress(video.id(), retry, 100, student.getUser().getId());
+        assertThatThrownBy(() -> startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId()))
+                .isInstanceOf(IllegalStateException.class);
+    }
 
-            assertThat(watchSessionRepository.findById(retry).orElseThrow().isQualified()).isTrue();
-        });
+    @Test
+    void retakeConnection_UC23a_archivesSessionsResetsProgressAndAllowsNewSession() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, null, 1);
+        Student student = enrollStudent(schoolClass.id());
+        Long first = completeOneSession(video, student);
+
+        ReviewVideoProgressResponse afterRetake = reviewVideoService.retakeConnection(
+                video.id(), activeAssignmentId(video.reviewVideoSetId()), student.getUser().getId());
+
+        assertThat(afterRetake.completed()).isFalse();
+        assertThat(afterRetake.viewCount()).isZero();
+        // Lịch sử vẫn còn, chỉ được đánh dấu lưu trữ.
+        assertThat(watchSessionRepository.findById(first).orElseThrow().getArchivedAt()).isNotNull();
+        Long second = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        assertThat(second).isNotEqualTo(first);
+        assertThat(watchSessionRepository.findById(second).orElseThrow().getArchivedAt()).isNull();
+    }
+
+    @Test
+    void getStudentConnectionHistory_UC66_includesArchivedSessionsAfterRetake() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, null, 1);
+        Student student = enrollStudent(schoolClass.id());
+        Long first = completeOneSession(video, student);
+        Long assignmentId = activeAssignmentId(video.reviewVideoSetId());
+        reviewVideoService.retakeConnection(video.id(), assignmentId, student.getUser().getId());
+        Long second = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+
+        ConnectionStudentHistoryResponse history = reviewVideoReportService.getStudentConnectionHistory(
+                assignmentId, student.getId(), teacher.getId());
+
+        assertThat(history.sessions()).extracting(ConnectionStudentHistoryResponse.SessionRow::watchSessionId)
+                .containsExactly(first, second);
+        assertThat(history.sessions()).extracting(ConnectionStudentHistoryResponse.SessionRow::archived)
+                .containsExactly(true, false);
+    }
+
+    @Test
+    void retakeConnection_UC23a_rejectsWhenNotCompleted() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, null, 2);
+        Student student = enrollStudent(schoolClass.id());
+        startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+
+        assertThatThrownBy(() -> reviewVideoService.retakeConnection(
+                video.id(), activeAssignmentId(video.reviewVideoSetId()), student.getUser().getId()))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    private Long completeOneSession(ReviewVideoResponse video, Student student) {
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+        assertThat(reviewVideoService.submitConnectionAnswers(
+                sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId())
+                .progress().completed()).isTrue();
+        return sessionId;
     }
 
     private void withMinWatchRatio(double ratio, Runnable body) {

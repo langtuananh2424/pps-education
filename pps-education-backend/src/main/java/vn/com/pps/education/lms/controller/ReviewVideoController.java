@@ -294,6 +294,14 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.reportProgress(videoId, request, actor.userId()));
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-17 — xem Javadoc ReviewVideoService#retakeConnection. */
+    @PostMapping("/api/review-videos/{videoId}/retake")
+    public ResponseEntity<ReviewVideoProgressResponse> retakeConnection(@PathVariable Long videoId,
+                                                                           @RequestParam Long assignmentId,
+                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.retakeConnection(videoId, assignmentId, actor.userId()));
+    }
+
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — xem Javadoc ReviewVideoService#stopEarly. */
     @PostMapping("/api/review-videos/{videoId}/stop-early")
     public ResponseEntity<ReviewVideoProgressResponse> stopEarly(@PathVariable Long videoId,

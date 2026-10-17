@@ -237,7 +237,7 @@ public class HomeworkProgressService {
             return true;
         }
         Map<Long, ReviewVideoConnectionAnswer> latestByQuestion = reviewVideoConnectionAnswerRepository
-                .findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentId(video.getId(), studentId).stream()
+                .findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentIdAndWatchSession_ArchivedAtIsNull(video.getId(), studentId).stream()
                 .collect(Collectors.toMap(a -> a.getReviewVideoConnectionQuestion().getId(), a -> a,
                         (a, b) -> a.getAnsweredAt().isAfter(b.getAnsweredAt()) ? a : b));
         long correct = latestByQuestion.values().stream().filter(ReviewVideoConnectionAnswer::isCorrect).count();
