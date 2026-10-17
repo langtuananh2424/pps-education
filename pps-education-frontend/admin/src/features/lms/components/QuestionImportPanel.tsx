@@ -115,80 +115,88 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   // đây thiếu hoàn toàn dù backend hỗ trợ từ 2026-09-17), y hệt nội dung buildTemplateBlocks() bên
   // backend (QuestionImportService.java) để 2 định dạng nhất quán. Hoist ra scope component (thay vì
   // local trong handleDownloadTemplate như trước) để dùng chung cho cả preview inline trong panel.
-  // Bổ sung 2026-10-17 (đã xác nhận với người dùng) — thêm 4 cột cuối "Đáp án E/F/G/H" phục vụ
-  // DOC_HIEU_NOI_DAP_AN (tối đa 8 lựa chọn dùng chung). Mọi dòng mẫu khác chỉ thêm 4 ô rỗng "" ở cuối
-  // (không dùng cột này) để khớp đúng số cột với `headers` — xem excelHeaders ở vi/en lms-question-authoring.json.
+  // Bổ sung 2026-10-17 (đã xác nhận với người dùng — LẦN 2 cùng ngày, sau khi GV mở file mẫu thật thấy
+  // "Đáp án E/F/G/H" nằm tít cuối bảng, cách xa "Đáp án A-D" bởi 7 cột khác) — 4 cột "Đáp án E/F/G/H"
+  // ĐẶT NGAY SAU "Đáp án D" (trước "Đáp án đúng"), gộp chung cụm 8 cột đáp án A-H liền nhau cho dễ điền
+  // tay — KHÔNG đặt cuối bảng như lần đầu nữa. An toàn vì ExcelQuestionRowParser đọc theo TÊN header
+  // (không theo vị trí cột, xem QuestionImportFieldAliases) nên đổi vị trí không ảnh hưởng parse — chỉ
+  // cần excelHeaders (vi/en lms-question-authoring.json) VÀ mọi dòng `sampleRows` dưới đây cùng đổi vị
+  // trí nhất quán. Thứ tự mới mỗi dòng: kind, difficulty, content, A, B, C, D, E, F, G, H, correctAnswer,
+  // audioUrl, imageUrl, referencePassage, points, explanation, tags, instruction.
   const sampleRows: string[][] = [
-    ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.geo"), "geo,easy", "", "", "", "", ""],
-    ["TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
-      "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", "", "", "", "", "", ""],
-    ["DIEN_TU", "", "She ___ (go) to school every day.", "", "", "", "", "goes",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), "", "", "", "", "", ""],
-    ["DIEN_TU_NHOM", "", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.", "", "", "", "", "smart|favourite|coach",
-      "", "", "activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice", "1",
-      t("questionImportPanel.excelSampleExplanations.fillInBlankGroup"), "", "", "", "", "", ""],
+    ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "", "", "", "",
+      "B", "", "", "", "1", t("questionImportPanel.excelSampleExplanations.geo"), "geo,easy", ""],
+    ["TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "", "", "", "",
+      "B", "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", "", ""],
+    ["DIEN_TU", "", "She ___ (go) to school every day.", "", "", "", "", "", "", "", "",
+      "goes", "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), "", ""],
+    ["DIEN_TU_NHOM", "", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.", "", "", "", "", "", "", "", "",
+      "smart|favourite|coach", "", "",
+      "activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice", "1",
+      t("questionImportPanel.excelSampleExplanations.fillInBlankGroup"), "", ""],
     // Cột cuối "Hướng dẫn" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14) — dòng chỉ dẫn
     // TÙY CHỌN hiện phía trên đề (chữ nghiêng, mirror "Ex. 1: ..."/"B. ..." trong đề giấy gốc) — để trống
     // thì không hiện, không ảnh hưởng gì (xem QuestionImportService#instructionText).
     ["DIEN_TU_DOAN_VAN", "",
       "In recent years, tourism has become a (1) ___ industry. Many travellers now book a (2) ___ that includes both transport and accommodation.",
-      "", "", "", "", "growing|package deal", "", "", "growing, package deal, accommodation, destination, resort", "1", "", "",
-      "Ex. 1: Fill in each blank (1-2) with the most appropriate word or phrase.", "", "", "", ""],
-    ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "",
-      "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), "", "", "", "", "", ""],
-    ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "",
-      "", "", "enthusiasm, literature, variety", "1", "", "", "", "", "", "", ""],
-    ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "goes|plays",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), "", "", "", "", "", ""],
-    ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "under|next to",
-      "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
-      t("questionImportPanel.excelSampleExplanations.wordBankPicture"), "", "", "", "", "", ""],
-    ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "This|is|a|pen",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), "", "", "", "", "", ""],
-    ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "s|m|i|l|e",
-      "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
-      t("questionImportPanel.excelSampleExplanations.letterScramble"), "", "", "", "", "", ""],
-    ["NGHE_NOP_AUDIO", "", "Listen to the audio and record your answer.", "", "", "", "", "",
-      "https://example-r2.dev/lms/questions/audio/mau-nghe.mp3", "", "", "1",
-      t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), "", "", "", "", "", ""],
-    ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
-      "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
-      t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), "", "", "", "", "", ""],
+      "", "", "", "", "", "", "", "",
+      "growing|package deal", "", "", "growing, package deal, accommodation, destination, resort", "1", "",
+      "", "Ex. 1: Fill in each blank (1-2) with the most appropriate word or phrase."],
+    ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "", "", "", "",
+      "", "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), "", ""],
+    ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "", "", "", "",
+      "", "", "", "enthusiasm, literature, variety", "1", "", "", ""],
+    ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "", "", "", "",
+      "goes|plays", "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), "", ""],
+    ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "", "", "", "",
+      "under|next to", "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
+      t("questionImportPanel.excelSampleExplanations.wordBankPicture"), "", ""],
+    ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "", "", "", "",
+      "This|is|a|pen", "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), "", ""],
+    ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "", "", "", "",
+      "s|m|i|l|e", "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
+      t("questionImportPanel.excelSampleExplanations.letterScramble"), "", ""],
+    ["NGHE_NOP_AUDIO", "", "Listen to the audio and record your answer.", "", "", "", "", "", "", "", "",
+      "", "https://example-r2.dev/lms/questions/audio/mau-nghe.mp3", "", "", "1",
+      t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), "", ""],
+    ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "", "", "", "",
+      "drives", "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
+      t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), "", ""],
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-06 (qua ảnh chụp đề giấy thật GV gửi) —
     // nội dung mẫu dựng lại gần sát đề thật: dòng đầu "The Sea Lady" đứng riêng (cách phần sau bằng 1
     // dòng trống) → tự thành TIÊU ĐỀ in đậm căn giữa; "**Main Facts:**"/"**Dinner:**" dùng cú pháp đậm
     // ** ** → tự in đậm làm tiêu đề mục con; toàn bộ xuống dòng còn lại GIỮ NGUYÊN (formMode bật
     // whitespace-pre-line) — khớp ĐÚNG cơ chế WordBankPreview đã có, chỉ là trước đây sample quá đơn
     // giản nên không lộ ra được hết khả năng này.
-    ["NGHE_PHIEU_THONG_TIN", "", "The Sea Lady\n\n**Main Facts:**\nBuilt in: (14) ___\nFirst tour: The Mediterranean Sea\n\n**Dinner:**\nTime: (15) ___ p.m. to 9.30 p.m.", "", "", "", "", "1999/nineteen ninety-nine|7:30/7.30/7h30",
+    ["NGHE_PHIEU_THONG_TIN", "", "The Sea Lady\n\n**Main Facts:**\nBuilt in: (14) ___\nFirst tour: The Mediterranean Sea\n\n**Dinner:**\nTime: (15) ___ p.m. to 9.30 p.m.", "", "", "", "", "", "", "", "",
+      "1999/nineteen ninety-nine|7:30/7.30/7h30",
       "https://example-r2.dev/lms/questions/audio/mau-phieu-thong-tin.mp3", "", "Write one or two words or a number or a date or a time.", "1",
-      t("questionImportPanel.excelSampleExplanations.listeningFormCompletion"), "", "", "", "", "", ""],
-    ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "B",
+      t("questionImportPanel.excelSampleExplanations.listeningFormCompletion"), "", ""],
+    ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "", "", "", "",
+      "B",
       "https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
       "https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",
-      "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), "", "", "", "", "", ""],
+      "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), "", ""],
     ["DOC_HIEU_LUOI", "", "Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
-      "Tom", "Max", "Anna", "", "B|A|C",
-      "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",
-      t("questionImportPanel.excelSampleExplanations.gridReading"), "", "", "", "", "", ""],
-    // Bổ sung 2026-10-17 (đã xác nhận với người dùng, chỉnh lại 2 LẦN CÙNG NGÀY sau khi GV test thật:
+      "Tom", "Max", "Anna", "", "", "", "", "",
+      "B|A|C", "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",
+      t("questionImportPanel.excelSampleExplanations.gridReading"), "", ""],
+    // Bổ sung 2026-10-17 (đã xác nhận với người dùng, chỉnh lại 3 LẦN CÙNG NGÀY sau khi GV test thật:
     // lần 1 đổi nội dung ví dụ cho khớp đúng sách (5 người Liam/Sophia/Noah/Emma/Oliver ghép 8 cơ sở vật
     // chất); lần 2 fix lỗi hiển thị thật — "Nội dung" KHÔNG tự đánh số thủ công (hệ thống đã tự đánh số,
-    // tự làm sẽ trùng "1. 1. Liam"), và dồn CẢ 2 đoạn (người + lựa chọn) vào "Đoạn văn tham chiếu" dùng
-    // chung, cách nhau \n\n dạng "Tên: nội dung" để tự tách đoạn + in đậm tên (khớp đúng cách Tom/Max/Anna
-    // hiện ở Đọc hiểu - Lưới) — trước đó dùng dấu | nên dính thành 1 khối chữ không đọc được.
+    // tự làm sẽ trùng "1. 1. Liam"), dồn CẢ 2 đoạn (người + lựa chọn) vào "Đoạn văn tham chiếu" dùng
+    // chung; lần 3 đổi vị trí cột Đáp án E-H lên ngay sau D (xem comment đầu sampleRows)).
     ["DOC_HIEU_NOI_DAP_AN", "",
       "Liam ___|Sophia ___|Noah ___|Emma ___|Oliver ___",
-      "The Main Library", "The Chemistry Laboratory", "The School Canteen", "The Modern Gym", "E|B|D|A|F",
-      "", "",
+      "The Main Library", "The Chemistry Laboratory", "The School Canteen", "The Modern Gym",
+      "The Computer Room", "The Eco-Garden", "The Main Playground", "The School Hall",
+      "E|B|D|A|F", "", "",
       "THE PEOPLE\n\nLiam: wants a quiet place with comfortable chairs to study in, needs a computer for online resources and a safe locker.\n\nSophia: wants to practice science experiments after class, needs state-of-the-art equipment and must wear her school uniform.\n\nNoah: wants to play indoor basketball, needs wheelchair accessibility and a vending machine for cold refreshments.\n\nEmma: wants to read storybooks in a peaceful space with a bright lamp and a large desk, wants to borrow physical books.\n\nOliver: wants to relax outdoors near nature, prefers a quiet space with a wooden fence, cannot climb stairs.\n\nSCHOOL FACILITIES\n\nA. The Main Library: large wooden desks, private reading lamp, digital catalog, ground floor next to the entrance gate.\n\nB. The Chemistry Laboratory: state-of-the-art equipment, sinks for washing hands, school uniform required.\n\nC. The School Canteen: hot meals, fresh fruits, sweet treats, center of campus, no computers.\n\nD. The Modern Gym: basketball courts, wheelchair ramps, vending machine, outdoor shoes prohibited.\n\nE. The Computer Room: second floor, new computers, high-speed internet, secure metal lockers.\n\nF. The Eco-Garden: outdoor, no stairs, wooden fence, quiet, no food or sports allowed.\n\nG. The Main Playground: large open yard, metal fence, basic sports equipment, hot in the afternoon.\n\nH. The School Hall: graduation ceremonies, giant projector board, only open for special events.",
-      "1", t("questionImportPanel.excelSampleExplanations.matchingGroup"), "", "",
-      "The Computer Room", "The Eco-Garden", "The Main Playground", "The School Hall"],
+      "1", t("questionImportPanel.excelSampleExplanations.matchingGroup"), "", ""],
     ["DOC_DIEN_TU", "", "",
-      "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", "", "B|A|C",
-      "", "", "The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.", "1",
-      t("questionImportPanel.excelSampleExplanations.clozeReading"), "", "", "", "", "", ""]
+      "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", "", "", "", "", "",
+      "B|A|C", "", "", "The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.", "1",
+      t("questionImportPanel.excelSampleExplanations.clozeReading"), "", ""]
   ];
 
   const handleDownloadTemplate = async () => {
