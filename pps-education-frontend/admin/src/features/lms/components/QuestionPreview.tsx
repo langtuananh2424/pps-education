@@ -374,6 +374,9 @@ export function QuestionPreview({
          * lần. Ẩn span nội dung cho riêng WORD_BANK, chỉ giữ số thứ tự.
          */}
         <p className="text-sm font-bold text-slate-800">
+          {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
+            <span className="block text-sm italic font-normal text-slate-500 whitespace-pre-line mb-2">{question.structuredContent.instruction}</span>
+          )}
           <span className="block text-slate-400 text-sm uppercase tracking-wider mb-1">
             {t("studentPreviewModal.questionNumberPrefix", { number: displayNumber })}
           </span>

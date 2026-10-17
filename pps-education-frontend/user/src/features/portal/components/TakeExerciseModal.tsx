@@ -274,7 +274,7 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
  */
 export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
-  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; questions: ExerciseQuestionResponse[] };
+  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; instruction: string | null; questions: ExerciseQuestionResponse[] };
 
 /**
  * Bổ sung 2026-09-24 (đã xác nhận với người dùng, sửa bug thật) — lưới ảnh "Match the words with their
@@ -371,6 +371,7 @@ export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]):
         referencePassage: q.referencePassage,
         audioUrl: q.audioUrl,
         wordBox: q.structuredContent?.wordBox ?? null,
+        instruction: q.structuredContent?.instruction ?? null,
         questions: [q]
       });
     } else {
@@ -1269,6 +1270,9 @@ export function QuestionBlock({
          * tương tác, 1 lần có ô điền thật). Ẩn hẳn span nội dung cho riêng WORD_BANK, chỉ giữ số thứ tự.
          */}
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
+          {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
+            <span className="block text-sm sm:text-base italic font-normal text-muted whitespace-pre-line mb-2">{question.structuredContent.instruction}</span>
+          )}
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
           </span>
@@ -2085,6 +2089,7 @@ export function GridQuestionGroup({
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
+      {block.instruction && <p className="text-sm sm:text-base italic text-muted whitespace-pre-line">{block.instruction}</p>}
       {block.referencePassage && (
         <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
