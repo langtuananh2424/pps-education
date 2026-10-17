@@ -115,6 +115,16 @@ public class QuestionImportService {
     private static final String KIND_CLOZE_GROUP = "DOC_DIEN_TU";
 
     /**
+     * Bổ sung 2026-10-17 (đã xác nhận với người dùng) — "DOC_HIEU_NOI_DAP_AN" (đọc hiểu — nối đáp án):
+     * cùng cơ chế với KIND_GRID_GROUP (N câu dùng CHUNG 1 referencePassage + CHUNG 1 bộ đáp án, mỗi câu
+     * 1 chữ cái đúng) nhưng cho tới 8 đáp án dùng chung (A-H) thay vì tối đa 4 — phục vụ dạng bài
+     * "multiple matching" kinh điển (VD SGK Cambridge: 5 người ghép 1-trong-8 mô tả cơ sở vật chất).
+     * Giữ KIND_GRID_GROUP nguyên vẹn (không đổi giới hạn 4) để không ảnh hưởng câu hỏi đã import trước
+     * đó — xem mapToMatchingGroupRequests()/buildSharedGroupChoices() (tham số hoá maxChoices).
+     */
+    private static final String KIND_MATCHING_GROUP = "DOC_HIEU_NOI_DAP_AN";
+
+    /**
      * Bổ sung 2026-10-03 (đã xác nhận với người dùng) — "Nghe điền phiếu thông tin" (form/note
      * completion của IELTS Listening): 1 audio + 1 phiếu thông tin nhiều chỗ trống đánh số. Tái dùng
      * questionType WORD_BANK (inputMode="text") + structuredContent.format="form" để chấm theo từng ô
@@ -126,7 +136,7 @@ public class QuestionImportService {
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
             "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
             "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION, KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP,
-            KIND_CLOZE_GROUP);
+            KIND_CLOZE_GROUP, KIND_MATCHING_GROUP);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -215,13 +225,15 @@ public class QuestionImportService {
             for (QuestionRowParser.ParsedQuestionRow row : parsedRows) {
                 try {
                     String kind = resolveKind(row, defaultKind);
-                    // DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU là 3 kind mà 1 dòng tạo ra NHIỀU Question
-                    // (mỗi hàm tự validate + pre-check trùng TRƯỚC KHI tạo bất kỳ câu nào, xem Javadoc
-                    // từng hàm) — mọi kind khác vẫn 1 dòng = 1 Question như cũ.
+                    // DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_HIEU_NOI_DAP_AN/DOC_DIEN_TU là 4 kind mà 1 dòng tạo
+                    // ra NHIỀU Question (mỗi hàm tự validate + pre-check trùng TRƯỚC KHI tạo bất kỳ câu
+                    // nào, xem Javadoc từng hàm) — mọi kind khác vẫn 1 dòng = 1 Question như cũ.
                     List<CreateQuestionRequest> requests = KIND_FILL_IN_BLANK_GROUP.equals(kind)
                             ? mapToGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : KIND_GRID_GROUP.equals(kind)
                             ? mapToGridGroupRequests(row, bank.getId(), rejectActiveDuplicate)
+                            : KIND_MATCHING_GROUP.equals(kind)
+                            ? mapToMatchingGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : KIND_CLOZE_GROUP.equals(kind)
                             ? mapToClozeGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : List.of(mapToRequest(row, bank.getId(), kind, autoGroupKeys.get(row)));
@@ -299,8 +311,8 @@ public class QuestionImportService {
             "WRITING", Set.of("TU_LUAN"),
             "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION),
             // Bổ sung 2026-09-08 — trước đây READING không có entry (Cloze/Grid chưa import được), giờ
-            // mở khóa cả 2 group kind mới.
-            "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP));
+            // mở khóa cả 2 group kind mới. Bổ sung 2026-10-17 — thêm KIND_MATCHING_GROUP (nối đáp án).
+            "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP, KIND_MATCHING_GROUP));
 
     /**
      * File mẫu Word (.docx) soạn đề nhanh — tĩnh, không cá nhân hoá theo
@@ -492,6 +504,20 @@ public class QuestionImportService {
                 "Đáp án đúng: B|A|C",
                 "Giải thích: Mỗi câu trong \"Nội dung\" phân tách bằng dấu |, dùng CHUNG 1 đoạn văn + CHUNG 1 bộ đáp án A-D (mỗi đáp án 1 dòng \"A. ...\"/\"B. ...\", KHÔNG phân tách |, áp dụng cho MỌI câu). \"Đáp án đúng\" là chữ cái A/B/C/D theo ĐÚNG thứ tự khớp \"Nội dung\".",
                 "---"));
+        // Bổ sung 2026-10-17 (đã xác nhận với người dùng, chỉnh lại CÙNG NGÀY sau khi hỏi lại — đổi từ
+        // MULTIPLE_CHOICE bấm chọn sang FILL_IN_BLANK gõ chữ cái, khớp đúng định dạng "Your Answers:
+        // Sarah: [...]" trong đề giấy gốc) — "Đọc hiểu — Nối đáp án": học sinh GÕ chữ cái đúng (A-H) vào
+        // 1 ô nhập cho mỗi câu, KHÔNG bấm chọn nút — xem mapToMatchingGroupRequests().
+        blocks.put(KIND_MATCHING_GROUP, List.of(
+                "[DOC_HIEU_NOI_DAP_AN]",
+                "Đoạn văn tham chiếu: A. The School Library — a quiet place with books.",
+                "B. The Gymnasium — a large indoor hall for sports.",
+                "Nội dung: Who wants a quiet place to read?|Who wants to practice basketball?",
+                "A. The School Library", "B. The Gymnasium", "C. The Art Studio", "D. The Music Room",
+                "E. The Computer Lab", "F. The Schoolyard", "G. The Science Laboratory", "H. The Main Canteen",
+                "Đáp án đúng: A|B",
+                "Giải thích: Khác [DOC_HIEU_LUOI] (bấm chọn nút) — đây là dạng HỌC SINH TỰ GÕ chữ cái đúng vào 1 ô nhập cho mỗi câu (y hệt \"Your Answers: ...\" trong đề giấy), chấm không phân biệt hoa/thường. Mỗi câu trong \"Nội dung\" phân tách bằng dấu |, dùng CHUNG 1 đoạn văn (BẮT BUỘC tự liệt kê \"A. ...\"...\"H. ...\" kèm mô tả trong \"Đoạn văn tham chiếu\" để học sinh đọc — không tự dựng từ cột Đáp án A-H). Cột Đáp án A-H (2-8, không phân tách |) CHỈ dùng để xác định phạm vi chữ cái hợp lệ cho \"Đáp án đúng\" — không hiện ra nút bấm. \"Đáp án đúng\" là chữ cái A-H theo ĐÚNG thứ tự khớp \"Nội dung\".",
+                "---"));
         blocks.put(KIND_CLOZE_GROUP, List.of(
                 "[DOC_DIEN_TU]",
                 "Đoạn văn tham chiếu: The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.",
@@ -528,7 +554,7 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
                     + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
                     + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/DIEN_TU_DOAN_VAN/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
-                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/DOC_HIEU_LUOI/DOC_DIEN_TU.");
+                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/DOC_HIEU_LUOI/DOC_HIEU_NOI_DAP_AN/DOC_DIEN_TU.");
         }
         return kind;
     }
@@ -943,7 +969,7 @@ public class QuestionImportService {
         if (questions.size() < 2) {
             throw new IllegalArgumentException("Đọc hiểu — lưới cần tối thiểu 2 câu hỏi trong \"Nội dung\", phân tách bằng dấu |.");
         }
-        List<QuestionChoiceRequest> sharedChoices = buildSharedGroupChoices(row);
+        List<QuestionChoiceRequest> sharedChoices = buildSharedGroupChoices(row, 4);
         if (isBlank(row.correctAnswer())) {
             throw new IllegalArgumentException("Đọc hiểu — lưới cần \"Đáp án đúng\" cho từng câu (chữ cái A/B/C/D), phân tách bằng dấu |.");
         }
@@ -979,6 +1005,75 @@ public class QuestionImportService {
             List<QuestionChoiceRequest> choicesForQuestion = applyCorrectLetter(sharedChoices, correctLetter);
             requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", "READING", difficulty, questions.get(i),
                     null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, null, groupKey));
+        }
+        return requests;
+    }
+
+    /**
+     * DOC_HIEU_NOI_DAP_AN (bổ sung 2026-10-17, đã xác nhận với người dùng — "Đọc hiểu — Nối đáp án"):
+     * 1 dòng file → N CreateQuestionRequest (1/câu), TẤT CẢ dùng CHUNG 1 referencePassage (liệt kê sẵn
+     * các lựa chọn A-H kèm mô tả, GV tự gõ trực tiếp vào "Đoạn văn tham chiếu" — KHÔNG dựng lại từ
+     * "Đáp án A-H"). Khác DOC_HIEU_LUOI (MULTIPLE_CHOICE, học sinh BẤM chọn 1 trong các nút hiện sẵn):
+     * đây là FILL_IN_BLANK — mỗi câu chỉ có 1 Ô NHẬP CHỮ, học sinh tự GÕ chữ cái đúng (VD "H"), đúng y
+     * hệt định dạng "Your Answers: Sarah: [...] David: [...]" trong đề giấy gốc — xác nhận lại với
+     * người dùng 2026-10-17 sau khi làm bản MULTIPLE_CHOICE trước đó, đổi hẳn sang kiểu gõ tay thay vì
+     * bấm chọn. "Đáp án A-H" (2-8, dùng lại buildSharedGroupChoices để validate) CHỈ dùng để xác định
+     * PHẠM VI chữ cái hợp lệ cho "Đáp án đúng" (VD khai 5 lựa chọn A-E thì "Đáp án đúng" không được là
+     * F trở lên) — không tạo QuestionChoiceRequest nào, không hiện nút bấm. Chấm tự động case-insensitive
+     * (mirror DIEN_TU_NHOM/ExerciseAttemptService — so khớp đúng 1 chữ cái).
+     */
+    private List<CreateQuestionRequest> mapToMatchingGroupRequests(QuestionRowParser.ParsedQuestionRow row, Long bankId, boolean rejectActiveDuplicate) {
+        if (isBlank(row.content())) {
+            throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
+        }
+        if (isBlank(row.referencePassage())) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần \"Đoạn văn tham chiếu\" (liệt kê các lựa chọn A-H kèm mô tả) dùng chung cho cả nhóm câu hỏi.");
+        }
+        List<String> questions = splitPipeKeepBlanks(row.content());
+        for (int i = 0; i < questions.size(); i++) {
+            if (questions.get(i).isEmpty()) {
+                throw new IllegalArgumentException("Đọc hiểu — nối đáp án: câu hỏi thứ " + (i + 1) + " (theo dấu |) bị rỗng trong \"Nội dung\".");
+            }
+        }
+        if (questions.size() < 2) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần tối thiểu 2 câu hỏi trong \"Nội dung\", phân tách bằng dấu |.");
+        }
+        // Chỉ dùng để biết PHẠM VI chữ cái hợp lệ (A-?), KHÔNG tạo nút bấm — xem Javadoc.
+        int optionCount = buildSharedGroupChoices(row, 8).size();
+        if (isBlank(row.correctAnswer())) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần \"Đáp án đúng\" cho từng câu (chữ cái A-H), phân tách bằng dấu |.");
+        }
+        List<String> answerLetters = splitPipeKeepBlanks(row.correctAnswer());
+        if (answerLetters.size() != questions.size()) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án: số đáp án (" + answerLetters.size()
+                    + ") không khớp số câu hỏi (" + questions.size() + ") trong \"Nội dung\".");
+        }
+        if (Set.copyOf(questions).size() != questions.size()) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án: có 2 câu hỏi trùng nội dung trong CÙNG 1 nhóm — mỗi câu phải khác nhau.");
+        }
+        if (rejectActiveDuplicate) {
+            for (String q : questions) {
+                if (questionBankService.existsActiveDuplicate(bankId, q)) {
+                    throw new IllegalArgumentException("Đọc hiểu — nối đáp án: câu \"" + q + "\" đã tồn tại trong ngân hàng câu hỏi (trùng nội dung) — không thể tạo trùng.");
+                }
+            }
+        }
+
+        String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
+        if (!VALID_DIFFICULTIES.contains(difficulty)) {
+            throw new IllegalArgumentException("Độ khó không hợp lệ: '" + row.difficulty() + "' — chỉ chấp nhận EASY/MEDIUM/HARD.");
+        }
+        BigDecimal defaultPoints = parsePoints(row.defaultPoints());
+        List<String> tags = parseTags(row.tags());
+        String explanation = blankToNull(row.explanation());
+        String referencePassage = row.referencePassage().trim();
+        String groupKey = "matching-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+
+        List<CreateQuestionRequest> requests = new ArrayList<>();
+        for (int i = 0; i < questions.size(); i++) {
+            String correctLetter = answerLetterAt(answerLetters, i, optionCount);
+            requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", "READING", difficulty, questions.get(i),
+                    null, null, referencePassage, explanation, correctLetter, defaultPoints, tags, null, null, groupKey));
         }
         return requests;
     }
@@ -1079,16 +1174,24 @@ public class QuestionImportService {
         return requests;
     }
 
-    /** Đáp án A-D dùng CHUNG cho mọi câu trong nhóm DOC_HIEU_LUOI (khác DOC_DIEN_TU — mỗi chỗ trống riêng). */
-    private List<QuestionChoiceRequest> buildSharedGroupChoices(QuestionRowParser.ParsedQuestionRow row) {
+    /**
+     * Đáp án dùng CHUNG cho mọi câu trong nhóm (khác DOC_DIEN_TU — mỗi chỗ trống riêng). {@code
+     * maxChoices} = 4 cho DOC_HIEU_LUOI (đọc A-D), = 8 cho DOC_HIEU_NOI_DAP_AN (đọc A-H, bổ sung
+     * 2026-10-17 đã xác nhận với người dùng — tham số hoá thay vì hard-code 4 để tái dùng nguyên hàm
+     * này cho cả 2 kind, xem mapToGridGroupRequests()/mapToMatchingGroupRequests()).
+     */
+    private List<QuestionChoiceRequest> buildSharedGroupChoices(QuestionRowParser.ParsedQuestionRow row, int maxChoices) {
+        String[] all = {row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD(),
+                row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH()};
         List<String> raw = new ArrayList<>();
-        for (String c : new String[]{row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD()}) {
-            if (!isBlank(c)) {
-                raw.add(c.trim());
+        for (int i = 0; i < maxChoices; i++) {
+            if (!isBlank(all[i])) {
+                raw.add(all[i].trim());
             }
         }
         if (raw.size() < 2) {
-            throw new IllegalArgumentException("Đọc hiểu — lưới cần tối thiểu 2 đáp án dùng chung (Đáp án A/B), tối đa 4 (A-D).");
+            throw new IllegalArgumentException("Đọc hiểu cần tối thiểu 2 đáp án dùng chung (Đáp án A/B), tối đa "
+                    + maxChoices + " (A-" + (char) ('A' + maxChoices - 1) + ").");
         }
         List<QuestionChoiceRequest> choices = new ArrayList<>();
         for (int i = 0; i < raw.size(); i++) {
@@ -1120,9 +1223,15 @@ public class QuestionImportService {
         optionColumns.add(parsed);
     }
 
+    /**
+     * Dùng chung bởi mapToGridGroupRequests (optionCount ≤ 4), mapToMatchingGroupRequests (optionCount ≤
+     * 8, bổ sung 2026-10-17 đã xác nhận với người dùng — nới "ABCD" thành "ABCDEFGH") và
+     * mapToClozeGroupRequests (optionCount = optionColumns.size(), bị chặn cứng ≤ 4 bởi chính cấu trúc
+     * gọi addOptionColumnIfPresent đúng 3 lần B/C/D — nới chuỗi ở đây KHÔNG ảnh hưởng Cloze).
+     */
     private String answerLetterAt(List<String> answerLetters, int index, int optionCount) {
         String letter = answerLetters.get(index).trim().toUpperCase(Locale.ROOT);
-        String allowedLetters = "ABCD".substring(0, optionCount);
+        String allowedLetters = "ABCDEFGH".substring(0, optionCount);
         if (letter.length() != 1 || allowedLetters.indexOf(letter.charAt(0)) < 0) {
             throw new IllegalArgumentException("Đáp án đúng ở vị trí thứ " + (index + 1) + " phải là 1 chữ cái trong "
                     + String.join("/", allowedLetters.split("")) + " (đang có: '" + answerLetters.get(index) + "').");
