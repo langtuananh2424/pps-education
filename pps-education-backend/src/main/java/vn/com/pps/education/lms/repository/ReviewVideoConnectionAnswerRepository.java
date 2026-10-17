@@ -13,10 +13,12 @@ public interface ReviewVideoConnectionAnswerRepository extends JpaRepository<Rev
     List<ReviewVideoConnectionAnswer> findByWatchSession_IdIn(List<Long> watchSessionIds);
 
     /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — toàn bộ câu trả lời của 1 học sinh cho 1 video, MỌI lượt/chu kỳ (dùng tính điểm pass tổng, lấy bản mới nhất mỗi câu hỏi ở tầng Service). */
-    List<ReviewVideoConnectionAnswer> findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentId(Long videoId, Long studentId);
+    /** Chỉ câu trả lời của các lượt ĐANG TÍNH (chưa lưu trữ do "Làm lại từ đầu", 2026-10-17) — lịch sử cũ vẫn còn trong bảng nhưng không tính điểm. */
+    List<ReviewVideoConnectionAnswer> findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentIdAndWatchSession_ArchivedAtIsNull(Long videoId, Long studentId);
 
     /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — toàn bộ câu trả lời (mọi học sinh, mọi lượt) cho 1 nhóm video, dùng cho trang "Xem chi tiết" BTVN CONNECTION (ReviewVideoReportService) — 1 query bulk thay vì lặp theo từng học sinh. */
-    List<ReviewVideoConnectionAnswer> findByReviewVideoConnectionQuestion_ReviewVideoIdIn(List<Long> videoIds);
+    /** Như trên: bỏ câu trả lời của lượt đã lưu trữ. */
+    List<ReviewVideoConnectionAnswer> findByReviewVideoConnectionQuestion_ReviewVideoIdInAndWatchSession_ArchivedAtIsNull(List<Long> videoIds);
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa video" (xem ReviewVideoService#deleteVideo): câu hỏi CONNECTION của video đã có học sinh trả lời thì không cho xóa. */
     boolean existsByReviewVideoConnectionQuestion_ReviewVideoId(Long reviewVideoId);
