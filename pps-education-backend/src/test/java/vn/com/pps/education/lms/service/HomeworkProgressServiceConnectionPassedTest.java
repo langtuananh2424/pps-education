@@ -99,7 +99,7 @@ class HomeworkProgressServiceConnectionPassedTest {
     }
 
     private void answers(ReviewVideoConnectionAnswer... answers) {
-        when(answerRepository.findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentId(2L, STUDENT_ID))
+        when(answerRepository.findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentIdAndWatchSession_ArchivedAtIsNull(2L, STUDENT_ID))
                 .thenReturn(List.of(answers));
     }
 
