@@ -62,6 +62,10 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import org.springframework.test.util.AopTestUtils;
+import org.springframework.test.util.ReflectionTestUtils;
+import vn.com.pps.education.lms.domain.ReviewVideoWatchSession;
+import vn.com.pps.education.lms.repository.ReviewVideoWatchSessionRepository;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -96,6 +100,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ReviewVideoService reviewVideoService;
+
+    @Autowired
+    private ReviewVideoWatchSessionRepository watchSessionRepository;
 
     @Autowired
     private ClassService classService;
@@ -487,6 +494,76 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
         assertThat(quizResult.progress().completed()).isTrue();
         assertThat(quizResult.progress().viewCount()).isEqualTo(1);
+    }
+
+    /**
+     * 2026-10-17: chống "tua tới cuối" CONNECTION — lượt còn tính vào hoàn thành phải có thời gian thật
+     * từ lúc mở lượt ≥ duration × ratio mới được qualified. Bật lại ratio 0.5 (AbstractIntegrationTest tắt = 0).
+     */
+    @Test
+    void reportProgress_UC23a_connectionRejectsInstantFullWatchWhileNotCompleted() {
+        withMinWatchRatio(0.5, () -> {
+            ReviewVideoResponse video = createPublishedSetWithVideo(100);
+            Student student = enrollStudent(schoolClass.id());
+            Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+
+            reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+            assertThat(watchSessionRepository.findById(sessionId).orElseThrow().isQualified()).isFalse();
+            assertThatThrownBy(() -> reviewVideoService.submitConnectionAnswers(
+                    sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId()))
+                    .isInstanceOf(VideoNotYetQualifiedException.class);
+        });
+    }
+
+    @Test
+    void reportProgress_UC23a_connectionAcceptsFullWatchAfterHalfDurationRealTime() {
+        withMinWatchRatio(0.5, () -> {
+            ReviewVideoResponse video = createPublishedSetWithVideo(100);
+            Student student = enrollStudent(schoolClass.id());
+            Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+            backdateSession(sessionId, 51);
+
+            reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+            assertThat(watchSessionRepository.findById(sessionId).orElseThrow().isQualified()).isTrue();
+        });
+    }
+
+    @Test
+    void reportProgress_UC23a_connectionQuickRetryAllowedAfterCompleted() {
+        withMinWatchRatio(0.5, () -> {
+            ReviewVideoResponse video = createPublishedSetWithVideo(100, null, 1);
+            Student student = enrollStudent(schoolClass.id());
+            Long first = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+            backdateSession(first, 60);
+            reportProgress(video.id(), first, 100, student.getUser().getId());
+            assertThat(reviewVideoService.submitConnectionAnswers(
+                    first, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId())
+                    .progress().completed()).isTrue();
+
+            // Đã hoàn thành → lượt xem lại nhanh (học sinh làm lại cho đạt 100%) không bị chặn.
+            Long retry = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+            reportProgress(video.id(), retry, 100, student.getUser().getId());
+
+            assertThat(watchSessionRepository.findById(retry).orElseThrow().isQualified()).isTrue();
+        });
+    }
+
+    private void withMinWatchRatio(double ratio, Runnable body) {
+        ReviewVideoService target = AopTestUtils.getUltimateTargetObject(reviewVideoService);
+        ReflectionTestUtils.setField(target, "connectionMinWatchRatio", ratio);
+        try {
+            body.run();
+        } finally {
+            ReflectionTestUtils.setField(target, "connectionMinWatchRatio", 0.0);
+        }
+    }
+
+    private void backdateSession(Long sessionId, long secondsAgo) {
+        ReviewVideoWatchSession session = watchSessionRepository.findById(sessionId).orElseThrow();
+        session.setStartedAt(OffsetDateTime.now().minusSeconds(secondsAgo));
+        watchSessionRepository.saveAndFlush(session);
     }
 
     @Test

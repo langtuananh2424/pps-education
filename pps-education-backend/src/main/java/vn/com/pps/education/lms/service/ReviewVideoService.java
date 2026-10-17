@@ -96,10 +96,12 @@ import vn.com.pps.education.auth.repository.UserRepository;
 import vn.com.pps.education.lms.service.integrity.AttemptIntegrityService;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import org.springframework.beans.factory.annotation.Value;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -169,6 +171,7 @@ public class ReviewVideoService {
     private final TransactionTemplate requiresNewTransactionTemplate;
     /** V200 — kiểm tra + gán dạng đề / dữ liệu tranh của câu hỏi REFLEX. */
     private final ReflexQuestionFormatService reflexQuestionFormatService;
+    private double connectionMinWatchRatio;
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
@@ -212,7 +215,9 @@ public class ReviewVideoService {
                                AttemptIntegrityService attemptIntegrityService,
                                PermissionEvaluationService permissionEvaluationService,
                                PlatformTransactionManager transactionManager,
-                               ReflexQuestionFormatService reflexQuestionFormatService) {
+                               ReflexQuestionFormatService reflexQuestionFormatService,
+                               @Value("${app.review-video.connection-min-watch-ratio:0.5}") double connectionMinWatchRatio) {
+        this.connectionMinWatchRatio = connectionMinWatchRatio;
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoSetClassAssignmentRepository = reviewVideoSetClassAssignmentRepository;
         this.reviewVideoRepository = reviewVideoRepository;
@@ -1192,17 +1197,33 @@ public class ReviewVideoService {
         // xem HẾT (100%, cố định, không còn cấu hình %) mới được làm câu hỏi; completionThresholdPercent
         // đổi ý nghĩa cho CONNECTION thành "ngưỡng % pass" (dùng ở computeConnectionPassScore), KHÔNG
         // còn dùng để tính qualified nữa. REFLEX giữ nguyên y hệt logic cũ (đọc completionThresholdPercent).
+        ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         boolean qualified = video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION
-                ? sessionWatchedSeconds >= video.getDurationSeconds()
+                ? sessionWatchedSeconds >= video.getDurationSeconds() && hasWatchedForRealTime(session, video, progress)
                 : sessionWatchedSeconds >= video.getDurationSeconds() * (video.getCompletionThresholdPercent() / 100.0);
         session.setQualified(qualified);
         reviewVideoWatchSessionRepository.save(session);
 
-        ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         progress.setWatchedSeconds(Math.max(progress.getWatchedSeconds(), sessionWatchedSeconds));
         reviewVideoProgressRepository.save(progress);
         progress = recomputeProgress(video, student, assignment);
         return toResponse(progress, video);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-17 — chống "tua tới cuối" cho CONNECTION:
+     * trình phát phía client tự báo 100% khi video ENDED nên server đối chiếu thêm THỜI GIAN THẬT từ lúc
+     * mở lượt (startedAt) tới giờ phải ≥ durationSeconds × {@code connectionMinWatchRatio} (mặc định 0.5 =
+     * cho phép xem tốc độ 2x). CHỈ áp dụng khi học sinh CHƯA hoàn thành/CHƯA dừng sớm — tức các lượt còn
+     * tính vào hoàn thành; sau khi hoàn thành, xem/làm lại nhanh để đạt 100% không bị chặn (người dùng
+     * khuyến khích). Ratio <= 0 tắt kiểm tra.
+     */
+    private boolean hasWatchedForRealTime(ReviewVideoWatchSession session, ReviewVideo video, ReviewVideoProgress progress) {
+        if (connectionMinWatchRatio <= 0 || progress.isCompleted() || progress.isStoppedEarly()) {
+            return true;
+        }
+        long elapsedSeconds = Duration.between(session.getStartedAt(), OffsetDateTime.now()).getSeconds();
+        return elapsedSeconds >= video.getDurationSeconds() * connectionMinWatchRatio;
     }
 
     /**
