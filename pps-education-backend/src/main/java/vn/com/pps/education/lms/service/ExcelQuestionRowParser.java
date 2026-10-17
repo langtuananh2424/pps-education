@@ -93,7 +93,11 @@ public class ExcelQuestionRowParser implements QuestionRowParser {
                             field(row, formatter, fieldToColumn, "defaultPoints"),
                             field(row, formatter, fieldToColumn, "explanation"),
                             field(row, formatter, fieldToColumn, "tags"),
-                            field(row, formatter, fieldToColumn, "instruction")
+                            field(row, formatter, fieldToColumn, "instruction"),
+                            field(row, formatter, fieldToColumn, "choiceE"),
+                            field(row, formatter, fieldToColumn, "choiceF"),
+                            field(row, formatter, fieldToColumn, "choiceG"),
+                            field(row, formatter, fieldToColumn, "choiceH")
                     ));
                 }
             }

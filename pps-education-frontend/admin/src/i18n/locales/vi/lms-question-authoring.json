@@ -160,7 +160,8 @@
   "questionImportPanel": {
     "excelHeaders": [
       "Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
-      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu", "Điểm", "Giải thích", "Tags", "Hướng dẫn"
+      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu", "Điểm", "Giải thích", "Tags", "Hướng dẫn",
+      "Đáp án E", "Đáp án F", "Đáp án G", "Đáp án H"
     ],
     "excelSampleExplanations": {
       "geo": "Paris là thủ đô nước Pháp.",
@@ -176,6 +177,7 @@
       "listeningFormCompletion": "Mỗi chỗ trống ___ khớp 1 đáp án theo thứ tự (phân tách |); mỗi ô nhiều đáp án phân tách /, số/giờ được chuẩn hóa. Chấm theo tỉ lệ ô đúng.",
       "listeningPictureChoice": "Mỗi ảnh 1 đáp án theo thứ tự A/B/C(/D), phân tách bằng dấu | trong URL Hình ảnh — Đáp án A/B/C/D tùy chọn để thêm chú thích chữ dưới ảnh, để trống thì tự dùng chữ cái làm nhãn.",
       "gridReading": "Mỗi câu trong Nội dung phân tách bằng |, dùng CHUNG 1 đoạn văn tham chiếu + CHUNG 1 bộ đáp án A-D (áp dụng cho MỌI câu). Đáp án đúng là chữ cái A/B/C/D theo ĐÚNG thứ tự khớp Nội dung.",
+      "matchingGroup": "Khác Đọc hiểu - Lưới (bấm chọn nút) — đây là dạng HỌC SINH TỰ GÕ chữ cái đúng (A-H) vào 1 ô nhập cho mỗi câu, không bấm chọn. Nội dung mỗi câu CHỈ cần tên/nhãn ngắn gọn (VD \"Liam ___\") — hệ thống TỰ đánh số 1/2/3... phía trước, KHÔNG tự đánh số thủ công (sẽ bị trùng số \"1. 1. Liam\"). Mô tả đầy đủ (cả người lẫn lựa chọn A-H) đặt chung trong Đoạn văn tham chiếu, dạng \"Tên: Mô tả\" cách nhau 1 DÒNG TRỐNG thật (Alt+Enter 2 lần trong Excel, KHÔNG dùng dấu | — sẽ dính thành 1 khối chữ) để mỗi mục tự tách đoạn + in đậm tên riêng. Cột Đáp án A-H (2-8) chỉ để xác định phạm vi chữ cái hợp lệ, không hiện nút. Đáp án đúng là chữ cái A-H theo ĐÚNG thứ tự khớp Nội dung — học sinh gõ đúng chữ cái là được, không phân biệt hoa/thường.",
       "clozeReading": "Số chỗ trống suy ra từ số phần tử | ở Đáp án A (bắt buộc) — Đáp án B/C/D (nếu có) phải cùng số lượng, MỖI chỗ trống 1 phương án riêng. Nội dung (tùy chọn) đặt nhãn riêng từng chỗ trống, để trống thì tự đánh số."
     },
     "formatExcel": "Excel (.xlsx)",
@@ -201,6 +203,7 @@
       "NGHE_CHON_HINH": "Nghe chọn hình",
       "NGHE_PHIEU_THONG_TIN": "Nghe điền phiếu thông tin",
       "DOC_HIEU_LUOI": "Đọc hiểu - Lưới",
+      "DOC_HIEU_NOI_DAP_AN": "Đọc hiểu - Nối đáp án",
       "DOC_DIEN_TU": "Đọc điền từ - Cloze",
       "DIEN_TU_DOAN_VAN": "Đọc điền từ - Đoạn văn liền mạch"
     },
@@ -223,6 +226,7 @@
       "NGHE_NOP_AUDIO": "Bắt buộc: Nội dung, URL Audio. Chấm thủ công.",
       "NGHE_CHON_HINH": "Bắt buộc: Nội dung, URL Audio, URL Hình ảnh (N ảnh cách |, 1 ảnh/đáp án theo thứ tự A-D). Tùy chọn: Đáp án A-D (chú thích dưới ảnh), Đáp án đúng. Đoạn văn tham chiếu = Transcript lời thoại audio, không cần định dạng đặc biệt.",
       "DOC_HIEU_LUOI": "1 dòng tạo N câu, chung 1 bộ đáp án. Bắt buộc: Nội dung (N câu cách |), Đáp án A-D (dùng chung MỌI câu, KHÔNG cách |), Đáp án đúng (N chữ cái cách |). Đoạn văn tham chiếu BẮT BUỘC, dùng chung cả nhóm — áp dụng ĐÚNG quy tắc định dạng như Trắc nghiệm: cách nhau 1 DÒNG TRỐNG giữa các đoạn/lượt thoại, đoạn đầu ngắn tự thành tiêu đề in đậm, dòng \"Tên: nội dung\" tự tách tên riêng (VD 3 đoạn Tom/Max/Anna trong ví dụ mẫu).",
+      "DOC_HIEU_NOI_DAP_AN": "Khác Đọc hiểu - Lưới (học sinh bấm chọn nút) — đây là dạng HỌC SINH TỰ GÕ chữ cái đúng (A-H) vào 1 ô nhập cho mỗi câu, giống hệt \"Your Answers: ...\" trong đề giấy gốc. Bắt buộc: Nội dung (N nhãn ngắn cách |, VD \"Liam ___\" — KHÔNG tự đánh số thủ công, hệ thống tự đánh số 1/2/3...), Đoạn văn tham chiếu (BẮT BUỘC chứa mô tả đầy đủ của cả người lẫn lựa chọn A-H, dạng \"Tên: Mô tả\" cách nhau 1 DÒNG TRỐNG thật — KHÔNG dùng dấu | kẻo dính thành 1 khối chữ), Đáp án đúng (N chữ cái A-H cách |, học sinh gõ đúng là được, không phân biệt hoa/thường). Đáp án A-H (2-8, KHÔNG cách |) chỉ dùng để xác định phạm vi chữ cái hợp lệ, KHÔNG hiện nút bấm cho học sinh.",
       "DOC_DIEN_TU": "1 dòng tạo N chỗ trống, mỗi chỗ bộ đáp án riêng. Bắt buộc: Đáp án A (N phương án cách |, suy ra số chỗ trống), Đáp án đúng (N chữ cái cách |). Tùy chọn: Đáp án B/C/D (cùng số lượng cột A), Nội dung (= N nhãn chỗ trống, để trống thì tự đánh số). Đoạn văn tham chiếu BẮT BUỘC, có ĐÁNH SỐ chỗ trống dạng (1)___, (2)___... ngay trong câu — áp dụng cùng quy tắc hiển thị (cách dòng trống giữa đoạn, tiêu đề/tên tự tách) như Đọc hiểu - Lưới."
     },
     "downloadTemplate": "Tải file mẫu (.{{format}})",
@@ -239,13 +243,15 @@
     "passagesSectionTitle": "Các đoạn văn ngắn (mỗi đoạn 1 nhân vật/lựa chọn)",
     "passageNamePlaceholder": "Tên nhân vật {{index}} (VD: Tom)",
     "passageTextPlaceholder": "Nội dung đoạn văn...",
-    "passagesHint": "Cố định 3 đoạn (khớp bảng đáp án A/B/C bên dưới) — đổi tên nhân vật tùy ý.",
+    "passagesHint": "Từ {{min}} đến {{max}} đoạn (khớp số lựa chọn A-{{max}} ở bảng đáp án bên dưới) — bấm \"+\" để thêm, đổi tên nhân vật tùy ý.",
+    "addPassageButton": "Thêm đoạn",
     "questionsSectionTitle": "Danh sách câu hỏi — chọn đáp án đúng cho từng câu",
     "submitCreate": "Tạo {{count}} câu hỏi",
     "errors": {
       "fillAllPassages": "Vui lòng điền đủ tên nhân vật và nội dung đoạn văn cho mọi đoạn.",
       "fillAllQuestions": "Vui lòng điền đủ nội dung cho mọi câu hỏi.",
       "needAtLeastOne": "Cần ít nhất 1 câu hỏi.",
+      "passageInUse": "Không thể xoá — đang có câu hỏi chọn đoạn này làm đáp án đúng. Đổi đáp án của câu đó trước rồi thử lại.",
       "partialFailure": "Đã tạo được {{created}}/{{total}} câu thì lỗi — các câu đã tạo vẫn nằm trong ngân hàng câu hỏi, kiểm tra lại nếu cần.",
       "createFailed": "Tạo bài đọc hiểu thất bại."
     }

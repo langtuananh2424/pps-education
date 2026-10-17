@@ -31,6 +31,13 @@ final class QuestionImportFieldAliases {
             Map.entry("dap an b", "choiceB"), Map.entry("answer b", "choiceB"), Map.entry("option b", "choiceB"),
             Map.entry("dap an c", "choiceC"), Map.entry("answer c", "choiceC"), Map.entry("option c", "choiceC"),
             Map.entry("dap an d", "choiceD"), Map.entry("answer d", "choiceD"), Map.entry("option d", "choiceD"),
+            // Bổ sung 2026-10-17 (đã xác nhận với người dùng) — phục vụ DOC_HIEU_NOI_DAP_AN (đọc hiểu —
+            // nối đáp án, tối đa 8 lựa chọn dùng chung A-H), xem QuestionImportService#buildSharedGroupChoices.
+            // CHỈ loại này đọc 4 cột E-H — DOC_HIEU_LUOI/TRAC_NGHIEM/DOC_DIEN_TU vẫn cap A-D như cũ.
+            Map.entry("dap an e", "choiceE"), Map.entry("answer e", "choiceE"), Map.entry("option e", "choiceE"),
+            Map.entry("dap an f", "choiceF"), Map.entry("answer f", "choiceF"), Map.entry("option f", "choiceF"),
+            Map.entry("dap an g", "choiceG"), Map.entry("answer g", "choiceG"), Map.entry("option g", "choiceG"),
+            Map.entry("dap an h", "choiceH"), Map.entry("answer h", "choiceH"), Map.entry("option h", "choiceH"),
 
             Map.entry("dap an dung", "correctAnswer"), Map.entry("correct answer", "correctAnswer"),
 
