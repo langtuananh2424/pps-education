@@ -88,4 +88,12 @@ public class ReviewVideoWatchSession extends BaseAuditEntity {
      */
     @Column(name = "quiz_passed", nullable = false)
     private boolean quizPassed = false;
+
+    /**
+     * V215 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-17) — NOT NULL = lượt này đã được LƯU TRỮ
+     * khi học sinh bấm "Làm lại từ đầu" (xem ReviewVideoService#retakeConnection): vẫn giữ nguyên để xem lịch sử ở
+     * trang thống kê nhưng không còn tính vào số lượt, hoàn thành hay điểm trắc nghiệm.
+     */
+    @Column(name = "archived_at")
+    private OffsetDateTime archivedAt;
 }

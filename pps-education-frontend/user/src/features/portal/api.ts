@@ -678,6 +678,15 @@ export function stopReviewVideoEarly(videoId: number, assignmentId: number): Pro
   return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/stop-early?assignmentId=${assignmentId}`, { method: "POST" });
 }
 
+/**
+ * 2026-10-17 (đã xác nhận với người dùng) — học sinh đã hoàn thành clip Kết nối chọn "Làm lại từ đầu": BE lưu trữ
+ * các lượt cũ (vẫn xem được lịch sử ở trang thống kê) và đưa tiến độ/đáp án về 0. Sau khi hoàn thành, BE từ chối
+ * mở lượt xem mới nếu chưa gọi hàm này.
+ */
+export function retakeReviewVideo(videoId: number, assignmentId: number): Promise<ReviewVideoProgressResponse> {
+  return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/retake?assignmentId=${assignmentId}`, { method: "POST" });
+}
+
 /** UC-23b (V57) — câu hỏi gắn 1 mốc thời gian trong video REFLEX, mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. */
 export interface ReviewVideoQuestionResponse {
   id: number;
