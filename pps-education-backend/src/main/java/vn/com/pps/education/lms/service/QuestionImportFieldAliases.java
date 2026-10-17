@@ -38,6 +38,8 @@ final class QuestionImportFieldAliases {
             Map.entry("dap an f", "choiceF"), Map.entry("answer f", "choiceF"), Map.entry("option f", "choiceF"),
             Map.entry("dap an g", "choiceG"), Map.entry("answer g", "choiceG"), Map.entry("option g", "choiceG"),
             Map.entry("dap an h", "choiceH"), Map.entry("answer h", "choiceH"), Map.entry("option h", "choiceH"),
+            Map.entry("dap an i", "choiceI"), Map.entry("answer i", "choiceI"), Map.entry("option i", "choiceI"),
+            Map.entry("dap an j", "choiceJ"), Map.entry("answer j", "choiceJ"), Map.entry("option j", "choiceJ"),
 
             Map.entry("dap an dung", "correctAnswer"), Map.entry("correct answer", "correctAnswer"),
 
