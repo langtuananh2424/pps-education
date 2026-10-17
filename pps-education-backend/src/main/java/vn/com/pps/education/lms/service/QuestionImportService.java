@@ -691,6 +691,10 @@ public class QuestionImportService {
             // cho cả TRAC_NGHIEM thường (mirror TRAC_NGHIEM_VOICE/SPEAKING đã có sẵn), để trống thì vẫn
             // null như hành vi cũ — không ảnh hưởng các bài TRAC_NGHIEM hiện tại không dùng cột này.
             referencePassage = blankToNull(row.referencePassage());
+            // Cột "Hướng dẫn" (xem QuestionRowParser#instruction) trước đây CHỈ được đọc cho các kind
+            // WORD_BANK nên các dòng TRAC_NGHIEM điền cột này bị bỏ qua âm thầm — FE hiện dòng chỉ dẫn này
+            // phía trên nhóm/câu (structuredContent.instruction).
+            structuredContent = instructionOnlyContent(row);
             if (kind.equals("TRAC_NGHIEM_VOICE")) {
                 skill = "LISTENING";
                 if (isBlank(row.audioUrl())) {
@@ -925,7 +929,17 @@ public class QuestionImportService {
         boolean looksLikeFreeTextPassage = referencePassageRaw != null
                 && (referencePassageRaw.length() > 200 || referencePassageRaw.matches("(?s).*[.!?](\\s|$).*"));
         List<String> wordBox = looksLikeFreeTextPassage ? null : parseTags(row.referencePassage());
-        Map<String, Object> structuredContent = wordBox == null ? null : Map.of("wordBox", wordBox);
+        Map<String, Object> structuredContent = null;
+        if (wordBox != null || blankToNull(row.instruction()) != null) {
+            structuredContent = new LinkedHashMap<>();
+            if (wordBox != null) {
+                structuredContent.put("wordBox", wordBox);
+            }
+            // Dòng "Hướng dẫn" dùng chung cho cả nhóm (FE đọc từ câu đầu nhóm) — xem mapToRequest.
+            if (blankToNull(row.instruction()) != null) {
+                structuredContent.put("instruction", row.instruction().trim());
+            }
+        }
         String groupReferencePassage = looksLikeFreeTextPassage ? referencePassageRaw : null;
         String groupKey = "fillblank-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — fix khoảng trống thật: DIEN_TU_NHOM
@@ -1008,9 +1022,15 @@ public class QuestionImportService {
             String correctLetter = answerLetterAt(answerLetters, i, sharedChoices.size());
             List<QuestionChoiceRequest> choicesForQuestion = applyCorrectLetter(sharedChoices, correctLetter);
             requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", "READING", difficulty, questions.get(i),
-                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, null, groupKey));
+                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, instructionOnlyContent(row), groupKey));
         }
         return requests;
+    }
+
+    /** structuredContent chỉ chứa dòng "Hướng dẫn" (cột tùy chọn) cho các kind không có structuredContent riêng; null nếu để trống. */
+    private Map<String, Object> instructionOnlyContent(QuestionRowParser.ParsedQuestionRow row) {
+        String text = blankToNull(row.instruction());
+        return text == null ? null : new LinkedHashMap<>(Map.of("instruction", text.trim()));
     }
 
     /**
