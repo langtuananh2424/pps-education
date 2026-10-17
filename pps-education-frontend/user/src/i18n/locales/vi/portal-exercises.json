@@ -192,7 +192,9 @@
       "loadError": "Không tải được kết quả — thử lại.",
       "sessionLabel": "Lượt {{viewNumber}}",
       "correctAnswerLabel": "Đáp án đúng:",
-      "closeButton": "Đóng"
+      "closeButton": "Đóng",
+      "retakeButton": "Làm lại từ đầu",
+      "retakeError": "Không bắt đầu làm lại được — thử lại."
     }
   },
   "reflexVideoTask": {
