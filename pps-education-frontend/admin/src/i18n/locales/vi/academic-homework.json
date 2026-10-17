@@ -232,6 +232,24 @@
       "recordingRaw": "Thu âm: bản ghi thô",
       "grammarReviewTitle": "Cần giáo viên soát điểm Ngữ pháp",
       "grammarReviewBody": "Bài có từ 2 lỗi đỏ ngữ pháp nên điểm Ngữ pháp bị hạ. AI chỉ phiên âm một lần và có thể nghe nhầm — hãy nghe lại các chỗ dưới đây trước khi chốt điểm:"
+    },
+    "connectionHistoryModal": {
+      "title": "Chi tiết các lượt làm — {{studentName}}",
+      "loading": "Đang tải...",
+      "loadFailed": "Không tải được chi tiết các lượt làm.",
+      "empty": "Học sinh chưa xem lượt nào.",
+      "sessionLabel": "Lượt {{number}}",
+      "archivedBadge": "Đã làm lại (lưu trữ)",
+      "currentBadge": "Đang tính",
+      "startedAt": "Bắt đầu: {{time}}",
+      "watched": "Đã xem {{watched}}/{{duration}} giây",
+      "notWatchedFully": "Chưa xem hết",
+      "quizNotSubmitted": "Chưa nộp trắc nghiệm",
+      "quizAttempts": "Nộp {{count}} lần",
+      "passedBadge": "Đạt",
+      "failedBadge": "Chưa đạt",
+      "selected": "Chọn: {{answer}}",
+      "correctAnswer": "Đáp án đúng: {{answer}}"
     }
   }
 }
