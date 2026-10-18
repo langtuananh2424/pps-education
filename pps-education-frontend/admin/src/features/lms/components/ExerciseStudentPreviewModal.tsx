@@ -74,6 +74,7 @@ type RenderBlock =
       referencePassage: string | null;
       audioUrl: string | null;
       wordBox: string[] | null;
+      instruction: string | null;
       questions: ExerciseQuestionResponse[];
     };
 
@@ -93,6 +94,7 @@ function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): Render
         referencePassage: q.referencePassage,
         audioUrl: q.audioUrl,
         wordBox: q.structuredContent?.wordBox ?? null,
+        instruction: q.structuredContent?.instruction ?? null,
         questions: [q]
       });
     } else {
@@ -183,6 +185,7 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
+      {block.instruction && <p className="text-sm sm:text-base italic text-slate-500 whitespace-pre-line">{block.instruction}</p>}
       {block.referencePassage && (
         <div className="bg-slate-50 rounded-xl p-3 space-y-2">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
