@@ -51,7 +51,7 @@ const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
     "ANH_TRAC_NGHIEM", "ANH_DIEN_TU"
   ],
   WRITING: ["TU_LUAN", "ANH_TRAC_NGHIEM", "ANH_DIEN_TU"],
-  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN", "ANH_TRAC_NGHIEM", "ANH_DIEN_TU"],
+  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NHIEU_DAP_AN", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN", "ANH_TRAC_NGHIEM", "ANH_DIEN_TU"],
   // Bổ sung 2026-10-17 (đã xác nhận với người dùng) — DOC_HIEU_NOI_DAP_AN (đọc hiểu — nối đáp án, tối
   // đa 8 lựa chọn dùng chung), mirror QuestionImportService.SKILL_CATEGORY_KIND_TOKENS.READING.
   // Bổ sung 2026-10-19 — ANH_TRAC_NGHIEM/ANH_DIEN_TU mở khóa ở CẢ 4 nhóm (khác mọi kind khác chỉ thuộc
@@ -63,7 +63,7 @@ const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
 const ALL_KIND_TOKENS = [
   "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "TU_LUAN", "SPEAKING",
   "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN", "DOC_HIEU_LUOI", "DOC_HIEU_NOI_DAP_AN", "DOC_DIEN_TU",
+  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN", "NGHE_NHIEU_DAP_AN", "DOC_HIEU_LUOI", "DOC_HIEU_NOI_DAP_AN", "DOC_DIEN_TU",
   // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — "Trắc nghiệm hình ảnh"/"Điền từ hình ảnh": đề bài
   // là ẢNH chụp nguyên trang sách (không gõ lại text), dùng chung cho cả 4 Nhóm kỹ năng (xem
   // SKILL_CATEGORY_KIND_TOKENS bên dưới, mirror QuestionImportService.java backend).
@@ -78,7 +78,7 @@ const ALL_KIND_TOKENS = [
  * sheet (xem handleDownloadTemplate) — 1 nguồn duy nhất cho cả 2 chỗ, tránh lệch nhau.
  */
 const IMPORT_KIND_GROUPS: { labelKey: string; tokens: string[] }[] = [
-  { labelKey: "kindGroup.multipleChoice", tokens: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE"] },
+  { labelKey: "kindGroup.multipleChoice", tokens: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "NGHE_NHIEU_DAP_AN"] },
   { labelKey: "kindGroup.fillInBlank", tokens: ["DIEN_TU", "NGHE_DIEN_TU", "DIEN_TU_NHOM"] },
   { labelKey: "kindGroup.wordBank", tokens: ["DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "NGHE_PHIEU_THONG_TIN"] },
   { labelKey: "kindGroup.sentenceBuilding", tokens: ["SAP_XEP_CAU", "SAP_XEP_CHU_CAI"] },
@@ -223,6 +223,11 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
       "https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
       "https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",
       "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), "", "", ""],
+    // Bug thật phát hiện khi merge (2026-10-19) — hàng mẫu gốc từ develop thiếu 6 ô placeholder Đáp án
+    // E-J (chỉ có A-D) nên bị lệch cột: "B|D" rơi vào đúng vị trí cột "Đáp án E" thay vì "Đáp án đúng",
+    // kéo lệch toàn bộ các cột phía sau. Bổ sung đủ "","","","","","" cho E-J trước khi tới correctAnswer.
+    ["NGHE_NHIEU_DAP_AN", "", "Which TWO reasons does Irina give for visiting the exhibition?", "to meet a friend", "to improve her knowledge", "to buy something", "to entertain her child", "", "", "", "", "", "",
+      "B|D", "https://example-r2.dev/lms/questions/audio/mau-nghe-nhieu-dap-an.mp3", "", "", "2", t("questionImportPanel.excelSampleExplanations.listeningMultipleAnswer"), "", "", ""],
     ["DOC_HIEU_LUOI", "", "Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
       "Tom", "Max", "Anna", "", "", "", "", "", "", "",
       "B|A|C", "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",

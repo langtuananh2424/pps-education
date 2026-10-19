@@ -364,6 +364,18 @@ function parsePassageParagraphs(text: string): { name: string | null; content: s
   });
 }
 
+/**
+ * Bổ sung 2026-10-19 — câu MULTIPLE_ANSWER nằm TRONG nhóm (VD Nghe trắc nghiệm nhiều đáp án chung 1 audio)
+ * phải bật/tắt từng lựa chọn thay vì luôn thay bằng đúng 1 lựa chọn vừa bấm (như câu MULTIPLE_CHOICE).
+ */
+function nextChoiceSelection(questionType: string, selected: Set<number>, choiceId: number): number[] {
+  if (questionType !== "MULTIPLE_ANSWER") return [choiceId];
+  const next = new Set(selected);
+  if (next.has(choiceId)) next.delete(choiceId);
+  else next.add(choiceId);
+  return [...next];
+}
+
 export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
   for (const q of questions) {
@@ -2284,7 +2296,7 @@ export function GridQuestionGroup({
                             key={c.id}
                             type="button"
                             disabled={rowReadOnly || saving}
-                            onClick={() => onChoiceToggle(q.questionId, [c.id])}
+                            onClick={() => onChoiceToggle(q.questionId, nextChoiceSelection(q.questionType, selected, c.id))}
                             className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
                           >
                             <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
@@ -2321,7 +2333,7 @@ export function GridQuestionGroup({
                           key={c.id}
                           type="button"
                           disabled={rowReadOnly || saving}
-                          onClick={() => onChoiceToggle(q.questionId, [c.id])}
+                          onClick={() => onChoiceToggle(q.questionId, nextChoiceSelection(q.questionType, selected, c.id))}
                           className={`w-full text-left text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
                           <span>

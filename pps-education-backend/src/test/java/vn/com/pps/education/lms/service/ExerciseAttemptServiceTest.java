@@ -678,6 +678,31 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(answer.isCorrect()).isFalse();
     }
 
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng): MULTIPLE_ANSWER chấm từng phần — 2 đáp án đúng
+     * (B,D) mà chỉ chọn 1 => nửa điểm, isCorrect=false. Điểm câu lấy từ ExerciseQuestion (helper gán 1.0), không phải defaultPoints → 1/2 của 1.0 = 0.5.
+     */
+    @Test
+    void submitAttempt_boSung_multipleAnswerPartialCredit() {
+        QuestionResponse multi = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("MULTIPLE_ANSWER", "LISTENING", "EASY",
+                        "Which TWO reasons?", null, null, null, null, null, new BigDecimal("2.0"), null,
+                        List.of(new QuestionChoiceRequest("A", "a", null, false, 1), new QuestionChoiceRequest("B", "b", null, true, 2),
+                                new QuestionChoiceRequest("C", "c", null, false, 3), new QuestionChoiceRequest("D", "d", null, true, 4)),
+                        null, null),
+                teacher.getId());
+        Long correctId = multi.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
+
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(multi), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(multi.id(), null, List.of(correctId), null, null), studentUser.getId());
+        ExerciseAttemptResponse halfCorrect = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(halfCorrect.totalScore()).isEqualByComparingTo("0.5");
+        assertThat(exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0).isCorrect()).isFalse();
+    }
+
     /** V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Điền từ - Hộp từ vựng. */
     @Test
     void submitAttempt_MainFlow_wordBankGradesCorrectOrderedAnswers() {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, ClipboardList, Headphones, Image as ImageIcon, Plus, Volume2, PenLine, X } from "lucide-react";
+import { Check, ClipboardList, Headphones, Image as ImageIcon, ListChecks, Plus, Volume2, PenLine, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
@@ -14,6 +14,7 @@ const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider
 export type ListeningSubKind =
   | "VOICE_MULTIPLE_CHOICE"
   | "VOICE_PICTURE_CHOICE"
+  | "LISTENING_MULTIPLE_ANSWER"
   | "LISTENING_AUDIO_SUBMISSION"
   | "LISTENING_FILL_IN_BLANK"
   | "LISTENING_FORM_COMPLETION";
@@ -39,6 +40,7 @@ export interface ExistingListeningGroup {
 const subKindMeta: Record<ListeningSubKind, { icon: typeof Volume2; activeClass: string; iconClass: string }> = {
   VOICE_MULTIPLE_CHOICE: { icon: Volume2, activeClass: "bg-blue-50 border-blue-400 text-blue-800 ring-1 ring-blue-300", iconClass: "text-blue-600" },
   VOICE_PICTURE_CHOICE: { icon: ImageIcon, activeClass: "bg-indigo-50 border-indigo-400 text-indigo-800 ring-1 ring-indigo-300", iconClass: "text-indigo-600" },
+  LISTENING_MULTIPLE_ANSWER: { icon: ListChecks, activeClass: "bg-lime-50 border-lime-400 text-lime-800 ring-1 ring-lime-300", iconClass: "text-lime-600" },
   LISTENING_AUDIO_SUBMISSION: { icon: Headphones, activeClass: "bg-sky-50 border-sky-400 text-sky-800 ring-1 ring-sky-300", iconClass: "text-sky-600" },
   LISTENING_FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-violet-50 border-violet-400 text-violet-800 ring-1 ring-violet-300", iconClass: "text-violet-600" },
   LISTENING_FORM_COMPLETION: { icon: ClipboardList, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" }
@@ -52,6 +54,8 @@ interface QuestionRow {
   // subKind=VOICE_PICTURE_CHOICE, song song với `options` (dùng làm chú thích tùy chọn ở kind này).
   imageUrls: string[];
   correctIndex: number;
+  // Chỉ dùng khi subKind=LISTENING_MULTIPLE_ANSWER (bổ sung 2026-10-19) — NHIỀU đáp án đúng, thay cho correctIndex.
+  correctIndices: number[];
   // Chỉ dùng khi subKind=LISTENING_FILL_IN_BLANK.
   correctAnswerText: string;
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — nội dung gợi ý tapescript (mở khóa
@@ -65,6 +69,7 @@ const emptyQuestionRow = (): QuestionRow => ({
   options: ["", "", "", ""],
   imageUrls: ["", "", "", ""],
   correctIndex: 0,
+  correctIndices: [0, 1],
   correctAnswerText: "",
   explanation: ""
 });
@@ -167,6 +172,16 @@ export default function ListeningGroupBuilder({
   const updateCorrectIndex = (idx: number, correctIndex: number) => {
     setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, correctIndex } : q)));
   };
+  /** Bổ sung 2026-10-19 — bật/tắt 1 đáp án đúng, riêng cho Nghe trắc nghiệm nhiều đáp án. */
+  const toggleCorrectIndices = (idx: number, optIdx: number) => {
+    setQuestions((prev) =>
+      prev.map((q, i) =>
+        i === idx
+          ? { ...q, correctIndices: q.correctIndices.includes(optIdx) ? q.correctIndices.filter((x) => x !== optIdx) : [...q.correctIndices, optIdx] }
+          : q
+      )
+    );
+  };
   const updateCorrectAnswerText = (idx: number, value: string) => {
     setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, correctAnswerText: value } : q)));
   };
@@ -186,7 +201,8 @@ export default function ListeningGroupBuilder({
               ...q,
               options: q.options.filter((_, oi) => oi !== optIdx),
               imageUrls: q.imageUrls.filter((_, oi) => oi !== optIdx),
-              correctIndex: q.correctIndex === optIdx ? 0 : q.correctIndex > optIdx ? q.correctIndex - 1 : q.correctIndex
+              correctIndex: q.correctIndex === optIdx ? 0 : q.correctIndex > optIdx ? q.correctIndex - 1 : q.correctIndex,
+              correctIndices: q.correctIndices.filter((x) => x !== optIdx).map((x) => (x > optIdx ? x - 1 : x))
             }
           : q
       )
@@ -238,8 +254,12 @@ export default function ListeningGroupBuilder({
       setError(t("listeningGroupBuilder.errors.fillAllContent"));
       return;
     }
-    if (subKind === "VOICE_MULTIPLE_CHOICE" && questions.some((q) => q.options.some((o) => !o.trim()))) {
+    if ((subKind === "VOICE_MULTIPLE_CHOICE" || subKind === "LISTENING_MULTIPLE_ANSWER") && questions.some((q) => q.options.some((o) => !o.trim()))) {
       setError(t("listeningGroupBuilder.errors.fillAllOptions"));
+      return;
+    }
+    if (subKind === "LISTENING_MULTIPLE_ANSWER" && questions.some((q) => q.correctIndices.length < 2 || q.correctIndices.length >= q.options.length)) {
+      setError(t("listeningGroupBuilder.errors.multipleAnswerCorrectCount"));
       return;
     }
     if (subKind === "VOICE_PICTURE_CHOICE" && questions.some((q) => q.imageUrls.some((u) => !u.trim()))) {
@@ -252,7 +272,11 @@ export default function ListeningGroupBuilder({
     }
 
     const questionType: QuestionType =
-      subKind === "VOICE_MULTIPLE_CHOICE" || subKind === "VOICE_PICTURE_CHOICE" ? "MULTIPLE_CHOICE" : subKind === "LISTENING_AUDIO_SUBMISSION" ? "SPEAKING" : "FILL_IN_BLANK";
+      subKind === "VOICE_MULTIPLE_CHOICE" || subKind === "VOICE_PICTURE_CHOICE"
+        ? "MULTIPLE_CHOICE"
+        : subKind === "LISTENING_MULTIPLE_ANSWER"
+          ? "MULTIPLE_ANSWER"
+          : subKind === "LISTENING_AUDIO_SUBMISSION" ? "SPEAKING" : "FILL_IN_BLANK";
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — đang thêm vào nhóm có sẵn thì dùng
     // ĐÚNG groupKey cũ (câu mới sẽ gộp chung nhóm với các câu đã có) thay vì luôn sinh groupKey mới.
     const groupKey = isAppending ? appendTarget : `listening-${Date.now()}`;
@@ -276,6 +300,8 @@ export default function ListeningGroupBuilder({
           choices:
             subKind === "VOICE_MULTIPLE_CHOICE"
               ? q.options.map((content_, i) => ({ choiceLabel: String.fromCharCode(65 + i), content: content_.trim(), isCorrect: i === q.correctIndex, displayOrder: i + 1 }))
+              : subKind === "LISTENING_MULTIPLE_ANSWER"
+                ? q.options.map((content_, i) => ({ choiceLabel: String.fromCharCode(65 + i), content: content_.trim(), isCorrect: q.correctIndices.includes(i), displayOrder: i + 1 }))
               : subKind === "VOICE_PICTURE_CHOICE"
                 ? q.options.map((content_, i) => ({
                     choiceLabel: String.fromCharCode(65 + i),
@@ -324,7 +350,7 @@ export default function ListeningGroupBuilder({
 
       <div>
         <label className={labelClass}>{t("listeningGroupBuilder.subKindLabel")}</label>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
           {(Object.entries(subKindMeta) as [ListeningSubKind, (typeof subKindMeta)[ListeningSubKind]][]).map(([value, meta]) => {
             const Icon = meta.icon;
             const active = subKind === value;
@@ -441,18 +467,21 @@ export default function ListeningGroupBuilder({
                 )}
               </div>
 
-              {subKind === "VOICE_MULTIPLE_CHOICE" && (
+              {(subKind === "VOICE_MULTIPLE_CHOICE" || subKind === "LISTENING_MULTIPLE_ANSWER") && (
                 <div className="pl-8 space-y-1.5">
+                  {subKind === "LISTENING_MULTIPLE_ANSWER" && <p className="text-[12px] text-slate-400">{t("listeningGroupBuilder.multipleAnswerHint")}</p>}
                   {q.options.map((opt, optIdx) => (
                     <div key={optIdx} className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => updateCorrectIndex(idx, optIdx)}
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center font-bold shrink-0 text-[9px] transition-all ${
-                          q.correctIndex === optIdx ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
+                        onClick={() => (subKind === "LISTENING_MULTIPLE_ANSWER" ? toggleCorrectIndices(idx, optIdx) : updateCorrectIndex(idx, optIdx))}
+                        className={`w-5 h-5 border flex items-center justify-center font-bold shrink-0 text-[9px] transition-all ${subKind === "LISTENING_MULTIPLE_ANSWER" ? "rounded-md" : "rounded-full"} ${
+                          (subKind === "LISTENING_MULTIPLE_ANSWER" ? q.correctIndices.includes(optIdx) : q.correctIndex === optIdx)
+                            ? "bg-emerald-500 border-emerald-500 text-white"
+                            : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
                         }`}
                       >
-                        {q.correctIndex === optIdx ? <Check className="w-3 h-3 stroke-[3]" /> : String.fromCharCode(65 + optIdx)}
+                        {(subKind === "LISTENING_MULTIPLE_ANSWER" ? q.correctIndices.includes(optIdx) : q.correctIndex === optIdx) ? <Check className="w-3 h-3 stroke-[3]" /> : String.fromCharCode(65 + optIdx)}
                       </button>
                       <input
                         required

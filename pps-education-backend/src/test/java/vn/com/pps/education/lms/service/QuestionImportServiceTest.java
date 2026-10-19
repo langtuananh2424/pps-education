@@ -867,10 +867,44 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", template), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.totalRows()).isEqualTo(18);
-        assertThat(result.successRows()).isEqualTo(18);
+        assertThat(result.totalRows()).isEqualTo(19);
+        assertThat(result.successRows()).isEqualTo(19);
         assertThat(result.failedRows()).isEqualTo(0);
-        assertThat(questionBankService.listQuestions(bank.id())).hasSize(25);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(26);
+    }
+
+    /** NGHE_NHIEU_DAP_AN (2026-10-19): 1 audio + nhiều đáp án đúng "B|D" -> 1 Question MULTIPLE_ANSWER skill LISTENING. */
+    @Test
+    void importQuestions_ngheNhieuDapAn_createsMultipleAnswerWithSeveralCorrectChoices() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"NGHE_NHIEU_DAP_AN", null, "Which TWO reasons does Irina give?", "to meet a friend", "to improve her knowledge",
+                        "to buy something", "to entertain her child", "B|D", "https://example-r2.dev/a.mp3", null, null, "2", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "nhieu-dap-an.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.successRows()).isEqualTo(1);
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.questionType()).isEqualTo("MULTIPLE_ANSWER");
+        assertThat(saved.skill()).isEqualTo("LISTENING");
+        assertThat(saved.audioUrl()).isEqualTo("https://example-r2.dev/a.mp3");
+        assertThat(saved.choices()).filteredOn(c -> c.isCorrect()).extracting(c -> c.choiceLabel()).containsExactlyInAnyOrder("B", "D");
+    }
+
+    /** NGHE_NHIEU_DAP_AN: chỉ 1 đáp án đúng, hoặc thiếu audio -> lỗi rõ ràng, không tạo câu hỏi. */
+    @Test
+    void importQuestions_ngheNhieuDapAn_rejectsSingleCorrectAnswerAndMissingAudio() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"NGHE_NHIEU_DAP_AN", null, "Pick two", "a", "b", "c", "d", "B", "https://example-r2.dev/a.mp3", null, null, "1", null, null},
+                {"NGHE_NHIEU_DAP_AN", null, "Pick two", "a", "b", "c", "d", "B|D", null, null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "nhieu-dap-an-loi.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.failedRows()).isEqualTo(2);
+        assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
     }
 
     /**
