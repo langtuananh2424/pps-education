@@ -680,7 +680,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     /**
      * Bổ sung 2026-10-19 (đã xác nhận với người dùng): MULTIPLE_ANSWER chấm từng phần — 2 đáp án đúng
-     * (B,D) mà chỉ chọn 1 => nửa điểm (1/2 của 2.0 = 1.0), isCorrect=false.
+     * (B,D) mà chỉ chọn 1 => nửa điểm, isCorrect=false. Điểm câu lấy từ ExerciseQuestion (helper gán 1.0), không phải defaultPoints → 1/2 của 1.0 = 0.5.
      */
     @Test
     void submitAttempt_boSung_multipleAnswerPartialCredit() {
@@ -699,7 +699,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 new SaveAnswerRequest(multi.id(), null, List.of(correctId), null, null), studentUser.getId());
         ExerciseAttemptResponse halfCorrect = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
-        assertThat(halfCorrect.totalScore()).isEqualByComparingTo("1.0");
+        assertThat(halfCorrect.totalScore()).isEqualByComparingTo("0.5");
         assertThat(exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0).isCorrect()).isFalse();
     }
 
