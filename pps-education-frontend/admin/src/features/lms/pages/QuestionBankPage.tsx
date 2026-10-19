@@ -37,6 +37,7 @@ import QuestionEditorForm from "../components/QuestionEditorForm";
 import QuestionImportPanel from "../components/QuestionImportPanel";
 import Button from "@/components/ui/Button";
 import { ApiError } from "@/lib/apiClient";
+import { renderRichText } from "@/lib/richText";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
@@ -333,7 +334,7 @@ export default function QuestionBankPage() {
                         >
                           <td className="px-4 py-3.5 text-center font-mono font-bold text-brand-red bg-slate-50/40">Q-{question.id}</td>
                           <td className="px-4 py-3.5">
-                            <div className="font-bold text-slate-800 line-clamp-2 leading-relaxed">{question.content}</div>
+                            <div className="font-bold text-slate-800 line-clamp-2 leading-relaxed">{renderRichText(question.content)}</div>
                             {question.explanation && (
                               <p className="text-[12px] text-slate-400 font-medium italic truncate mt-1">
                                 {t("bankPage.table.explanationPrefix", { text: question.explanation })}
@@ -529,7 +530,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: QuestionSearchItem; 
 
       <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
         <p className="text-[13px] font-bold text-slate-500 uppercase tracking-wider">{t("bankPage.questionPreview.contentLabel")}</p>
-        <p className="text-sm font-bold text-slate-800 leading-relaxed">{question.content}</p>
+        <p className="text-sm font-bold text-slate-800 leading-relaxed">{renderRichText(question.content)}</p>
       </div>
 
       {question.imageUrl && (
@@ -545,7 +546,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: QuestionSearchItem; 
             <audio controls src={question.audioUrl} className="w-full h-8" />
             {question.referencePassage && (
               <p className="text-[12px] text-blue-900 font-medium italic leading-relaxed whitespace-pre-line">
-                {normalizeReferencePassage(question.referencePassage)}
+                {renderRichText(normalizeReferencePassage(question.referencePassage))}
               </p>
             )}
           </div>
@@ -563,7 +564,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: QuestionSearchItem; 
               }`}
             >
               <span>
-                <strong>{c.choiceLabel}.</strong> {c.content}
+                <strong>{c.choiceLabel}.</strong> {renderRichText(c.content)}
               </span>
               {c.isCorrect && <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />}
             </div>
@@ -574,7 +575,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: QuestionSearchItem; 
       {question.questionType === "ESSAY" && (
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
           {question.referencePassage && (
-            <p className="text-[13px] text-slate-600 bg-slate-50 p-2 rounded-lg whitespace-pre-line">{normalizeReferencePassage(question.referencePassage)}</p>
+            <p className="text-[13px] text-slate-600 bg-slate-50 p-2 rounded-lg whitespace-pre-line">{renderRichText(normalizeReferencePassage(question.referencePassage))}</p>
           )}
           <p className="text-[12px] text-slate-500 italic bg-amber-50/50 p-2 border border-amber-100 rounded">
             {t("bankPage.questionPreview.essayHint")}
@@ -589,21 +590,21 @@ function QuestionPreview({ row, onEdit, canManage }: { row: QuestionSearchItem; 
               <Mic className="w-3.5 h-3.5" />
               {t("bankPage.questionPreview.speakingKeywordsLabel")}
             </div>
-            <p className="text-sm font-bold text-slate-800 leading-relaxed">{question.explanation ?? t("bankPage.questionPreview.speakingNoCriteria")}</p>
+            <p className="text-sm font-bold text-slate-800 leading-relaxed">{question.explanation ? renderRichText(question.explanation) : t("bankPage.questionPreview.speakingNoCriteria")}</p>
           </div>
         </div>
       )}
 
       {question.questionType === "FILL_IN_BLANK" && question.explanation && (
         <div className="bg-white p-4 rounded-xl border border-slate-100">
-          <p className="text-[13px] text-slate-600">{question.explanation}</p>
+          <p className="text-[13px] text-slate-600">{renderRichText(question.explanation)}</p>
         </div>
       )}
 
       {question.explanation && question.questionType !== "SPEAKING" && (
         <div className="p-3.5 bg-orange-50 border border-orange-100 rounded-xl space-y-1">
           <span className="text-[13px] font-bold text-brand-red uppercase tracking-wider block">{t("bankPage.questionPreview.explanationLabel")}</span>
-          <p className="text-[13px] text-slate-700 leading-relaxed">{question.explanation}</p>
+          <p className="text-[13px] text-slate-700 leading-relaxed">{renderRichText(question.explanation)}</p>
         </div>
       )}
 
