@@ -237,7 +237,15 @@
     "totalRows": "Total rows",
     "successRows": "Succeeded",
     "failedRows": "Failed",
-    "errorDetailTitle": "Row/block error details"
+    "errorDetailTitle": "Row/block error details",
+    "previewing": "Previewing...",
+    "previewFailed": "Preview failed.",
+    "previewNotice": "This is a PREVIEW — nothing has been saved yet. Review the content/errors below, then click \"Confirm & save\".",
+    "previewRowsTitle": "Questions that will be created",
+    "confirmSaveButton": "Confirm & save {{count}} question(s)",
+    "confirming": "Saving...",
+    "chooseAnotherFile": "Choose another file",
+    "importAnotherFile": "Import another file"
   },
   "gridQuestionBuilder": {
     "passagesSectionTitle": "Short passages (1 character/option per passage)",

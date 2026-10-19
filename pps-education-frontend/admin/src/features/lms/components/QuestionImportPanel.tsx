@@ -11,8 +11,11 @@ import {
   downloadExamQuestionImportWordTemplate,
   downloadQuestionImportWordTemplate,
   importExamQuestions,
-  importQuestions
+  importQuestions,
+  previewExamQuestionImport,
+  previewQuestionImport
 } from "../api";
+import Button from "@/components/ui/Button";
 import FloatingError from "@/components/ui/FloatingError";
 
 type FileFormat = "xlsx" | "docx";
@@ -89,10 +92,16 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   const { t } = useTranslation("lms-question-authoring");
   const [format, setFormat] = useState<FileFormat>("xlsx");
   const inputRef = useRef<HTMLInputElement>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<QuestionImportResponse | null>(null);
+  // Bổ sung 2026-10-19 (đã xác nhận với người dùng — preview trước khi lưu) — file đang chờ xác nhận,
+  // giữ lại để handleConfirm gửi LẠI đúng file này lên endpoint ghi DB thật khi GV bấm "Xác nhận lưu".
+  // Đơn giản hơn cache parsed rows ở backend (không cần job tạm/token hết hạn) — xem QuestionImportService#previewImport.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const isPreview = result?.status === "PREVIEW";
   // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — "Loại câu hỏi mặc định": khớp thói quen thật
   // "1 Ex chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị — chọn 1 lần ở đây thay vì gõ lại cột
   // "Loại câu hỏi" ở MỌI dòng trong file. Rỗng ("") = giữ hành vi cũ (bắt buộc mỗi dòng tự ghi loại).
@@ -272,6 +281,11 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
     }
   };
 
+  /**
+   * Bổ sung 2026-10-19 (đã xác nhận với người dùng — preview trước khi lưu, thay cho hành vi cũ ghi
+   * thẳng vào DB ngay khi chọn file) — chỉ gọi endpoint preview (parse + validate, KHÔNG ghi DB), giữ
+   * lại file để handleConfirm gửi lại khi GV xác nhận.
+   */
   const handleFile = async (file: File | null) => {
     if (!file) return;
     const lower = file.name.toLowerCase();
@@ -279,23 +293,50 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
       setError(t("questionImportPanel.invalidFileType"));
       return;
     }
-    setSubmitting(true);
+    setPreviewing(true);
     setError(null);
     setResult(null);
     try {
       const res = examId
-        ? await importExamQuestions(examId, file, defaultKind || undefined)
+        ? await previewExamQuestionImport(examId, file, defaultKind || undefined)
         : bankId
-          ? await importQuestions(bankId, file, defaultKind || undefined)
+          ? await previewQuestionImport(bankId, file, defaultKind || undefined)
           : (() => { throw new Error(t("common.missingExamOrBankContext")); })();
       setResult(res);
+      setPendingFile(file);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("questionImportPanel.previewFailed"));
+    } finally {
+      setPreviewing(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  /** Gửi lại ĐÚNG file đã xem trước để ghi DB thật (giống hệt logic preview — chỉ khác dryRun ở backend). */
+  const handleConfirm = async () => {
+    if (!pendingFile) return;
+    setConfirming(true);
+    setError(null);
+    try {
+      const res = examId
+        ? await importExamQuestions(examId, pendingFile, defaultKind || undefined)
+        : bankId
+          ? await importQuestions(bankId, pendingFile, defaultKind || undefined)
+          : (() => { throw new Error(t("common.missingExamOrBankContext")); })();
+      setResult(res);
+      setPendingFile(null);
       if (res.successRows > 0) onImported(res.createdQuestions);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("questionImportPanel.importFailed"));
     } finally {
-      setSubmitting(false);
-      if (inputRef.current) inputRef.current.value = "";
+      setConfirming(false);
     }
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setPendingFile(null);
+    setError(null);
   };
 
   return (
@@ -425,23 +466,31 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
         {downloadingTemplate ? t("common.loading") : t("questionImportPanel.downloadTemplate", { format })}
       </button>
 
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={submitting}
-        className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-8 text-slate-500 hover:border-brand-orange hover:bg-orange-50/30 transition-colors disabled:opacity-50"
-      >
-        <UploadCloud className="w-6 h-6 text-brand-orange" />
-        <span className="text-sm font-bold text-slate-700">
-          {submitting ? t("common.creating") : t("questionImportPanel.clickToChooseFile", { format })}
-        </span>
-      </button>
+      {!result && (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={previewing}
+          className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-8 text-slate-500 hover:border-brand-orange hover:bg-orange-50/30 transition-colors disabled:opacity-50"
+        >
+          <UploadCloud className="w-6 h-6 text-brand-orange" />
+          <span className="text-sm font-bold text-slate-700">
+            {previewing ? t("questionImportPanel.previewing") : t("questionImportPanel.clickToChooseFile", { format })}
+          </span>
+        </button>
+      )}
       <input ref={inputRef} type="file" accept=".xlsx,.docx" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
 
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {result && (
         <div className="space-y-3">
+          {isPreview && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[13px] font-semibold text-amber-800">
+              {t("questionImportPanel.previewNotice")}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-slate-50 border border-slate-100 rounded-lg py-2">
               <div className="text-sm font-bold text-slate-800">{result.totalRows ?? "—"}</div>
@@ -457,6 +506,17 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
             </div>
           </div>
 
+          {isPreview && result.createdQuestions.length > 0 && (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="bg-slate-50 px-3 py-1.5 text-[12px] font-bold text-slate-600 uppercase">{t("questionImportPanel.previewRowsTitle")}</div>
+              <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                {result.createdQuestions.map((q, i) => (
+                  <div key={i} className="px-3 py-1.5 text-sm text-slate-700 line-clamp-2">{q.content}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {result.errorSummary.length > 0 && (
             <div className="border border-rose-100 rounded-lg overflow-hidden">
               <div className="bg-rose-50 px-3 py-1.5 text-[12px] font-bold text-rose-600 uppercase">{t("questionImportPanel.errorDetailTitle")}</div>
@@ -470,6 +530,17 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
               </div>
             </div>
           )}
+
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={handleReset} disabled={confirming}>
+              {isPreview ? t("questionImportPanel.chooseAnotherFile") : t("questionImportPanel.importAnotherFile")}
+            </Button>
+            {isPreview && (
+              <Button type="button" variant="primary" size="sm" onClick={handleConfirm} disabled={confirming || result.successRows === 0}>
+                {confirming ? t("questionImportPanel.confirming") : t("questionImportPanel.confirmSaveButton", { count: result.successRows })}
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
