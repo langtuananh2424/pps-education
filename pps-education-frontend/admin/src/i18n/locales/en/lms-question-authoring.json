@@ -24,6 +24,7 @@
     "VOICE_PICTURE_CHOICE": "Listen & pick picture",
     "INLINE_CHOICE": "Choose the word in the sentence",
     "MULTIPLE_ANSWER": "Multi-answer multiple choice",
+    "LISTENING_MULTIPLE_ANSWER": "Listening multiple answer",
     "TRUE_FALSE": "True — False",
     "FILL_IN_BLANK": "Fill in the blank",
     "FILL_IN_BLANK_PICTURE": "Fill in the blank (1 image per sentence)",
@@ -147,6 +148,7 @@
       "audioRequiredVoice": "Voice multiple choice requires a sample audio URL.",
       "audioRequiredVoicePicture": "Listen & pick picture requires a sample audio URL.",
       "audioRequiredListeningFillInBlank": "Listening fill in the blank requires a listening audio URL.",
+      "audioRequiredListeningMultipleAnswer": "Listening multiple answer requires a listening audio URL.",
       "audioRequiredListeningFormCompletion": "Listening form completion requires a listening audio URL.",
       "audioRequiredListeningSubmission": "Listen & submit audio requires a listening audio URL.",
       "correctAnswerRequired": "Fill in the blank requires a correct answer for the system to auto-grade.",
@@ -175,6 +177,7 @@
       "listeningFillInBlank": "Auto-graded against the correct answer.",
       "listeningFormCompletion": "Each ___ blank maps to one answer in order (| separated); several accepted answers per blank use /, numbers/times are normalised. Scored by share of correct blanks.",
       "listeningPictureChoice": "Each image is 1 option in order A/B/C(/D), separated by | in Image URL — Option A/B/C/D are optional captions under each image, leave blank to default to the letter label.",
+      "listeningMultipleAnswer": "Correct answer is the letters separated by | (e.g. B|D). Max 4 options A-D — a 5-option (A-E) question must be authored with the manual form. Partial credit: each correct option earns 1/N, each wrong pick loses 1/N.",
       "gridReading": "Each question in Content is separated by | and shares ONE reference passage + ONE shared A-D answer set (applies to EVERY question). Correct answer is the letter A/B/C/D in the EXACT order matching Content.",
       "clozeReading": "The number of blanks is inferred from the | count in Answer A (required) — Answer B/C/D (if present) must match that count, EACH blank has its own options. Content (optional) labels each blank; leave blank to auto-number them."
     },
@@ -199,6 +202,7 @@
       "NGHE_NOP_AUDIO": "Listen & submit audio",
       "NGHE_DIEN_TU": "Listening fill in the blank",
       "NGHE_CHON_HINH": "Listening picture choice",
+      "NGHE_NHIEU_DAP_AN": "Listening multiple answer",
       "NGHE_PHIEU_THONG_TIN": "Listening form completion",
       "DOC_HIEU_LUOI": "Reading comprehension - Grid",
       "DOC_DIEN_TU": "Reading cloze",
@@ -222,6 +226,7 @@
       "SAP_XEP_CHU_CAI": "Required: Content, Correct answer (≥2 letters separated by |). Optional: Image URL.",
       "NGHE_NOP_AUDIO": "Required: Content, Audio URL. Graded manually.",
       "NGHE_CHON_HINH": "Required: Content, Audio URL, Image URL (N images separated by |, 1 per answer in A-D order). Optional: Answer A-D (captions under each image), Correct answer. Reference passage (= audio transcript), no special format required.",
+      "NGHE_NHIEU_DAP_AN": "Required: Content, Audio URL, Option A-D (2-4 options), Correct answer (≥2 letters separated by |, e.g. B|D). Optional: Image URL, Reference passage (= transcript). Partial credit.",
       "DOC_HIEU_LUOI": "1 row creates N questions sharing one answer set. Required: Content (N questions separated by |), Answer A-D (shared by EVERY question, NOT | separated), Correct answer (N letters separated by |). Reference passage is REQUIRED, shared by the whole group — follows the SAME passage rules as Multiple choice: one blank line between paragraphs/dialogue turns, short first paragraph becomes the bold title, \"Name: content\" lines auto-split the name (e.g. the Tom/Max/Anna sample passage).",
       "DOC_DIEN_TU": "1 row creates N blanks, each with its own answer set. Required: Answer A (N options separated by |, used to infer blank count), Correct answer (N letters separated by |). Optional: Answer B/C/D (same count as column A), Content (= N blank labels, leave empty to auto-number). Reference passage is REQUIRED, with NUMBERED blanks like (1)___, (2)___... inline — follows the same display rules (blank line between paragraphs, title/name auto-split) as Reading comprehension - Grid."
     },
@@ -295,6 +300,7 @@
   },
   "listeningGroupBuilder": {
     "subKindLabel": "Sub question type *",
+    "multipleAnswerHint": "Click the squares to mark ALL correct options (e.g. \"Choose TWO letters\" → tick 2). Partial credit: each correct option earns 1/N, each wrong pick loses 1/N.",
     "audioSectionTitle": "Audio file shared by the whole question group",
     "questionsSectionTitle": "Question list for the listening passage above",
     "correctAnswerPlaceholder": "Correct answer (auto-graded by the system, multiple answers separated by /)...",
@@ -323,6 +329,7 @@
       "fillAllCorrectAnswers": "Please fill in the correct answer for every fill-in-the-blank question.",
       "formNeedBlank": "The form needs content and at least one ___ blank.",
       "formFillAllAnswers": "Please fill in an answer for every blank.",
+      "multipleAnswerCorrectCount": "Each listening multiple-answer question needs at least 2 correct options and fewer than the total number of options.",
       "partialFailure": "Created {{created}}/{{total}} questions before an error occurred — the created questions remain in the question bank; please review if needed.",
       "createFailed": "Failed to create the listening question group."
     }

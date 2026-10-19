@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -122,11 +123,20 @@ public class QuestionImportService {
      */
     private static final String KIND_FORM_COMPLETION = "NGHE_PHIEU_THONG_TIN";
 
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — "Nghe trắc nghiệm nhiều đáp án" (IELTS Listening
+     * "Choose TWO letters A-E"): 1 audio + N đáp án đúng cùng lúc. Dùng questionType MULTIPLE_ANSWER (đã có
+     * sẵn, không migration), "Đáp án đúng" là các chữ cái phân tách bằng dấu | (VD "B|D"), chấm từng phần —
+     * xem ExerciseAttemptService#multipleAnswerPartialScore. Import chỉ có cột Đáp án A-D nên tối đa 4 lựa
+     * chọn; đề 5 lựa chọn (A-E) soạn bằng form tay (cho tới 8 lựa chọn).
+     */
+    private static final String KIND_LISTENING_MULTIPLE_ANSWER = "NGHE_NHIEU_DAP_AN";
+
     private static final Set<String> VALID_KINDS = Set.of(
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
             "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
             "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION, KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP,
-            KIND_CLOZE_GROUP);
+            KIND_CLOZE_GROUP, KIND_LISTENING_MULTIPLE_ANSWER);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -297,7 +307,7 @@ public class QuestionImportService {
             "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", KIND_FILL_IN_BLANK_GROUP,
                     "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
             "WRITING", Set.of("TU_LUAN"),
-            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION),
+            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION, KIND_LISTENING_MULTIPLE_ANSWER),
             // Bổ sung 2026-09-08 — trước đây READING không có entry (Cloze/Grid chưa import được), giờ
             // mở khóa cả 2 group kind mới.
             "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP));
@@ -465,6 +475,14 @@ public class QuestionImportService {
                 "Đáp án đúng: B",
                 "Giải thích: Mỗi ảnh 1 đáp án theo thứ tự A/B/C(/D), phân tách bằng dấu | trong \"URL Hình ảnh\" — \"Đáp án A/B/C/D\" tùy chọn để thêm chú thích chữ dưới ảnh, để trống thì tự dùng chữ cái làm nhãn.",
                 "---"));
+        blocks.put(KIND_LISTENING_MULTIPLE_ANSWER, List.of(
+                "[NGHE_NHIEU_DAP_AN]",
+                "Nội dung: Which TWO reasons does Irina give for visiting the exhibition?",
+                "A. to meet a friend", "B. to improve her knowledge", "C. to buy something", "D. to entertain her child",
+                "URL Audio: https://example-r2.dev/lms/questions/audio/mau-nghe-nhieu-dap-an.mp3",
+                "Đáp án đúng: B|D",
+                "Giải thích: Nhiều đáp án đúng phân tách bằng dấu | (VD: B|D), tối đa 4 lựa chọn A-D (đề có 5 lựa chọn A-E thì soạn bằng form tay). Chấm từng phần: mỗi đáp án đúng được 1/N điểm, chọn sai bị trừ 1/N.",
+                "---"));
         blocks.put(KIND_FORM_COMPLETION, List.of(
                 "[NGHE_PHIEU_THONG_TIN]",
                 "Nội dung: The Sea Lady",
@@ -528,12 +546,13 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
                     + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
                     + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/DIEN_TU_DOAN_VAN/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
-                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/DOC_HIEU_LUOI/DOC_DIEN_TU.");
+                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/NGHE_NHIEU_DAP_AN/DOC_HIEU_LUOI/DOC_DIEN_TU.");
         }
         return kind;
     }
 
-    private static final Set<String> AUDIO_GROUPABLE_KINDS = Set.of("TRAC_NGHIEM_VOICE", "NGHE_DIEN_TU", "NGHE_NOP_AUDIO", "NGHE_CHON_HINH");
+    private static final Set<String> AUDIO_GROUPABLE_KINDS = Set.of("TRAC_NGHIEM_VOICE", "NGHE_DIEN_TU", "NGHE_NOP_AUDIO", "NGHE_CHON_HINH",
+            KIND_LISTENING_MULTIPLE_ANSWER);
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — 2 tình huống cùng 1 bản chất
@@ -792,6 +811,17 @@ public class QuestionImportService {
             audioUrl = row.audioUrl().trim();
             choices = buildPictureChoices(row);
             referencePassage = blankToNull(row.referencePassage());
+        } else if (kind.equals(KIND_LISTENING_MULTIPLE_ANSWER)) {
+            // Mirror form tay (kind LISTENING_MULTIPLE_ANSWER ở QuestionEditorForm.tsx): bắt buộc audio,
+            // nhiều đáp án đúng ("B|D"), ảnh đề/đoạn tham chiếu (transcript) là tùy chọn.
+            skill = "LISTENING";
+            if (isBlank(row.audioUrl())) {
+                throw new IllegalArgumentException("Nghe trắc nghiệm nhiều đáp án cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
+            }
+            audioUrl = row.audioUrl().trim();
+            choices = buildMultipleAnswerChoices(row);
+            imageUrl = blankToNull(row.imageUrl());
+            referencePassage = blankToNull(row.referencePassage());
         } else { // NGHE_DIEN_TU — mirror LISTENING_FILL_IN_BLANK ở form tay, bắt buộc cả audio lẫn đáp án.
             skill = "LISTENING";
             if (isBlank(row.audioUrl())) {
@@ -805,6 +835,7 @@ public class QuestionImportService {
         }
 
         String questionType = kind.startsWith("TRAC_NGHIEM") || kind.equals("NGHE_CHON_HINH") ? "MULTIPLE_CHOICE"
+                : kind.equals(KIND_LISTENING_MULTIPLE_ANSWER) ? "MULTIPLE_ANSWER"
                 : kind.equals("DIEN_TU") || kind.equals("NGHE_DIEN_TU") ? "FILL_IN_BLANK"
                 : kind.equals("TU_LUAN") ? "ESSAY"
                 : kind.startsWith("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_DOAN_VAN") || kind.equals(KIND_FORM_COMPLETION) ? "WORD_BANK"
@@ -1154,6 +1185,14 @@ public class QuestionImportService {
      * choices dạng mảng liên tục theo vị trí, không hỗ trợ "lỗ hổng" giữa các lựa chọn.
      */
     private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row) {
+        return buildChoices(row, false);
+    }
+
+    /**
+     * {@code multiAnswer=true} (NGHE_NHIEU_DAP_AN, bổ sung 2026-10-19): "Đáp án đúng" là danh sách chữ
+     * cái phân tách bằng dấu | (VD "B|D"), cần ít nhất 2 đáp án đúng khác nhau và nhỏ hơn tổng số lựa chọn.
+     */
+    private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row, boolean multiAnswer) {
         // Arrays.asList (KHÔNG dùng List.of) vì choiceC/D có thể null khi câu chỉ có 2 đáp án —
         // List.of ném NullPointerException (không message) ngay khi gặp phần tử null.
         List<String> raw = Arrays.asList(blankToNull(row.choiceA()), blankToNull(row.choiceB()),
@@ -1172,17 +1211,40 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Câu trắc nghiệm cần ít nhất 2 đáp án (Đáp án A và B) — Đáp án C/D là tùy chọn, thêm nếu câu có nhiều hơn 2 lựa chọn.");
         }
         String allowedLetters = "ABCD".substring(0, count);
-        String correctLetter = isBlank(row.correctAnswer()) ? "" : row.correctAnswer().trim().toUpperCase(Locale.ROOT);
-        if (correctLetter.length() != 1 || allowedLetters.indexOf(correctLetter.charAt(0)) < 0) {
-            throw new IllegalArgumentException("Đáp án đúng phải là 1 trong " + String.join("/", allowedLetters.split(""))
-                    + " (đang có: '" + row.correctAnswer() + "').");
+        Set<String> correctLetters;
+        if (multiAnswer) {
+            correctLetters = new LinkedHashSet<>();
+            if (!isBlank(row.correctAnswer())) {
+                for (String part : splitPipeKeepBlanks(row.correctAnswer().toUpperCase(Locale.ROOT))) {
+                    if (part.length() != 1 || allowedLetters.indexOf(part.charAt(0)) < 0) {
+                        throw new IllegalArgumentException("Đáp án đúng phải là các chữ cái trong " + String.join("/", allowedLetters.split(""))
+                                + " phân tách bằng dấu | (VD: B|D), đang có: '" + row.correctAnswer() + "'.");
+                    }
+                    correctLetters.add(part);
+                }
+            }
+            if (correctLetters.size() < 2 || correctLetters.size() >= count) {
+                throw new IllegalArgumentException("Trắc nghiệm nhiều đáp án cần từ 2 đáp án đúng trở lên và ít hơn tổng số lựa chọn ("
+                        + count + ") — VD: B|D (đang có: '" + row.correctAnswer() + "').");
+            }
+        } else {
+            String correctLetter = isBlank(row.correctAnswer()) ? "" : row.correctAnswer().trim().toUpperCase(Locale.ROOT);
+            if (correctLetter.length() != 1 || allowedLetters.indexOf(correctLetter.charAt(0)) < 0) {
+                throw new IllegalArgumentException("Đáp án đúng phải là 1 trong " + String.join("/", allowedLetters.split(""))
+                        + " (đang có: '" + row.correctAnswer() + "').");
+            }
+            correctLetters = Set.of(correctLetter);
         }
         List<QuestionChoiceRequest> choices = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             String label = String.valueOf((char) ('A' + i));
-            choices.add(new QuestionChoiceRequest(label, raw.get(i), null, label.equals(correctLetter), i + 1));
+            choices.add(new QuestionChoiceRequest(label, raw.get(i), null, correctLetters.contains(label), i + 1));
         }
         return choices;
+    }
+
+    private List<QuestionChoiceRequest> buildMultipleAnswerChoices(QuestionRowParser.ParsedQuestionRow row) {
+        return buildChoices(row, true);
     }
 
     /**
