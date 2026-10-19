@@ -2,6 +2,7 @@ import i18n from "@/i18n";
 import { compressImageForUpload } from "@/lib/imageCompression";
 import { ApiError, apiRequest, apiRequestBlob } from "@/lib/apiClient";
 import type { ClassResponse } from "@/features/academic/api";
+import type { Page } from "@/types";
 
 /**
  * Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng
@@ -202,6 +203,41 @@ export function listExamQuestionKeyGrammarOptions(examId: number, questionId: nu
 
 export function listQuestions(bankId: number): Promise<QuestionResponse[]> {
   return apiRequest<QuestionResponse[]>(`/question-banks/${bankId}/questions`);
+}
+
+/**
+ * 1 dòng kết quả tìm kiếm câu hỏi xuyên nhiều ngân hàng/khung chương trình — khớp
+ * QuestionSearchItemResponse backend. Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review
+ * hiệu năng trang "Ngân hàng câu hỏi") thay cho cách cũ tự tải toàn bộ rồi lọc/phân trang phía
+ * client (xem QuestionBankPage.tsx).
+ */
+export interface QuestionSearchItem {
+  question: QuestionResponse;
+  bankId: number;
+  bankCode: string;
+  bankName: string;
+  bankLevel: string | null;
+  curriculumId: number | null;
+  curriculumCode: string | null;
+  curriculumName: string | null;
+}
+
+export interface QuestionSearchFilter {
+  search?: string;
+  questionType?: QuestionType | "ALL";
+  difficulty?: QuestionDifficulty | "ALL";
+  level?: string;
+  page: number;
+  size: number;
+}
+
+export function searchQuestions(filter: QuestionSearchFilter): Promise<Page<QuestionSearchItem>> {
+  const qs = new URLSearchParams({ page: String(filter.page), size: String(filter.size) });
+  if (filter.search?.trim()) qs.set("search", filter.search.trim());
+  if (filter.questionType && filter.questionType !== "ALL") qs.set("questionType", filter.questionType);
+  if (filter.difficulty && filter.difficulty !== "ALL") qs.set("difficulty", filter.difficulty);
+  if (filter.level && filter.level !== "ALL") qs.set("level", filter.level);
+  return apiRequest<Page<QuestionSearchItem>>(`/questions/search?${qs.toString()}`);
 }
 
 export interface UpdateQuestionRequest {

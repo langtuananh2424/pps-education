@@ -7,4 +7,7 @@ import java.util.List;
 
 public interface QuestionChoiceRepository extends JpaRepository<QuestionChoice, Long> {
     List<QuestionChoice> findByQuestionIdOrderByDisplayOrder(Long questionId);
+
+    /** Batch-fetch cho 1 trang câu hỏi (QuestionBankService#searchQuestions) — tránh N+1 chọn lại theo từng câu. */
+    List<QuestionChoice> findByQuestionIdInOrderByQuestionIdAscDisplayOrderAsc(List<Long> questionIds);
 }
