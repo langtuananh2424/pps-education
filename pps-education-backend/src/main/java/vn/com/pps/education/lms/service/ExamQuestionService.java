@@ -88,7 +88,19 @@ public class ExamQuestionService {
     public QuestionImportResponse importQuestions(Long examId, MultipartFile file, Long actorUserId, String defaultKind) {
         Exam exam = examOrThrow(examId);
         return questionImportService.importQuestionsIntoBank(
-                exam.getQuestionBank(), file, actorUserId, false, defaultKind);
+                exam.getQuestionBank(), file, actorUserId, false, defaultKind, false);
+    }
+
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review UX import) — xem trước TRƯỚC KHI
+     * ghi DB, mirror QuestionImportService#previewImport. readOnly=true, không tạo ImportJob/
+     * Question/Choice nào — xem Javadoc importQuestionsIntoBank(dryRun).
+     */
+    @Transactional(readOnly = true)
+    public QuestionImportResponse previewImport(Long examId, MultipartFile file, Long actorUserId, String defaultKind) {
+        Exam exam = examOrThrow(examId);
+        return questionImportService.importQuestionsIntoBank(
+                exam.getQuestionBank(), file, actorUserId, false, defaultKind, true);
     }
 
     /**

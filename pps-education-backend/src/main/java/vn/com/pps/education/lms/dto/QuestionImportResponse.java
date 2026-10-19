@@ -19,7 +19,14 @@ public record QuestionImportResponse(
         int failedRows,
         String status,
         List<Map<String, Object>> errorSummary,
-        List<QuestionImportedRow> createdQuestions
+        List<QuestionImportedRow> createdQuestions,
+        /**
+         * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — nguyên 21 cột thô + trạng thái hợp lệ của
+         * TỪNG dòng file, chỉ có ý nghĩa khi {@code status="PREVIEW"} (xem QuestionImportService#
+         * previewImport) — dùng để FE dựng bảng sửa trực tiếp (QuestionImportPanel.tsx). Rỗng ở kết
+         * quả ghi DB thật (COMPLETED/PARTIAL_SUCCESS/FAILED) vì không còn cần sửa nữa.
+         */
+        List<QuestionImportRowPreview> rowPreviews
 ) {
     public record QuestionImportedRow(Long id, String content, BigDecimal defaultPoints) {}
 }

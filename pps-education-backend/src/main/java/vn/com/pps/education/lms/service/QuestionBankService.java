@@ -1,5 +1,8 @@
 package vn.com.pps.education.lms.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.common.KeyGrammarDictionary;
@@ -18,6 +21,7 @@ import vn.com.pps.education.lms.dto.QuestionBankResponse;
 import vn.com.pps.education.lms.dto.QuestionChoiceRequest;
 import vn.com.pps.education.lms.dto.QuestionChoiceResponse;
 import vn.com.pps.education.lms.dto.QuestionResponse;
+import vn.com.pps.education.lms.dto.QuestionSearchItemResponse;
 import vn.com.pps.education.lms.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.lms.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.DuplicateQuestionContentException;
@@ -35,8 +39,10 @@ import vn.com.pps.education.auth.repository.UserRepository;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * UC-40: Soạn & giao đề kiểm tra (FR-LMS-10) — phần Ngân hàng câu hỏi.
@@ -67,6 +73,7 @@ public class QuestionBankService {
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final UserRepository userRepository;
     private final KeyGrammarDictionaryLoader keyGrammarDictionaryLoader;
+    private static final int MAX_SEARCH_PAGE_SIZE = 100;
 
     public QuestionBankService(QuestionBankRepository questionBankRepository,
                                 ExamRepository examRepository,
@@ -199,10 +206,10 @@ public class QuestionBankService {
         question.setTags(request.tags());
         question.setCreatedBy(actor);
         question = questionRepository.save(question);
-        saveChoices(question, request.choices());
+        List<QuestionChoice> savedChoices = saveChoices(question, request.choices());
 
         writeHistory(question, actor, QuestionHistory.Action.CREATED);
-        return toResponse(question);
+        return toResponse(question, savedChoices);
     }
 
     /**
@@ -250,13 +257,14 @@ public class QuestionBankService {
         }
         question.setKeyGrammar(resolveKeyGrammar(question, request.keyGrammarIds()));
         question = questionRepository.save(question);
+        List<QuestionChoice> savedChoices = null;
         if (request.choices() != null) {
             questionChoiceRepository.deleteAll(questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(id));
-            saveChoices(question, request.choices());
+            savedChoices = saveChoices(question, request.choices());
         }
 
         writeHistory(question, actor, QuestionHistory.Action.UPDATED);
-        return toResponse(question);
+        return savedChoices != null ? toResponse(question, savedChoices) : toResponse(question);
     }
 
     /**
@@ -340,6 +348,48 @@ public class QuestionBankService {
                 .stream().map(this::toResponse).toList();
     }
 
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review hiệu năng trang "Ngân hàng câu
+     * hỏi") — thay cho cách FE cũ tự load TOÀN BỘ câu hỏi của mọi khung chương trình/mọi ngân hàng
+     * rồi lọc/phân trang phía client. Lọc + phân trang NGAY ở DB qua
+     * QuestionRepository#searchLegacyQuestions, batch-fetch choices theo trang (không N+1 từng câu).
+     */
+    @Transactional(readOnly = true)
+    public Page<QuestionSearchItemResponse> searchQuestions(String search, String questionType, String difficulty,
+                                                             String level, int page, int size) {
+        int pageSize = Math.min(Math.max(size, 1), MAX_SEARCH_PAGE_SIZE);
+        String pattern = search == null || search.isBlank() ? null : "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+        Question.QuestionType type = questionType == null || questionType.isBlank()
+                ? null : Question.QuestionType.valueOf(questionType);
+        Question.Difficulty diff = difficulty == null || difficulty.isBlank()
+                ? null : Question.Difficulty.valueOf(difficulty);
+        String levelFilter = level == null || level.isBlank() ? null : level;
+
+        Page<Question> questions = questionRepository.searchLegacyQuestions(Question.Status.ACTIVE, pattern, type,
+                diff, levelFilter, PageRequest.of(Math.max(page, 0), pageSize));
+
+        List<Long> ids = questions.getContent().stream().map(Question::getId).toList();
+        Map<Long, List<QuestionChoice>> choicesByQuestion = questionChoiceRepository
+                .findByQuestionIdInOrderByQuestionIdAscDisplayOrderAsc(ids).stream()
+                .collect(Collectors.groupingBy(c -> c.getQuestion().getId(), LinkedHashMap::new, Collectors.toList()));
+
+        List<QuestionSearchItemResponse> content = questions.getContent().stream()
+                .map(q -> toSearchItem(q, choicesByQuestion.getOrDefault(q.getId(), List.of())))
+                .toList();
+        return new PageImpl<>(content, questions.getPageable(), questions.getTotalElements());
+    }
+
+    private QuestionSearchItemResponse toSearchItem(Question q, List<QuestionChoice> choices) {
+        QuestionBank bank = q.getQuestionBank();
+        Curriculum curriculum = bank.getCurriculum();
+        return new QuestionSearchItemResponse(
+                toResponse(q, choices),
+                bank.getId(), bank.getCode(), bank.getName(), bank.getLevel(),
+                curriculum == null ? null : curriculum.getId(),
+                curriculum == null ? null : curriculum.getCode(),
+                curriculum == null ? null : curriculum.getName());
+    }
+
     @Transactional(readOnly = true)
     public QuestionResponse getQuestion(Long id) {
         Question question = questionRepository.findById(id)
@@ -374,11 +424,17 @@ public class QuestionBankService {
         }
     }
 
-    private void saveChoices(Question question, List<QuestionChoiceRequest> choices) {
+    /**
+     * saveAll (1 lệnh) thay vì save() từng choice trong loop (bổ sung
+     * 2026-10-19, đã xác nhận với người dùng khi review hiệu năng import
+     * Excel) — trả lại list đã lưu để caller dùng ngay cho toResponse,
+     * tránh phải SELECT lại NGAY SAU KHI vừa INSERT (xem toResponse(Question, List)).
+     */
+    private List<QuestionChoice> saveChoices(Question question, List<QuestionChoiceRequest> choices) {
         if (choices == null) {
-            return;
+            return List.of();
         }
-        for (QuestionChoiceRequest c : choices) {
+        List<QuestionChoice> entities = choices.stream().map(c -> {
             QuestionChoice choice = new QuestionChoice();
             choice.setQuestion(question);
             choice.setChoiceLabel(c.choiceLabel());
@@ -386,8 +442,9 @@ public class QuestionBankService {
             choice.setImageUrl(c.imageUrl());
             choice.setCorrect(c.isCorrect());
             choice.setDisplayOrder(c.displayOrder());
-            questionChoiceRepository.save(choice);
-        }
+            return choice;
+        }).toList();
+        return questionChoiceRepository.saveAll(entities);
     }
 
     private QuestionBank getLegacyBankOrThrow(Long id) {
@@ -445,8 +502,11 @@ public class QuestionBankService {
     }
 
     private QuestionResponse toResponse(Question q) {
-        List<QuestionChoiceResponse> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(q.getId())
-                .stream().map(this::toResponse).toList();
+        return toResponse(q, questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(q.getId()));
+    }
+
+    private QuestionResponse toResponse(Question q, List<QuestionChoice> preloadedChoices) {
+        List<QuestionChoiceResponse> choices = preloadedChoices.stream().map(this::toResponse).toList();
         return new QuestionResponse(
                 q.getId(), q.getQuestionBank().getId(), q.getQuestionType().name(),
                 q.getSkill() == null ? null : q.getSkill().name(),
