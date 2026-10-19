@@ -855,8 +855,17 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
      * (DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU: 3 Question — ví dụ mẫu trong
      * TEMPLATE_BLOCKS có 3 phần tử "|"; DOC_HIEU_NOI_DAP_AN: 2 Question — ví
      * dụ mẫu chỉ có 2 phần tử "|", xem buildTemplateBlocks()) nên tổng câu
-     * hỏi thật sự tạo ra tăng thêm 2 so với trước (23 + 2 = 25), tên method
-     * cập nhật lại hậu tố số lượng cho đúng thực tế thay vì "boSung".
+     * hỏi thật sự tạo ra tăng thêm 2 so với trước (23 + 2 = 25). Bổ sung
+     * NGHE_NHIEU_DAP_AN (2026-10-19, 1 Question/dòng, không phải group) →
+     * 19 dòng/26 câu hỏi. Bổ sung ANH_TRAC_NGHIEM/ANH_DIEN_TU (2026-10-19,
+     * cùng đợt — xem Javadoc KIND_IMAGE_CHOICE/KIND_IMAGE_FILL_GROUP ở
+     * QuestionImportService): ANH_TRAC_NGHIEM 1 Question/dòng (như
+     * TRAC_NGHIEM thường); ANH_DIEN_TU ví dụ mẫu trong TEMPLATE_BLOCKS có 3
+     * phần tử "___|___|___" → 3 Question/dòng (mirror DIEN_TU_NHOM) → tổng
+     * 21 dòng (19 + 2), 30 câu hỏi (26 + 1 + 3). Tên method giữ nguyên
+     * "AllEighteenKinds" dù số thực tế đã vượt 18 từ lâu (theo đúng tiền lệ
+     * đã chọn ở đợt bổ sung trước, tránh đổi tên gây ồn diff không cần
+     * thiết mỗi lần thêm 1 kind mới).
      */
     @Test
     void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllEighteenKinds() {
@@ -867,10 +876,10 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", template), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.totalRows()).isEqualTo(19);
-        assertThat(result.successRows()).isEqualTo(19);
+        assertThat(result.totalRows()).isEqualTo(21);
+        assertThat(result.successRows()).isEqualTo(21);
         assertThat(result.failedRows()).isEqualTo(0);
-        assertThat(questionBankService.listQuestions(bank.id())).hasSize(26);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(30);
     }
 
     /** NGHE_NHIEU_DAP_AN (2026-10-19): 1 audio + nhiều đáp án đúng "B|D" -> 1 Question MULTIPLE_ANSWER skill LISTENING. */
