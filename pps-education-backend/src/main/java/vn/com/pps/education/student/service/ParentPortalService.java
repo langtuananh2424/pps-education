@@ -21,6 +21,7 @@ import vn.com.pps.education.student.dto.AttendanceMarkResponse;
 import vn.com.pps.education.student.dto.ChildResponse;
 import vn.com.pps.education.hr.dto.ClassSessionResponse;
 import vn.com.pps.education.student.dto.GradeEntryResponse;
+import vn.com.pps.education.student.dto.LateSubmissionWindowResponse;
 import vn.com.pps.education.student.dto.GradeEvaluationResultResponse;
 import vn.com.pps.education.student.dto.HomeworkProgressResponse;
 import vn.com.pps.education.student.dto.HomeworkSkillItemResponse;
@@ -407,6 +408,7 @@ public class ParentPortalService {
                 toItems(row.grammarAssignments, studentId),
                 row.grammarBatch == null ? null : row.grammarBatch.getSkillCategory().name(),
                 batchDueAt(row.grammarAssignments),
+                batchLateSubmission(row.grammarAssignments),
                 batchUnitTitle(row.grammarBatch),
                 row.readingBatch == null ? null : row.readingBatch.getId(),
                 batchTitle(row.readingBatch, row.readingAssignments),
@@ -415,6 +417,7 @@ public class ParentPortalService {
                 aggregatePassed(readingProgress, row.readingAssignments, studentId),
                 toItems(row.readingAssignments, studentId),
                 batchDueAt(row.readingAssignments),
+                batchLateSubmission(row.readingAssignments),
                 batchUnitTitle(row.readingBatch),
                 row.writingBatch == null ? null : row.writingBatch.getId(),
                 batchTitle(row.writingBatch, row.writingAssignments),
@@ -423,6 +426,7 @@ public class ParentPortalService {
                 aggregatePassed(writingProgress, row.writingAssignments, studentId),
                 toItems(row.writingAssignments, studentId),
                 batchDueAt(row.writingAssignments),
+                batchLateSubmission(row.writingAssignments),
                 batchUnitTitle(row.writingBatch),
                 video == null ? null : video.getId(),
                 video == null ? null : video.getReviewVideoSet().getTitle(),
@@ -431,12 +435,22 @@ public class ParentPortalService {
                 video == null ? null : video.getReviewVideoSet().getVideoType().name(),
                 video == null ? null : video.getReviewVideoSet().getTeacherType().name(),
                 video == null ? null : video.getDueAt(),
+                video == null ? null : new LateSubmissionWindowResponse(video.isLateSubmissionAllowed(), video.getLateSubmissionDeadline()),
                 video == null || video.getReviewVideoSet().getSubTopic() == null ? null : video.getReviewVideoSet().getSubTopic().getUnit().getTitle());
     }
 
     /** Hạn nộp của 1 Lô — mọi Bài trong lô dùng CHUNG 1 hạn (gán đồng loạt lúc assignBatchToClass), lấy đại diện Bài đầu tiên. */
     private OffsetDateTime batchDueAt(List<ExerciseAssignment> assignments) {
         return assignments.isEmpty() ? null : assignments.get(0).getDueAt();
+    }
+
+    /** Cửa nộp muộn của 1 Lô — cùng nguyên tắc {@link #batchDueAt}: mọi Bài trong lô dùng chung, lấy đại diện Bài đầu tiên. */
+    private LateSubmissionWindowResponse batchLateSubmission(List<ExerciseAssignment> assignments) {
+        if (assignments.isEmpty()) {
+            return null;
+        }
+        ExerciseAssignment first = assignments.get(0);
+        return new LateSubmissionWindowResponse(first.isLateSubmissionAllowed(), first.getLateSubmissionDeadline());
     }
 
     /** Unit chứa Lesson (Exam) của 1 Lô — NULL nếu Đề chưa gắn Sub Topic (Đề cũ trước cấu trúc Sách → Unit → Sub Topic). */

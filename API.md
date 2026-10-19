@@ -70,6 +70,7 @@
 - [actual-periods-report-controller](#actual-periods-report-controller)
 - [ai-token-usage-controller](#ai-token-usage-controller)
 - [attendance-summary-export-controller](#attendance-summary-export-controller)
+- [attendance-timesheet-controller](#attendance-timesheet-controller)
 - [book-catalog-import-controller](#book-catalog-import-controller)
 - [book-controller](#book-controller)
 - [change-history-controller](#change-history-controller)
@@ -243,6 +244,7 @@
 | POST | `/api/attendance/check-out` | JWT | Body: [AttendanceCheckRequest](#attendancecheckrequest) | [AttendanceRecordResponse](#attendancerecordresponse) |
 | GET | `/api/attendance/detect-site` | JWT | Query: `latitude`, `longitude` | [DetectedSiteResponse](#detectedsiteresponse) |
 | GET | `/api/attendance/records` | JWT + `hrm.attendance.view-all` | Query: `employeeId`?, `siteId`?, `from`, `to` | mảng [AttendanceRecordAdminResponse](#attendancerecordadminresponse) |
+| POST | `/api/attendance/records/manual` | JWT + `hrm.attendance.view-all` | Body: [ManualAttendanceRequest](#manualattendancerequest) | [AttendanceRecordAdminResponse](#attendancerecordadminresponse) |
 | GET | `/api/attendance/records/me` | JWT | — | [AttendanceRecordResponse](#attendancerecordresponse) |
 
 ## Đơn từ (UC-10/11)
@@ -409,6 +411,7 @@
 | GET | `/api/question-banks/{bankId}/questions` | JWT + `lms.question-bank.view` | — | mảng [QuestionResponse](#questionresponse) |
 | PUT | `/api/question-banks/{id}/status` | JWT + `lms.question-bank.update` | Body: [UpdateQuestionBankStatusRequest](#updatequestionbankstatusrequest) | [QuestionBankResponse](#questionbankresponse) |
 | POST | `/api/questions` | JWT + `lms.question-bank.create` | Body: [CreateQuestionRequest](#createquestionrequest) | [QuestionResponse](#questionresponse) |
+| GET | `/api/questions/search` | JWT + `lms.question-bank.view` | Query: `search`?, `questionType`?, `difficulty`?, `level`?, `page`?, `size`? | [PageQuestionSearchItemResponse](#pagequestionsearchitemresponse) |
 | GET | `/api/questions/{id}` | JWT + `lms.question-bank.view` | — | [QuestionResponse](#questionresponse) |
 | PUT | `/api/questions/{id}` | JWT + `lms.question-bank.update` | Body: [UpdateQuestionRequest](#updatequestionrequest) | [QuestionResponse](#questionresponse) |
 
@@ -424,6 +427,7 @@
 | GET | `/api/exercises/{id}` | JWT | — | [ExerciseResponse](#exerciseresponse) |
 | PUT | `/api/exercises/{id}` | JWT + `lms.exercise.update` | Body: [UpdateExerciseRequest](#updateexerciserequest) | [ExerciseResponse](#exerciseresponse) |
 | POST | `/api/exercises/{id}/publish` | JWT + `lms.exercise.publish` | — | [ExerciseResponse](#exerciseresponse) |
+| DELETE | `/api/exercises/{id}/questions` | JWT + `lms.exercise.update` | Body: [RemoveExerciseQuestionsRequest](#removeexercisequestionsrequest) | 200 (không có body) |
 | GET | `/api/exercises/{id}/questions` | JWT | — | mảng [ExerciseQuestionResponse](#exercisequestionresponse) |
 | POST | `/api/exercises/{id}/questions` | JWT + `lms.exercise.update` | Body: [AddExerciseQuestionRequest](#addexercisequestionrequest) | [ExerciseQuestionResponse](#exercisequestionresponse) |
 | DELETE | `/api/exercises/{id}/questions/{exerciseQuestionId}` | JWT + `lms.exercise.update` | — | 200 (không có body) |
@@ -682,6 +686,13 @@
 |---|---|---|---|---|
 | GET | `/api/classes/{classId}/attendance-summary/export` | JWT + `academic.attendance.view` | Query: `fromDate`?, `toDate`? | string |
 
+## attendance-timesheet-controller
+
+| Method | Path | Auth | Input | Output |
+|---|---|---|---|---|
+| GET | `/api/attendance/timesheet` | JWT + `hrm.attendance.view-all` | Query: `year`, `month`, `siteId`?, `departmentId`? | [AttendanceTimesheetResponse](#attendancetimesheetresponse) |
+| GET | `/api/attendance/timesheet/export` | JWT + `hrm.attendance.view-all` | Query: `year`, `month`, `siteId`?, `departmentId`? | string |
+
 ## book-catalog-import-controller
 
 | Method | Path | Auth | Input | Output |
@@ -830,6 +841,7 @@
 | GET | `/api/exams/{examId}/questions` | JWT + `lms.exam-question.view` | — | mảng [QuestionResponse](#questionresponse) |
 | POST | `/api/exams/{examId}/questions` | JWT + `lms.exam-question.create` | Body: [CreateExamQuestionRequest](#createexamquestionrequest) | [QuestionResponse](#questionresponse) |
 | POST | `/api/exams/{examId}/questions/import` | JWT + `lms.exam-question.create` | Form-data: `file` (tệp)<br>Query: `defaultKind`? | [QuestionImportResponse](#questionimportresponse) |
+| POST | `/api/exams/{examId}/questions/import/preview` | JWT + `lms.exam-question.create` | Form-data: `file` (tệp)<br>Query: `defaultKind`? | [QuestionImportResponse](#questionimportresponse) |
 | GET | `/api/exams/{examId}/questions/{questionId}` | JWT + `lms.exam-question.view` | — | [QuestionResponse](#questionresponse) |
 | PUT | `/api/exams/{examId}/questions/{questionId}` | JWT + `lms.exam-question.update` | Body: [UpdateQuestionRequest](#updatequestionrequest) | [QuestionResponse](#questionresponse) |
 | GET | `/api/exams/{examId}/questions/{questionId}/key-grammar-options` | JWT + `lms.exam-question.view` | — | mảng [KeyGrammarStructureResponse](#keygrammarstructureresponse) |
@@ -954,6 +966,7 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | POST | `/api/question-banks/{bankId}/questions/import` | JWT + `lms.question-bank.create` | Form-data: `file` (tệp)<br>Query: `defaultKind`? | [QuestionImportResponse](#questionimportresponse) |
+| POST | `/api/question-banks/{bankId}/questions/import/preview` | JWT + `lms.question-bank.create` | Form-data: `file` (tệp)<br>Query: `defaultKind`? | [QuestionImportResponse](#questionimportresponse) |
 | GET | `/api/question-imports/template.docx` | JWT + `lms.question-bank.create` | Query: `defaultKind`? | string |
 | GET | `/api/question-imports/{id}` | JWT + `lms.question-bank.create` | — | [QuestionImportResponse](#questionimportresponse) |
 
@@ -1041,6 +1054,7 @@
 | GET | `/api/review-videos/{videoId}/questions` | JWT | — | mảng [ReviewVideoQuestionResponse](#reviewvideoquestionresponse) |
 | POST | `/api/review-videos/{videoId}/questions` | JWT + `lms.review-video.update` | Body: [AddReviewVideoQuestionRequest](#addreviewvideoquestionrequest) | [ReviewVideoQuestionResponse](#reviewvideoquestionresponse) |
 | POST | `/api/review-videos/{videoId}/questions/import` | JWT + `lms.review-video.update` | Form-data: `file` (tệp) | [ReviewVideoQuestionImportResponse](#reviewvideoquestionimportresponse) |
+| POST | `/api/review-videos/{videoId}/retake` | JWT | Query: `assignmentId` | [ReviewVideoProgressResponse](#reviewvideoprogressresponse) |
 | POST | `/api/review-videos/{videoId}/stop-early` | JWT | Query: `assignmentId` | [ReviewVideoProgressResponse](#reviewvideoprogressresponse) |
 | PUT | `/api/review-videos/{videoId}/thresholds` | JWT + `lms.review-video.update` | Body: [UpdateReviewVideoThresholdsRequest](#updatereviewvideothresholdsrequest) | [ReviewVideoResponse](#reviewvideoresponse) |
 | POST | `/api/review-videos/{videoId}/watch-sessions` | JWT | Query: `assignmentId` | [StartWatchSessionResponse](#startwatchsessionresponse) |
@@ -1052,6 +1066,7 @@
 | GET | `/api/review-video-assignments/{assignmentId}/export-reflex-data` | JWT + `lms.review-video.view` | — | string |
 | GET | `/api/review-video-assignments/{assignmentId}/stats/questions` | JWT + `lms.review-video.view` | — | [ReviewVideoAssignmentQuestionStatsResponse](#reviewvideoassignmentquestionstatsresponse) |
 | GET | `/api/review-video-assignments/{assignmentId}/stats/students` | JWT + `lms.review-video.view` | — | [ReviewVideoAssignmentStudentStatsResponse](#reviewvideoassignmentstudentstatsresponse) |
+| GET | `/api/review-video-assignments/{assignmentId}/stats/students/{studentId}/connection-history` | JWT + `lms.review-video.view` | — | [ConnectionStudentHistoryResponse](#connectionstudenthistoryresponse) |
 | GET | `/api/review-video-assignments/{assignmentId}/stats/students/{studentId}/reflex-history` | JWT + `lms.review-video.view` | — | mảng [ReflexQuestionProgressHistoryResponse](#reflexquestionprogresshistoryresponse) |
 
 ## session-report-tracking-controller
@@ -1067,12 +1082,15 @@
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
 | POST | `/api/employee-shifts` | JWT + `hrm.employee-shift.assign` | Body: [AssignEmployeeShiftRequest](#assignemployeeshiftrequest) | [EmployeeShiftResponse](#employeeshiftresponse) |
+| DELETE | `/api/employee-shifts/{id}` | JWT + `hrm.employee-shift.assign` | — | 200 (không có body) |
+| PUT | `/api/employee-shifts/{id}` | JWT + `hrm.employee-shift.assign` | Body: [UpdateEmployeeShiftRequest](#updateemployeeshiftrequest) | [EmployeeShiftResponse](#employeeshiftresponse) |
 | PUT | `/api/employee-shifts/{id}/end` | JWT + `hrm.employee-shift.assign` | Body: [EndEmployeeShiftRequest](#endemployeeshiftrequest) | [EmployeeShiftResponse](#employeeshiftresponse) |
 | GET | `/api/employees/{id}/shifts` | JWT + `hrm.employee-shift.assign hoặc hrm.employee-schedule.view` | — | mảng [EmployeeShiftResponse](#employeeshiftresponse) |
 | GET | `/api/shifts` | JWT | — | mảng [ShiftResponse](#shiftresponse) |
 | POST | `/api/shifts` | JWT + `hrm.shift.create` | Body: [CreateShiftRequest](#createshiftrequest) | [ShiftResponse](#shiftresponse) |
 | PUT | `/api/shifts/{id}` | JWT + `hrm.shift.update` | Body: [UpdateShiftRequest](#updateshiftrequest) | [ShiftResponse](#shiftresponse) |
 | PUT | `/api/shifts/{id}/deactivate` | JWT + `hrm.shift.update` | — | [ShiftResponse](#shiftresponse) |
+| GET | `/api/shifts/{id}/employees` | JWT + `hrm.employee-shift.assign hoặc hrm.employee-schedule.view` | — | mảng [EmployeeShiftResponse](#employeeshiftresponse) |
 
 ## site-period-template-controller
 
@@ -1377,6 +1395,7 @@
 | `durationSeconds` | integer | ✔ |
 | `fileSizeBytes` | integer (int64) |  |
 | `fileUrl` | string | ✔ |
+| `passRatioThresholdPercent` | integer |  |
 | `requiredViewCount` | integer |  |
 | `sessionPassRatioThresholdPercent` | integer |  |
 | `sourceType` | string | ✔ |
@@ -1424,6 +1443,18 @@
 | `byStudent` | mảng [ByStudent](#bystudent) |  |
 | `totals` | [Totals](#totals) |  |
 
+### AnswerRow
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `correct` | boolean |  |
+| `correctContent` | string |  |
+| `correctLabel` | string |  |
+| `prompt` | string |  |
+| `questionOrder` | integer |  |
+| `selectedContent` | string |  |
+| `selectedLabel` | string |  |
+
 ### AnsweredQuestion
 
 | Trường | Kiểu | Bắt buộc |
@@ -1461,6 +1492,7 @@
 |---|---|---|
 | `effectiveFrom` | string (date) | ✔ |
 | `employeeId` | integer (int64) | ✔ |
+| `replaceOverlapping` | boolean |  |
 | `shiftId` | integer (int64) | ✔ |
 
 ### AssignLeadRequest
@@ -1617,6 +1649,16 @@
 | `mode` | string |  |
 | `status` | string |  |
 | `submittedAt` | string (date-time) |  |
+
+### AttendanceTimesheetResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `fromDate` | string (date) |  |
+| `month` | integer |  |
+| `rows` | mảng [Row](#row) |  |
+| `toDate` | string (date) |  |
+| `year` | integer |  |
 
 ### AutoProgressPreviewResponse
 
@@ -2187,6 +2229,12 @@
 | `content` | string | ✔ |
 | `displayOrder` | integer |  |
 | `isCorrect` | boolean |  |
+
+### ConnectionStudentHistoryResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `sessions` | mảng [SessionRow](#sessionrow) |  |
 
 ### ConvertLeadRequest
 
@@ -3748,6 +3796,7 @@
 | `grammarAssignmentId` | integer (int64) |  |
 | `grammarDueAt` | string (date-time) |  |
 | `grammarItems` | mảng [HomeworkSkillItemResponse](#homeworkskillitemresponse) |  |
+| `grammarLateSubmission` | [LateSubmissionWindowResponse](#latesubmissionwindowresponse) |  |
 | `grammarOfflineText` | string |  |
 | `grammarPassed` | boolean |  |
 | `grammarProgress` | string |  |
@@ -3757,6 +3806,7 @@
 | `readingAssignmentId` | integer (int64) |  |
 | `readingDueAt` | string (date-time) |  |
 | `readingItems` | mảng [HomeworkSkillItemResponse](#homeworkskillitemresponse) |  |
+| `readingLateSubmission` | [LateSubmissionWindowResponse](#latesubmissionwindowresponse) |  |
 | `readingOfflineText` | string |  |
 | `readingPassed` | boolean |  |
 | `readingProgress` | string |  |
@@ -3764,6 +3814,7 @@
 | `readingUnitTitle` | string |  |
 | `videoAssignmentId` | integer (int64) |  |
 | `videoDueAt` | string (date-time) |  |
+| `videoLateSubmission` | [LateSubmissionWindowResponse](#latesubmissionwindowresponse) |  |
 | `videoPassed` | boolean |  |
 | `videoProgress` | string |  |
 | `videoTeacherType` | string |  |
@@ -3773,6 +3824,7 @@
 | `writingAssignmentId` | integer (int64) |  |
 | `writingDueAt` | string (date-time) |  |
 | `writingItems` | mảng [HomeworkSkillItemResponse](#homeworkskillitemresponse) |  |
+| `writingLateSubmission` | [LateSubmissionWindowResponse](#latesubmissionwindowresponse) |  |
 | `writingOfflineText` | string |  |
 | `writingPassed` | boolean |  |
 | `writingProgress` | string |  |
@@ -3944,6 +3996,13 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | `base` | boolean |  |
 | `id` | string |  |
 | `name` | string |  |
+
+### LateSubmissionWindowResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `allowed` | boolean |  |
+| `deadline` | string (date-time) |  |
 
 ### LeadResponse
 
@@ -4146,6 +4205,17 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 |---|---|---|
 | `refreshToken` | string | ✔ |
 
+### ManualAttendanceRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `checkInTime` | [LocalTime](#localtime) |  |
+| `checkOutTime` | [LocalTime](#localtime) |  |
+| `employeeId` | integer (int64) | ✔ |
+| `reason` | string | ✔ |
+| `siteId` | integer (int64) |  |
+| `workDate` | string (date) | ✔ |
+
 ### MarkAttendanceRequest
 
 | Trường | Kiểu | Bắt buộc |
@@ -4301,6 +4371,22 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
 | `content` | mảng [PermissionAuditLogResponse](#permissionauditlogresponse) |  |
+| `empty` | boolean |  |
+| `first` | boolean |  |
+| `last` | boolean |  |
+| `number` | integer |  |
+| `numberOfElements` | integer |  |
+| `pageable` | [PageableObject](#pageableobject) |  |
+| `size` | integer |  |
+| `sort` | mảng [SortObject](#sortobject) |  |
+| `totalElements` | integer (int64) |  |
+| `totalPages` | integer |  |
+
+### PageQuestionSearchItemResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `content` | mảng [QuestionSearchItemResponse](#questionsearchitemresponse) |  |
 | `empty` | boolean |  |
 | `first` | boolean |  |
 | `last` | boolean |  |
@@ -4729,10 +4815,41 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | `errorSummary` | mảng object |  |
 | `failedRows` | integer |  |
 | `id` | integer (int64) |  |
+| `rowPreviews` | mảng [QuestionImportRowPreview](#questionimportrowpreview) |  |
 | `sourceFileName` | string |  |
 | `status` | string |  |
 | `successRows` | integer |  |
 | `totalRows` | integer |  |
+
+### QuestionImportRowPreview
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `audioUrl` | string |  |
+| `choiceA` | string |  |
+| `choiceB` | string |  |
+| `choiceC` | string |  |
+| `choiceD` | string |  |
+| `choiceE` | string |  |
+| `choiceF` | string |  |
+| `choiceG` | string |  |
+| `choiceH` | string |  |
+| `choiceI` | string |  |
+| `choiceJ` | string |  |
+| `content` | string |  |
+| `correctAnswer` | string |  |
+| `defaultPoints` | string |  |
+| `difficulty` | string |  |
+| `error` | string |  |
+| `explanation` | string |  |
+| `imageUrl` | string |  |
+| `instruction` | string |  |
+| `kind` | string |  |
+| `referencePassage` | string |  |
+| `rowNumber` | integer |  |
+| `sheetLabel` | string |  |
+| `tags` | string |  |
+| `valid` | boolean |  |
 
 ### QuestionImportedRow
 
@@ -4779,6 +4896,19 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | `wrongCount` | integer |  |
 | `wrongRatePercent` | number |  |
 | `wrongStudents` | mảng [WrongStudent](#wrongstudent) |  |
+
+### QuestionSearchItemResponse
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `bankCode` | string |  |
+| `bankId` | integer (int64) |  |
+| `bankLevel` | string |  |
+| `bankName` | string |  |
+| `curriculumCode` | string |  |
+| `curriculumId` | integer (int64) |  |
+| `curriculumName` | string |  |
+| `question` | [QuestionResponse](#questionresponse) |  |
 
 ### ReassignTaskRequest
 
@@ -4872,23 +5002,29 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 |---|---|---|
 | `answerText` | string |  |
 | `audioUrl` | string |  |
+| `questionFinalized` | boolean |  |
 | `questionId` | integer (int64) |  |
 | `questionPassed` | boolean |  |
 | `speakingAttemptCount` | integer |  |
 | `speakingCriteriaScores` | mảng [CriteriaScoreItem](#criteriascoreitem) |  |
+| `speakingExhausted` | boolean |  |
 | `speakingFeedback` | string |  |
 | `speakingHint` | string |  |
+| `speakingMaxAttempts` | integer |  |
 | `speakingPassed` | boolean |  |
 | `speakingScorePercent` | integer |  |
 | `speakingTranscript` | string |  |
 | `updatedAt` | string (date-time) |  |
 | `writingAttemptCount` | integer |  |
 | `writingCorrectedAnswer` | string |  |
+| `writingExhausted` | boolean |  |
 | `writingFeedback` | string |  |
 | `writingHint` | string |  |
 | `writingMarkedAnswer` | string |  |
+| `writingMaxAttempts` | integer |  |
 | `writingPassed` | boolean |  |
 | `writingScorePercent` | integer |  |
+| `writingUnlocked` | boolean |  |
 
 ### ReflexRecordingConfigResponse
 
@@ -4909,6 +5045,12 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | `accessToken` | string |  |
 | `accessTokenExpiresInSeconds` | integer (int64) |  |
 | `refreshToken` | string |  |
+
+### RemoveExerciseQuestionsRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `exerciseQuestionIds` | mảng integer (int64) | ✔ |
 
 ### ReportPeriodSelector
 
@@ -5129,6 +5271,7 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | `fileSizeBytes` | integer (int64) |  |
 | `fileUrl` | string |  |
 | `id` | integer (int64) |  |
+| `passRatioThresholdPercent` | integer |  |
 | `requiredViewCount` | integer |  |
 | `reviewVideoSetId` | integer (int64) |  |
 | `sessionPassRatioThresholdPercent` | integer |  |
@@ -5430,6 +5573,23 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | `submitDeadlineHours` | integer |  |
 | `teachers` | mảng [SessionReportTeacherSummary](#sessionreportteachersummary) |  |
 | `toDate` | string (date) |  |
+
+### SessionRow
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `answers` | mảng [AnswerRow](#answerrow) |  |
+| `archived` | boolean |  |
+| `durationSeconds` | integer |  |
+| `qualified` | boolean |  |
+| `quizAttemptCount` | integer |  |
+| `quizCompletedAt` | string (date-time) |  |
+| `quizPassed` | boolean |  |
+| `sessionNumber` | integer |  |
+| `startedAt` | string (date-time) |  |
+| `videoTitle` | string |  |
+| `watchSessionId` | integer (int64) |  |
+| `watchedSeconds` | integer |  |
 
 ### ShiftResponse
 
@@ -6239,13 +6399,13 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
-| `cachedTokens` | integer (int64) |  |
-| `callCount` | integer (int64) |  |
-| `completionTokens` | integer (int64) |  |
-| `promptTokens` | integer (int64) |  |
-| `reasoningTokens` | integer (int64) |  |
-| `rejectedCalls` | integer (int64) |  |
-| `unattributedCalls` | integer (int64) |  |
+| `earlyLeaveDays` | integer |  |
+| `lateDays` | integer |  |
+| `missingDays` | integer |  |
+| `paidLeaveDays` | integer |  |
+| `totalHours` | number |  |
+| `unpaidLeaveDays` | integer |  |
+| `workDays` | integer |  |
 
 ### TuitionPlanAssignmentResponse
 
@@ -6424,6 +6584,14 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | `status` | string | ✔ |
 | `taxCode` | string |  |
 | `terminationDate` | string (date) |  |
+
+### UpdateEmployeeShiftRequest
+
+| Trường | Kiểu | Bắt buộc |
+|---|---|---|
+| `effectiveFrom` | string (date) | ✔ |
+| `effectiveTo` | string (date) |  |
+| `shiftId` | integer (int64) | ✔ |
 
 ### UpdateEmploymentContractRequest
 
@@ -6687,6 +6855,7 @@ _(không có trường — object rỗng hoặc kiểu đặc biệt)_
 | Trường | Kiểu | Bắt buộc |
 |---|---|---|
 | `completionThresholdPercent` | integer | ✔ |
+| `passRatioThresholdPercent` | integer | ✔ |
 | `requiredViewCount` | integer | ✔ |
 | `sessionPassRatioThresholdPercent` | integer | ✔ |
 

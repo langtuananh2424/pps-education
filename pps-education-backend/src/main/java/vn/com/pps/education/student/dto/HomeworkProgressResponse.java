@@ -39,6 +39,9 @@ import java.util.List;
  * grammarXxx, xem StudentCommentService#grammarChannelSkillCategory. Reading/
  * Writing luôn là GV Việt Nam (V137), không cần field riêng.
  *
+ * *LateSubmission (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19) — cửa nộp muộn của
+ * bản giao (xem {@link LateSubmissionWindowResponse}), NULL khi kênh không có bản giao online.
+ *
  * *UnitTitle (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22)
  * — Unit chứa Lesson (Exam)/Bộ Video này (Exam.subTopic.unit /
  * ReviewVideoSet.subTopic.unit), NULL nếu Đề/Bộ cũ chưa phân loại vào cấu
@@ -58,6 +61,7 @@ public record HomeworkProgressResponse(
         List<HomeworkSkillItemResponse> grammarItems,
         String grammarSkillCategory,
         OffsetDateTime grammarDueAt,
+        LateSubmissionWindowResponse grammarLateSubmission,
         String grammarUnitTitle,
         Long readingAssignmentId,
         String readingTitle,
@@ -66,6 +70,7 @@ public record HomeworkProgressResponse(
         Boolean readingPassed,
         List<HomeworkSkillItemResponse> readingItems,
         OffsetDateTime readingDueAt,
+        LateSubmissionWindowResponse readingLateSubmission,
         String readingUnitTitle,
         Long writingAssignmentId,
         String writingTitle,
@@ -74,6 +79,7 @@ public record HomeworkProgressResponse(
         Boolean writingPassed,
         List<HomeworkSkillItemResponse> writingItems,
         OffsetDateTime writingDueAt,
+        LateSubmissionWindowResponse writingLateSubmission,
         String writingUnitTitle,
         Long videoAssignmentId,
         String videoTitle,
@@ -82,5 +88,6 @@ public record HomeworkProgressResponse(
         String videoType,
         String videoTeacherType,
         OffsetDateTime videoDueAt,
+        LateSubmissionWindowResponse videoLateSubmission,
         String videoUnitTitle
 ) {}
