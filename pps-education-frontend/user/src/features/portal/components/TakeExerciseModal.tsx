@@ -275,7 +275,19 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
  */
 export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
-  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; instruction: string | null; questions: ExerciseQuestionResponse[] };
+  | {
+      type: "grid";
+      groupKey: string;
+      referencePassage: string | null;
+      audioUrl: string | null;
+      // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — ảnh DÙNG CHUNG cho cả nhóm
+      // (mirror referencePassage/audioUrl), khác imageUrl RIÊNG từng câu ở DIEN_TU_NHOM (xem
+      // isSharedImageGroup ở GridQuestionGroup).
+      imageUrl: string | null;
+      wordBox: string[] | null;
+      instruction: string | null;
+      questions: ExerciseQuestionResponse[];
+    };
 
 /**
  * Bổ sung 2026-09-24 (đã xác nhận với người dùng, sửa bug thật) — lưới ảnh "Match the words with their
@@ -383,6 +395,7 @@ export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]):
         groupKey: q.groupKey,
         referencePassage: q.referencePassage,
         audioUrl: q.audioUrl,
+        imageUrl: q.imageUrl,
         wordBox: q.structuredContent?.wordBox ?? null,
         instruction: q.structuredContent?.instruction ?? null,
         questions: [q]
@@ -2091,7 +2104,18 @@ export function GridQuestionGroup({
   // layout mặc định bên dưới (ảnh bị phóng to 240px/dòng gây vỡ pixel với ảnh gốc nhỏ, lại dài lê thê
   // 10 dòng thay vì 1 khối gọn). Chỉ áp dụng khi CẢ NHÓM đều là FILL_IN_BLANK có ảnh (không đụng các
   // nhóm khác — nghe điền từ, đọc hiểu lưới trắc nghiệm... vẫn giữ nguyên layout liệt kê dọc cũ).
-  const isPictureMatchGrid = block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent));
+  // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU): phân biệt với
+  // isPictureMatchGrid bên dưới — ở ĐÂY cả nhóm dùng CHUNG ĐÚNG 1 ảnh (mirror referencePassage/audioUrl,
+  // hiện 1 LẦN DUY NHẤT ở đầu khối), bất kể questionType (MULTIPLE_CHOICE lẫn FILL_IN_BLANK), khác
+  // DIEN_TU_NHOM nơi MỖI câu có 1 ảnh KHÁC NHAU (hiện lặp lại trong lưới nhỏ bên dưới, xem
+  // isPictureMatchGrid). Không yêu cầu isBlankOnlyContent ở đây — ANH_TRAC_NGHIEM có nội dung thật (VD
+  // "14. shapes and patterns"), chỉ ANH_DIEN_TU mới có nội dung dạng "N. ___".
+  const isSharedImageGroup =
+    block.imageUrl != null && block.questions.length >= 2 && block.questions.every((q) => q.imageUrl === block.imageUrl);
+  const isPictureMatchGrid =
+    !isSharedImageGroup &&
+    block.questions.length >= 2 &&
+    block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent));
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
@@ -2153,6 +2177,14 @@ export function GridQuestionGroup({
           )}
         </div>
       )}
+      {/*
+       * Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — ảnh DÙNG CHUNG
+       * hiện 1 LẦN DUY NHẤT ở đây (mirror block.referencePassage/block.audioUrl ở trên), KHÔNG lặp lại ở
+       * từng dòng câu hỏi bên dưới (xem chỗ render ảnh riêng từng câu, đã thêm điều kiện !isSharedImageGroup).
+       */}
+      {isSharedImageGroup && block.imageUrl && (
+        <QuestionImages imageUrl={block.imageUrl} className="block w-full max-w-[780px] mx-auto rounded-xl border border-line/60" />
+      )}
       {isPictureMatchGrid ? (
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">
           {block.questions.map((q, qIndex) => {
@@ -2212,11 +2244,15 @@ export function GridQuestionGroup({
           // trong nhóm theo carry-forward, khác `readOnly` (áp cho cả nhóm/cả attempt) — 1 nhóm có thể
           // có câu đã đúng (khoá) lẫn câu sai (còn sửa được) cùng lúc.
           const rowReadOnly = readOnly || isLockedCarriedOver(answer);
+          // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — ảnh đã hiện dùng chung ở
+          // đầu khối (isSharedImageGroup=true) VÀ nội dung chỉ là "___" (GV không gõ số nữa) — ẩn phần
+          // nội dung lặp lại, chỉ còn "{số thứ tự}." gọn gàng.
+          const hideContentText = isSharedImageGroup && isBlankOnlyContent(q.questionContent);
           return (
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
-                  {startNumber != null ? startNumber + qIndex : q.displayOrder}. {renderRichText(q.questionContent)}
+                  {startNumber != null ? startNumber + qIndex : q.displayOrder}.{!hideContentText && <> {renderRichText(q.questionContent)}</>}
                 </span>
                 {isLockedCarriedOver(answer) && <CarriedOverBadge />}
               </div>
@@ -2227,7 +2263,7 @@ export function GridQuestionGroup({
                * those", mỗi câu 1 ảnh khác nhau) — trước đây chỉ câu đơn lẻ (không thuộc nhóm) mới hiện
                * ảnh, khối "grid" này thiếu hẳn nên ảnh bị lưu nhưng học sinh không thấy.
                */}
-              {q.imageUrl && <QuestionImages imageUrl={q.imageUrl} className="w-full max-w-[240px] rounded-xl border border-line/60" />}
+              {!isSharedImageGroup && q.imageUrl && <QuestionImages imageUrl={q.imageUrl} className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
               {/*
                * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây

@@ -33,6 +33,9 @@ public record QuestionImportRowPreview(
         String explanation,
         String tags,
         String instruction,
+        // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — cột "Kỹ năng" tường minh, xem Javadoc
+        // vn.com.pps.education.lms.service.QuestionRowParser.ParsedQuestionRow#skill.
+        String skill,
         boolean valid,
         String error
 ) {}
