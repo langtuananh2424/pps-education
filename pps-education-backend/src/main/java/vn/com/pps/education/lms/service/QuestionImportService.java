@@ -12,6 +12,7 @@ import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.lms.dto.CreateQuestionRequest;
 import vn.com.pps.education.lms.dto.QuestionChoiceRequest;
 import vn.com.pps.education.lms.dto.QuestionImportResponse;
+import vn.com.pps.education.lms.dto.QuestionImportRowPreview;
 import vn.com.pps.education.lms.dto.QuestionResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.lms.repository.ExamRepository;
@@ -181,6 +182,24 @@ public class QuestionImportService {
      */
     @Transactional
     public QuestionImportResponse importQuestions(Long bankId, MultipartFile file, Long actorUserId, String defaultKind) {
+        QuestionBank bank = legacyBankOrThrow(bankId);
+        return importQuestionsIntoBank(bank, file, actorUserId, true, defaultKind, false);
+    }
+
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review UX import) — xem trước kết quả
+     * TRƯỚC KHI ghi DB: parse + validate + mô phỏng ĐÚNG như importQuestions ở trên, dùng LẠI
+     * NGUYÊN importQuestionsIntoBank(dryRun=true) để tuyệt đối không lệch quy tắc giữa preview và
+     * commit thật (không viết lại logic riêng, xem .claude/rules/solid.md mục D). readOnly=true để
+     * chặn hẳn mọi ghi DB lọt qua dù nhánh dryRun có bug — không tạo ImportJob/Question/Choice nào.
+     */
+    @Transactional(readOnly = true)
+    public QuestionImportResponse previewImport(Long bankId, MultipartFile file, Long actorUserId, String defaultKind) {
+        QuestionBank bank = legacyBankOrThrow(bankId);
+        return importQuestionsIntoBank(bank, file, actorUserId, true, defaultKind, true);
+    }
+
+    private QuestionBank legacyBankOrThrow(Long bankId) {
         QuestionBank bank = questionBankRepository.findById(bankId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.bankNotFound",
                         new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId));
@@ -188,13 +207,19 @@ public class QuestionImportService {
             throw new ResourceNotFoundException("error.questionImport.bankNotFound",
                     new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId);
         }
-        return importQuestionsIntoBank(bank, file, actorUserId, true, defaultKind);
+        return bank;
     }
 
-    /** Primitive dùng chung: Exam internal bank cho phép trùng; generic legacy bank chặn trùng. */
+    /**
+     * Primitive dùng chung: Exam internal bank cho phép trùng; generic legacy bank chặn trùng.
+     * {@code dryRun=true} (xem previewImport ở trên): parse/validate/mô phỏng y hệt nhưng KHÔNG tạo
+     * ImportJob, KHÔNG gọi questionBankService.createQuestionInBank() — chỉ build summary trực tiếp
+     * từ CreateQuestionRequest (chưa có id DB).
+     */
     @Transactional
     QuestionImportResponse importQuestionsIntoBank(QuestionBank bank, MultipartFile file,
-                                                   Long actorUserId, boolean rejectActiveDuplicate, String defaultKind) {
+                                                   Long actorUserId, boolean rejectActiveDuplicate, String defaultKind,
+                                                   boolean dryRun) {
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.userNotFound",
                         new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
@@ -203,7 +228,7 @@ public class QuestionImportService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Chỉ hỗ trợ file .xlsx hoặc .docx."));
 
-        ImportJob job = createJob(file, actor);
+        ImportJob job = dryRun ? null : createJob(file, actor);
         try {
             List<QuestionRowParser.ParsedQuestionRow> parsedRows;
             try (InputStream inputStream = file.getInputStream()) {
@@ -212,6 +237,10 @@ public class QuestionImportService {
 
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
+            // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — 1 phần tử/dòng file (khác errors/
+            // createdQuestions vốn gộp theo "lỗi" hoặc "Question tạo ra", có thể lệch 1-N với số dòng),
+            // giữ nguyên 21 cột thô + hợp lệ/lỗi cho bảng sửa trực tiếp ở bước preview — xem toRowPreview().
+            List<QuestionImportRowPreview> rowPreviews = new ArrayList<>();
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — xem Javadoc
             // computeAutoGroupKeys(): tự gộp các dòng TRAC_NGHIEM/TRAC_NGHIEM_VOICE liên tiếp cùng chung
             // 1 "Đoạn văn tham chiếu" (đọc hiểu — nhiều câu độc lập cùng 1 đoạn văn), HOẶC các dòng
@@ -255,18 +284,36 @@ public class QuestionImportService {
                             throw new IllegalArgumentException(
                                     "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
                         }
-                        QuestionResponse created = questionBankService.createQuestionInBank(
-                                bank, request, actorUserId, rejectActiveDuplicate);
                         Map<String, Object> summary = new LinkedHashMap<>();
-                        summary.put("id", created.id());
-                        summary.put("content", created.content());
-                        summary.put("defaultPoints", created.defaultPoints());
+                        if (dryRun) {
+                            // Preview — KHÔNG ghi DB, chỉ mô phỏng sẽ tạo gì (xem Javadoc previewImport).
+                            summary.put("id", null);
+                            summary.put("content", request.content());
+                            summary.put("defaultPoints", request.defaultPoints());
+                        } else {
+                            QuestionResponse created = questionBankService.createQuestionInBank(
+                                    bank, request, actorUserId, rejectActiveDuplicate);
+                            summary.put("id", created.id());
+                            summary.put("content", created.content());
+                            summary.put("defaultPoints", created.defaultPoints());
+                        }
                         createdQuestions.add(summary);
                     }
                     successRowCount++;
+                    rowPreviews.add(toRowPreview(row, true, null));
                 } catch (RuntimeException ex) {
                     errors.add(rowError(row, ex.getMessage()));
+                    rowPreviews.add(toRowPreview(row, false, ex.getMessage()));
                 }
+            }
+
+            if (dryRun) {
+                List<QuestionImportResponse.QuestionImportedRow> previewRows = createdQuestions.stream()
+                        .map(m -> new QuestionImportResponse.QuestionImportedRow(
+                                (Long) m.get("id"), (String) m.get("content"), (BigDecimal) m.get("defaultPoints")))
+                        .toList();
+                return new QuestionImportResponse(null, file.getOriginalFilename(), parsedRows.size(), successRowCount,
+                        errors.size(), "PREVIEW", errors, previewRows, rowPreviews);
             }
 
             job.setTotalRows(parsedRows.size());
@@ -282,6 +329,10 @@ public class QuestionImportService {
             return toResponse(job);
         } catch (IOException | RuntimeException ex) {
             // A3 — không đọc được file (sai định dạng/hỏng hoàn toàn).
+            if (dryRun) {
+                return new QuestionImportResponse(null, file.getOriginalFilename(), null, 0, 0, "FAILED",
+                        List.of(rowError(0, "File sai định dạng hoặc không đọc được: " + ex.getMessage())), List.of(), List.of());
+            }
             return failJob(job, "File sai định dạng hoặc không đọc được: " + ex.getMessage());
         }
     }
@@ -1454,6 +1505,15 @@ public class QuestionImportService {
             }
         }
         return new QuestionImportResponse(job.getId(), job.getSourceFileName(), job.getTotalRows(), job.getSuccessRows(),
-                job.getFailedRows(), job.getStatus().name(), job.getErrorSummary(), createdQuestions);
+                job.getFailedRows(), job.getStatus().name(), job.getErrorSummary(), createdQuestions, List.of());
+    }
+
+    /** 1 dòng thô (nguyên 21 cột) + trạng thái hợp lệ — xem Javadoc QuestionImportRowPreview. */
+    private QuestionImportRowPreview toRowPreview(QuestionRowParser.ParsedQuestionRow row, boolean valid, String error) {
+        return new QuestionImportRowPreview(row.rowNumber(), row.sheetLabel(), row.kind(), row.difficulty(), row.content(),
+                row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD(),
+                row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH(), row.choiceI(), row.choiceJ(),
+                row.correctAnswer(), row.audioUrl(), row.imageUrl(), row.referencePassage(), row.defaultPoints(),
+                row.explanation(), row.tags(), row.instruction(), valid, error);
     }
 }
