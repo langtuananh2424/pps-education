@@ -123,12 +123,18 @@ function isBatchPending(items: AssignedExerciseResponse[]): boolean {
  * đã có sẵn trên từng thẻ, cái đó chỉ hiện thị chứ không lọc được thành danh sách riêng).
  */
 function isExerciseOverduePending(item: AssignedExerciseResponse): boolean {
-  return isExercisePending(item) && item.dueAt != null && new Date(item.dueAt) < new Date();
+  // Bổ sung 2026-10-19 (theo góp ý người dùng — học sinh hỏi "quá hạn rồi con có làm được không"): quá
+  // dueAt gốc nhưng giáo viên đã cho nộp muộn và CHƯA hết hạn chót nộp muộn (chưa khóa) thì học sinh còn
+  // làm được thật → KHÔNG đẩy sang tab "Bài tập quá hạn", giữ ở "Cần hoàn thành" kèm badge "Được nộp muộn…"
+  // (lateSubmissionHint). Quá hạn chót nộp muộn / không cho nộp muộn → vẫn "Bài tập quá hạn".
+  return isExercisePending(item) && item.dueAt != null && new Date(item.dueAt) < new Date()
+    && !(item.lateSubmissionAllowed && !isExerciseLocked(item));
 }
 
 /** V152 — mirror isExerciseOverduePending, áp dụng cho cả nhóm Lô (dùng chung dueAt của Bài đại diện, mirror BatchExerciseCard). */
 function isBatchOverduePending(items: AssignedExerciseResponse[]): boolean {
-  return isBatchPending(items) && items[0].dueAt != null && new Date(items[0].dueAt) < new Date();
+  return isBatchPending(items) && items[0].dueAt != null && new Date(items[0].dueAt) < new Date()
+    && !(items[0].lateSubmissionAllowed && !isBatchLocked(items));
 }
 
 /**
@@ -256,10 +262,22 @@ function isConnectionCompleted(item: ReviewVideoHomeworkItem): boolean {
 }
 
 /** V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror isExerciseOverduePending, áp dụng cho Video ôn tập (REFLEX/CONNECTION). */
-function isVideoOverduePending(item: ReviewVideoHomeworkItem): boolean {
+function isVideoPastDueAndPending(item: ReviewVideoHomeworkItem): boolean {
   if (item.dueAt == null || new Date(item.dueAt) >= new Date()) return false;
   if (item.videoType === "CONNECTION") return isConnectionAnswerable(item) && !isConnectionCompleted(item);
   return isReflexAnswerable(item) && !isReflexFullyAnswered(item);
+}
+
+/** Mirror isExerciseLocked, áp dụng cho Video ôn tập — xem Javadoc isExerciseLocked. */
+function isVideoLocked(item: ReviewVideoHomeworkItem): boolean {
+  if (!isVideoPastDueAndPending(item)) return false;
+  if (item.lateSubmissionAllowed !== true) return true;
+  return item.lateSubmissionDeadline != null && new Date(item.lateSubmissionDeadline) < new Date();
+}
+
+/** Mirror isExerciseOverduePending (2026-10-19): đã cho nộp muộn và chưa khóa thì không tính "quá hạn" — giữ ở "Cần hoàn thành" kèm badge. */
+function isVideoOverduePending(item: ReviewVideoHomeworkItem): boolean {
+  return isVideoPastDueAndPending(item) && isVideoLocked(item);
 }
 
 /** V152 — mirror isExerciseActionablePending, áp dụng cho Video ôn tập (tách biệt "Cần hoàn thành"/"Bài tập quá hạn"). */
@@ -267,13 +285,6 @@ function isVideoActionablePending(item: ReviewVideoHomeworkItem): boolean {
   if (isVideoOverduePending(item)) return false;
   if (item.videoType === "CONNECTION") return isConnectionAnswerable(item) && !isConnectionCompleted(item);
   return isReflexAnswerable(item) && !isReflexFullyAnswered(item);
-}
-
-/** Mirror isExerciseLocked, áp dụng cho Video ôn tập — xem Javadoc isExerciseLocked. */
-function isVideoLocked(item: ReviewVideoHomeworkItem): boolean {
-  if (!isVideoOverduePending(item)) return false;
-  if (item.lateSubmissionAllowed !== true) return true;
-  return item.lateSubmissionDeadline != null && new Date(item.lateSubmissionDeadline) < new Date();
 }
 
 /**

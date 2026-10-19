@@ -347,6 +347,12 @@ export interface HomeworkSkillItemResponse {
 }
 
 /** UC-64 (bổ sung ngoài SDD gốc, 2026-07-29) — Cổng phụ huynh xem tiến độ BTVN đã giao cho con, chỉ xem không phải giao diện làm bài. */
+/** Cửa nộp muộn của 1 bản giao (bổ sung ngoài SDD gốc, 2026-10-19) — mirror LateSubmissionWindowResponse backend; deadline null = không giới hạn. */
+export interface LateSubmissionWindow {
+  allowed: boolean;
+  deadline: string | null;
+}
+
 export interface HomeworkProgressResponse {
   commentId: number;
   classSessionId: number | null;
@@ -362,6 +368,7 @@ export interface HomeworkProgressResponse {
   /** "VOCAB_GRAMMAR" (buổi VIETNAMESE, hiện "Ngữ pháp") hoặc "LISTENING" (buổi FOREIGN, hiện "Nghe") — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, dùng chọn nhãn/badge GV phụ trách cho card BTVN. */
   grammarSkillCategory: "VOCAB_GRAMMAR" | "LISTENING" | null;
   grammarDueAt: string | null;
+  grammarLateSubmission: LateSubmissionWindow | null;
   grammarUnitTitle: string | null;
   /** Kênh Đọc hiểu (V137, chỉ áp dụng buổi teacherType=VIETNAMESE) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, mirror kênh Ngữ pháp ở trên (trước đây có dữ liệu nhưng chưa lộ ra Cổng phụ huynh). */
   readingAssignmentId: number | null;
@@ -371,6 +378,7 @@ export interface HomeworkProgressResponse {
   readingPassed: boolean | null;
   readingItems: HomeworkSkillItemResponse[];
   readingDueAt: string | null;
+  readingLateSubmission: LateSubmissionWindow | null;
   readingUnitTitle: string | null;
   /** Kênh Viết — mirror readingXxx ở trên. */
   writingAssignmentId: number | null;
@@ -380,6 +388,7 @@ export interface HomeworkProgressResponse {
   writingPassed: boolean | null;
   writingItems: HomeworkSkillItemResponse[];
   writingDueAt: string | null;
+  writingLateSubmission: LateSubmissionWindow | null;
   writingUnitTitle: string | null;
   /** V65 (2026-07-30, bổ sung ngoài SDD gốc): đổi tên từ videoSetId — giờ là id bản giao (ReviewVideoAssignment), không phải id ReviewVideoSet nguồn. */
   videoAssignmentId: number | null;
@@ -391,6 +400,7 @@ export interface HomeworkProgressResponse {
   videoType: "REFLEX" | "CONNECTION" | null;
   videoTeacherType: "VIETNAMESE" | "FOREIGN" | null;
   videoDueAt: string | null;
+  videoLateSubmission: LateSubmissionWindow | null;
   videoUnitTitle: string | null;
 }
 
