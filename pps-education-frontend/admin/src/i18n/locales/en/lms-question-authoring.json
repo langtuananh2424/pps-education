@@ -45,7 +45,8 @@
     "sentenceBuilding": "Sequencing",
     "essay": "Essay",
     "speaking": "Speaking / Audio",
-    "reading": "Reading"
+    "reading": "Reading",
+    "image": "Image multiple choice / fill in the blank"
   },
   "difficulty": {
     "EASY": "Easy",
@@ -161,7 +162,7 @@
     "excelHeaders": [
       "Question type", "Difficulty", "Content", "Answer A", "Answer B", "Answer C", "Answer D",
       "Answer E", "Answer F", "Answer G", "Answer H", "Answer I", "Answer J",
-      "Correct answer", "Audio URL", "Image URL", "Reference passage", "Points", "Explanation", "Tags", "Instruction"
+      "Correct answer", "Audio URL", "Image URL", "Reference passage", "Points", "Explanation", "Tags", "Instruction", "Skill"
     ],
     "excelSampleExplanations": {
       "geo": "Paris is the capital of France.",
@@ -178,7 +179,9 @@
       "listeningPictureChoice": "Each image is 1 option in order A/B/C(/D), separated by | in Image URL — Option A/B/C/D are optional captions under each image, leave blank to default to the letter label.",
       "gridReading": "Each question in Content is separated by | and shares ONE reference passage + ONE shared A-D answer set (applies to EVERY question). Correct answer is the letter A/B/C/D in the EXACT order matching Content.",
       "matchingGroup": "Unlike Reading comprehension - Grid (students click a button) — here students TYPE the correct letter (A-J) into a single input box per question. Content only needs a short label per question (e.g. \"Liam ___\") — the system auto-numbers 1/2/3... in front, do NOT number them yourself (causes a duplicate \"1. 1. Liam\"). Put the full descriptions (both the people and the A-J options) together in Reference passage, formatted as \"Name: description\" separated by a REAL blank line (press Alt+Enter twice in Excel — do NOT use | or everything renders as one unreadable block) so each item auto-splits into its own paragraph with a bold name. Answer A-J (2-10) is only used to determine the valid letter range — it does NOT render as clickable buttons. Correct answer is the letter A-J in the EXACT order matching Content; grading is case-insensitive.",
-      "clozeReading": "The number of blanks is inferred from the | count in Answer A (required) — Answer B/C/D (if present) must match that count, EACH blank has its own options. Content (optional) labels each blank; leave blank to auto-number them."
+      "clozeReading": "The number of blanks is inferred from the | count in Answer A (required) — Answer B/C/D (if present) must match that count, EACH blank has its own options. Content (optional) labels each blank; leave blank to auto-number them.",
+      "imageChoice": "The question is an IMAGE of the printed page — Content only needs a short label. Several CONSECUTIVE rows sharing the same Image URL auto-merge into one shared image for the whole group. Skill column is REQUIRED.",
+      "imageFillInBlankGroup": "Like Multiple fill-in-the-blank questions, but Image URL is ONE SINGLE image SHARED by the whole group (not one image per question) — use when several numbered blanks sit on one scanned page. Content just needs as many \"___\" as there are blanks — no need to number them yourself, the system auto-numbers what students see, just fill the Excel rows in the same order as the image. Skill column is REQUIRED."
     },
     "formatExcel": "Excel (.xlsx)",
     "formatWord": "Word (.docx)",
@@ -205,7 +208,9 @@
       "DOC_HIEU_LUOI": "Reading comprehension - Grid",
       "DOC_HIEU_NOI_DAP_AN": "Reading comprehension - Matching",
       "DOC_DIEN_TU": "Reading cloze",
-      "DIEN_TU_DOAN_VAN": "Reading fill in the blank - Running text"
+      "DIEN_TU_DOAN_VAN": "Reading fill in the blank - Running text",
+      "ANH_TRAC_NGHIEM": "Image multiple choice",
+      "ANH_DIEN_TU": "Image fill in the blank"
     },
     "columnHintExcelPointer": "Full column-by-column instructions are already in the template file — see the \"Guide\" sheet or the last column of each sheet.",
     "samplePreviewTitle": "Sample row example",
@@ -227,7 +232,9 @@
       "NGHE_CHON_HINH": "Required: Content, Audio URL, Image URL (N images separated by |, 1 per answer in A-D order). Optional: Answer A-D (captions under each image), Correct answer. Reference passage (= audio transcript), no special format required.",
       "DOC_HIEU_LUOI": "1 row creates N questions sharing one answer set. Required: Content (N questions separated by |), Answer A-D (shared by EVERY question, NOT | separated), Correct answer (N letters separated by |). Reference passage is REQUIRED, shared by the whole group — follows the SAME passage rules as Multiple choice: one blank line between paragraphs/dialogue turns, short first paragraph becomes the bold title, \"Name: content\" lines auto-split the name (e.g. the Tom/Max/Anna sample passage).",
       "DOC_HIEU_NOI_DAP_AN": "Unlike Reading comprehension - Grid (students click a button) — here students TYPE the correct letter (A-J) into a single input box per question, exactly like the \"Your Answers: ...\" blanks in a printed worksheet. Required: Content (N short labels separated by |, e.g. \"Liam ___\" — do NOT number them yourself, the system auto-numbers 1/2/3...), Reference passage (MUST contain the full descriptions of both the people and the A-J options, formatted as \"Name: description\" separated by a REAL blank line — do NOT use | or everything renders as one unreadable block), Correct answer (N letters A-J separated by |, graded case-insensitive). Answer A-J (2-10, NOT | separated) is only used to determine the valid letter range — it does NOT render as clickable buttons.",
-      "DOC_DIEN_TU": "1 row creates N blanks, each with its own answer set. Required: Answer A (N options separated by |, used to infer blank count), Correct answer (N letters separated by |). Optional: Answer B/C/D (same count as column A), Content (= N blank labels, leave empty to auto-number). Reference passage is REQUIRED, with NUMBERED blanks like (1)___, (2)___... inline — follows the same display rules (blank line between paragraphs, title/name auto-split) as Reading comprehension - Grid."
+      "DOC_DIEN_TU": "1 row creates N blanks, each with its own answer set. Required: Answer A (N options separated by |, used to infer blank count), Correct answer (N letters separated by |). Optional: Answer B/C/D (same count as column A), Content (= N blank labels, leave empty to auto-number). Reference passage is REQUIRED, with NUMBERED blanks like (1)___, (2)___... inline — follows the same display rules (blank line between paragraphs, title/name auto-split) as Reading comprehension - Grid.",
+      "ANH_TRAC_NGHIEM": "The question is an IMAGE of the printed page (no need to retype text) — mirrors Multiple choice but Image URL is REQUIRED. Content only needs a short label (e.g. \"14. shapes and patterns\"). Several CONSECUTIVE rows sharing the same Image URL auto-merge into one shared image for the whole group (e.g. 4 matching questions sharing one table image). Skill column (LISTENING/READING/WRITING/SPEAKING/GRAMMAR/OTHER) is REQUIRED — unlike other types, the type name alone doesn't imply a skill.",
+      "ANH_DIEN_TU": "1 row creates N separate questions — mirrors Multiple fill-in-the-blank questions (Content/Correct answer | separated, matching count) but Image URL is ONE SINGLE image SHARED by the WHOLE group (not one image per question) — REQUIRED. Use when several numbered blanks (1, 2, 3...) sit on one scanned page (e.g. a multi-column information table that's hard to retype as text). Content just needs as many \"___\" as there are blanks (e.g. \"___|___|___|___\" for 4 blanks) — no need to number them yourself anymore, the system auto-numbers what students see, just fill the rows in the same order as the image. Skill column is REQUIRED, same as Image multiple choice."
     },
     "downloadTemplate": "Download template (.{{format}})",
     "downloadTemplateFailed": "Failed to download the template.",

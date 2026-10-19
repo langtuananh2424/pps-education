@@ -113,7 +113,7 @@ export function useChoiceSelection(isMulti: boolean) {
  * 1 <img src> duy nhất là 1 URL sai định dạng, ảnh không tải được nên không hiện ảnh nào. Tách thành danh
  * sách, hiện dạng lưới có số thứ tự khi có NHIỀU ảnh; các loại câu hỏi khác chỉ có 1 URL vẫn hiện như cũ.
  */
-export function QuestionImages({ imageUrl }: { imageUrl: string }) {
+export function QuestionImages({ imageUrl, large }: { imageUrl: string; large?: boolean }) {
   const urls = imageUrl
     .split("|")
     .map((u) => u.trim())
@@ -123,7 +123,16 @@ export function QuestionImages({ imageUrl }: { imageUrl: string }) {
     // nhỏ (VD ~176x284px), max-w-sm (384px) phóng to quá xa kích thước gốc gây vỡ pixel khi w-full kéo
     // hết chiều rộng modal. Giảm mốc phóng tối đa xuống gần kích thước gốc hơn (mirror max-w-[240px] đã
     // dùng ở TakeExerciseModal.tsx app học sinh thật).
-    return <img src={urls[0] ?? imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-slate-200" />;
+    // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — {@code large}: ảnh
+    // CHÍNH LÀ đề bài (chụp nguyên trang sách, chữ/bảng cần đọc được), khác hẳn ảnh minh họa nhỏ ở trên —
+    // bỏ giới hạn 240px, chỉ căn theo chiều rộng khung chứa.
+    return (
+      <img
+        src={urls[0] ?? imageUrl}
+        alt=""
+        className={large ? "block w-full max-w-[780px] mx-auto rounded-xl border border-slate-200" : "w-full max-w-[240px] rounded-xl border border-slate-200"}
+      />
+    );
   }
   return (
     <div className="grid grid-cols-5 gap-2">

@@ -45,7 +45,8 @@
     "sentenceBuilding": "Sắp xếp",
     "essay": "Tự luận",
     "speaking": "Nói / Audio",
-    "reading": "Đọc hiểu"
+    "reading": "Đọc hiểu",
+    "image": "Trắc nghiệm / Điền từ hình ảnh"
   },
   "difficulty": {
     "EASY": "Dễ (Easy)",
@@ -161,7 +162,7 @@
     "excelHeaders": [
       "Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
       "Đáp án E", "Đáp án F", "Đáp án G", "Đáp án H", "Đáp án I", "Đáp án J",
-      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu", "Điểm", "Giải thích", "Tags", "Hướng dẫn"
+      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu", "Điểm", "Giải thích", "Tags", "Hướng dẫn", "Kỹ năng"
     ],
     "excelSampleExplanations": {
       "geo": "Paris là thủ đô nước Pháp.",
@@ -178,7 +179,9 @@
       "listeningPictureChoice": "Mỗi ảnh 1 đáp án theo thứ tự A/B/C(/D), phân tách bằng dấu | trong URL Hình ảnh — Đáp án A/B/C/D tùy chọn để thêm chú thích chữ dưới ảnh, để trống thì tự dùng chữ cái làm nhãn.",
       "gridReading": "Mỗi câu trong Nội dung phân tách bằng |, dùng CHUNG 1 đoạn văn tham chiếu + CHUNG 1 bộ đáp án A-D (áp dụng cho MỌI câu). Đáp án đúng là chữ cái A/B/C/D theo ĐÚNG thứ tự khớp Nội dung.",
       "matchingGroup": "Khác Đọc hiểu - Lưới (bấm chọn nút) — đây là dạng HỌC SINH TỰ GÕ chữ cái đúng (A-J) vào 1 ô nhập cho mỗi câu, không bấm chọn. Nội dung mỗi câu CHỈ cần tên/nhãn ngắn gọn (VD \"Liam ___\") — hệ thống TỰ đánh số 1/2/3... phía trước, KHÔNG tự đánh số thủ công (sẽ bị trùng số \"1. 1. Liam\"). Mô tả đầy đủ (cả người lẫn lựa chọn A-J) đặt chung trong Đoạn văn tham chiếu, dạng \"Tên: Mô tả\" cách nhau 1 DÒNG TRỐNG thật (Alt+Enter 2 lần trong Excel, KHÔNG dùng dấu | — sẽ dính thành 1 khối chữ) để mỗi mục tự tách đoạn + in đậm tên riêng. Cột Đáp án A-J (2-10) chỉ để xác định phạm vi chữ cái hợp lệ, không hiện nút. Đáp án đúng là chữ cái A-J theo ĐÚNG thứ tự khớp Nội dung — học sinh gõ đúng chữ cái là được, không phân biệt hoa/thường.",
-      "clozeReading": "Số chỗ trống suy ra từ số phần tử | ở Đáp án A (bắt buộc) — Đáp án B/C/D (nếu có) phải cùng số lượng, MỖI chỗ trống 1 phương án riêng. Nội dung (tùy chọn) đặt nhãn riêng từng chỗ trống, để trống thì tự đánh số."
+      "clozeReading": "Số chỗ trống suy ra từ số phần tử | ở Đáp án A (bắt buộc) — Đáp án B/C/D (nếu có) phải cùng số lượng, MỖI chỗ trống 1 phương án riêng. Nội dung (tùy chọn) đặt nhãn riêng từng chỗ trống, để trống thì tự đánh số.",
+      "imageChoice": "Đề bài là ẢNH chụp nguyên trang sách — Nội dung chỉ cần nhãn ngắn. Nhiều dòng LIÊN TIẾP cùng URL Hình ảnh tự gộp hiển thị 1 ảnh dùng chung cho cả nhóm câu hỏi. Cột Kỹ năng BẮT BUỘC.",
+      "imageFillInBlankGroup": "Giống Nhiều câu điền từ nhưng URL Hình ảnh là 1 ẢNH DUY NHẤT dùng CHUNG cho cả nhóm (không phải ảnh riêng từng câu) — dùng khi nhiều chỗ trống đánh số nằm chung 1 ảnh chụp đề gốc. Nội dung chỉ cần điền đúng số lượng dấu \"___\" bằng số chỗ trống, KHÔNG cần tự đánh số — hệ thống tự đánh số thứ tự hiển thị cho học sinh, GV chỉ cần điền đúng thứ tự khớp ảnh. Cột Kỹ năng BẮT BUỘC."
     },
     "formatExcel": "Excel (.xlsx)",
     "formatWord": "Word (.docx)",
@@ -205,7 +208,9 @@
       "DOC_HIEU_LUOI": "Đọc hiểu - Lưới",
       "DOC_HIEU_NOI_DAP_AN": "Đọc hiểu - Nối đáp án",
       "DOC_DIEN_TU": "Đọc điền từ - Cloze",
-      "DIEN_TU_DOAN_VAN": "Đọc điền từ - Đoạn văn liền mạch"
+      "DIEN_TU_DOAN_VAN": "Đọc điền từ - Đoạn văn liền mạch",
+      "ANH_TRAC_NGHIEM": "Trắc nghiệm hình ảnh",
+      "ANH_DIEN_TU": "Điền từ hình ảnh"
     },
     "columnHintExcelPointer": "Giải thích đầy đủ từng cột đã có sẵn trong file mẫu — xem sheet \"Hướng dẫn\" hoặc cột cuối cùng của từng sheet.",
     "samplePreviewTitle": "Ví dụ 1 dòng mẫu",
@@ -227,7 +232,9 @@
       "NGHE_CHON_HINH": "Bắt buộc: Nội dung, URL Audio, URL Hình ảnh (N ảnh cách |, 1 ảnh/đáp án theo thứ tự A-D). Tùy chọn: Đáp án A-D (chú thích dưới ảnh), Đáp án đúng. Đoạn văn tham chiếu = Transcript lời thoại audio, không cần định dạng đặc biệt.",
       "DOC_HIEU_LUOI": "1 dòng tạo N câu, chung 1 bộ đáp án. Bắt buộc: Nội dung (N câu cách |), Đáp án A-D (dùng chung MỌI câu, KHÔNG cách |), Đáp án đúng (N chữ cái cách |). Đoạn văn tham chiếu BẮT BUỘC, dùng chung cả nhóm — áp dụng ĐÚNG quy tắc định dạng như Trắc nghiệm: cách nhau 1 DÒNG TRỐNG giữa các đoạn/lượt thoại, đoạn đầu ngắn tự thành tiêu đề in đậm, dòng \"Tên: nội dung\" tự tách tên riêng (VD 3 đoạn Tom/Max/Anna trong ví dụ mẫu).",
       "DOC_HIEU_NOI_DAP_AN": "Khác Đọc hiểu - Lưới (học sinh bấm chọn nút) — đây là dạng HỌC SINH TỰ GÕ chữ cái đúng (A-J) vào 1 ô nhập cho mỗi câu, giống hệt \"Your Answers: ...\" trong đề giấy gốc. Bắt buộc: Nội dung (N nhãn ngắn cách |, VD \"Liam ___\" — KHÔNG tự đánh số thủ công, hệ thống tự đánh số 1/2/3...), Đoạn văn tham chiếu (BẮT BUỘC chứa mô tả đầy đủ của cả người lẫn lựa chọn A-J, dạng \"Tên: Mô tả\" cách nhau 1 DÒNG TRỐNG thật — KHÔNG dùng dấu | kẻo dính thành 1 khối chữ), Đáp án đúng (N chữ cái A-J cách |, học sinh gõ đúng là được, không phân biệt hoa/thường). Đáp án A-J (2-10, KHÔNG cách |) chỉ dùng để xác định phạm vi chữ cái hợp lệ, KHÔNG hiện nút bấm cho học sinh.",
-      "DOC_DIEN_TU": "1 dòng tạo N chỗ trống, mỗi chỗ bộ đáp án riêng. Bắt buộc: Đáp án A (N phương án cách |, suy ra số chỗ trống), Đáp án đúng (N chữ cái cách |). Tùy chọn: Đáp án B/C/D (cùng số lượng cột A), Nội dung (= N nhãn chỗ trống, để trống thì tự đánh số). Đoạn văn tham chiếu BẮT BUỘC, có ĐÁNH SỐ chỗ trống dạng (1)___, (2)___... ngay trong câu — áp dụng cùng quy tắc hiển thị (cách dòng trống giữa đoạn, tiêu đề/tên tự tách) như Đọc hiểu - Lưới."
+      "DOC_DIEN_TU": "1 dòng tạo N chỗ trống, mỗi chỗ bộ đáp án riêng. Bắt buộc: Đáp án A (N phương án cách |, suy ra số chỗ trống), Đáp án đúng (N chữ cái cách |). Tùy chọn: Đáp án B/C/D (cùng số lượng cột A), Nội dung (= N nhãn chỗ trống, để trống thì tự đánh số). Đoạn văn tham chiếu BẮT BUỘC, có ĐÁNH SỐ chỗ trống dạng (1)___, (2)___... ngay trong câu — áp dụng cùng quy tắc hiển thị (cách dòng trống giữa đoạn, tiêu đề/tên tự tách) như Đọc hiểu - Lưới.",
+      "ANH_TRAC_NGHIEM": "Đề bài là ẢNH chụp nguyên trang sách (không gõ lại text) — mirror Trắc nghiệm nhưng BẮT BUỘC URL Hình ảnh. Nội dung chỉ cần nhãn ngắn (VD \"14. shapes and patterns\"). Nhiều dòng LIÊN TIẾP cùng URL Hình ảnh tự gộp hiển thị 1 ảnh dùng chung cho cả nhóm câu hỏi (VD 4 câu matching cùng 1 ảnh bảng). Cột Kỹ năng (LISTENING/READING/WRITING/SPEAKING/GRAMMAR/OTHER) BẮT BUỘC — tên loại câu hỏi không tự nói lên kỹ năng như các loại khác.",
+      "ANH_DIEN_TU": "1 dòng tạo N câu hỏi riêng — mirror Nhiều câu điền từ (Nội dung/Đáp án đúng cách |, khớp số lượng) nhưng URL Hình ảnh là 1 ẢNH DUY NHẤT dùng CHUNG cho CẢ NHÓM (không phải ảnh riêng từng câu) — BẮT BUỘC. Dùng khi nhiều chỗ trống đánh số (1, 2, 3...) nằm chung 1 ảnh chụp đề gốc (VD bảng thông tin nhiều cột khó gõ lại bằng text). Nội dung chỉ cần điền đúng số lượng dấu \"___\" (VD \"___|___|___|___\" cho 4 chỗ trống) — KHÔNG cần tự đánh số \"1.\"/\"2.\" nữa, số thứ tự hiển thị cho học sinh do hệ thống TỰ đánh theo đúng thứ tự, GV chỉ cần điền Excel đúng thứ tự khớp ảnh. Cột Kỹ năng BẮT BUỘC như Trắc nghiệm hình ảnh."
     },
     "downloadTemplate": "Tải file mẫu (.{{format}})",
     "downloadTemplateFailed": "Tải file mẫu thất bại.",

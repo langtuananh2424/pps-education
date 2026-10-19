@@ -135,12 +135,37 @@ public class QuestionImportService {
      */
     private static final String KIND_FORM_COMPLETION = "NGHE_PHIEU_THONG_TIN";
 
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng — "Trắc nghiệm hình ảnh"/"Điền từ hình ảnh"): lối
+     * thoát chung cho các trang sách có layout quá đặc thù (bảng nhiều cột, QR code, đoạn văn tham
+     * chiếu ở trang khác...) không tái hiện được gọn bằng các kind "gõ lại text" hiện có (DOC_HIEU_LUOI/
+     * DOC_DIEN_TU/NGHE_PHIEU_THONG_TIN...) — GV chụp nguyên đề thành ảnh (cột "URL Hình ảnh"), hệ thống
+     * chỉ cần biết đó là trắc nghiệm hay điền từ + đáp án, KHÔNG cần gõ lại cấu trúc bảng/đoạn văn.
+     *
+     * KIND_IMAGE_CHOICE ("ANH_TRAC_NGHIEM") mirror TRAC_NGHIEM (1 dòng = 1 câu, dùng buildChoices), chỉ
+     * khác bắt buộc có "URL Hình ảnh" — nhiều dòng liên tiếp cùng ảnh tự gộp 1 nhóm hiển thị chung (xem
+     * computeAutoGroupKeys, kênh "image").
+     *
+     * KIND_IMAGE_FILL_GROUP ("ANH_DIEN_TU") mirror KIND_FILL_IN_BLANK_GROUP/DIEN_TU_NHOM (1 dòng → N
+     * Question FILL_IN_BLANK, "Nội dung"/"Đáp án đúng" phân tách "|"), chỉ khác "URL Hình ảnh" là 1 ẢNH
+     * DUY NHẤT dùng CHUNG cho cả nhóm (không phải ảnh riêng từng câu) — xem mapToImageFillGroupRequests().
+     *
+     * Cả 2 kind BẮT BUỘC cột "Kỹ năng" tường minh (xem resolveSkill) vì dùng chung cho cả 4 kỹ năng,
+     * không tự suy luận ngầm theo tên kind như các kind cũ (NGHE_*→LISTENING...) — đây cũng là dịp fix
+     * gap thật phát hiện khi thiết kế 2 kind này: Question.skill trước đây hoàn toàn null với mọi kind
+     * Đọc/Ngữ pháp/Viết dù enum đã có đủ 6 giá trị từ đầu (xem resolveSkill, áp dụng universal cho MỌI
+     * kind, không riêng 2 kind mới).
+     */
+    private static final String KIND_IMAGE_CHOICE = "ANH_TRAC_NGHIEM";
+    private static final String KIND_IMAGE_FILL_GROUP = "ANH_DIEN_TU";
+
     private static final Set<String> VALID_KINDS = Set.of(
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
             "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
             "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION, KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP,
-            KIND_CLOZE_GROUP, KIND_MATCHING_GROUP);
+            KIND_CLOZE_GROUP, KIND_MATCHING_GROUP, KIND_IMAGE_CHOICE, KIND_IMAGE_FILL_GROUP);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
+    private static final Set<String> VALID_SKILLS = Set.of("LISTENING", "READING", "WRITING", "SPEAKING", "GRAMMAR", "OTHER");
 
     private final ImportJobRepository importJobRepository;
     private final QuestionBankRepository questionBankRepository;
@@ -267,6 +292,8 @@ public class QuestionImportService {
                             ? mapToMatchingGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : KIND_CLOZE_GROUP.equals(kind)
                             ? mapToClozeGroupRequests(row, bank.getId(), rejectActiveDuplicate)
+                            : KIND_IMAGE_FILL_GROUP.equals(kind)
+                            ? mapToImageFillGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : List.of(mapToRequest(row, bank.getId(), kind, autoGroupKeys.get(row)));
                     for (CreateQuestionRequest request : requests) {
                         // Bug thật phát hiện qua test 2026-10-05, đã xác nhận với người dùng hướng sửa —
@@ -280,7 +307,11 @@ public class QuestionImportService {
                         // nội dung NGAY TẠI ĐÂY (mirror đúng pattern mapToGroupRequests/mapToGridGroupRequests/
                         // mapToClozeGroupRequests đã làm) — throw trong CHÍNH class này (không qua bean
                         // khác) nên không cắt ngang transaction, catch bên dưới xử lý được đúng như thiết kế.
-                        if (rejectActiveDuplicate && questionBankService.existsActiveDuplicate(bank.getId(), request.content())) {
+                        // KIND_IMAGE_FILL_GROUP loại trừ khỏi check này — xem Javadoc trong
+                        // mapToImageFillGroupRequests() (nội dung mọi chỗ trống nay đều là "___" giống
+                        // hệt nhau theo quy ước mới, không còn ý nghĩa để chống trùng).
+                        if (rejectActiveDuplicate && !KIND_IMAGE_FILL_GROUP.equals(kind)
+                                && questionBankService.existsActiveDuplicate(bank.getId(), request.content())) {
                             throw new IllegalArgumentException(
                                     "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
                         }
@@ -291,8 +322,12 @@ public class QuestionImportService {
                             summary.put("content", request.content());
                             summary.put("defaultPoints", request.defaultPoints());
                         } else {
+                            // KIND_IMAGE_FILL_GROUP: luôn truyền false ở đây (bất kể rejectActiveDuplicate
+                            // của cả file) — createQuestionInBank() tự nó CŨNG check trùng nội dung, cùng
+                            // lý do loại trừ như pre-check ở trên.
+                            boolean rejectDuplicateForThisRequest = rejectActiveDuplicate && !KIND_IMAGE_FILL_GROUP.equals(kind);
                             QuestionResponse created = questionBankService.createQuestionInBank(
-                                    bank, request, actorUserId, rejectActiveDuplicate);
+                                    bank, request, actorUserId, rejectDuplicateForThisRequest);
                             summary.put("id", created.id());
                             summary.put("content", created.content());
                             summary.put("defaultPoints", created.defaultPoints());
@@ -359,13 +394,18 @@ public class QuestionImportService {
      * trong bảng khóa này — mirror việc FE cũng không đưa "SPEAKING" vào allowedKinds cho GV nào cả.
      */
     private static final Map<String, Set<String>> SKILL_CATEGORY_KIND_TOKENS = Map.of(
+            // Bổ sung 2026-10-19 — ANH_TRAC_NGHIEM/ANH_DIEN_TU mở khóa ở CẢ 4 nhóm (khác mọi kind khác
+            // chỉ thuộc đúng 1 nhóm) vì bản chất dùng chung cho mọi kỹ năng, tự khai báo qua cột "Kỹ
+            // năng" riêng — không gắn với 1 Nhóm kỹ năng cố định như tên các kind "gõ text" cũ.
             "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", KIND_FILL_IN_BLANK_GROUP,
-                    "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
-            "WRITING", Set.of("TU_LUAN"),
-            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION),
+                    "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
+                    KIND_IMAGE_CHOICE, KIND_IMAGE_FILL_GROUP),
+            "WRITING", Set.of("TU_LUAN", KIND_IMAGE_CHOICE, KIND_IMAGE_FILL_GROUP),
+            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION,
+                    KIND_IMAGE_CHOICE, KIND_IMAGE_FILL_GROUP),
             // Bổ sung 2026-09-08 — trước đây READING không có entry (Cloze/Grid chưa import được), giờ
             // mở khóa cả 2 group kind mới. Bổ sung 2026-10-17 — thêm KIND_MATCHING_GROUP (nối đáp án).
-            "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP, KIND_MATCHING_GROUP));
+            "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP, KIND_MATCHING_GROUP, KIND_IMAGE_CHOICE, KIND_IMAGE_FILL_GROUP));
 
     /**
      * File mẫu Word (.docx) soạn đề nhanh — tĩnh, không cá nhân hoá theo
@@ -582,6 +622,28 @@ public class QuestionImportService {
                 "Đáp án đúng: B|A|C",
                 "Giải thích: Số chỗ trống suy ra từ số phần tử \"|\" ở dòng \"A. ...\" (bắt buộc) — dòng \"B./C./D.\" (nếu có) phải cùng số lượng, MỖI chỗ trống 1 phương án riêng (khác DOC_HIEU_LUOI dùng chung đáp án cho mọi câu). \"Nội dung\" (tùy chọn) đặt nhãn riêng từng chỗ trống phân tách |, để trống thì tự đánh số \"Chỗ trống 1/2/3\".",
                 "---"));
+        // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — xem Javadoc KIND_IMAGE_CHOICE/KIND_IMAGE_FILL_GROUP
+        // ở đầu lớp. Cả 2 BẮT BUỘC cột "Kỹ năng" (không có suy luận ngầm, khác mọi kind khác).
+        blocks.put(KIND_IMAGE_CHOICE, List.of(
+                "[ANH_TRAC_NGHIEM]",
+                "Kỹ năng: READING",
+                "Nội dung: 14. shapes and patterns",
+                "A. young people", "B. adults", "C. children",
+                "Đáp án đúng: C",
+                "URL Hình ảnh: https://example-r2.dev/lms/questions/images/mau-anh-trac-nghiem.png",
+                "Độ khó: EASY",
+                "Điểm: 1",
+                "Giải thích: Đề bài là ẢNH chụp nguyên trang sách (không gõ lại text) — \"Nội dung\" chỉ cần nhãn ngắn. Nhiều dòng LIÊN TIẾP cùng \"URL Hình ảnh\" tự gộp hiển thị 1 ảnh dùng chung cho cả nhóm câu hỏi (mirror cách gộp theo Đoạn văn tham chiếu/URL Audio đã có). Cột \"Kỹ năng\" BẮT BUỘC (LISTENING/READING/WRITING/SPEAKING/GRAMMAR/OTHER) vì tên loại câu hỏi không tự nói lên kỹ năng như các loại khác.",
+                "---"));
+        blocks.put(KIND_IMAGE_FILL_GROUP, List.of(
+                "[ANH_DIEN_TU]",
+                "Kỹ năng: LISTENING",
+                "Nội dung: ___|___|___",
+                "Đáp án đúng: history|lecture|grow",
+                "URL Hình ảnh: https://example-r2.dev/lms/questions/images/mau-anh-dien-tu.png",
+                "Điểm: 1",
+                "Giải thích: Giống DIEN_TU_NHOM (mỗi phần tử trong \"Nội dung\"/\"Đáp án đúng\", phân tách |, ra 1 câu riêng tự điểm/nhãn \"Câu N\" riêng) nhưng \"URL Hình ảnh\" là 1 ẢNH DUY NHẤT DÙNG CHUNG cho CẢ NHÓM (không phải ảnh riêng từng câu) — dùng khi nhiều chỗ trống đánh số (1, 2, 3...) nằm chung 1 ảnh chụp đề gốc (VD bảng thông tin nhiều cột). \"Nội dung\" chỉ cần điền đúng SỐ LƯỢNG dấu \"___\" bằng số chỗ trống (KHÔNG cần tự đánh số \"1.\"/\"2.\" — số thứ tự hiển thị cho học sinh do hệ thống TỰ đánh theo đúng thứ tự khớp ảnh, GV chỉ cần điền Excel đúng thứ tự là được). Cột \"Kỹ năng\" BẮT BUỘC như ANH_TRAC_NGHIEM.",
+                "---"));
         return blocks;
     }
 
@@ -609,12 +671,38 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
                     + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
                     + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/DIEN_TU_DOAN_VAN/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
-                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/DOC_HIEU_LUOI/DOC_HIEU_NOI_DAP_AN/DOC_DIEN_TU.");
+                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/DOC_HIEU_LUOI/DOC_HIEU_NOI_DAP_AN/DOC_DIEN_TU/"
+                    + "ANH_TRAC_NGHIEM/ANH_DIEN_TU.");
         }
         return kind;
     }
 
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — cột "Kỹ năng" tường minh (mới), dùng cho MỌI
+     * kind, không riêng ANH_TRAC_NGHIEM/ANH_DIEN_TU — xem Javadoc QuestionRowParser.ParsedQuestionRow#skill.
+     * {@code implicitDefault} giữ nguyên hành vi suy luận ngầm cũ của từng kind khi cột để trống (null =
+     * kind không có suy luận ngầm nào, VD TRAC_NGHIEM thường — GV phải tự điền "Kỹ năng" nếu muốn gắn).
+     */
+    private String resolveSkill(QuestionRowParser.ParsedQuestionRow row, String implicitDefault) {
+        if (isBlank(row.skill())) {
+            return implicitDefault;
+        }
+        String skill = normalizeToken(row.skill());
+        if (!VALID_SKILLS.contains(skill)) {
+            throw new IllegalArgumentException("Kỹ năng không hợp lệ: '" + row.skill()
+                    + "' — chỉ chấp nhận LISTENING/READING/WRITING/SPEAKING/GRAMMAR/OTHER.");
+        }
+        return skill;
+    }
+
     private static final Set<String> AUDIO_GROUPABLE_KINDS = Set.of("TRAC_NGHIEM_VOICE", "NGHE_DIEN_TU", "NGHE_NOP_AUDIO", "NGHE_CHON_HINH");
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — kênh gộp nhóm THỨ 3 (cạnh đoạn văn/audio ở
+     * trên), riêng cho ANH_TRAC_NGHIEM: nhiều dòng LIÊN TIẾP cùng "URL Hình ảnh" (VD 4 câu matching cùng
+     * dùng 1 ảnh chụp bảng trong sách) tự gộp 1 groupKey để FE hiện ảnh DÙNG CHUNG 1 LẦN thay vì lặp lại
+     * trước mỗi câu — xem Javadoc computeAutoGroupKeys().
+     */
+    private static final Set<String> IMAGE_GROUPABLE_KINDS = Set.of(KIND_IMAGE_CHOICE);
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — 2 tình huống cùng 1 bản chất
@@ -649,6 +737,7 @@ public class QuestionImportService {
         Map<QuestionRowParser.ParsedQuestionRow, String> result = new IdentityHashMap<>();
         String previousPassage = null;
         String previousAudio = null;
+        String previousImage = null;
         List<QuestionRowParser.ParsedQuestionRow> currentRun = new ArrayList<>();
         for (QuestionRowParser.ParsedQuestionRow row : rows) {
             String kind;
@@ -659,24 +748,28 @@ public class QuestionImportService {
                 currentRun = new ArrayList<>();
                 previousPassage = null;
                 previousAudio = null;
+                previousImage = null;
                 continue;
             }
             boolean isChoiceBased = kind.equals("TRAC_NGHIEM") || kind.equals("TRAC_NGHIEM_VOICE");
             String passage = isChoiceBased ? blankToNull(row.referencePassage()) : null;
             String audio = AUDIO_GROUPABLE_KINDS.contains(kind) ? blankToNull(row.audioUrl()) : null;
+            String image = IMAGE_GROUPABLE_KINDS.contains(kind) ? blankToNull(row.imageUrl()) : null;
             boolean continuesRun = (passage != null && passage.equals(previousPassage))
-                    || (audio != null && audio.equals(previousAudio));
+                    || (audio != null && audio.equals(previousAudio))
+                    || (image != null && image.equals(previousImage));
             if (continuesRun) {
                 currentRun.add(row);
             } else {
                 flushGroupRun(result, currentRun);
                 currentRun = new ArrayList<>();
-                if (passage != null || audio != null) {
+                if (passage != null || audio != null || image != null) {
                     currentRun.add(row);
                 }
             }
             previousPassage = passage;
             previousAudio = audio;
+            previousImage = image;
         }
         flushGroupRun(result, currentRun);
         return result;
@@ -715,7 +808,7 @@ public class QuestionImportService {
         List<String> tags = parseTags(row.tags());
         String explanation = blankToNull(row.explanation());
 
-        boolean isChoiceBased = kind.equals("TRAC_NGHIEM") || kind.equals("TRAC_NGHIEM_VOICE");
+        boolean isChoiceBased = kind.equals("TRAC_NGHIEM") || kind.equals("TRAC_NGHIEM_VOICE") || kind.equals(KIND_IMAGE_CHOICE);
         List<QuestionChoiceRequest> choices = null;
         String correctAnswerText = null;
         String skill = null;
@@ -746,8 +839,19 @@ public class QuestionImportService {
             // WORD_BANK nên các dòng TRAC_NGHIEM điền cột này bị bỏ qua âm thầm — FE hiện dòng chỉ dẫn này
             // phía trên nhóm/câu (structuredContent.instruction).
             structuredContent = instructionOnlyContent(row);
-            if (kind.equals("TRAC_NGHIEM_VOICE")) {
-                skill = "LISTENING";
+            if (kind.equals(KIND_IMAGE_CHOICE)) {
+                // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — xem Javadoc KIND_IMAGE_CHOICE ở đầu
+                // lớp: đề bài là ẢNH chụp nguyên trang sách thay vì gõ lại text, nên bắt buộc có ảnh +
+                // bắt buộc "Kỹ năng" tường minh (không có suy luận ngầm như các kind khác).
+                if (isBlank(row.imageUrl())) {
+                    throw new IllegalArgumentException("Trắc nghiệm hình ảnh cần \"URL Hình ảnh\" — đề bài hiển thị bằng ảnh thay vì gõ text.");
+                }
+                skill = resolveSkill(row, null);
+                if (skill == null) {
+                    throw new IllegalArgumentException("Trắc nghiệm hình ảnh cần cột \"Kỹ năng\" (LISTENING/READING/WRITING/SPEAKING/GRAMMAR/OTHER) — tên loại câu hỏi không tự nói lên kỹ năng như các loại khác.");
+                }
+            } else if (kind.equals("TRAC_NGHIEM_VOICE")) {
+                skill = resolveSkill(row, "LISTENING");
                 if (isBlank(row.audioUrl())) {
                     throw new IllegalArgumentException("Trắc nghiệm Voice cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
                 }
@@ -815,7 +919,6 @@ public class QuestionImportService {
             }
             structuredContent = sc;
         } else if (kind.equals(KIND_FORM_COMPLETION)) {
-            skill = "LISTENING";
             if (isBlank(row.audioUrl())) {
                 throw new IllegalArgumentException("Nghe điền phiếu thông tin cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
             }
@@ -836,6 +939,7 @@ public class QuestionImportService {
             structuredContent = sc;
             // Cột Transcript tái dùng làm dòng hướng dẫn hiện phía trên phiếu (KHÔNG phải hộp từ).
             referencePassage = blankToNull(row.referencePassage());
+            skill = resolveSkill(row, "LISTENING");
         } else if (kind.equals("SAP_XEP_CAU") || kind.equals("SAP_XEP_CHU_CAI")) {
             // Cùng cơ chế tái dùng cột "Đáp án đúng" — mỗi khối/chữ cái phân tách bằng dấu |.
             List<String> chunks = isBlank(row.correctAnswer()) ? List.of() : splitOrdered(row.correctAnswer());
@@ -847,7 +951,7 @@ public class QuestionImportService {
                 imageUrl = blankToNull(row.imageUrl());
             }
         } else if (kind.equals("SPEAKING")) {
-            skill = "SPEAKING";
+            skill = resolveSkill(row, "SPEAKING");
             if (isBlank(row.referencePassage())) {
                 throw new IllegalArgumentException("Speaking cần từ khóa/âm vị trọng điểm cần chấm.");
             }
@@ -856,7 +960,7 @@ public class QuestionImportService {
             // Mirror LISTENING_AUDIO_SUBMISSION ở form tay (isVoiceOrListeningAudio) — bắt buộc audio,
             // KHÔNG bắt buộc referencePassage (chấm tay ở "Hàng chờ chấm bài", khác Speaking thường
             // cần từ khóa phát âm để hỗ trợ tự động chấm).
-            skill = "LISTENING";
+            skill = resolveSkill(row, "LISTENING");
             if (isBlank(row.audioUrl())) {
                 throw new IllegalArgumentException("Nghe & nộp audio cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
             }
@@ -870,7 +974,7 @@ public class QuestionImportService {
             // A/B/C/D — không cần thêm cột mới. "Đáp án A-D" (nếu điền) làm chú thích chữ dưới ảnh, để
             // trống thì tự dùng chữ cái A/B/C/D làm nhãn mặc định — mirror ĐÚNG hành vi form tay
             // (ListeningGroupBuilder.tsx: "content_.trim() || String.fromCharCode(65+i)").
-            skill = "LISTENING";
+            skill = resolveSkill(row, "LISTENING");
             if (isBlank(row.audioUrl())) {
                 throw new IllegalArgumentException("Nghe chọn hình cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
             }
@@ -878,7 +982,7 @@ public class QuestionImportService {
             choices = buildPictureChoices(row);
             referencePassage = blankToNull(row.referencePassage());
         } else { // NGHE_DIEN_TU — mirror LISTENING_FILL_IN_BLANK ở form tay, bắt buộc cả audio lẫn đáp án.
-            skill = "LISTENING";
+            skill = resolveSkill(row, "LISTENING");
             if (isBlank(row.audioUrl())) {
                 throw new IllegalArgumentException("Nghe điền từ cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
             }
@@ -889,7 +993,16 @@ public class QuestionImportService {
             correctAnswerText = row.correctAnswer().trim();
         }
 
-        String questionType = kind.startsWith("TRAC_NGHIEM") || kind.equals("NGHE_CHON_HINH") ? "MULTIPLE_CHOICE"
+        // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — fix gap thật: các kind KHÔNG có nhánh set
+        // skill ở trên (TRAC_NGHIEM thường, DIEN_TU, TU_LUAN, DIEN_TU_HOP_TU_VUNG*, SAP_XEP_*) trước đây
+        // LUÔN để skill=null dù Question.Skill đã có đủ 6 giá trị (READING/WRITING/GRAMMAR/OTHER không
+        // bao giờ gán được qua import) — đọc cột "Kỹ năng" (nếu GV có điền) cho MỌI kind còn lại ở đây,
+        // để trống vẫn giữ null như hành vi cũ (không phá vỡ dữ liệu đã import trước đó).
+        if (skill == null) {
+            skill = resolveSkill(row, null);
+        }
+
+        String questionType = kind.startsWith("TRAC_NGHIEM") || kind.equals("NGHE_CHON_HINH") || kind.equals(KIND_IMAGE_CHOICE) ? "MULTIPLE_CHOICE"
                 : kind.equals("DIEN_TU") || kind.equals("NGHE_DIEN_TU") ? "FILL_IN_BLANK"
                 : kind.equals("TU_LUAN") ? "ESSAY"
                 : kind.startsWith("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_DOAN_VAN") || kind.equals(KIND_FORM_COMPLETION) ? "WORD_BANK"
@@ -1001,13 +1114,81 @@ public class QuestionImportService {
         // dùng CHUNG cho mọi câu trong nhóm (mirror cách referencePassage/wordBox đã dùng chung), gắn
         // skill=LISTENING khi có audio — để trống thì vẫn giữ hành vi cũ (đọc hiểu không audio).
         String groupAudioUrl = blankToNull(row.audioUrl());
-        String groupSkill = groupAudioUrl != null ? "LISTENING" : null;
+        String groupSkill = resolveSkill(row, groupAudioUrl != null ? "LISTENING" : null);
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < sentences.size(); i++) {
             String imageUrl = images == null || images.get(i).isEmpty() ? null : images.get(i);
             requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", groupSkill, difficulty, sentences.get(i),
                     groupAudioUrl, imageUrl, groupReferencePassage, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
+        }
+        return requests;
+    }
+
+    /**
+     * ANH_DIEN_TU (bổ sung 2026-10-19, đã xác nhận với người dùng — "Điền từ hình ảnh"): mirror ĐÚNG
+     * mapToGroupRequests()/DIEN_TU_NHOM ở trên — 1 dòng file → N CreateQuestionRequest (1/chỗ trống),
+     * "Nội dung"/"Đáp án đúng" cùng phân tách "|" theo ĐÚNG thứ tự. Khác DIEN_TU_NHOM đúng 1 điểm: "URL
+     * Hình ảnh" là 1 ẢNH DUY NHẤT DÙNG CHUNG cho CẢ NHÓM (không phải ảnh riêng từng câu phân tách "|")
+     * — dùng khi nhiều chỗ trống đánh số (1, 2, 3...) nằm chung 1 ảnh chụp nguyên đề gốc (VD bảng thông
+     * tin nhiều cột khó gõ lại bằng text, xem Javadoc KIND_IMAGE_FILL_GROUP ở đầu lớp). "Nội dung" mỗi
+     * phần tử chỉ cần nhãn ngắn khớp đúng số thứ tự trong ảnh (VD "1. ___"), không cần gõ lại câu — do đó
+     * KHÔNG tái dùng "wordBox"/"instruction"/referencePassage như DIEN_TU_NHOM (không có ý nghĩa ở đây).
+     * BẮT BUỘC "URL Hình ảnh" + "Kỹ năng" tường minh (không có suy luận ngầm, xem resolveSkill).
+     */
+    private List<CreateQuestionRequest> mapToImageFillGroupRequests(QuestionRowParser.ParsedQuestionRow row, Long bankId, boolean rejectActiveDuplicate) {
+        if (isBlank(row.content())) {
+            throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
+        }
+        if (isBlank(row.imageUrl())) {
+            throw new IllegalArgumentException("Điền từ hình ảnh cần \"URL Hình ảnh\" — đề bài hiển thị bằng ảnh thay vì gõ text.");
+        }
+        String skill = resolveSkill(row, null);
+        if (skill == null) {
+            throw new IllegalArgumentException("Điền từ hình ảnh cần cột \"Kỹ năng\" (LISTENING/READING/WRITING/SPEAKING/GRAMMAR/OTHER) — tên loại câu hỏi không tự nói lên kỹ năng như các loại khác.");
+        }
+        List<String> sentences = splitPipeKeepBlanks(row.content());
+        for (int i = 0; i < sentences.size(); i++) {
+            if (sentences.get(i).isEmpty()) {
+                throw new IllegalArgumentException("Điền từ hình ảnh: chỗ trống thứ " + (i + 1) + " (theo dấu |) bị rỗng trong \"Nội dung\".");
+            }
+        }
+        if (isBlank(row.correctAnswer())) {
+            throw new IllegalArgumentException("Điền từ hình ảnh cần \"Đáp án đúng\" cho từng chỗ trống, phân tách bằng dấu | theo ĐÚNG thứ tự đánh số trong ảnh (VD: history|lecture|grow).");
+        }
+        List<String> answers = splitPipeKeepBlanks(row.correctAnswer());
+        if (answers.size() != sentences.size()) {
+            throw new IllegalArgumentException("Điền từ hình ảnh: số đáp án (" + answers.size()
+                    + ") không khớp số chỗ trống (" + sentences.size() + ") trong \"Nội dung\".");
+        }
+        for (int i = 0; i < answers.size(); i++) {
+            if (answers.get(i).isEmpty()) {
+                throw new IllegalArgumentException("Điền từ hình ảnh: chỗ trống thứ " + (i + 1) + " thiếu đáp án đúng trong \"Đáp án đúng\".");
+            }
+        }
+        // Bổ sung 2026-10-19 (đã xác nhận với người dùng — bỏ số tự gõ trong "Nội dung", VD "___|___|___"
+        // thay vì "1. ___|2. ___|3. ___", vì số thứ tự thật hiển thị cho học sinh đã do hệ thống tự đánh
+        // theo vị trí/groupKey, GV chỉ cần điền Excel đúng thứ tự khớp ảnh) — KHÁC mọi kind nhóm khác
+        // (DIEN_TU_NHOM/DOC_HIEU_LUOI/...), CỐ Ý KHÔNG chặn trùng nhãn trong "Nội dung" cũng như trùng
+        // nội dung toàn Ngân hàng câu hỏi ở đây: với quy ước mới, MỌI chỗ trống hợp lệ đều ghi y hệt
+        // "___" (không còn số phân biệt), nên 2 cơ chế chống trùng nói trên (vốn thiết kế để bắt lỗi GV
+        // copy nhầm 2 câu giống hệt nhau) sẽ báo nhầm "đã tồn tại" cho MỌI chỗ trống thứ 2 trở đi — kể
+        // cả giữa các câu hoàn toàn khác nhau (khác ảnh, khác đáp án). Xem thêm outer loop ở
+        // importQuestionsIntoBank (skip existsActiveDuplicate khi kind=KIND_IMAGE_FILL_GROUP, đồng bộ).
+        String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
+        if (!VALID_DIFFICULTIES.contains(difficulty)) {
+            throw new IllegalArgumentException("Độ khó không hợp lệ: '" + row.difficulty() + "' — chỉ chấp nhận EASY/MEDIUM/HARD.");
+        }
+        BigDecimal defaultPoints = parsePoints(row.defaultPoints());
+        List<String> tags = parseTags(row.tags());
+        String explanation = blankToNull(row.explanation());
+        String imageUrl = row.imageUrl().trim();
+        String groupKey = "imagefill-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+
+        List<CreateQuestionRequest> requests = new ArrayList<>();
+        for (int i = 0; i < sentences.size(); i++) {
+            requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", skill, difficulty, sentences.get(i),
+                    null, imageUrl, null, explanation, answers.get(i), defaultPoints, tags, null, null, groupKey));
         }
         return requests;
     }
@@ -1067,12 +1248,13 @@ public class QuestionImportService {
         String explanation = blankToNull(row.explanation());
         String referencePassage = row.referencePassage().trim();
         String groupKey = "grid-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+        String groupSkill = resolveSkill(row, "READING");
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < questions.size(); i++) {
             String correctLetter = answerLetterAt(answerLetters, i, sharedChoices.size());
             List<QuestionChoiceRequest> choicesForQuestion = applyCorrectLetter(sharedChoices, correctLetter);
-            requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", "READING", difficulty, questions.get(i),
+            requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", groupSkill, difficulty, questions.get(i),
                     null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, instructionOnlyContent(row), groupKey));
         }
         return requests;
@@ -1144,11 +1326,12 @@ public class QuestionImportService {
         String explanation = blankToNull(row.explanation());
         String referencePassage = row.referencePassage().trim();
         String groupKey = "matching-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+        String groupSkill = resolveSkill(row, "READING");
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < questions.size(); i++) {
             String correctLetter = answerLetterAt(answerLetters, i, optionCount);
-            requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", "READING", difficulty, questions.get(i),
+            requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", groupSkill, difficulty, questions.get(i),
                     null, null, referencePassage, explanation, correctLetter, defaultPoints, tags, null, null, groupKey));
         }
         return requests;
@@ -1231,6 +1414,7 @@ public class QuestionImportService {
         String explanation = blankToNull(row.explanation());
         String referencePassage = row.referencePassage().trim();
         String groupKey = "cloze-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+        String groupSkill = resolveSkill(row, "READING");
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < blankCount; i++) {
@@ -1244,7 +1428,7 @@ public class QuestionImportService {
                 }
                 choicesForBlank.add(new QuestionChoiceRequest(label, content.trim(), null, label.equals(correctLetter), col + 1));
             }
-            requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", "READING", difficulty, labels.get(i),
+            requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", groupSkill, difficulty, labels.get(i),
                     null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForBlank, null, groupKey));
         }
         return requests;
@@ -1514,6 +1698,6 @@ public class QuestionImportService {
                 row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD(),
                 row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH(), row.choiceI(), row.choiceJ(),
                 row.correctAnswer(), row.audioUrl(), row.imageUrl(), row.referencePassage(), row.defaultPoints(),
-                row.explanation(), row.tags(), row.instruction(), valid, error);
+                row.explanation(), row.tags(), row.instruction(), row.skill(), valid, error);
     }
 }
