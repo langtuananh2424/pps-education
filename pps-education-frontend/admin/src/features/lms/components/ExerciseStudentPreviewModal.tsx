@@ -74,6 +74,10 @@ type RenderBlock =
       groupKey: string;
       referencePassage: string | null;
       audioUrl: string | null;
+      // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — ảnh DÙNG CHUNG cho cả nhóm
+      // (mirror referencePassage/audioUrl ở trên), khác imageUrl RIÊNG từng câu ở DIEN_TU_NHOM (xem
+      // isSharedImageGroup bên dưới).
+      imageUrl: string | null;
       wordBox: string[] | null;
       instruction: string | null;
       questions: ExerciseQuestionResponse[];
@@ -94,6 +98,7 @@ function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): Render
         groupKey: q.groupKey,
         referencePassage: q.referencePassage,
         audioUrl: q.audioUrl,
+        imageUrl: q.imageUrl,
         wordBox: q.structuredContent?.wordBox ?? null,
         instruction: q.structuredContent?.instruction ?? null,
         questions: [q]
@@ -182,6 +187,16 @@ export default function ExerciseStudentPreviewModal({ exercise, onClose }: Exerc
 /** Mirror TakeExerciseModal#GridQuestionGroup — "Đọc hiểu — lưới" / "1 audio nhiều câu". */
 function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<RenderBlock, { type: "grid" }>; startNumber: number }) {
   const { t } = useTranslation("lms-question-authoring");
+  // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU): phân biệt với
+  // isDistinctPictureMatchGrid bên dưới — ở ĐÂY cả nhóm dùng CHUNG ĐÚNG 1 ảnh (mirror
+  // referencePassage/audioUrl, hiện 1 LẦN DUY NHẤT ở đầu khối), bất kể questionType, khác DIEN_TU_NHOM
+  // nơi MỖI câu có 1 ảnh KHÁC NHAU (hiện lặp lại trong lưới nhỏ bên dưới).
+  const isSharedImageGroup =
+    block.imageUrl != null && block.questions.length >= 2 && block.questions.every((q) => q.imageUrl === block.imageUrl);
+  const isDistinctPictureMatchGrid =
+    !isSharedImageGroup &&
+    block.questions.length >= 2 &&
+    block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent));
   return (
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
@@ -224,11 +239,18 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
       )}
 
       {/*
-       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18, mirror TakeExerciseModal#GridQuestionGroup
-       * — bài "Match the words with their correct picture" (DIEN_TU_NHOM, mỗi câu 1 ảnh riêng) đúng hình
-       * thức sách in là LƯỚI ảnh nhỏ gọn, ô điền ngay dưới mỗi ảnh — không liệt kê dọc từng câu 1 dòng.
+       * Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — ảnh DÙNG CHUNG
+       * hiện 1 LẦN DUY NHẤT ở đây (mirror block.referencePassage/block.audioUrl ở trên), KHÔNG lặp lại
+       * trong từng dòng câu hỏi bên dưới (xem prop hideImage ở GridQuestionRowPreview).
        */}
-      {block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent)) ? (
+      {isSharedImageGroup && block.imageUrl && <QuestionImages imageUrl={block.imageUrl} large />}
+
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18, mirror TakeExerciseModal#GridQuestionGroup
+       * — bài "Match the words with their correct picture" (DIEN_TU_NHOM, mỗi câu 1 ảnh KHÁC NHAU) đúng
+       * hình thức sách in là LƯỚI ảnh nhỏ gọn, ô điền ngay dưới mỗi ảnh — không liệt kê dọc từng câu 1 dòng.
+       */}
+      {isDistinctPictureMatchGrid ? (
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
           {block.questions.map((q, qIndex) => (
             <div key={q.id} className="space-y-1.5">
@@ -244,7 +266,7 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
       ) : (
         <div className="divide-y divide-slate-100">
           {block.questions.map((q, qIndex) => (
-            <GridQuestionRowPreview key={q.id} question={q} displayNumber={startNumber + qIndex} />
+            <GridQuestionRowPreview key={q.id} question={q} displayNumber={startNumber + qIndex} hideImage={isSharedImageGroup} />
           ))}
         </div>
       )}
@@ -252,20 +274,34 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
   );
 }
 
-function GridQuestionRowPreview({ question, displayNumber }: { question: ExerciseQuestionResponse; displayNumber: number }) {
+function GridQuestionRowPreview({
+  question,
+  displayNumber,
+  hideImage
+}: {
+  question: ExerciseQuestionResponse;
+  displayNumber: number;
+  /** Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — true khi ảnh của câu này đã hiện
+   * 1 LẦN DUY NHẤT ở đầu khối nhóm (block.imageUrl, xem GridQuestionGroupPreview), không lặp lại ở đây. */
+  hideImage?: boolean;
+}) {
   const { t } = useTranslation("lms-question-authoring");
   const isChoiceRow = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
   const isFillInBlankRow = question.questionType === "FILL_IN_BLANK";
   const isSpeakingRow = question.questionType === "SPEAKING";
   const { selected, toggle } = useChoiceSelection(question.questionType === "MULTIPLE_ANSWER");
+  // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — khi ảnh đã hiện dùng chung ở đầu
+  // khối (hideImage=true) VÀ nội dung chỉ là "___" (GV không gõ số nữa, số thứ tự đã hiện qua
+  // displayNumber) — ẩn luôn phần nội dung lặp, chỉ còn "{displayNumber}." gọn gàng.
+  const hideContentText = hideImage && isBlankOnlyContent(question.questionContent);
 
   return (
     <div className="py-2.5 space-y-2">
       <span className="text-sm font-bold text-slate-800">
-        {displayNumber}. {renderRichText(question.questionContent)}
+        {displayNumber}.{!hideContentText && <> {renderRichText(question.questionContent)}</>}
       </span>
 
-      {question.imageUrl && <QuestionImages imageUrl={question.imageUrl} />}
+      {!hideImage && question.imageUrl && <QuestionImages imageUrl={question.imageUrl} />}
 
       {isChoiceRow && <ChoiceButtons choices={question.choices} selected={selected} onToggle={toggle} />}
 

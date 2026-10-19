@@ -351,6 +351,9 @@ export interface QuestionImportRowPreview {
   explanation: string | null;
   tags: string | null;
   instruction: string | null;
+  // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — cột "Kỹ năng" tường minh, xem Javadoc backend
+  // QuestionRowParser.ParsedQuestionRow#skill.
+  skill: string | null;
   valid: boolean;
   error: string | null;
 }

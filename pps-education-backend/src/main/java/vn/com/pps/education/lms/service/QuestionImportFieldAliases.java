@@ -65,6 +65,10 @@ final class QuestionImportFieldAliases {
 
             Map.entry("tags", "tags"),
 
+            // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — cột "Kỹ năng" tường minh, xem Javadoc
+            // QuestionRowParser.ParsedQuestionRow#skill.
+            Map.entry("ky nang", "skill"), Map.entry("skill", "skill"),
+
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn hiện phía
             // trên câu hỏi dạng Điền từ (xem Javadoc QuestionRowParser.ParsedQuestionRow#instruction).
             Map.entry("huong dan", "instruction"), Map.entry("instruction", "instruction"),
