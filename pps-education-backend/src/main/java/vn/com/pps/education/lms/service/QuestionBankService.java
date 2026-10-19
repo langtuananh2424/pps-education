@@ -199,10 +199,10 @@ public class QuestionBankService {
         question.setTags(request.tags());
         question.setCreatedBy(actor);
         question = questionRepository.save(question);
-        saveChoices(question, request.choices());
+        List<QuestionChoice> savedChoices = saveChoices(question, request.choices());
 
         writeHistory(question, actor, QuestionHistory.Action.CREATED);
-        return toResponse(question);
+        return toResponse(question, savedChoices);
     }
 
     /**
@@ -250,13 +250,14 @@ public class QuestionBankService {
         }
         question.setKeyGrammar(resolveKeyGrammar(question, request.keyGrammarIds()));
         question = questionRepository.save(question);
+        List<QuestionChoice> savedChoices = null;
         if (request.choices() != null) {
             questionChoiceRepository.deleteAll(questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(id));
-            saveChoices(question, request.choices());
+            savedChoices = saveChoices(question, request.choices());
         }
 
         writeHistory(question, actor, QuestionHistory.Action.UPDATED);
-        return toResponse(question);
+        return savedChoices != null ? toResponse(question, savedChoices) : toResponse(question);
     }
 
     /**
@@ -374,11 +375,17 @@ public class QuestionBankService {
         }
     }
 
-    private void saveChoices(Question question, List<QuestionChoiceRequest> choices) {
+    /**
+     * saveAll (1 lệnh) thay vì save() từng choice trong loop (bổ sung
+     * 2026-10-19, đã xác nhận với người dùng khi review hiệu năng import
+     * Excel) — trả lại list đã lưu để caller dùng ngay cho toResponse,
+     * tránh phải SELECT lại NGAY SAU KHI vừa INSERT (xem toResponse(Question, List)).
+     */
+    private List<QuestionChoice> saveChoices(Question question, List<QuestionChoiceRequest> choices) {
         if (choices == null) {
-            return;
+            return List.of();
         }
-        for (QuestionChoiceRequest c : choices) {
+        List<QuestionChoice> entities = choices.stream().map(c -> {
             QuestionChoice choice = new QuestionChoice();
             choice.setQuestion(question);
             choice.setChoiceLabel(c.choiceLabel());
@@ -386,8 +393,9 @@ public class QuestionBankService {
             choice.setImageUrl(c.imageUrl());
             choice.setCorrect(c.isCorrect());
             choice.setDisplayOrder(c.displayOrder());
-            questionChoiceRepository.save(choice);
-        }
+            return choice;
+        }).toList();
+        return questionChoiceRepository.saveAll(entities);
     }
 
     private QuestionBank getLegacyBankOrThrow(Long id) {
@@ -445,8 +453,11 @@ public class QuestionBankService {
     }
 
     private QuestionResponse toResponse(Question q) {
-        List<QuestionChoiceResponse> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(q.getId())
-                .stream().map(this::toResponse).toList();
+        return toResponse(q, questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(q.getId()));
+    }
+
+    private QuestionResponse toResponse(Question q, List<QuestionChoice> preloadedChoices) {
+        List<QuestionChoiceResponse> choices = preloadedChoices.stream().map(this::toResponse).toList();
         return new QuestionResponse(
                 q.getId(), q.getQuestionBank().getId(), q.getQuestionType().name(),
                 q.getSkill() == null ? null : q.getSkill().name(),
