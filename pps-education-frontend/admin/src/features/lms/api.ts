@@ -314,17 +314,20 @@ export function updateExamQuestion(examId: number, questionId: number, request: 
 // ===================== Soạn đề nhanh: import Excel/Word (UC-40, bổ sung ngoài SDD gốc) =====================
 
 export interface QuestionImportedRow {
-  id: number;
+  /** null khi đây là kết quả PREVIEW (chưa ghi DB) — xem previewQuestionImport/previewExamQuestionImport. */
+  id: number | null;
   content: string;
   defaultPoints: number;
 }
 
 export interface QuestionImportResponse {
-  id: number;
+  /** null khi status="PREVIEW" (chưa tạo ImportJob, chưa ghi DB) — xem Javadoc QuestionImportService#previewImport. */
+  id: number | null;
   sourceFileName: string;
   totalRows: number | null;
   successRows: number;
   failedRows: number;
+  /** "PREVIEW" (bổ sung 2026-10-19) = mới xem trước, chưa bấm "Xác nhận lưu" — còn lại như cũ (COMPLETED/PARTIAL_SUCCESS/FAILED). */
   status: string;
   errorSummary: { row: number; reason: string }[];
   createdQuestions: QuestionImportedRow[];
@@ -354,6 +357,27 @@ export function importExamQuestions(examId: number, file: File, defaultKind?: st
   formData.append("file", file);
   if (defaultKind) formData.append("defaultKind", defaultKind);
   return apiRequest<QuestionImportResponse>(`/exams/${examId}/questions/import`, { method: "POST", body: formData });
+}
+
+/**
+ * Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review UX import) — xem trước TRƯỚC KHI ghi
+ * DB: parse + validate, trả về CHÍNH XÁC cùng shape QuestionImportResponse (status="PREVIEW",
+ * id=null, mỗi createdQuestions[].id=null vì chưa tạo) để FE hiện bảng xem trước, chờ GV bấm "Xác
+ * nhận lưu" (gọi importQuestions ở trên) mới thực sự ghi DB — xem QuestionImportPanel.tsx.
+ */
+export function previewQuestionImport(bankId: number, file: File, defaultKind?: string): Promise<QuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (defaultKind) formData.append("defaultKind", defaultKind);
+  return apiRequest<QuestionImportResponse>(`/question-banks/${bankId}/questions/import/preview`, { method: "POST", body: formData });
+}
+
+/** Mirror previewQuestionImport cho luồng "Soạn Bài mới" theo Đề. */
+export function previewExamQuestionImport(examId: number, file: File, defaultKind?: string): Promise<QuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (defaultKind) formData.append("defaultKind", defaultKind);
+  return apiRequest<QuestionImportResponse>(`/exams/${examId}/questions/import/preview`, { method: "POST", body: formData });
 }
 
 /**
