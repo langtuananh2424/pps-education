@@ -843,6 +843,18 @@ export function removeExerciseQuestion(exerciseId: number, exerciseQuestionId: n
 }
 
 /**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — gỡ nhiều câu hỏi khỏi Bài cùng 1 lần
+ * gọi (trước đây phải gọi removeExerciseQuestion lặp lại từng câu, chậm khi cần dọn nhiều câu). Chỉ gỡ
+ * được khi Bài còn DRAFT, giống removeExerciseQuestion.
+ */
+export function removeExerciseQuestions(exerciseId: number, exerciseQuestionIds: number[]): Promise<void> {
+  return apiRequest<void>(`/exercises/${exerciseId}/questions`, {
+    method: "DELETE",
+    body: JSON.stringify({ exerciseQuestionIds })
+  });
+}
+
+/**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — sửa điểm 1 câu hỏi đã gắn vào Bài.
  * Chỉ sửa được khi Bài còn DRAFT; backend chặn nếu tổng điểm vượt quá exercise.totalPoints.
  */
