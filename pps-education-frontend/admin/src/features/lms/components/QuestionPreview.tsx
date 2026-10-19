@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ExerciseQuestionResponse } from "../api";
+import { renderRichText } from "@/lib/richText";
 
 /**
  * Tách ra từ ExerciseStudentPreviewModal.tsx (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
@@ -66,7 +67,7 @@ export function ChoiceButtons({
             </div>
             <span className="flex items-center gap-1 px-2 py-1.5 text-[13px] font-bold text-slate-700">
               <span className="text-slate-400 mr-1">{c.choiceLabel}.</span>
-              {hasMeaningfulCaption(c.choiceLabel, c.content) && c.content}
+              {hasMeaningfulCaption(c.choiceLabel, c.content) && renderRichText(c.content)}
             </span>
           </button>
         ))}
@@ -85,7 +86,7 @@ export function ChoiceButtons({
           }`}
         >
           <span className="text-slate-400 mr-1.5">{c.choiceLabel}.</span>
-          {c.content}
+          {renderRichText(c.content)}
         </button>
       ))}
     </div>
@@ -149,13 +150,6 @@ export function SpeakingInputPreview() {
       />
       <p className="text-[12px] text-slate-400 italic">{t("studentPreviewModal.previewInputDisabledNote")}</p>
     </div>
-  );
-}
-
-/** Hiện **chữ đậm** trong phiếu thông tin (chỉ cú pháp ** **, không phải Markdown đầy đủ). */
-function renderFormBold(text: string): React.ReactNode {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((seg, i) =>
-    seg.startsWith("**") && seg.endsWith("**") && seg.length > 4 ? <strong key={i}>{seg.slice(2, -2)}</strong> : seg
   );
 }
 
@@ -233,8 +227,8 @@ function WordBankPreview({
     <div className="space-y-2">
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — tăng cỡ chữ dòng hướng dẫn (trước
        * đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc khi xem trước thật). */}
-      {instruction && <p className="text-sm sm:text-base italic text-slate-500">{instruction}</p>}
-      {title && <p className="text-sm font-black text-slate-800 text-center">{title}</p>}
+      {instruction && <p className="text-sm sm:text-base italic text-slate-500">{renderRichText(instruction)}</p>}
+      {title && <p className="text-sm font-black text-slate-800 text-center">{renderRichText(title)}</p>}
       {/*
        * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — hộp từ hiện NGAY TRÊN câu hỏi
        * (khớp đúng đề giấy gốc GV gửi: "Ex.1 Choose the correct word in the box" → bảng từ → MỚI tới
@@ -265,7 +259,7 @@ function WordBankPreview({
       <p className={`text-sm ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-slate-800 leading-8`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
-            {formMode ? renderFormBold(part) : part}
+            {renderRichText(part)}
             {idx < blankCount &&
               (inputMode === "text" ? (
                 <input
@@ -375,12 +369,12 @@ export function QuestionPreview({
          */}
         <p className="text-sm font-bold text-slate-800">
           {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
-            <span className="block text-sm italic font-normal text-slate-500 whitespace-pre-line mb-2">{question.structuredContent.instruction}</span>
+            <span className="block text-sm italic font-normal text-slate-500 whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
           )}
           <span className="block text-slate-400 text-sm uppercase tracking-wider mb-1">
             {t("studentPreviewModal.questionNumberPrefix", { number: displayNumber })}
           </span>
-          {question.questionType !== "WORD_BANK" && <span className="whitespace-pre-line">{question.questionContent}</span>}
+          {question.questionType !== "WORD_BANK" && <span className="whitespace-pre-line">{renderRichText(question.questionContent)}</span>}
         </p>
         <span className="text-[12px] text-slate-400 font-bold shrink-0">{t("studentPreviewModal.pointsSuffix", { points: question.points })}</span>
       </div>

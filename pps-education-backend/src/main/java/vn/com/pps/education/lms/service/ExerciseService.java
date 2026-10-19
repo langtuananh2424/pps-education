@@ -27,6 +27,7 @@ import vn.com.pps.education.lms.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.lms.dto.ExerciseQuestionChoiceResponse;
 import vn.com.pps.education.lms.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.lms.dto.ExerciseResponse;
+import vn.com.pps.education.lms.dto.RemoveExerciseQuestionsRequest;
 import vn.com.pps.education.lms.dto.UpdateExerciseQuestionPointsRequest;
 import vn.com.pps.education.lms.dto.UpdateExerciseRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
@@ -321,6 +322,35 @@ public class ExerciseService {
                     "Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId);
         }
         exerciseQuestionRepository.delete(eq);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — gỡ
+     * nhiều câu hỏi khỏi Bài cùng 1 lần gọi (thay vì gọi {@link #removeQuestion}
+     * lặp lại từng câu, chậm khi cần dọn nhiều câu — trang "Kho đề"). Cùng
+     * điều kiện/ràng buộc như removeQuestion: chỉ gỡ được khi Bài còn
+     * DRAFT, mọi id phải thuộc đúng Bài đang thao tác.
+     */
+    @Transactional
+    public void removeQuestions(Long exerciseId, List<Long> exerciseQuestionIds, Long actorUserId) {
+        Exercise exercise = getExerciseOrThrow(exerciseId);
+        if (exercise.getStatus() != Exercise.Status.DRAFT) {
+            throw new IllegalArgumentException(
+                    "Đề này đã Publish — không gỡ câu hỏi được nữa, chỉ gỡ được khi còn Nháp (DRAFT).");
+        }
+        List<ExerciseQuestion> toDelete = exerciseQuestionRepository.findAllById(exerciseQuestionIds);
+        if (toDelete.size() != exerciseQuestionIds.size()) {
+            throw new ResourceNotFoundException("error.exercise.questionNotFoundSimple",
+                    new Object[]{exerciseQuestionIds}, "Không tìm thấy 1 hoặc nhiều câu hỏi trong đề.");
+        }
+        for (ExerciseQuestion eq : toDelete) {
+            if (!eq.getExercise().getId().equals(exerciseId)) {
+                throw new ResourceNotFoundException("error.exercise.questionNotFoundInExercise",
+                        new Object[]{eq.getId(), exerciseId},
+                        "Không tìm thấy câu hỏi id=" + eq.getId() + " trong đề id=" + exerciseId);
+            }
+        }
+        exerciseQuestionRepository.deleteAll(toDelete);
     }
 
     /** UC-24/UC-27: HS chỉ xem được đề ASSIGNED nếu có assignment ACTIVE khớp lớp đang học; SELF_PRACTICE/MOCK_TEST/SKILL_PRACTICE mở tự do khi đã PUBLISHED. Actor không phải học sinh (GV/Staff) xem được mọi đề. */

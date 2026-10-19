@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, GraduationCap, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, Sparkles, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
+import { renderRichText } from "@/lib/richText";
 import {
   AssignedExerciseResponse,
   ExerciseAttemptResponse,
@@ -1277,7 +1278,7 @@ export function QuestionBlock({
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
           </span>
           {question.questionType !== "WORD_BANK" && (
-            <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{question.questionContent}</span>
+            <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{renderRichText(question.questionContent)}</span>
           )}
         </p>
         <div className="flex items-center gap-2 shrink-0">
@@ -1340,7 +1341,7 @@ export function QuestionBlock({
                 <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
                   <span>
                     <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
-                    {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
+                    {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && renderRichText(c.content)}
                   </span>
                   {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                   {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
@@ -1374,7 +1375,7 @@ export function QuestionBlock({
               >
                 <span>
                   <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
-                  {c.content}
+                  {renderRichText(c.content)}
                 </span>
                 {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                 {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
@@ -1817,12 +1818,6 @@ function ListeningHintButton({
   );
 }
 
-/** Hiện **chữ đậm** trong phiếu thông tin (chỉ cú pháp ** **, không phải Markdown đầy đủ). */
-function renderFormBold(text: string): React.ReactNode {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((seg, i) =>
-    seg.startsWith("**") && seg.endsWith("**") && seg.length > 4 ? <strong key={i}>{seg.slice(2, -2)}</strong> : seg
-  );
-}
 
 /**
  * V78 — Điền từ - Hộp từ vựng: content chứa marker "___" theo đúng số chỗ trống, mỗi dropdown liệt kê từ CÒN LẠI (chưa chọn ở chỗ trống khác).
@@ -1900,12 +1895,12 @@ function WordBankBlock({
     <div className="space-y-2">
       {/* 2026-10-14 (đã xác nhận với người dùng) — tăng cỡ chữ dòng hướng dẫn, mirror QuestionPreview.tsx
        * (trước đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc). */}
-      {instruction && <p className="text-sm sm:text-base italic text-muted">{instruction}</p>}
-      {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{title}</p>}
+      {instruction && <p className="text-sm sm:text-base italic text-muted">{renderRichText(instruction)}</p>}
+      {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{renderRichText(title)}</p>}
       <p className={`text-sm sm:text-base lg:text-lg ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-ink leading-8 lg:leading-10`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
-            {formMode ? renderFormBold(part) : part}
+            {renderRichText(part)}
             {idx < blankCount &&
               (inputMode === "text" ? (
                 <input
@@ -2089,16 +2084,16 @@ export function GridQuestionGroup({
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
-      {block.instruction && <p className="text-sm sm:text-base italic text-muted whitespace-pre-line">{block.instruction}</p>}
+      {block.instruction && <p className="text-sm sm:text-base italic text-muted whitespace-pre-line">{renderRichText(block.instruction)}</p>}
       {block.referencePassage && (
         <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
             <div key={i} className={p.isSectionBreak ? "pt-2.5 sm:pt-3 mt-1 border-t border-line/60" : undefined}>
-              {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{p.name}</p>}
+              {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{renderRichText(p.name)}</p>}
               {p.isTitle || p.isSectionBreak ? (
-                <p className="text-xs sm:text-sm lg:text-base font-black text-ink text-center">{p.content}</p>
+                <p className="text-xs sm:text-sm lg:text-base font-black text-ink text-center">{renderRichText(p.content)}</p>
               ) : (
-                <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{p.content}</p>
+                <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{renderRichText(p.content)}</p>
               )}
             </div>
           ))}
@@ -2209,7 +2204,7 @@ export function GridQuestionGroup({
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
-                  {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
+                  {startNumber != null ? startNumber + qIndex : q.displayOrder}. {renderRichText(q.questionContent)}
                 </span>
                 {isLockedCarriedOver(answer) && <CarriedOverBadge />}
               </div>
@@ -2262,7 +2257,7 @@ export function GridQuestionGroup({
                             <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
                               <span>
                                 <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
-                                {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
+                                {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && renderRichText(c.content)}
                               </span>
                               {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                               {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
@@ -2295,7 +2290,7 @@ export function GridQuestionGroup({
                         >
                           <span>
                             <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
-                            {c.content}
+                            {renderRichText(c.content)}
                           </span>
                           {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                           {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}

@@ -12,6 +12,7 @@ import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.lms.dto.CreateQuestionRequest;
 import vn.com.pps.education.lms.dto.QuestionChoiceRequest;
 import vn.com.pps.education.lms.dto.QuestionImportResponse;
+import vn.com.pps.education.lms.dto.QuestionImportRowPreview;
 import vn.com.pps.education.lms.dto.QuestionResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.lms.repository.ExamRepository;
@@ -236,6 +237,10 @@ public class QuestionImportService {
 
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
+            // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — 1 phần tử/dòng file (khác errors/
+            // createdQuestions vốn gộp theo "lỗi" hoặc "Question tạo ra", có thể lệch 1-N với số dòng),
+            // giữ nguyên 21 cột thô + hợp lệ/lỗi cho bảng sửa trực tiếp ở bước preview — xem toRowPreview().
+            List<QuestionImportRowPreview> rowPreviews = new ArrayList<>();
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — xem Javadoc
             // computeAutoGroupKeys(): tự gộp các dòng TRAC_NGHIEM/TRAC_NGHIEM_VOICE liên tiếp cùng chung
             // 1 "Đoạn văn tham chiếu" (đọc hiểu — nhiều câu độc lập cùng 1 đoạn văn), HOẶC các dòng
@@ -295,8 +300,10 @@ public class QuestionImportService {
                         createdQuestions.add(summary);
                     }
                     successRowCount++;
+                    rowPreviews.add(toRowPreview(row, true, null));
                 } catch (RuntimeException ex) {
                     errors.add(rowError(row, ex.getMessage()));
+                    rowPreviews.add(toRowPreview(row, false, ex.getMessage()));
                 }
             }
 
@@ -306,7 +313,7 @@ public class QuestionImportService {
                                 (Long) m.get("id"), (String) m.get("content"), (BigDecimal) m.get("defaultPoints")))
                         .toList();
                 return new QuestionImportResponse(null, file.getOriginalFilename(), parsedRows.size(), successRowCount,
-                        errors.size(), "PREVIEW", errors, previewRows);
+                        errors.size(), "PREVIEW", errors, previewRows, rowPreviews);
             }
 
             job.setTotalRows(parsedRows.size());
@@ -324,7 +331,7 @@ public class QuestionImportService {
             // A3 — không đọc được file (sai định dạng/hỏng hoàn toàn).
             if (dryRun) {
                 return new QuestionImportResponse(null, file.getOriginalFilename(), null, 0, 0, "FAILED",
-                        List.of(rowError(0, "File sai định dạng hoặc không đọc được: " + ex.getMessage())), List.of());
+                        List.of(rowError(0, "File sai định dạng hoặc không đọc được: " + ex.getMessage())), List.of(), List.of());
             }
             return failJob(job, "File sai định dạng hoặc không đọc được: " + ex.getMessage());
         }
@@ -1498,6 +1505,15 @@ public class QuestionImportService {
             }
         }
         return new QuestionImportResponse(job.getId(), job.getSourceFileName(), job.getTotalRows(), job.getSuccessRows(),
-                job.getFailedRows(), job.getStatus().name(), job.getErrorSummary(), createdQuestions);
+                job.getFailedRows(), job.getStatus().name(), job.getErrorSummary(), createdQuestions, List.of());
+    }
+
+    /** 1 dòng thô (nguyên 21 cột) + trạng thái hợp lệ — xem Javadoc QuestionImportRowPreview. */
+    private QuestionImportRowPreview toRowPreview(QuestionRowParser.ParsedQuestionRow row, boolean valid, String error) {
+        return new QuestionImportRowPreview(row.rowNumber(), row.sheetLabel(), row.kind(), row.difficulty(), row.content(),
+                row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD(),
+                row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH(), row.choiceI(), row.choiceJ(),
+                row.correctAnswer(), row.audioUrl(), row.imageUrl(), row.referencePassage(), row.defaultPoints(),
+                row.explanation(), row.tags(), row.instruction(), valid, error);
     }
 }

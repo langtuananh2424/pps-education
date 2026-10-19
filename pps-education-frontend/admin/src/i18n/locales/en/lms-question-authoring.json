@@ -242,6 +242,7 @@
     "previewFailed": "Preview failed.",
     "previewNotice": "This is a PREVIEW — nothing has been saved yet. Review the content/errors below, then click \"Confirm & save\".",
     "previewRowsTitle": "Questions that will be created",
+    "revalidateButton": "Re-check",
     "confirmSaveButton": "Confirm & save {{count}} question(s)",
     "confirming": "Saving...",
     "chooseAnotherFile": "Choose another file",
@@ -640,7 +641,13 @@
       "loadingQuestions": "Loading questions...",
       "noQuestions": "This exercise has no questions attached yet.",
       "editQuestionTooltip": "Edit question",
-      "removeQuestionTooltip": "Remove question (only while still Draft)"
+      "removeQuestionTooltip": "Remove question (only while still Draft)",
+      "selectAll": "Select all",
+      "removeSelectedButton": "Remove selected ({{count}})",
+      "removingSelected": "Removing...",
+      "removeSelectedConfirm": "Remove {{count}} selected question(s) from this exercise?",
+      "removeSelectedFailed": "Failed to remove selected questions.",
+      "selectedQuestionsRemovedToast": "Removed {{count}} question(s) from the exercise!"
     },
     "assignClassModal": {
       "title": "Assign exam to classes",

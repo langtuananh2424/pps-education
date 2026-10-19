@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
+import { renderRichText } from "@/lib/richText";
 import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getExamQuestion, listExerciseQuestions } from "../api";
 
 const choiceTypes: QuestionResponse["questionType"][] = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"];
@@ -155,7 +156,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                     <span className="block text-slate-500 text-sm uppercase tracking-wider mb-1">
                       {t("exercisePreviewModal.questionNumber", { index: index + 1 })}
                     </span>
-                    <span className="whitespace-pre-line">{q?.content ?? eq.questionContent}</span>
+                    <span className="whitespace-pre-line">{renderRichText(q?.content ?? eq.questionContent)}</span>
                   </p>
                   <span className="text-[12px] font-bold uppercase text-slate-400 shrink-0">{eq.points} {t("common.pointsSuffix")}</span>
                 </div>
@@ -164,7 +165,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 {q?.imageUrl && <QuestionImages imageUrl={q.imageUrl} />}
                 {q?.audioUrl && <audio controls src={q.audioUrl} className="mb-2 w-full" />}
                 {q?.referencePassage && (
-                  <p className="text-sm text-slate-500 bg-slate-50 p-2 rounded-lg mb-2 whitespace-pre-line">{normalizeReferencePassage(q.referencePassage)}</p>
+                  <p className="text-sm text-slate-500 bg-slate-50 p-2 rounded-lg mb-2 whitespace-pre-line">{renderRichText(normalizeReferencePassage(q.referencePassage))}</p>
                 )}
                 {/* Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng tham khảo tĩnh (FillInBlankGroupBuilder), xem cùng khái niệm ở TakeExerciseModal.tsx. Dựng bằng <table> để khớp đúng bảng trong đề giấy gốc. */}
                 {q?.structuredContent?.wordBox && q.structuredContent.wordBox.length > 0 && (
@@ -196,7 +197,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                         <span className="font-mono text-[12px] shrink-0">{c.choiceLabel}.</span>
                         {/* V143 — dạng Listening chọn đáp án bằng hình: hiện thumbnail để GV xem đúng những gì học sinh sẽ thấy. */}
                         {c.imageUrl && <img src={c.imageUrl} alt={c.content} className="w-8 h-8 object-cover rounded shrink-0" />}
-                        {hasMeaningfulCaption(c.choiceLabel, c.content) && <span>{c.content}</span>}
+                        {hasMeaningfulCaption(c.choiceLabel, c.content) && <span>{renderRichText(c.content)}</span>}
                       </div>
                     ))}
                   </div>

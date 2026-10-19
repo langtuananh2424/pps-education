@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
+import { renderRichText } from "@/lib/richText";
 import { ExerciseQuestionResponse, ExerciseResponse, listExerciseQuestions } from "../api";
 import { CHOICE_TYPES, ChoiceButtons, QuestionImages, QuestionPreview, SpeakingInputPreview, useChoiceSelection } from "./QuestionPreview";
 
@@ -185,16 +186,16 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
-      {block.instruction && <p className="text-sm sm:text-base italic text-slate-500 whitespace-pre-line">{block.instruction}</p>}
+      {block.instruction && <p className="text-sm sm:text-base italic text-slate-500 whitespace-pre-line">{renderRichText(block.instruction)}</p>}
       {block.referencePassage && (
         <div className="bg-slate-50 rounded-xl p-3 space-y-2">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
             <div key={i} className={p.isSectionBreak ? "pt-2 mt-1 border-t border-slate-200" : undefined}>
-              {p.name && <p className="text-sm font-black text-slate-800">{p.name}</p>}
+              {p.name && <p className="text-sm font-black text-slate-800">{renderRichText(p.name)}</p>}
               {p.isTitle || p.isSectionBreak ? (
-                <p className="text-sm font-black text-slate-800 text-center">{p.content}</p>
+                <p className="text-sm font-black text-slate-800 text-center">{renderRichText(p.content)}</p>
               ) : (
-                <p className="text-sm text-slate-600 whitespace-pre-line">{p.content}</p>
+                <p className="text-sm text-slate-600 whitespace-pre-line">{renderRichText(p.content)}</p>
               )}
             </div>
           ))}
@@ -261,7 +262,7 @@ function GridQuestionRowPreview({ question, displayNumber }: { question: Exercis
   return (
     <div className="py-2.5 space-y-2">
       <span className="text-sm font-bold text-slate-800">
-        {displayNumber}. {question.questionContent}
+        {displayNumber}. {renderRichText(question.questionContent)}
       </span>
 
       {question.imageUrl && <QuestionImages imageUrl={question.imageUrl} />}

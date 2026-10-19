@@ -242,6 +242,7 @@
     "previewFailed": "Xem trước thất bại.",
     "previewNotice": "Đây là bản XEM TRƯỚC — CHƯA lưu vào hệ thống. Kiểm tra kỹ nội dung/lỗi dưới đây rồi mới bấm \"Xác nhận lưu\".",
     "previewRowsTitle": "Các câu sẽ được tạo",
+    "revalidateButton": "Kiểm tra lại",
     "confirmSaveButton": "Xác nhận lưu {{count}} câu hỏi",
     "confirming": "Đang lưu...",
     "chooseAnotherFile": "Chọn file khác",
@@ -640,7 +641,13 @@
       "loadingQuestions": "Đang tải câu hỏi...",
       "noQuestions": "Bài này chưa gắn câu hỏi nào.",
       "editQuestionTooltip": "Sửa câu hỏi",
-      "removeQuestionTooltip": "Gỡ câu hỏi (chỉ khi còn Nháp)"
+      "removeQuestionTooltip": "Gỡ câu hỏi (chỉ khi còn Nháp)",
+      "selectAll": "Chọn tất cả",
+      "removeSelectedButton": "Gỡ đã chọn ({{count}})",
+      "removingSelected": "Đang gỡ...",
+      "removeSelectedConfirm": "Gỡ {{count}} câu hỏi đã chọn khỏi Bài này?",
+      "removeSelectedFailed": "Gỡ câu hỏi đã chọn thất bại.",
+      "selectedQuestionsRemovedToast": "Đã gỡ {{count}} câu hỏi khỏi Bài!"
     },
     "assignClassModal": {
       "title": "Gán Đề cho lớp",
