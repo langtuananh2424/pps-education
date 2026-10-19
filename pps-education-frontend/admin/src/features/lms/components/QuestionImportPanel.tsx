@@ -7,6 +7,7 @@ import {
   ExamTeacherType,
   ExerciseSkillCategory,
   QuestionImportResponse,
+  QuestionImportRowPreview,
   QuestionImportedRow,
   downloadExamQuestionImportWordTemplate,
   downloadQuestionImportWordTemplate,
@@ -80,6 +81,23 @@ const IMPORT_KIND_GROUPS: { labelKey: string; tokens: string[] }[] = [
 ];
 
 /**
+ * Bổ sung 2026-10-19 (đã xác nhận với người dùng — sửa trực tiếp bảng xem trước) — ép 1
+ * QuestionImportRowPreview (nguyên 21 cột thô từ backend) thành 1 mảng ô ĐÚNG THỨ TỰ khớp
+ * `questionImportPanel.excelHeaders` (mirror comment "Thứ tự mới mỗi dòng: ..." ở `sampleRows` dưới
+ * đây) — dùng để khởi tạo lưới sửa tay VÀ dựng lại file .xlsx (buildXlsxTemplateBlob) khi bấm "Kiểm
+ * tra lại".
+ */
+function rowPreviewToCells(row: QuestionImportRowPreview): string[] {
+  return [
+    row.kind ?? "", row.difficulty ?? "", row.content ?? "",
+    row.choiceA ?? "", row.choiceB ?? "", row.choiceC ?? "", row.choiceD ?? "",
+    row.choiceE ?? "", row.choiceF ?? "", row.choiceG ?? "", row.choiceH ?? "", row.choiceI ?? "", row.choiceJ ?? "",
+    row.correctAnswer ?? "", row.audioUrl ?? "", row.imageUrl ?? "", row.referencePassage ?? "",
+    row.defaultPoints ?? "", row.explanation ?? "", row.tags ?? "", row.instruction ?? ""
+  ];
+}
+
+/**
  * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
  * soạn đề nhanh — panel dùng chung cho cả trang "Ngân hàng câu hỏi" (import
  * độc lập vào 1 bank) lẫn bước "Soạn đề" trong "Soạn & giao đề" (import rồi
@@ -101,6 +119,11 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   // giữ lại để handleConfirm gửi LẠI đúng file này lên endpoint ghi DB thật khi GV bấm "Xác nhận lưu".
   // Đơn giản hơn cache parsed rows ở backend (không cần job tạm/token hết hạn) — xem QuestionImportService#previewImport.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // Bổ sung 2026-10-19 (đã xác nhận với người dùng — sửa trực tiếp bảng xem trước, thay cho việc
+  // phải xuống Excel sửa rồi upload lại) — luôn khớp 1:1 với result.rowPreviews (cùng khởi tạo lại
+  // trong runPreview mỗi lần preview/kiểm tra lại thành công), chỉ khác là mảng NÀY sửa được qua
+  // input, còn result.rowPreviews là dữ liệu "đã validate" lần gần nhất (dùng để tô đỏ dòng lỗi).
+  const [editedRows, setEditedRows] = useState<string[][]>([]);
   const isPreview = result?.status === "PREVIEW";
   // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — "Loại câu hỏi mặc định": khớp thói quen thật
   // "1 Ex chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị — chọn 1 lần ở đây thay vì gõ lại cột
@@ -284,18 +307,13 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   /**
    * Bổ sung 2026-10-19 (đã xác nhận với người dùng — preview trước khi lưu, thay cho hành vi cũ ghi
    * thẳng vào DB ngay khi chọn file) — chỉ gọi endpoint preview (parse + validate, KHÔNG ghi DB), giữ
-   * lại file để handleConfirm gửi lại khi GV xác nhận.
+   * lại file để handleConfirm gửi lại khi GV xác nhận. Dùng chung cho cả preview lần đầu (handleFile)
+   * lẫn "Kiểm tra lại" sau khi sửa tay (handleRevalidate) — khởi tạo lại editedRows từ kết quả MỚI
+   * mỗi lần gọi, để lưới sửa luôn khớp đúng dữ liệu đã validate gần nhất.
    */
-  const handleFile = async (file: File | null) => {
-    if (!file) return;
-    const lower = file.name.toLowerCase();
-    if (!lower.endsWith(".xlsx") && !lower.endsWith(".docx")) {
-      setError(t("questionImportPanel.invalidFileType"));
-      return;
-    }
+  const runPreview = async (file: File) => {
     setPreviewing(true);
     setError(null);
-    setResult(null);
     try {
       const res = examId
         ? await previewExamQuestionImport(examId, file, defaultKind || undefined)
@@ -304,12 +322,41 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
           : (() => { throw new Error(t("common.missingExamOrBankContext")); })();
       setResult(res);
       setPendingFile(file);
+      setEditedRows(res.rowPreviews.map(rowPreviewToCells));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("questionImportPanel.previewFailed"));
     } finally {
       setPreviewing(false);
-      if (inputRef.current) inputRef.current.value = "";
     }
+  };
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith(".xlsx") && !lower.endsWith(".docx")) {
+      setError(t("questionImportPanel.invalidFileType"));
+      return;
+    }
+    setResult(null);
+    await runPreview(file);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const handleCellChange = (rowIdx: number, colIdx: number, value: string) => {
+    setEditedRows((prev) => prev.map((row, i) => (i === rowIdx ? row.map((c, j) => (j === colIdx ? value : c)) : row)));
+  };
+
+  /**
+   * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — dựng lại 1 file .xlsx TỪ editedRows (đã sửa
+   * tay trên lưới) bằng buildXlsxTemplateBlob (tự dựng OOXML, không parse — an toàn, không phải
+   * thư viện ngoài xử lý file người dùng), rồi gửi lại qua ĐÚNG pipeline preview để validate lại —
+   * không tự validate bằng JS (xem Javadoc QuestionImportRowPreview phía backend).
+   */
+  const handleRevalidate = async () => {
+    const headers = t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[];
+    const blob = buildXlsxTemplateBlob(headers, editedRows);
+    const regenerated = new File([blob], "xem-truoc-da-sua.xlsx", { type: blob.type });
+    await runPreview(regenerated);
   };
 
   /** Gửi lại ĐÚNG file đã xem trước để ghi DB thật (giống hệt logic preview — chỉ khác dryRun ở backend). */
@@ -336,6 +383,7 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   const handleReset = () => {
     setResult(null);
     setPendingFile(null);
+    setEditedRows([]);
     setError(null);
   };
 
@@ -506,18 +554,67 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
             </div>
           </div>
 
-          {isPreview && result.createdQuestions.length > 0 && (
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <div className="bg-slate-50 px-3 py-1.5 text-[12px] font-bold text-slate-600 uppercase">{t("questionImportPanel.previewRowsTitle")}</div>
-              <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
-                {result.createdQuestions.map((q, i) => (
-                  <div key={i} className="px-3 py-1.5 text-sm text-slate-700 line-clamp-2">{q.content}</div>
-                ))}
+          {isPreview && result.rowPreviews.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-bold text-slate-600 uppercase">{t("questionImportPanel.previewRowsTitle")}</span>
+                <Button type="button" variant="secondary" size="sm" onClick={handleRevalidate} disabled={previewing || confirming}>
+                  {previewing ? t("questionImportPanel.previewing") : t("questionImportPanel.revalidateButton")}
+                </Button>
+              </div>
+              {/*
+               * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — bảng dạng Excel sửa trực tiếp: mỗi
+               * input khớp 1 cột file mẫu (xem rowPreviewToCells), dòng lỗi tô đỏ + hiện lý do ngay dưới
+               * dòng đó. Sửa xong bấm "Kiểm tra lại" (handleRevalidate) để dựng lại file + validate lại
+               * qua ĐÚNG backend, không tự validate bằng JS.
+               */}
+              <div className="border border-slate-200 rounded-lg overflow-auto max-h-[480px]">
+                <table className="text-[13px] border-collapse w-max">
+                  <thead className="sticky top-0 bg-slate-50 z-10">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left font-bold text-slate-500 border-b border-slate-200 whitespace-nowrap">#</th>
+                      {(t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[]).map((h, i) => (
+                        <th key={i} className="px-2 py-1.5 text-left font-bold text-slate-500 border-b border-slate-200 whitespace-nowrap min-w-[140px]">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.rowPreviews.map((meta, rowIdx) => (
+                      <React.Fragment key={rowIdx}>
+                        <tr className={meta.valid ? "" : "bg-rose-50/60"}>
+                          <td className="px-2 py-1 border-b border-slate-100 font-mono text-slate-400 whitespace-nowrap">
+                            {meta.sheetLabel ? `${meta.sheetLabel} · ` : ""}
+                            {meta.rowNumber}
+                          </td>
+                          {(editedRows[rowIdx] ?? []).map((cellValue, colIdx) => (
+                            <td key={colIdx} className="p-0.5 border-b border-slate-100">
+                              <input
+                                value={cellValue}
+                                onChange={(e) => handleCellChange(rowIdx, colIdx, e.target.value)}
+                                className="w-36 px-1.5 py-1 text-[13px] border border-transparent rounded focus:border-brand-red focus:outline-none bg-transparent"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                        {!meta.valid && (
+                          <tr className="bg-rose-50/60">
+                            <td />
+                            <td colSpan={editedRows[rowIdx]?.length ?? 21} className="px-2 py-1 text-rose-600 text-[12px] font-semibold border-b border-rose-100">
+                              {meta.error}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
 
-          {result.errorSummary.length > 0 && (
+          {!isPreview && result.errorSummary.length > 0 && (
             <div className="border border-rose-100 rounded-lg overflow-hidden">
               <div className="bg-rose-50 px-3 py-1.5 text-[12px] font-bold text-rose-600 uppercase">{t("questionImportPanel.errorDetailTitle")}</div>
               <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">

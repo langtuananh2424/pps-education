@@ -242,6 +242,7 @@
     "previewFailed": "Preview failed.",
     "previewNotice": "This is a PREVIEW — nothing has been saved yet. Review the content/errors below, then click \"Confirm & save\".",
     "previewRowsTitle": "Questions that will be created",
+    "revalidateButton": "Re-check",
     "confirmSaveButton": "Confirm & save {{count}} question(s)",
     "confirming": "Saving...",
     "chooseAnotherFile": "Choose another file",

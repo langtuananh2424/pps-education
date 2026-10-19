@@ -320,6 +320,41 @@ export interface QuestionImportedRow {
   defaultPoints: number;
 }
 
+/**
+ * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — 1 dòng THÔ (nguyên 21 cột, chưa ép kiểu) của file
+ * đang xem trước — mirror ParsedQuestionRow backend. Dùng để dựng bảng sửa trực tiếp kiểu Excel:
+ * sửa ô nào, dựng lại file .xlsx từ TOÀN BỘ các dòng (buildXlsxTemplateBlob) rồi gửi lại qua preview
+ * để validate lại — không tự validate bằng JS (nhiều loại câu hỏi, quy tắc phức tạp, phải đi qua
+ * ĐÚNG 1 bộ luật ở backend, xem QuestionImportPanel.tsx).
+ */
+export interface QuestionImportRowPreview {
+  rowNumber: number;
+  sheetLabel: string | null;
+  kind: string | null;
+  difficulty: string | null;
+  content: string | null;
+  choiceA: string | null;
+  choiceB: string | null;
+  choiceC: string | null;
+  choiceD: string | null;
+  choiceE: string | null;
+  choiceF: string | null;
+  choiceG: string | null;
+  choiceH: string | null;
+  choiceI: string | null;
+  choiceJ: string | null;
+  correctAnswer: string | null;
+  audioUrl: string | null;
+  imageUrl: string | null;
+  referencePassage: string | null;
+  defaultPoints: string | null;
+  explanation: string | null;
+  tags: string | null;
+  instruction: string | null;
+  valid: boolean;
+  error: string | null;
+}
+
 export interface QuestionImportResponse {
   /** null khi status="PREVIEW" (chưa tạo ImportJob, chưa ghi DB) — xem Javadoc QuestionImportService#previewImport. */
   id: number | null;
@@ -331,6 +366,8 @@ export interface QuestionImportResponse {
   status: string;
   errorSummary: { row: number; reason: string }[];
   createdQuestions: QuestionImportedRow[];
+  /** Chỉ có dữ liệu khi status="PREVIEW" — rỗng ở kết quả ghi DB thật. */
+  rowPreviews: QuestionImportRowPreview[];
 }
 
 /**
