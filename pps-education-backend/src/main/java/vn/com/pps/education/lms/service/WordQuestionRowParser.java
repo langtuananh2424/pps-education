@@ -29,7 +29,11 @@ import java.util.regex.Pattern;
 public class WordQuestionRowParser implements QuestionRowParser {
 
     private static final Pattern KIND_PATTERN = Pattern.compile("^\\[(.+)]$");
-    private static final Pattern CHOICE_PATTERN = Pattern.compile("^([A-Da-d])[.)]\\s*(.+)$");
+    // Bổ sung 2026-10-17 (đã xác nhận với người dùng) — nới A-D thành A-H rồi tiếp tục nới thành A-J
+    // cùng ngày (phát hiện 1 bài ngữ pháp nối câu IELTS thực tế dùng tới J), phục vụ DOC_HIEU_NOI_DAP_AN
+    // (đọc hiểu — nối đáp án, tối đa 10 đáp án dùng chung). DOC_HIEU_LUOI/TRAC_NGHIEM vẫn chỉ dùng A-D
+    // trong thực tế (QuestionImportService không đọc choiceE-J cho 2 loại đó).
+    private static final Pattern CHOICE_PATTERN = Pattern.compile("^([A-Ja-j])[.)]\\s*(.+)$");
     private static final Pattern LABEL_PATTERN = Pattern.compile("^([^:]{1,40}):\\s*(.*)$");
 
     @Override
@@ -87,7 +91,13 @@ public class WordQuestionRowParser implements QuestionRowParser {
                 case "A" -> row.choiceA = value;
                 case "B" -> row.choiceB = value;
                 case "C" -> row.choiceC = value;
-                default -> row.choiceD = value;
+                case "D" -> row.choiceD = value;
+                case "E" -> row.choiceE = value;
+                case "F" -> row.choiceF = value;
+                case "G" -> row.choiceG = value;
+                case "H" -> row.choiceH = value;
+                case "I" -> row.choiceI = value;
+                default -> row.choiceJ = value;
             }
             row.lastField = "choice" + letter;
             return;
@@ -116,6 +126,12 @@ public class WordQuestionRowParser implements QuestionRowParser {
         String choiceB;
         String choiceC;
         String choiceD;
+        String choiceE;
+        String choiceF;
+        String choiceG;
+        String choiceH;
+        String choiceI;
+        String choiceJ;
         String correctAnswer;
         String audioUrl;
         String imageUrl;
@@ -157,13 +173,20 @@ public class WordQuestionRowParser implements QuestionRowParser {
                 case "choiceB" -> choiceB = choiceB == null ? extra : choiceB + " " + extra;
                 case "choiceC" -> choiceC = choiceC == null ? extra : choiceC + " " + extra;
                 case "choiceD" -> choiceD = choiceD == null ? extra : choiceD + " " + extra;
+                case "choiceE" -> choiceE = choiceE == null ? extra : choiceE + " " + extra;
+                case "choiceF" -> choiceF = choiceF == null ? extra : choiceF + " " + extra;
+                case "choiceG" -> choiceG = choiceG == null ? extra : choiceG + " " + extra;
+                case "choiceH" -> choiceH = choiceH == null ? extra : choiceH + " " + extra;
+                case "choiceI" -> choiceI = choiceI == null ? extra : choiceI + " " + extra;
+                case "choiceJ" -> choiceJ = choiceJ == null ? extra : choiceJ + " " + extra;
                 default -> content = content == null ? extra : content + "\n" + extra;
             }
         }
 
         ParsedQuestionRow toParsedRow() {
             return new ParsedQuestionRow(blockNumber, null, kind, difficulty, content, choiceA, choiceB, choiceC, choiceD,
-                    correctAnswer, audioUrl, imageUrl, referencePassage, defaultPoints, explanation, tags, instruction);
+                    correctAnswer, audioUrl, imageUrl, referencePassage, defaultPoints, explanation, tags, instruction,
+                    choiceE, choiceF, choiceG, choiceH, choiceI, choiceJ);
         }
     }
 }

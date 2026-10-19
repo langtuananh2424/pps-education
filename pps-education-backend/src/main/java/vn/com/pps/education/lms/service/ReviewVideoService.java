@@ -96,10 +96,12 @@ import vn.com.pps.education.auth.repository.UserRepository;
 import vn.com.pps.education.lms.service.integrity.AttemptIntegrityService;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import org.springframework.beans.factory.annotation.Value;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -169,6 +171,7 @@ public class ReviewVideoService {
     private final TransactionTemplate requiresNewTransactionTemplate;
     /** V200 — kiểm tra + gán dạng đề / dữ liệu tranh của câu hỏi REFLEX. */
     private final ReflexQuestionFormatService reflexQuestionFormatService;
+    private double connectionMinWatchRatio;
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
@@ -212,7 +215,9 @@ public class ReviewVideoService {
                                AttemptIntegrityService attemptIntegrityService,
                                PermissionEvaluationService permissionEvaluationService,
                                PlatformTransactionManager transactionManager,
-                               ReflexQuestionFormatService reflexQuestionFormatService) {
+                               ReflexQuestionFormatService reflexQuestionFormatService,
+                               @Value("${app.review-video.connection-min-watch-ratio:0.5}") double connectionMinWatchRatio) {
+        this.connectionMinWatchRatio = connectionMinWatchRatio;
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoSetClassAssignmentRepository = reviewVideoSetClassAssignmentRepository;
         this.reviewVideoRepository = reviewVideoRepository;
@@ -1004,7 +1009,7 @@ public class ReviewVideoService {
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ câu trả lời của học
-     * sinh qua các lượt xem ĐÃ ĐẠT (qualified + quizPassed — đúng điều kiện đang tính vào viewCount,
+     * sinh qua các lượt xem ĐÃ HOÀN TẤT (qualified + đã nộp xong quiz, kể cả lượt làm sai — 2026-10-16,
      * xem {@link #recomputeProgress}) của 1 video CONNECTION/1 bản giao, sắp theo thứ tự lượt xem
      * (viewNumber 1..N). Dùng cho popup "Hoàn thành"/"Kết quả" phía học viên (FE) khi đạt ngưỡng
      * sessionPassRatioThresholdPercent giữa chừng hoặc hoàn thành đủ requiredViewCount — các lượt cũ
@@ -1016,7 +1021,7 @@ public class ReviewVideoService {
         ReviewVideo video = getVideoOrThrow(videoId);
         StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
         List<ReviewVideoWatchSession> sessions = reviewVideoWatchSessionRepository
-                .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrueOrderByQuizCompletedAtAsc(
+                .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNullAndArchivedAtIsNullOrderByQuizCompletedAtAsc(
                         videoId, access.student().getId(), access.assignment().getId());
         if (sessions.isEmpty()) {
             return new ReviewVideoConnectionAnswerHistoryResponse(List.of());
@@ -1069,6 +1074,12 @@ public class ReviewVideoService {
         ReviewVideo video = getVideoOrThrow(videoId);
         StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
         Student student = access.student();
+        if (video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION
+                && getOrCreateProgress(video, student, access.assignment()).isCompleted()) {
+            // 2026-10-17 (đã xác nhận với người dùng): hoàn thành rồi thì không mở lượt xem tự do nữa — muốn
+            // xem/làm lại phải "Làm lại từ đầu" (retakeConnection) để tiến độ và đáp án về 0, lịch sử vẫn lưu.
+            throw new IllegalStateException("Đã hoàn thành clip này — hãy chọn \"Làm lại từ đầu\" nếu muốn xem lại.");
+        }
 
         ReviewVideoWatchSession session = new ReviewVideoWatchSession();
         session.setReviewVideo(video);
@@ -1080,7 +1091,7 @@ public class ReviewVideoService {
             // (ensureConnectionQuestionSlotsAssigned) là 1 lần duy nhất cho cả đời học sinh+video, chu
             // kỳ slotIndex tiếp tục xuyên suốt qua các lần giao khác nhau, không reset lại (đã xác nhận
             // với người dùng — khác hẳn viewCount/completed, LUÔN tách riêng theo từng bản giao).
-            int priorSessionCount = reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentId(videoId, student.getId());
+            int priorSessionCount = reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndArchivedAtIsNull(videoId, student.getId());
             session.setSlotIndex((priorSessionCount % video.getRequiredViewCount()) + 1);
         }
         session = reviewVideoWatchSessionRepository.save(session);
@@ -1192,17 +1203,32 @@ public class ReviewVideoService {
         // xem HẾT (100%, cố định, không còn cấu hình %) mới được làm câu hỏi; completionThresholdPercent
         // đổi ý nghĩa cho CONNECTION thành "ngưỡng % pass" (dùng ở computeConnectionPassScore), KHÔNG
         // còn dùng để tính qualified nữa. REFLEX giữ nguyên y hệt logic cũ (đọc completionThresholdPercent).
+        ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         boolean qualified = video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION
-                ? sessionWatchedSeconds >= video.getDurationSeconds()
+                ? sessionWatchedSeconds >= video.getDurationSeconds() && hasWatchedForRealTime(session, video)
                 : sessionWatchedSeconds >= video.getDurationSeconds() * (video.getCompletionThresholdPercent() / 100.0);
         session.setQualified(qualified);
         reviewVideoWatchSessionRepository.save(session);
 
-        ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         progress.setWatchedSeconds(Math.max(progress.getWatchedSeconds(), sessionWatchedSeconds));
         reviewVideoProgressRepository.save(progress);
         progress = recomputeProgress(video, student, assignment);
         return toResponse(progress, video);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-17 — chống "tua tới cuối" cho CONNECTION:
+     * trình phát phía client tự báo 100% khi video ENDED nên server đối chiếu thêm THỜI GIAN THẬT từ lúc
+     * mở lượt (startedAt) tới giờ phải ≥ durationSeconds × {@code connectionMinWatchRatio} (mặc định 0.5 =
+     * cho phép xem tốc độ 2x). Áp dụng cho MỌI lượt (học sinh đã hoàn thành muốn xem lại phải "Làm lại từ
+     * đầu" rồi xem từ đầu, xem {@link #retakeConnection}). Ratio <= 0 tắt kiểm tra.
+     */
+    private boolean hasWatchedForRealTime(ReviewVideoWatchSession session, ReviewVideo video) {
+        if (connectionMinWatchRatio <= 0) {
+            return true;
+        }
+        long elapsedSeconds = Duration.between(session.getStartedAt(), OffsetDateTime.now()).getSeconds();
+        return elapsedSeconds >= video.getDurationSeconds() * connectionMinWatchRatio;
     }
 
     /**
@@ -1584,7 +1610,7 @@ public class ReviewVideoService {
             return true;
         }
         List<ReviewVideoConnectionAnswer> answers = reviewVideoConnectionAnswerRepository
-                .findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentId(video.getId(), studentId);
+                .findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentIdAndWatchSession_ArchivedAtIsNull(video.getId(), studentId);
         Map<Long, ReviewVideoConnectionAnswer> latestByQuestion = answers.stream()
                 .collect(Collectors.toMap(a -> a.getReviewVideoConnectionQuestion().getId(), a -> a,
                         (a, b) -> a.getAnsweredAt().isAfter(b.getAnsweredAt()) ? a : b));
@@ -1989,12 +2015,19 @@ public class ReviewVideoService {
         ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         boolean requiresQuiz = video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION;
         int viewCount = requiresQuiz
-                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrue(
+                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrueAndArchivedAtIsNull(
                         video.getId(), student.getId(), assignment.getId())
-                : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrue(
+                : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndArchivedAtIsNull(
                         video.getId(), student.getId(), assignment.getId());
         progress.setViewCount(viewCount);
-        boolean completed = viewCount >= video.getRequiredViewCount() || progress.isStoppedEarly();
+        // 2026-10-16 (đã xác nhận với người dùng) — CONNECTION "hoàn thành" = đã xem hết VÀ làm xong câu hỏi
+        // đủ requiredViewCount lượt, KỂ CẢ lượt làm sai (học sinh không đạt vẫn hoàn thành); viewCount ở
+        // trên vẫn chỉ đếm lượt ĐẠT cho popup ngưỡng giữa chừng và kết quả. REFLEX giữ công thức cũ.
+        int finishedCount = requiresQuiz
+                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNullAndArchivedAtIsNull(
+                        video.getId(), student.getId(), assignment.getId())
+                : viewCount;
+        boolean completed = finishedCount >= video.getRequiredViewCount() || progress.isStoppedEarly();
         progress.setCompleted(completed);
         return reviewVideoProgressRepository.save(progress);
     }
@@ -2024,6 +2057,39 @@ public class ReviewVideoService {
         }
         progress.setStoppedEarly(true);
         progress.setCompleted(true);
+        reviewVideoProgressRepository.save(progress);
+        return toResponse(progress, video);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-17 — học sinh đã HOÀN THÀNH clip Kết nối được
+     * "Làm lại từ đầu" (VD đạt 80% muốn lên 100%): mọi lượt đang tính của bản giao này được LƯU TRỮ
+     * ({@code archivedAt}) — vẫn xem được lịch sử ở trang thống kê nhưng không còn tính vào số lượt, hoàn thành
+     * hay điểm — và tiến độ về 0 như chưa làm. Chưa hoàn thành thì không cho làm lại (cứ tiếp tục xem). Sau
+     * khi hoàn thành không còn mở lượt xem tự do nữa: muốn xem/làm lại phải qua thao tác này.
+     */
+    @Transactional
+    public ReviewVideoProgressResponse retakeConnection(Long videoId, Long assignmentId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.CONNECTION) {
+            throw new IllegalStateException("Chỉ áp dụng cho video Kết nối (CONNECTION).");
+        }
+        StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
+        requireNotPastDeadline(access.assignment());
+        ReviewVideoProgress progress = getOrCreateProgress(video, access.student(), access.assignment());
+        if (!progress.isCompleted()) {
+            throw new IllegalStateException("Chưa hoàn thành clip này — chưa thể làm lại từ đầu.");
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        List<ReviewVideoWatchSession> active = reviewVideoWatchSessionRepository
+                .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndArchivedAtIsNull(
+                        videoId, access.student().getId(), access.assignment().getId());
+        active.forEach(session -> session.setArchivedAt(now));
+        reviewVideoWatchSessionRepository.saveAll(active);
+        progress.setViewCount(0);
+        progress.setWatchedSeconds(0);
+        progress.setCompleted(false);
+        progress.setStoppedEarly(false);
         reviewVideoProgressRepository.save(progress);
         return toResponse(progress, video);
     }

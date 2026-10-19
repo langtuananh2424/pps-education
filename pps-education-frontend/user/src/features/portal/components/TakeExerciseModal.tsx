@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, GraduationCap, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, Sparkles, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
+import { renderRichText } from "@/lib/richText";
 import {
   AssignedExerciseResponse,
   ExerciseAttemptResponse,
@@ -274,7 +275,7 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
  */
 export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
-  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; questions: ExerciseQuestionResponse[] };
+  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; instruction: string | null; questions: ExerciseQuestionResponse[] };
 
 /**
  * Bổ sung 2026-09-24 (đã xác nhận với người dùng, sửa bug thật) — lưới ảnh "Match the words with their
@@ -325,7 +326,7 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * coi là TIÊU ĐỀ bài đọc (VD "THE BENEFITS OF GARDENING") -- in đậm giống hệt "Nhãn:" thay vì hiện như
  * một đoạn văn thường.
  */
-function parsePassageParagraphs(text: string): { name: string | null; content: string; isTitle: boolean }[] {
+function parsePassageParagraphs(text: string): { name: string | null; content: string; isTitle: boolean; isSectionBreak: boolean }[] {
   const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
   const rawParagraphs = withTurnBreaks
     .split(/\n\s*\n/)
@@ -335,9 +336,19 @@ function parsePassageParagraphs(text: string): { name: string | null; content: s
   // "COLLECTING: A VALUABLE ACTIVITY OR JUST A HOBBY?"), tach theo ":" truoc se lam mat 1 nua tieu de.
   return rawParagraphs.map((para, i) => {
     const isTitle = i === 0 && rawParagraphs.length > 1 && para.length <= 100 && !/[.!?]\s+[A-Z]/.test(para);
-    if (isTitle) return { name: null, content: para, isTitle: true };
+    if (isTitle) return { name: null, content: para, isTitle: true, isSectionBreak: false };
+    // Bổ sung 2026-10-17 (đã xác nhận với người dùng qua ảnh chụp — đoạn "SCHOOL FACILITIES" đứng GIỮA
+    // referencePassage, phân 2 nhóm nội dung "THE PEOPLE"/"SCHOOL FACILITIES" trong CÙNG 1 đoạn văn,
+    // không in đậm vì isTitle CHỈ áp dụng đoạn ĐẦU TIÊN) — đoạn VIẾT HOA TOÀN BỘ, ngắn, không chứa ":"
+    // (chặt hơn isTitle — bắt buộc viết hoa toàn bộ để tránh nhận nhầm 1 đoạn ngắn thường không phải tiêu
+    // đề) ở BẤT KỲ vị trí nào đều coi là tiêu đề PHỤ — in đậm + có đường kẻ ngăn cách phía trên (xem nơi
+    // render) để tách rõ với nhóm nội dung ngay trước đó.
+    const isAllCapsHeading = i > 0 && para.length <= 100 && /[A-Za-z]/.test(para) && para === para.toUpperCase() && !para.includes(":");
+    if (isAllCapsHeading) return { name: null, content: para, isTitle: false, isSectionBreak: true };
     const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
-    return match ? { name: match[1].trim(), content: match[2].trim(), isTitle: false } : { name: null, content: para, isTitle: false };
+    return match
+      ? { name: match[1].trim(), content: match[2].trim(), isTitle: false, isSectionBreak: false }
+      : { name: null, content: para, isTitle: false, isSectionBreak: false };
   });
 }
 
@@ -373,6 +384,7 @@ export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]):
         referencePassage: q.referencePassage,
         audioUrl: q.audioUrl,
         wordBox: q.structuredContent?.wordBox ?? null,
+        instruction: q.structuredContent?.instruction ?? null,
         questions: [q]
       });
     } else {
@@ -1271,11 +1283,14 @@ export function QuestionBlock({
          * tương tác, 1 lần có ô điền thật). Ẩn hẳn span nội dung cho riêng WORD_BANK, chỉ giữ số thứ tự.
          */}
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
+          {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
+            <span className="block text-sm sm:text-base italic font-normal text-muted whitespace-pre-line mb-2">{question.structuredContent.instruction}</span>
+          )}
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
           </span>
           {question.questionType !== "WORD_BANK" && (
-            <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{question.questionContent}</span>
+            <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{renderRichText(question.questionContent)}</span>
           )}
         </p>
         <div className="flex items-center gap-2 shrink-0">
@@ -1338,7 +1353,7 @@ export function QuestionBlock({
                 <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
                   <span>
                     <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
-                    {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
+                    {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && renderRichText(c.content)}
                   </span>
                   {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                   {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
@@ -1372,7 +1387,7 @@ export function QuestionBlock({
               >
                 <span>
                   <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
-                  {c.content}
+                  {renderRichText(c.content)}
                 </span>
                 {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                 {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
@@ -1815,12 +1830,6 @@ function ListeningHintButton({
   );
 }
 
-/** Hiện **chữ đậm** trong phiếu thông tin (chỉ cú pháp ** **, không phải Markdown đầy đủ). */
-function renderFormBold(text: string): React.ReactNode {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((seg, i) =>
-    seg.startsWith("**") && seg.endsWith("**") && seg.length > 4 ? <strong key={i}>{seg.slice(2, -2)}</strong> : seg
-  );
-}
 
 /**
  * V78 — Điền từ - Hộp từ vựng: content chứa marker "___" theo đúng số chỗ trống, mỗi dropdown liệt kê từ CÒN LẠI (chưa chọn ở chỗ trống khác).
@@ -1898,12 +1907,12 @@ function WordBankBlock({
     <div className="space-y-2">
       {/* 2026-10-14 (đã xác nhận với người dùng) — tăng cỡ chữ dòng hướng dẫn, mirror QuestionPreview.tsx
        * (trước đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc). */}
-      {instruction && <p className="text-sm sm:text-base italic text-muted">{instruction}</p>}
-      {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{title}</p>}
+      {instruction && <p className="text-sm sm:text-base italic text-muted">{renderRichText(instruction)}</p>}
+      {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{renderRichText(title)}</p>}
       <p className={`text-sm sm:text-base lg:text-lg ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-ink leading-8 lg:leading-10`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
-            {formMode ? renderFormBold(part) : part}
+            {renderRichText(part)}
             {idx < blankCount &&
               (inputMode === "text" ? (
                 <input
@@ -2087,15 +2096,16 @@ export function GridQuestionGroup({
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
+      {block.instruction && <p className="text-sm sm:text-base italic text-muted whitespace-pre-line">{renderRichText(block.instruction)}</p>}
       {block.referencePassage && (
         <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
-            <div key={i}>
-              {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{p.name}</p>}
-              {p.isTitle ? (
-                <p className="text-xs sm:text-sm lg:text-base font-black text-ink text-center">{p.content}</p>
+            <div key={i} className={p.isSectionBreak ? "pt-2.5 sm:pt-3 mt-1 border-t border-line/60" : undefined}>
+              {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{renderRichText(p.name)}</p>}
+              {p.isTitle || p.isSectionBreak ? (
+                <p className="text-xs sm:text-sm lg:text-base font-black text-ink text-center">{renderRichText(p.content)}</p>
               ) : (
-                <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{p.content}</p>
+                <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{renderRichText(p.content)}</p>
               )}
             </div>
           ))}
@@ -2206,7 +2216,7 @@ export function GridQuestionGroup({
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
-                  {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
+                  {startNumber != null ? startNumber + qIndex : q.displayOrder}. {renderRichText(q.questionContent)}
                 </span>
                 {isLockedCarriedOver(answer) && <CarriedOverBadge />}
               </div>
@@ -2259,7 +2269,7 @@ export function GridQuestionGroup({
                             <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
                               <span>
                                 <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
-                                {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
+                                {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && renderRichText(c.content)}
                               </span>
                               {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                               {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
@@ -2292,7 +2302,7 @@ export function GridQuestionGroup({
                         >
                           <span>
                             <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
-                            {c.content}
+                            {renderRichText(c.content)}
                           </span>
                           {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                           {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
+import { renderRichText } from "@/lib/richText";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
@@ -556,7 +557,9 @@ export function ExerciseQuestionsStep({
       const newlyAttached: AttachedQuestion[] = [];
       for (const q of createdQuestions) {
         order += 1;
-        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points: q.defaultPoints });
+        // onImported chỉ được QuestionImportPanel gọi SAU khi xác nhận lưu thật (id luôn có) — id chỉ
+        // null ở bước xem trước (preview), không đi qua đường này. Xem QuestionImportPanel.tsx.
+        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id!, displayOrder: order, points: q.defaultPoints });
         newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
@@ -697,7 +700,7 @@ export function ExerciseQuestionsStep({
           <div className="px-3 py-1.5 text-[12px] font-bold text-emerald-700 uppercase">{t("assignModal.questionsStep.attachedSectionTitle")}</div>
           {attached.map((a) => (
             <div key={a.exerciseQuestionId} className="px-3 py-1.5 text-sm flex items-center justify-between gap-2">
-              <span className="flex-1 truncate">{a.content}</span>
+              <span className="flex-1 truncate">{renderRichText(a.content)}</span>
               <input
                 key={`${a.exerciseQuestionId}-${a.points}`}
                 type="number"

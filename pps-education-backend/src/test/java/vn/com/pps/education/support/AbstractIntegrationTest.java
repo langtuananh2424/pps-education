@@ -55,7 +55,10 @@ import java.util.stream.Collectors;
 // test gọi sẽ khiến lượt của test bị bỏ qua (flaky).
 @SpringBootTest(properties = {
         "app.security.brute-force.ip-max-failed-attempts=1000000",
-        "app.class-session-status.cron=-"
+        "app.class-session-status.cron=-",
+        // Tắt kiểm tra thời gian xem thật của clip CONNECTION: test báo 100% ngay sau khi mở lượt.
+        // ReviewVideoConnectionRealTimeTest bật lại để kiểm tra riêng.
+        "app.review-video.connection-min-watch-ratio=0"
 })
 public abstract class AbstractIntegrationTest {
 

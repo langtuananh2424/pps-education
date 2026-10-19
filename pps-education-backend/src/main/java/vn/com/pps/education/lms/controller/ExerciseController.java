@@ -16,6 +16,7 @@ import vn.com.pps.education.lms.dto.CreateExerciseRequest;
 import vn.com.pps.education.lms.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.lms.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.lms.dto.ExerciseResponse;
+import vn.com.pps.education.lms.dto.RemoveExerciseQuestionsRequest;
 import vn.com.pps.education.lms.dto.UpdateExerciseQuestionPointsRequest;
 import vn.com.pps.education.lms.dto.UpdateExerciseRequest;
 import vn.com.pps.education.lms.dto.UpdateLateSubmissionAllowedRequest;
@@ -93,6 +94,16 @@ public class ExerciseController {
                                                 @PathVariable Long exerciseQuestionId,
                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
         exerciseService.removeQuestion(id, exerciseQuestionId, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — gỡ nhiều câu hỏi khỏi Bài cùng lúc, chỉ khi còn DRAFT. */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @DeleteMapping("/api/exercises/{id}/questions")
+    public ResponseEntity<Void> removeQuestions(@PathVariable Long id,
+                                                 @Valid @RequestBody RemoveExerciseQuestionsRequest request,
+                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
+        exerciseService.removeQuestions(id, request.exerciseQuestionIds(), actor.userId());
         return ResponseEntity.noContent().build();
     }
 

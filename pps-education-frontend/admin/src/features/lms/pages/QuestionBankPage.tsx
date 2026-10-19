@@ -20,14 +20,16 @@ import {
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { CurriculumResponse, listCurriculums } from "@/features/academic/api";
+import type { Page } from "@/types";
 import {
   QuestionBankResponse,
   QuestionDifficulty,
   QuestionResponse,
+  QuestionSearchItem,
   QuestionType,
   createQuestionBank,
   listQuestionBanksByCurriculum,
-  listQuestions,
+  searchQuestions,
   updateQuestion,
   updateQuestionBankStatus
 } from "../api";
@@ -35,18 +37,13 @@ import QuestionEditorForm from "../components/QuestionEditorForm";
 import QuestionImportPanel from "../components/QuestionImportPanel";
 import Button from "@/components/ui/Button";
 import { ApiError } from "@/lib/apiClient";
+import { renderRichText } from "@/lib/richText";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
 import { useDialog } from "@/components/ui/DialogProvider";
 import FloatingError from "@/components/ui/FloatingError";
-
-interface FlatQuestionRow {
-  question: QuestionResponse;
-  bank: QuestionBankResponse;
-  curriculum: CurriculumResponse;
-}
 
 const typeBadge: Record<QuestionType, { icon: typeof CheckSquare; className: string }> = {
   MULTIPLE_CHOICE: { icon: CheckSquare, className: "text-emerald-700 bg-emerald-50 border-emerald-100" },
@@ -78,88 +75,103 @@ export default function QuestionBankPage() {
   // — trang này thao tác cả tạo (ngân hàng/câu hỏi) lẫn sửa (trạng thái ngân hàng/câu hỏi).
   const canManage = hasPermission("lms.question-bank.create") || hasPermission("lms.question-bank.update");
 
-  const [rows, setRows] = useState<FlatQuestionRow[]>([]);
-  // Danh sách ngân hàng kèm khung chương trình — tách riêng khỏi `rows` (vốn chỉ có bank của những câu
-  // hỏi đang tồn tại) vì cần hiện được cả ngân hàng CHƯA có câu hỏi nào để quản lý/ẩn (2026-08-03).
+  // Danh sách ngân hàng kèm khung chương trình — nguồn cho modal "Quản lý ngân hàng" và các chip lọc
+  // "Cấp độ" (bank CHƯA có câu hỏi nào vẫn cần hiện ra để quản lý/ẩn — 2026-08-03). Số khung chương
+  // trình/ngân hàng nhỏ (vài chục), không phải nơi gây chậm nên vẫn tải nguyên cây như cũ.
   const [allBanks, setAllBanks] = useState<{ bank: QuestionBankResponse; curriculum: CurriculumResponse }[]>([]);
   const [showManageBanksModal, setShowManageBanksModal] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<QuestionType | "ALL">("ALL");
   const [difficultyFilter, setDifficultyFilter] = useState<QuestionDifficulty | "ALL">("ALL");
   const [levelFilter, setLevelFilter] = useState<string>("ALL");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  /** Tăng lên để buộc tải lại trang hiện tại sau khi tạo/sửa/import/ẩn câu hỏi — xem BookCatalogPage.tsx. */
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const [data, setData] = useState<Page<QuestionSearchItem> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [editingRow, setEditingRow] = useState<FlatQuestionRow | null>(null);
+  const [editingRow, setEditingRow] = useState<QuestionSearchItem | null>(null);
   const { message: toastMessage, showToast } = useToast();
   const { confirmDialog } = useDialog();
 
-  const loadAll = () => {
+  useEffect(() => {
+    listCurriculums().then((curriculums) => {
+      Promise.all(
+        curriculums.map((curriculum) =>
+          listQuestionBanksByCurriculum(curriculum.id)
+            .then((banks) => banks.map((bank) => ({ bank, curriculum })))
+            .catch(() => [] as { bank: QuestionBankResponse; curriculum: CurriculumResponse }[])
+        )
+      ).then((perCurriculum) => setAllBanks(perCurriculum.flat()));
+    });
+  }, [reloadToken]);
+
+  const levels = useMemo(
+    () => Array.from(new Set(allBanks.map((x) => x.bank.level).filter((l): l is string => !!l))),
+    [allBanks]
+  );
+
+  // Gõ xong 400ms mới tìm, tránh gọi API theo từng phím (mirror ChangeHistoryPage.tsx).
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(searchInput), 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => setPage(0), [searchTerm, typeFilter, difficultyFilter, levelFilter, pageSize]);
+
+  // Lọc + phân trang NGAY ở backend (QuestionBankService#searchQuestions) — thay cho cách cũ tự tải
+  // toàn bộ câu hỏi của MỌI khung chương trình/MỌI ngân hàng rồi mới lọc/phân trang phía client.
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    listCurriculums()
-      .then(async (curriculums) => {
-        const perCurriculum = await Promise.all(
-          curriculums.map(async (curriculum) => {
-            const banks = await listQuestionBanksByCurriculum(curriculum.id).catch(() => [] as QuestionBankResponse[]);
-            const perBank = await Promise.all(
-              banks.map(async (bank) => {
-                const questions = await listQuestions(bank.id).catch(() => [] as QuestionResponse[]);
-                return questions.map((question) => ({ question, bank, curriculum }));
-              })
-            );
-            return { rows: perBank.flat(), banks: banks.map((bank) => ({ bank, curriculum })) };
-          })
-        );
-        setRows(perCurriculum.flatMap((x) => x.rows));
-        setAllBanks(perCurriculum.flatMap((x) => x.banks));
+    searchQuestions({
+      search: searchTerm,
+      questionType: typeFilter,
+      difficulty: difficultyFilter,
+      level: levelFilter,
+      page,
+      size: pageSize
+    })
+      .then((res) => {
+        if (!cancelled) setData(res);
       })
-      .catch(() => setError(t("bankPage.loadFailed")))
-      .finally(() => setLoading(false));
-  };
+      .catch(() => {
+        if (cancelled) return;
+        setData(null);
+        setError(t("bankPage.loadFailed"));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchTerm, typeFilter, difficultyFilter, levelFilter, page, pageSize, reloadToken]);
 
-  useEffect(loadAll, []);
-
-  const levels = useMemo(() => Array.from(new Set(rows.map((r) => r.bank.level).filter((l): l is string => !!l))), [rows]);
-
-  const filteredRows = rows.filter(({ question, bank }) => {
-    const term = searchTerm.trim().toLowerCase();
-    const matchesSearch = !term || question.content.toLowerCase().includes(term) || String(question.id).includes(term);
-    const matchesType = typeFilter === "ALL" || question.questionType === typeFilter;
-    const matchesDifficulty = difficultyFilter === "ALL" || question.difficulty === difficultyFilter;
-    const matchesLevel = levelFilter === "ALL" || bank.level === levelFilter;
-    return matchesSearch && matchesType && matchesDifficulty && matchesLevel;
-  });
-
-  // Toàn bộ câu hỏi của MỌI khung chương trình được tải hết 1 lần (loadAll flatten nested), có thể
-  // lên tới hàng trăm/nghìn câu — backend chưa hỗ trợ phân trang endpoint này, phân trang phía client
-  // theo đúng kết quả ĐÃ lọc. Reset về trang 1 mỗi khi bộ lọc/dữ liệu đổi để không kẹt ở trang rỗng.
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  useEffect(() => setPage(0), [rows, searchTerm, typeFilter, difficultyFilter, levelFilter]);
-  const pageRows = filteredRows.slice(page * pageSize, (page + 1) * pageSize);
-
+  const rows = data?.content ?? [];
+  const totalElements = data?.totalElements ?? 0;
   const selectedRow = rows.find((r) => r.question.id === selectedQuestionId) ?? null;
 
-  const upsertRow = (updated: QuestionResponse, bank: QuestionBankResponse, curriculum: CurriculumResponse) => {
-    setRows((prev) => {
-      const exists = prev.some((r) => r.question.id === updated.id);
-      if (exists) return prev.map((r) => (r.question.id === updated.id ? { ...r, question: updated } : r));
-      return [{ question: updated, bank, curriculum }, ...prev];
-    });
-    setSelectedQuestionId(updated.id);
+  const handleMutated = (updatedQuestionId?: number) => {
+    setReloadToken((prev) => prev + 1);
+    if (updatedQuestionId != null) setSelectedQuestionId(updatedQuestionId);
   };
 
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — ẩn câu hỏi khỏi Ngân hàng.
-   * listQuestions() ở backend chỉ trả câu hỏi ACTIVE nên câu vừa ẩn biến mất khỏi danh sách ngay —
+   * searchQuestions() ở backend chỉ trả câu hỏi ACTIVE nên câu vừa ẩn biến mất khỏi danh sách ngay —
    * trang này chưa có bộ lọc "xem câu đã ẩn" nào để khôi phục lại qua UI, nên cảnh báo rõ trước khi ẩn.
    */
-  const handleArchive = async (row: FlatQuestionRow) => {
+  const handleArchive = async (row: QuestionSearchItem) => {
     if (!(await confirmDialog(t("bankPage.archiveConfirm", { id: row.question.id }), { danger: true }))) {
       return;
     }
@@ -175,8 +187,8 @@ export default function QuestionBankPage() {
         tags: row.question.tags ?? undefined,
         status: "ARCHIVED"
       });
-      setRows((prev) => prev.filter((r) => r.question.id !== row.question.id));
       if (selectedQuestionId === row.question.id) setSelectedQuestionId(null);
+      setReloadToken((prev) => prev + 1);
       showToast(t("bankPage.archivedToast"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("bankPage.archiveFailed"));
@@ -224,8 +236,8 @@ export default function QuestionBankPage() {
               <div className="relative md:col-span-2">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                 <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   placeholder={t("bankPage.filters.searchPlaceholder")}
                   className="w-full bg-white border border-slate-200 text-sm pl-9 pr-3 py-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
                 />
@@ -302,15 +314,15 @@ export default function QuestionBankPage() {
                         {t("bankPage.table.loading")}
                       </td>
                     </tr>
-                  ) : filteredRows.length === 0 ? (
+                  ) : rows.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center text-slate-400 font-medium">
                         {t("bankPage.table.empty")}
                       </td>
                     </tr>
                   ) : (
-                    pageRows.map((row) => {
-                      const { question, bank } = row;
+                    rows.map((row) => {
+                      const { question } = row;
                       const meta = typeBadge[question.questionType];
                       const Icon = meta.icon;
                       const isSelected = selectedQuestionId === question.id;
@@ -322,7 +334,7 @@ export default function QuestionBankPage() {
                         >
                           <td className="px-4 py-3.5 text-center font-mono font-bold text-brand-red bg-slate-50/40">Q-{question.id}</td>
                           <td className="px-4 py-3.5">
-                            <div className="font-bold text-slate-800 line-clamp-2 leading-relaxed">{question.content}</div>
+                            <div className="font-bold text-slate-800 line-clamp-2 leading-relaxed">{renderRichText(question.content)}</div>
                             {question.explanation && (
                               <p className="text-[12px] text-slate-400 font-medium italic truncate mt-1">
                                 {t("bankPage.table.explanationPrefix", { text: question.explanation })}
@@ -347,7 +359,7 @@ export default function QuestionBankPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 text-center font-bold text-slate-700 text-[13px]">{bank.level ?? bank.name}</td>
+                          <td className="px-4 py-3.5 text-center font-bold text-slate-700 text-[13px]">{row.bankLevel ?? row.bankName}</td>
                           <td className="px-4 py-3.5 text-center">
                             {canManage && (
                               <div className="flex items-center justify-center gap-1">
@@ -381,11 +393,11 @@ export default function QuestionBankPage() {
                 </tbody>
               </table>
             </div>
-            {!loading && filteredRows.length > 0 && (
+            {!loading && totalElements > 0 && (
               <Pagination
                 page={page}
                 pageSize={pageSize}
-                totalElements={filteredRows.length}
+                totalElements={totalElements}
                 itemLabel={t("bankPage.questionItemLabel")}
                 onPageChange={setPage}
                 onPageSizeChange={(size) => {
@@ -421,8 +433,8 @@ export default function QuestionBankPage() {
       {showCreateModal && (
         <CreateQuestionModal
           onClose={() => setShowCreateModal(false)}
-          onCreated={(question, bank, curriculum) => {
-            upsertRow(question, bank, curriculum);
+          onCreated={(question) => {
+            handleMutated(question.id);
             setShowCreateModal(false);
             showToast(t("bankPage.questionCreatedToast"));
           }}
@@ -433,7 +445,7 @@ export default function QuestionBankPage() {
         <ImportQuestionsModal
           onClose={() => setShowImportModal(false)}
           onImported={(count) => {
-            loadAll();
+            handleMutated();
             showToast(t("bankPage.questionsImportedToast", { count }));
           }}
         />
@@ -445,7 +457,6 @@ export default function QuestionBankPage() {
           onClose={() => setShowManageBanksModal(false)}
           onChanged={(updated) => {
             setAllBanks((prev) => prev.map((x) => (x.bank.id === updated.id ? { ...x, bank: updated } : x)));
-            setRows((prev) => prev.map((r) => (r.bank.id === updated.id ? { ...r, bank: updated } : r)));
             showToast(updated.isActive ? t("bankPage.bankReactivatedToast") : t("bankPage.bankHiddenToast"));
           }}
         />
@@ -466,10 +477,10 @@ export default function QuestionBankPage() {
             </div>
             <div className="p-6">
               <QuestionEditorForm
-                questionBankId={editingRow.bank.id}
+                questionBankId={editingRow.bankId}
                 existingQuestion={editingRow.question}
                 onCreated={(updated) => {
-                  upsertRow(updated, editingRow.bank, editingRow.curriculum);
+                  handleMutated(updated.id);
                   setEditingRow(null);
                   showToast(t("bankPage.questionSavedToast"));
                 }}
@@ -505,7 +516,7 @@ function normalizeReferencePassage(text: string): string {
     .join("\n\n");
 }
 
-function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onEdit: () => void; canManage: boolean }) {
+function QuestionPreview({ row, onEdit, canManage }: { row: QuestionSearchItem; onEdit: () => void; canManage: boolean }) {
   const { t } = useTranslation("lms-question-authoring");
   const { question } = row;
   const needsChoices: QuestionType[] = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"];
@@ -514,12 +525,12 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-mono font-bold text-brand-red">{t("bankPage.questionPreview.idLabel", { id: question.id })}</span>
-        <span className="text-[12px] text-slate-400 font-bold">{row.bank.level ?? row.bank.name}</span>
+        <span className="text-[12px] text-slate-400 font-bold">{row.bankLevel ?? row.bankName}</span>
       </div>
 
       <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
         <p className="text-[13px] font-bold text-slate-500 uppercase tracking-wider">{t("bankPage.questionPreview.contentLabel")}</p>
-        <p className="text-sm font-bold text-slate-800 leading-relaxed">{question.content}</p>
+        <p className="text-sm font-bold text-slate-800 leading-relaxed">{renderRichText(question.content)}</p>
       </div>
 
       {question.imageUrl && (
@@ -535,7 +546,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
             <audio controls src={question.audioUrl} className="w-full h-8" />
             {question.referencePassage && (
               <p className="text-[12px] text-blue-900 font-medium italic leading-relaxed whitespace-pre-line">
-                {normalizeReferencePassage(question.referencePassage)}
+                {renderRichText(normalizeReferencePassage(question.referencePassage))}
               </p>
             )}
           </div>
@@ -553,7 +564,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
               }`}
             >
               <span>
-                <strong>{c.choiceLabel}.</strong> {c.content}
+                <strong>{c.choiceLabel}.</strong> {renderRichText(c.content)}
               </span>
               {c.isCorrect && <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />}
             </div>
@@ -564,7 +575,7 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
       {question.questionType === "ESSAY" && (
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
           {question.referencePassage && (
-            <p className="text-[13px] text-slate-600 bg-slate-50 p-2 rounded-lg whitespace-pre-line">{normalizeReferencePassage(question.referencePassage)}</p>
+            <p className="text-[13px] text-slate-600 bg-slate-50 p-2 rounded-lg whitespace-pre-line">{renderRichText(normalizeReferencePassage(question.referencePassage))}</p>
           )}
           <p className="text-[12px] text-slate-500 italic bg-amber-50/50 p-2 border border-amber-100 rounded">
             {t("bankPage.questionPreview.essayHint")}
@@ -579,21 +590,21 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
               <Mic className="w-3.5 h-3.5" />
               {t("bankPage.questionPreview.speakingKeywordsLabel")}
             </div>
-            <p className="text-sm font-bold text-slate-800 leading-relaxed">{question.explanation ?? t("bankPage.questionPreview.speakingNoCriteria")}</p>
+            <p className="text-sm font-bold text-slate-800 leading-relaxed">{question.explanation ? renderRichText(question.explanation) : t("bankPage.questionPreview.speakingNoCriteria")}</p>
           </div>
         </div>
       )}
 
       {question.questionType === "FILL_IN_BLANK" && question.explanation && (
         <div className="bg-white p-4 rounded-xl border border-slate-100">
-          <p className="text-[13px] text-slate-600">{question.explanation}</p>
+          <p className="text-[13px] text-slate-600">{renderRichText(question.explanation)}</p>
         </div>
       )}
 
       {question.explanation && question.questionType !== "SPEAKING" && (
         <div className="p-3.5 bg-orange-50 border border-orange-100 rounded-xl space-y-1">
           <span className="text-[13px] font-bold text-brand-red uppercase tracking-wider block">{t("bankPage.questionPreview.explanationLabel")}</span>
-          <p className="text-[13px] text-slate-700 leading-relaxed">{question.explanation}</p>
+          <p className="text-[13px] text-slate-700 leading-relaxed">{renderRichText(question.explanation)}</p>
         </div>
       )}
 

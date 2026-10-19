@@ -846,20 +846,20 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
 
     /**
      * Round-trip: file mẫu Word tự sinh (buildWordTemplate) phải tự đọc lại
-     * được đúng cả 17 loại (17 sau khi thêm NGHE_PHIEU_THONG_TIN 2026-10-03; 16 trước đó) trong VALID_KINDS — bảo vệ khỏi mẫu và parser
-     * lệch cú pháp nhau (giống buildTemplate_roundTrip của
-     * GradeImportServiceTest cho UC-53). Số lượng 16 khớp đúng
-     * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung DIEN_TU_DOAN_VAN ngày
-     * 2026-09-17 (trước đó 15 loại kể từ đợt bổ sung NGHE_CHON_HINH
-     * 2026-09-09, xem Javadoc lớp QuestionImportService) — successRows đếm
-     * THEO DÒNG (16) nhưng DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU mỗi loại
-     * tạo ra 3 Question/1 dòng nên tổng câu hỏi thật sự tạo ra là 13 + 3 + 3
-     * + 3 = 22 (DIEN_TU_DOAN_VAN là 1 dòng/1 Question như DIEN_TU_HOP_TU_VUNG_ANH,
-     * không phải kind nhóm), tên method giữ nguyên hậu tố "boSung" theo đúng
-     * đợt bổ sung.
+     * được đúng cả 18 loại (18 sau khi thêm DOC_HIEU_NOI_DAP_AN 2026-10-17;
+     * 17 trước đó kể từ đợt bổ sung NGHE_PHIEU_THONG_TIN 2026-10-03) trong
+     * VALID_KINDS — bảo vệ khỏi mẫu và parser lệch cú pháp nhau (giống
+     * buildTemplate_roundTrip của GradeImportServiceTest cho UC-53).
+     * successRows đếm THEO DÒNG (18) nhưng DIEN_TU_NHOM/DOC_HIEU_LUOI/
+     * DOC_HIEU_NOI_DAP_AN/DOC_DIEN_TU mỗi loại tạo ra NHIỀU Question/1 dòng
+     * (DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU: 3 Question — ví dụ mẫu trong
+     * TEMPLATE_BLOCKS có 3 phần tử "|"; DOC_HIEU_NOI_DAP_AN: 2 Question — ví
+     * dụ mẫu chỉ có 2 phần tử "|", xem buildTemplateBlocks()) nên tổng câu
+     * hỏi thật sự tạo ra tăng thêm 2 so với trước (23 + 2 = 25), tên method
+     * cập nhật lại hậu tố số lượng cho đúng thực tế thay vì "boSung".
      */
     @Test
-    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllSeventeenKinds() {
+    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllEighteenKinds() {
         byte[] template = questionImportService.buildWordTemplate();
 
         QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
@@ -867,10 +867,10 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", template), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.totalRows()).isEqualTo(18);
-        assertThat(result.successRows()).isEqualTo(18);
+        assertThat(result.totalRows()).isEqualTo(19);
+        assertThat(result.successRows()).isEqualTo(19);
         assertThat(result.failedRows()).isEqualTo(0);
-        assertThat(questionBankService.listQuestions(bank.id())).hasSize(24);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(26);
     }
 
     /** NGHE_NHIEU_DAP_AN (2026-10-19): 1 audio + nhiều đáp án đúng "B|D" -> 1 Question MULTIPLE_ANSWER skill LISTENING. */

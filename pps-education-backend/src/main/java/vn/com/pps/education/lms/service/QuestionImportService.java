@@ -12,6 +12,7 @@ import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.lms.dto.CreateQuestionRequest;
 import vn.com.pps.education.lms.dto.QuestionChoiceRequest;
 import vn.com.pps.education.lms.dto.QuestionImportResponse;
+import vn.com.pps.education.lms.dto.QuestionImportRowPreview;
 import vn.com.pps.education.lms.dto.QuestionResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.lms.repository.ExamRepository;
@@ -116,6 +117,18 @@ public class QuestionImportService {
     private static final String KIND_CLOZE_GROUP = "DOC_DIEN_TU";
 
     /**
+     * Bổ sung 2026-10-17 (đã xác nhận với người dùng) — "DOC_HIEU_NOI_DAP_AN" (đọc hiểu — nối đáp án):
+     * cùng cơ chế với KIND_GRID_GROUP (N câu dùng CHUNG 1 referencePassage + CHUNG 1 bộ đáp án, mỗi câu
+     * 1 chữ cái đúng) nhưng cho tới 10 đáp án dùng chung (A-J, trần ban đầu 8 [A-H] nới tiếp lên 10 [A-J]
+     * cùng ngày sau khi phát hiện 1 bài ngữ pháp nối câu IELTS thực tế dùng tới J) thay vì tối đa 4 —
+     * phục vụ dạng bài "multiple matching" kinh điển (VD SGK Cambridge: 5 người ghép 1-trong-8 mô tả cơ
+     * sở vật chất; VD IELTS: 10 câu nối đáp án ngữ pháp dùng hết A-J).
+     * Giữ KIND_GRID_GROUP nguyên vẹn (không đổi giới hạn 4) để không ảnh hưởng câu hỏi đã import trước
+     * đó — xem mapToMatchingGroupRequests()/buildSharedGroupChoices() (tham số hoá maxChoices).
+     */
+    private static final String KIND_MATCHING_GROUP = "DOC_HIEU_NOI_DAP_AN";
+
+    /**
      * Bổ sung 2026-10-03 (đã xác nhận với người dùng) — "Nghe điền phiếu thông tin" (form/note
      * completion của IELTS Listening): 1 audio + 1 phiếu thông tin nhiều chỗ trống đánh số. Tái dùng
      * questionType WORD_BANK (inputMode="text") + structuredContent.format="form" để chấm theo từng ô
@@ -136,7 +149,7 @@ public class QuestionImportService {
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
             "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
             "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION, KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP,
-            KIND_CLOZE_GROUP, KIND_LISTENING_MULTIPLE_ANSWER);
+            KIND_CLOZE_GROUP, KIND_MATCHING_GROUP, KIND_LISTENING_MULTIPLE_ANSWER);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -179,6 +192,24 @@ public class QuestionImportService {
      */
     @Transactional
     public QuestionImportResponse importQuestions(Long bankId, MultipartFile file, Long actorUserId, String defaultKind) {
+        QuestionBank bank = legacyBankOrThrow(bankId);
+        return importQuestionsIntoBank(bank, file, actorUserId, true, defaultKind, false);
+    }
+
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review UX import) — xem trước kết quả
+     * TRƯỚC KHI ghi DB: parse + validate + mô phỏng ĐÚNG như importQuestions ở trên, dùng LẠI
+     * NGUYÊN importQuestionsIntoBank(dryRun=true) để tuyệt đối không lệch quy tắc giữa preview và
+     * commit thật (không viết lại logic riêng, xem .claude/rules/solid.md mục D). readOnly=true để
+     * chặn hẳn mọi ghi DB lọt qua dù nhánh dryRun có bug — không tạo ImportJob/Question/Choice nào.
+     */
+    @Transactional(readOnly = true)
+    public QuestionImportResponse previewImport(Long bankId, MultipartFile file, Long actorUserId, String defaultKind) {
+        QuestionBank bank = legacyBankOrThrow(bankId);
+        return importQuestionsIntoBank(bank, file, actorUserId, true, defaultKind, true);
+    }
+
+    private QuestionBank legacyBankOrThrow(Long bankId) {
         QuestionBank bank = questionBankRepository.findById(bankId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.bankNotFound",
                         new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId));
@@ -186,13 +217,19 @@ public class QuestionImportService {
             throw new ResourceNotFoundException("error.questionImport.bankNotFound",
                     new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId);
         }
-        return importQuestionsIntoBank(bank, file, actorUserId, true, defaultKind);
+        return bank;
     }
 
-    /** Primitive dùng chung: Exam internal bank cho phép trùng; generic legacy bank chặn trùng. */
+    /**
+     * Primitive dùng chung: Exam internal bank cho phép trùng; generic legacy bank chặn trùng.
+     * {@code dryRun=true} (xem previewImport ở trên): parse/validate/mô phỏng y hệt nhưng KHÔNG tạo
+     * ImportJob, KHÔNG gọi questionBankService.createQuestionInBank() — chỉ build summary trực tiếp
+     * từ CreateQuestionRequest (chưa có id DB).
+     */
     @Transactional
     QuestionImportResponse importQuestionsIntoBank(QuestionBank bank, MultipartFile file,
-                                                   Long actorUserId, boolean rejectActiveDuplicate, String defaultKind) {
+                                                   Long actorUserId, boolean rejectActiveDuplicate, String defaultKind,
+                                                   boolean dryRun) {
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.userNotFound",
                         new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
@@ -201,7 +238,7 @@ public class QuestionImportService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Chỉ hỗ trợ file .xlsx hoặc .docx."));
 
-        ImportJob job = createJob(file, actor);
+        ImportJob job = dryRun ? null : createJob(file, actor);
         try {
             List<QuestionRowParser.ParsedQuestionRow> parsedRows;
             try (InputStream inputStream = file.getInputStream()) {
@@ -210,6 +247,10 @@ public class QuestionImportService {
 
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
+            // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — 1 phần tử/dòng file (khác errors/
+            // createdQuestions vốn gộp theo "lỗi" hoặc "Question tạo ra", có thể lệch 1-N với số dòng),
+            // giữ nguyên 21 cột thô + hợp lệ/lỗi cho bảng sửa trực tiếp ở bước preview — xem toRowPreview().
+            List<QuestionImportRowPreview> rowPreviews = new ArrayList<>();
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — xem Javadoc
             // computeAutoGroupKeys(): tự gộp các dòng TRAC_NGHIEM/TRAC_NGHIEM_VOICE liên tiếp cùng chung
             // 1 "Đoạn văn tham chiếu" (đọc hiểu — nhiều câu độc lập cùng 1 đoạn văn), HOẶC các dòng
@@ -225,13 +266,15 @@ public class QuestionImportService {
             for (QuestionRowParser.ParsedQuestionRow row : parsedRows) {
                 try {
                     String kind = resolveKind(row, defaultKind);
-                    // DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU là 3 kind mà 1 dòng tạo ra NHIỀU Question
-                    // (mỗi hàm tự validate + pre-check trùng TRƯỚC KHI tạo bất kỳ câu nào, xem Javadoc
-                    // từng hàm) — mọi kind khác vẫn 1 dòng = 1 Question như cũ.
+                    // DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_HIEU_NOI_DAP_AN/DOC_DIEN_TU là 4 kind mà 1 dòng tạo
+                    // ra NHIỀU Question (mỗi hàm tự validate + pre-check trùng TRƯỚC KHI tạo bất kỳ câu
+                    // nào, xem Javadoc từng hàm) — mọi kind khác vẫn 1 dòng = 1 Question như cũ.
                     List<CreateQuestionRequest> requests = KIND_FILL_IN_BLANK_GROUP.equals(kind)
                             ? mapToGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : KIND_GRID_GROUP.equals(kind)
                             ? mapToGridGroupRequests(row, bank.getId(), rejectActiveDuplicate)
+                            : KIND_MATCHING_GROUP.equals(kind)
+                            ? mapToMatchingGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : KIND_CLOZE_GROUP.equals(kind)
                             ? mapToClozeGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : List.of(mapToRequest(row, bank.getId(), kind, autoGroupKeys.get(row)));
@@ -251,18 +294,36 @@ public class QuestionImportService {
                             throw new IllegalArgumentException(
                                     "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
                         }
-                        QuestionResponse created = questionBankService.createQuestionInBank(
-                                bank, request, actorUserId, rejectActiveDuplicate);
                         Map<String, Object> summary = new LinkedHashMap<>();
-                        summary.put("id", created.id());
-                        summary.put("content", created.content());
-                        summary.put("defaultPoints", created.defaultPoints());
+                        if (dryRun) {
+                            // Preview — KHÔNG ghi DB, chỉ mô phỏng sẽ tạo gì (xem Javadoc previewImport).
+                            summary.put("id", null);
+                            summary.put("content", request.content());
+                            summary.put("defaultPoints", request.defaultPoints());
+                        } else {
+                            QuestionResponse created = questionBankService.createQuestionInBank(
+                                    bank, request, actorUserId, rejectActiveDuplicate);
+                            summary.put("id", created.id());
+                            summary.put("content", created.content());
+                            summary.put("defaultPoints", created.defaultPoints());
+                        }
                         createdQuestions.add(summary);
                     }
                     successRowCount++;
+                    rowPreviews.add(toRowPreview(row, true, null));
                 } catch (RuntimeException ex) {
                     errors.add(rowError(row, ex.getMessage()));
+                    rowPreviews.add(toRowPreview(row, false, ex.getMessage()));
                 }
+            }
+
+            if (dryRun) {
+                List<QuestionImportResponse.QuestionImportedRow> previewRows = createdQuestions.stream()
+                        .map(m -> new QuestionImportResponse.QuestionImportedRow(
+                                (Long) m.get("id"), (String) m.get("content"), (BigDecimal) m.get("defaultPoints")))
+                        .toList();
+                return new QuestionImportResponse(null, file.getOriginalFilename(), parsedRows.size(), successRowCount,
+                        errors.size(), "PREVIEW", errors, previewRows, rowPreviews);
             }
 
             job.setTotalRows(parsedRows.size());
@@ -278,6 +339,10 @@ public class QuestionImportService {
             return toResponse(job);
         } catch (IOException | RuntimeException ex) {
             // A3 — không đọc được file (sai định dạng/hỏng hoàn toàn).
+            if (dryRun) {
+                return new QuestionImportResponse(null, file.getOriginalFilename(), null, 0, 0, "FAILED",
+                        List.of(rowError(0, "File sai định dạng hoặc không đọc được: " + ex.getMessage())), List.of(), List.of());
+            }
             return failJob(job, "File sai định dạng hoặc không đọc được: " + ex.getMessage());
         }
     }
@@ -309,8 +374,8 @@ public class QuestionImportService {
             "WRITING", Set.of("TU_LUAN"),
             "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FORM_COMPLETION, KIND_LISTENING_MULTIPLE_ANSWER),
             // Bổ sung 2026-09-08 — trước đây READING không có entry (Cloze/Grid chưa import được), giờ
-            // mở khóa cả 2 group kind mới.
-            "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP));
+            // mở khóa cả 2 group kind mới. Bổ sung 2026-10-17 — thêm KIND_MATCHING_GROUP (nối đáp án).
+            "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP, KIND_MATCHING_GROUP));
 
     /**
      * File mẫu Word (.docx) soạn đề nhanh — tĩnh, không cá nhân hoá theo
@@ -510,6 +575,22 @@ public class QuestionImportService {
                 "Đáp án đúng: B|A|C",
                 "Giải thích: Mỗi câu trong \"Nội dung\" phân tách bằng dấu |, dùng CHUNG 1 đoạn văn + CHUNG 1 bộ đáp án A-D (mỗi đáp án 1 dòng \"A. ...\"/\"B. ...\", KHÔNG phân tách |, áp dụng cho MỌI câu). \"Đáp án đúng\" là chữ cái A/B/C/D theo ĐÚNG thứ tự khớp \"Nội dung\".",
                 "---"));
+        // Bổ sung 2026-10-17 (đã xác nhận với người dùng, chỉnh lại CÙNG NGÀY sau khi hỏi lại — đổi từ
+        // MULTIPLE_CHOICE bấm chọn sang FILL_IN_BLANK gõ chữ cái, khớp đúng định dạng "Your Answers:
+        // Sarah: [...]" trong đề giấy gốc) — "Đọc hiểu — Nối đáp án": học sinh GÕ chữ cái đúng (A-J, trần
+        // nới từ 8 lên 10 cùng ngày) vào 1 ô nhập cho mỗi câu, KHÔNG bấm chọn nút — xem
+        // mapToMatchingGroupRequests(). Ví dụ mẫu dưới đây chỉ minh hoạ 8 lựa chọn (A-H) cho ngắn gọn —
+        // vẫn hợp lệ, không bắt buộc dùng hết tới J.
+        blocks.put(KIND_MATCHING_GROUP, List.of(
+                "[DOC_HIEU_NOI_DAP_AN]",
+                "Đoạn văn tham chiếu: A. The School Library — a quiet place with books.",
+                "B. The Gymnasium — a large indoor hall for sports.",
+                "Nội dung: Who wants a quiet place to read?|Who wants to practice basketball?",
+                "A. The School Library", "B. The Gymnasium", "C. The Art Studio", "D. The Music Room",
+                "E. The Computer Lab", "F. The Schoolyard", "G. The Science Laboratory", "H. The Main Canteen",
+                "Đáp án đúng: A|B",
+                "Giải thích: Khác [DOC_HIEU_LUOI] (bấm chọn nút) — đây là dạng HỌC SINH TỰ GÕ chữ cái đúng vào 1 ô nhập cho mỗi câu (y hệt \"Your Answers: ...\" trong đề giấy), chấm không phân biệt hoa/thường. Mỗi câu trong \"Nội dung\" phân tách bằng dấu |, dùng CHUNG 1 đoạn văn (BẮT BUỘC tự liệt kê \"A. ...\"...\"J. ...\" kèm mô tả trong \"Đoạn văn tham chiếu\" để học sinh đọc — không tự dựng từ cột Đáp án A-J). Cột Đáp án A-J (2-10, không phân tách |) CHỈ dùng để xác định phạm vi chữ cái hợp lệ cho \"Đáp án đúng\" — không hiện ra nút bấm. \"Đáp án đúng\" là chữ cái A-J theo ĐÚNG thứ tự khớp \"Nội dung\".",
+                "---"));
         blocks.put(KIND_CLOZE_GROUP, List.of(
                 "[DOC_DIEN_TU]",
                 "Đoạn văn tham chiếu: The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.",
@@ -546,7 +627,7 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
                     + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
                     + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/DIEN_TU_DOAN_VAN/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
-                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/NGHE_NHIEU_DAP_AN/DOC_HIEU_LUOI/DOC_DIEN_TU.");
+                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/NGHE_PHIEU_THONG_TIN/NGHE_NHIEU_DAP_AN/DOC_HIEU_LUOI/DOC_HIEU_NOI_DAP_AN/DOC_DIEN_TU.");
         }
         return kind;
     }
@@ -680,6 +761,10 @@ public class QuestionImportService {
             // cho cả TRAC_NGHIEM thường (mirror TRAC_NGHIEM_VOICE/SPEAKING đã có sẵn), để trống thì vẫn
             // null như hành vi cũ — không ảnh hưởng các bài TRAC_NGHIEM hiện tại không dùng cột này.
             referencePassage = blankToNull(row.referencePassage());
+            // Cột "Hướng dẫn" (xem QuestionRowParser#instruction) trước đây CHỈ được đọc cho các kind
+            // WORD_BANK nên các dòng TRAC_NGHIEM điền cột này bị bỏ qua âm thầm — FE hiện dòng chỉ dẫn này
+            // phía trên nhóm/câu (structuredContent.instruction).
+            structuredContent = instructionOnlyContent(row);
             if (kind.equals("TRAC_NGHIEM_VOICE")) {
                 skill = "LISTENING";
                 if (isBlank(row.audioUrl())) {
@@ -926,7 +1011,17 @@ public class QuestionImportService {
         boolean looksLikeFreeTextPassage = referencePassageRaw != null
                 && (referencePassageRaw.length() > 200 || referencePassageRaw.matches("(?s).*[.!?](\\s|$).*"));
         List<String> wordBox = looksLikeFreeTextPassage ? null : parseTags(row.referencePassage());
-        Map<String, Object> structuredContent = wordBox == null ? null : Map.of("wordBox", wordBox);
+        Map<String, Object> structuredContent = null;
+        if (wordBox != null || blankToNull(row.instruction()) != null) {
+            structuredContent = new LinkedHashMap<>();
+            if (wordBox != null) {
+                structuredContent.put("wordBox", wordBox);
+            }
+            // Dòng "Hướng dẫn" dùng chung cho cả nhóm (FE đọc từ câu đầu nhóm) — xem mapToRequest.
+            if (blankToNull(row.instruction()) != null) {
+                structuredContent.put("instruction", row.instruction().trim());
+            }
+        }
         String groupReferencePassage = looksLikeFreeTextPassage ? referencePassageRaw : null;
         String groupKey = "fillblank-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — fix khoảng trống thật: DIEN_TU_NHOM
@@ -974,7 +1069,7 @@ public class QuestionImportService {
         if (questions.size() < 2) {
             throw new IllegalArgumentException("Đọc hiểu — lưới cần tối thiểu 2 câu hỏi trong \"Nội dung\", phân tách bằng dấu |.");
         }
-        List<QuestionChoiceRequest> sharedChoices = buildSharedGroupChoices(row);
+        List<QuestionChoiceRequest> sharedChoices = buildSharedGroupChoices(row, 4);
         if (isBlank(row.correctAnswer())) {
             throw new IllegalArgumentException("Đọc hiểu — lưới cần \"Đáp án đúng\" cho từng câu (chữ cái A/B/C/D), phân tách bằng dấu |.");
         }
@@ -1009,7 +1104,83 @@ public class QuestionImportService {
             String correctLetter = answerLetterAt(answerLetters, i, sharedChoices.size());
             List<QuestionChoiceRequest> choicesForQuestion = applyCorrectLetter(sharedChoices, correctLetter);
             requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", "READING", difficulty, questions.get(i),
-                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, null, groupKey));
+                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, instructionOnlyContent(row), groupKey));
+        }
+        return requests;
+    }
+
+    /** structuredContent chỉ chứa dòng "Hướng dẫn" (cột tùy chọn) cho các kind không có structuredContent riêng; null nếu để trống. */
+    private Map<String, Object> instructionOnlyContent(QuestionRowParser.ParsedQuestionRow row) {
+        String text = blankToNull(row.instruction());
+        return text == null ? null : new LinkedHashMap<>(Map.of("instruction", text.trim()));
+    }
+
+    /**
+     * DOC_HIEU_NOI_DAP_AN (bổ sung 2026-10-17, đã xác nhận với người dùng — "Đọc hiểu — Nối đáp án"):
+     * 1 dòng file → N CreateQuestionRequest (1/câu), TẤT CẢ dùng CHUNG 1 referencePassage (liệt kê sẵn
+     * các lựa chọn A-J kèm mô tả, GV tự gõ trực tiếp vào "Đoạn văn tham chiếu" — KHÔNG dựng lại từ
+     * "Đáp án A-J"). Khác DOC_HIEU_LUOI (MULTIPLE_CHOICE, học sinh BẤM chọn 1 trong các nút hiện sẵn):
+     * đây là FILL_IN_BLANK — mỗi câu chỉ có 1 Ô NHẬP CHỮ, học sinh tự GÕ chữ cái đúng (VD "H"), đúng y
+     * hệt định dạng "Your Answers: Sarah: [...] David: [...]" trong đề giấy gốc — xác nhận lại với
+     * người dùng 2026-10-17 sau khi làm bản MULTIPLE_CHOICE trước đó, đổi hẳn sang kiểu gõ tay thay vì
+     * bấm chọn. "Đáp án A-J" (2-10, trần nới từ 8 lên 10 cùng ngày sau khi phát hiện 1 bài ngữ pháp nối
+     * câu thực tế dùng tới J, dùng lại buildSharedGroupChoices để validate) CHỈ dùng để xác định
+     * PHẠM VI chữ cái hợp lệ cho "Đáp án đúng" (VD khai 5 lựa chọn A-E thì "Đáp án đúng" không được là
+     * F trở lên) — không tạo QuestionChoiceRequest nào, không hiện nút bấm. Chấm tự động case-insensitive
+     * (mirror DIEN_TU_NHOM/ExerciseAttemptService — so khớp đúng 1 chữ cái).
+     */
+    private List<CreateQuestionRequest> mapToMatchingGroupRequests(QuestionRowParser.ParsedQuestionRow row, Long bankId, boolean rejectActiveDuplicate) {
+        if (isBlank(row.content())) {
+            throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
+        }
+        if (isBlank(row.referencePassage())) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần \"Đoạn văn tham chiếu\" (liệt kê các lựa chọn A-J kèm mô tả) dùng chung cho cả nhóm câu hỏi.");
+        }
+        List<String> questions = splitPipeKeepBlanks(row.content());
+        for (int i = 0; i < questions.size(); i++) {
+            if (questions.get(i).isEmpty()) {
+                throw new IllegalArgumentException("Đọc hiểu — nối đáp án: câu hỏi thứ " + (i + 1) + " (theo dấu |) bị rỗng trong \"Nội dung\".");
+            }
+        }
+        if (questions.size() < 2) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần tối thiểu 2 câu hỏi trong \"Nội dung\", phân tách bằng dấu |.");
+        }
+        // Chỉ dùng để biết PHẠM VI chữ cái hợp lệ (A-?), KHÔNG tạo nút bấm — xem Javadoc.
+        int optionCount = buildSharedGroupChoices(row, 10).size();
+        if (isBlank(row.correctAnswer())) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án cần \"Đáp án đúng\" cho từng câu (chữ cái A-J), phân tách bằng dấu |.");
+        }
+        List<String> answerLetters = splitPipeKeepBlanks(row.correctAnswer());
+        if (answerLetters.size() != questions.size()) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án: số đáp án (" + answerLetters.size()
+                    + ") không khớp số câu hỏi (" + questions.size() + ") trong \"Nội dung\".");
+        }
+        if (Set.copyOf(questions).size() != questions.size()) {
+            throw new IllegalArgumentException("Đọc hiểu — nối đáp án: có 2 câu hỏi trùng nội dung trong CÙNG 1 nhóm — mỗi câu phải khác nhau.");
+        }
+        if (rejectActiveDuplicate) {
+            for (String q : questions) {
+                if (questionBankService.existsActiveDuplicate(bankId, q)) {
+                    throw new IllegalArgumentException("Đọc hiểu — nối đáp án: câu \"" + q + "\" đã tồn tại trong ngân hàng câu hỏi (trùng nội dung) — không thể tạo trùng.");
+                }
+            }
+        }
+
+        String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
+        if (!VALID_DIFFICULTIES.contains(difficulty)) {
+            throw new IllegalArgumentException("Độ khó không hợp lệ: '" + row.difficulty() + "' — chỉ chấp nhận EASY/MEDIUM/HARD.");
+        }
+        BigDecimal defaultPoints = parsePoints(row.defaultPoints());
+        List<String> tags = parseTags(row.tags());
+        String explanation = blankToNull(row.explanation());
+        String referencePassage = row.referencePassage().trim();
+        String groupKey = "matching-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+
+        List<CreateQuestionRequest> requests = new ArrayList<>();
+        for (int i = 0; i < questions.size(); i++) {
+            String correctLetter = answerLetterAt(answerLetters, i, optionCount);
+            requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", "READING", difficulty, questions.get(i),
+                    null, null, referencePassage, explanation, correctLetter, defaultPoints, tags, null, null, groupKey));
         }
         return requests;
     }
@@ -1110,16 +1281,25 @@ public class QuestionImportService {
         return requests;
     }
 
-    /** Đáp án A-D dùng CHUNG cho mọi câu trong nhóm DOC_HIEU_LUOI (khác DOC_DIEN_TU — mỗi chỗ trống riêng). */
-    private List<QuestionChoiceRequest> buildSharedGroupChoices(QuestionRowParser.ParsedQuestionRow row) {
+    /**
+     * Đáp án dùng CHUNG cho mọi câu trong nhóm (khác DOC_DIEN_TU — mỗi chỗ trống riêng). {@code
+     * maxChoices} = 4 cho DOC_HIEU_LUOI (đọc A-D), = 10 cho DOC_HIEU_NOI_DAP_AN (đọc A-J, bổ sung
+     * 2026-10-17 đã xác nhận với người dùng — tham số hoá thay vì hard-code 4 để tái dùng nguyên hàm
+     * này cho cả 2 kind, xem mapToGridGroupRequests()/mapToMatchingGroupRequests(); trần ban đầu là 8
+     * [A-H], nới tiếp lên 10 [A-J] cùng ngày sau khi phát hiện 1 bài ngữ pháp nối câu thực tế dùng J).
+     */
+    private List<QuestionChoiceRequest> buildSharedGroupChoices(QuestionRowParser.ParsedQuestionRow row, int maxChoices) {
+        String[] all = {row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD(),
+                row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH(), row.choiceI(), row.choiceJ()};
         List<String> raw = new ArrayList<>();
-        for (String c : new String[]{row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD()}) {
-            if (!isBlank(c)) {
-                raw.add(c.trim());
+        for (int i = 0; i < maxChoices; i++) {
+            if (!isBlank(all[i])) {
+                raw.add(all[i].trim());
             }
         }
         if (raw.size() < 2) {
-            throw new IllegalArgumentException("Đọc hiểu — lưới cần tối thiểu 2 đáp án dùng chung (Đáp án A/B), tối đa 4 (A-D).");
+            throw new IllegalArgumentException("Đọc hiểu cần tối thiểu 2 đáp án dùng chung (Đáp án A/B), tối đa "
+                    + maxChoices + " (A-" + (char) ('A' + maxChoices - 1) + ").");
         }
         List<QuestionChoiceRequest> choices = new ArrayList<>();
         for (int i = 0; i < raw.size(); i++) {
@@ -1151,9 +1331,16 @@ public class QuestionImportService {
         optionColumns.add(parsed);
     }
 
+    /**
+     * Dùng chung bởi mapToGridGroupRequests (optionCount ≤ 4), mapToMatchingGroupRequests (optionCount ≤
+     * 10, bổ sung 2026-10-17 đã xác nhận với người dùng — nới "ABCD" thành "ABCDEFGH" rồi tiếp tục nới
+     * thành "ABCDEFGHIJ" cùng ngày) và mapToClozeGroupRequests (optionCount = optionColumns.size(), bị
+     * chặn cứng ≤ 4 bởi chính cấu trúc gọi addOptionColumnIfPresent đúng 3 lần B/C/D — nới chuỗi ở đây
+     * KHÔNG ảnh hưởng Cloze).
+     */
     private String answerLetterAt(List<String> answerLetters, int index, int optionCount) {
         String letter = answerLetters.get(index).trim().toUpperCase(Locale.ROOT);
-        String allowedLetters = "ABCD".substring(0, optionCount);
+        String allowedLetters = "ABCDEFGHIJ".substring(0, optionCount);
         if (letter.length() != 1 || allowedLetters.indexOf(letter.charAt(0)) < 0) {
             throw new IllegalArgumentException("Đáp án đúng ở vị trí thứ " + (index + 1) + " phải là 1 chữ cái trong "
                     + String.join("/", allowedLetters.split("")) + " (đang có: '" + answerLetters.get(index) + "').");
@@ -1380,6 +1567,15 @@ public class QuestionImportService {
             }
         }
         return new QuestionImportResponse(job.getId(), job.getSourceFileName(), job.getTotalRows(), job.getSuccessRows(),
-                job.getFailedRows(), job.getStatus().name(), job.getErrorSummary(), createdQuestions);
+                job.getFailedRows(), job.getStatus().name(), job.getErrorSummary(), createdQuestions, List.of());
+    }
+
+    /** 1 dòng thô (nguyên 21 cột) + trạng thái hợp lệ — xem Javadoc QuestionImportRowPreview. */
+    private QuestionImportRowPreview toRowPreview(QuestionRowParser.ParsedQuestionRow row, boolean valid, String error) {
+        return new QuestionImportRowPreview(row.rowNumber(), row.sheetLabel(), row.kind(), row.difficulty(), row.content(),
+                row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD(),
+                row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH(), row.choiceI(), row.choiceJ(),
+                row.correctAnswer(), row.audioUrl(), row.imageUrl(), row.referencePassage(), row.defaultPoints(),
+                row.explanation(), row.tags(), row.instruction(), valid, error);
     }
 }

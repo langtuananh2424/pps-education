@@ -33,6 +33,7 @@ import {
   listUnits,
   publishExercise,
   removeExerciseQuestion,
+  removeExerciseQuestions,
   unassignExamFromClass,
   updateExam,
   updateExercise,
@@ -986,6 +987,20 @@ function ExerciseRow({
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { confirmDialog } = useDialog();
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — chọn nhiều câu hỏi để gỡ cùng lúc
+   * (trước đây chỉ gỡ được từng câu 1, chậm khi cần dọn nhiều câu trong 1 Bài dài).
+   */
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [removingSelected, setRemovingSelected] = useState(false);
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-03 — cho sửa câu hỏi ngay tại đây (trước
   // đây phải rời màn Soạn & giao đề, qua trang Ngân hàng câu hỏi mới sửa được). Không giới hạn theo
   // exercise.status=DRAFT như nút "Gỡ" — updateQuestion ở BE đã tự chặn khi câu hỏi có student_answers
@@ -1046,6 +1061,25 @@ function ExerciseRow({
       setError(err instanceof ApiError ? err.message : t("assignPage.exerciseRow.removeQuestionFailed"));
     } finally {
       setRemovingId(null);
+    }
+  };
+
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — gỡ nhiều câu hỏi đã chọn cùng 1 lần gọi API. */
+  const handleRemoveSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!(await confirmDialog(t("assignPage.exerciseRow.removeSelectedConfirm", { count: selectedIds.size }), { danger: true }))) return;
+    setRemovingSelected(true);
+    setError(null);
+    try {
+      const ids = Array.from(selectedIds);
+      await removeExerciseQuestions(exercise.id, ids);
+      setQuestions((prev) => (prev ? prev.filter((x) => !selectedIds.has(x.id)) : prev));
+      setSelectedIds(new Set());
+      showToast(t("assignPage.exerciseRow.selectedQuestionsRemovedToast", { count: ids.length }));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("assignPage.exerciseRow.removeSelectedFailed"));
+    } finally {
+      setRemovingSelected(false);
     }
   };
 
@@ -1264,12 +1298,48 @@ function ExerciseRow({
             <p className="text-[13px] text-slate-400 italic">{t("assignPage.exerciseRow.noQuestions")}</p>
           ) : (
             <div className="space-y-1.5">
+              {canManage && exercise.status === "DRAFT" && (
+                <div className="flex items-center justify-between gap-3 pb-1">
+                  <label className="flex items-center gap-1.5 text-[12px] text-slate-400 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={questions.length > 0 && selectedIds.size === questions.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < questions.length;
+                      }}
+                      onChange={(e) => setSelectedIds(e.target.checked ? new Set(questions.map((q) => q.id)) : new Set())}
+                    />
+                    {t("assignPage.exerciseRow.selectAll")}
+                  </label>
+                  {selectedIds.size > 0 && (
+                    <button
+                      onClick={handleRemoveSelected}
+                      disabled={removingSelected}
+                      className="text-[12px] font-bold text-rose-600 hover:underline disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {removingSelected
+                        ? t("assignPage.exerciseRow.removingSelected")
+                        : t("assignPage.exerciseRow.removeSelectedButton", { count: selectedIds.size })}
+                    </button>
+                  )}
+                </div>
+              )}
               {questions
                 .sort((a, b) => a.displayOrder - b.displayOrder)
                 .map((q) => (
                   <div key={q.id} className="text-[13px] text-slate-600 flex items-center justify-between gap-3 border-b border-slate-50 pb-1">
-                    <span className="truncate">
-                      {q.displayOrder}. {q.questionContent}
+                    <span className="flex items-center gap-2 min-w-0">
+                      {canManage && exercise.status === "DRAFT" && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(q.id)}
+                          onChange={() => toggleSelected(q.id)}
+                          className="shrink-0"
+                        />
+                      )}
+                      <span className="truncate">
+                        {q.displayOrder}. {q.questionContent}
+                      </span>
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
                       <span className="text-slate-400">{q.questionType} ·</span>

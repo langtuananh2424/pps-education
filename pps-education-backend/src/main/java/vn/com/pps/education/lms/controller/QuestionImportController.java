@@ -40,6 +40,19 @@ public class QuestionImportController {
         return ResponseEntity.ok(questionImportService.importQuestions(bankId, file, actor.userId(), defaultKind));
     }
 
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review UX import) — xem trước TRƯỚC KHI
+     * ghi DB, cùng request/quyền với importQuestions ở trên, xem Javadoc QuestionImportService#previewImport.
+     */
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
+    @PostMapping(value = "/api/question-banks/{bankId}/questions/import/preview", consumes = "multipart/form-data")
+    public ResponseEntity<QuestionImportResponse> previewImport(@PathVariable Long bankId,
+                                                                   @RequestParam("file") MultipartFile file,
+                                                                   @RequestParam(required = false) String defaultKind,
+                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(questionImportService.previewImport(bankId, file, actor.userId(), defaultKind));
+    }
+
     @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
     @GetMapping("/api/question-imports/{id}")
     public ResponseEntity<QuestionImportResponse> getJob(@PathVariable Long id) {

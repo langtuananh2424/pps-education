@@ -32,6 +32,11 @@ import vn.com.pps.education.lms.repository.ReviewVideoConnectionQuestionReposito
 import vn.com.pps.education.lms.repository.ReviewVideoProgressRepository;
 import vn.com.pps.education.lms.repository.ReviewVideoQuestionRepository;
 import vn.com.pps.education.lms.repository.ReviewVideoRepository;
+import vn.com.pps.education.lms.repository.ReviewVideoConnectionChoiceRepository;
+import vn.com.pps.education.lms.repository.ReviewVideoWatchSessionRepository;
+import vn.com.pps.education.lms.domain.ReviewVideoConnectionChoice;
+import vn.com.pps.education.lms.domain.ReviewVideoWatchSession;
+import vn.com.pps.education.lms.dto.ConnectionStudentHistoryResponse;
 
 import java.io.ByteArrayOutputStream;
 import java.io.UncheckedIOException;
@@ -88,6 +93,8 @@ public class ReviewVideoReportService {
     private final ClassTeacherRepository classTeacherRepository;
     private final PermissionEvaluationService permissionEvaluationService;
     private final MediaStorageService mediaStorageService;
+    private final ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository;
+    private final ReviewVideoConnectionChoiceRepository reviewVideoConnectionChoiceRepository;
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
@@ -114,7 +121,11 @@ public class ReviewVideoReportService {
                                      ClassEnrollmentRepository classEnrollmentRepository,
                                      ClassTeacherRepository classTeacherRepository,
                                      PermissionEvaluationService permissionEvaluationService,
-                                     MediaStorageService mediaStorageService) {
+                                     MediaStorageService mediaStorageService,
+                                     ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository,
+                                     ReviewVideoConnectionChoiceRepository reviewVideoConnectionChoiceRepository) {
+        this.reviewVideoWatchSessionRepository = reviewVideoWatchSessionRepository;
+        this.reviewVideoConnectionChoiceRepository = reviewVideoConnectionChoiceRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
         this.reviewVideoService = reviewVideoService;
         this.reviewVideoRepository = reviewVideoRepository;
@@ -212,6 +223,57 @@ public class ReviewVideoReportService {
                         .thenComparing(h -> h.getCreatedAt()))
                 .map(this::toHistoryResponse)
                 .toList();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-17 — CONNECTION: giáo viên xem chi tiết TỪNG
+     * lượt làm của 1 học sinh (đã xem bao nhiêu giây, nộp trắc nghiệm mấy lần, từng câu chọn gì/đúng sai), kể
+     * cả lượt đã lưu trữ do học sinh "Làm lại từ đầu" (xem ReviewVideoService#retakeConnection). Sắp theo thời
+     * điểm mở lượt tăng dần.
+     */
+    @Transactional(readOnly = true)
+    public ConnectionStudentHistoryResponse getStudentConnectionHistory(Long assignmentId, Long studentId, Long actorUserId) {
+        ReviewVideoAssignment assignment = getAssignmentOrThrow(assignmentId);
+        requireAssignedTeacher(assignment.getSchoolClass().getId(), actorUserId);
+
+        List<Long> videoIds = reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(assignment.getReviewVideoSet().getId())
+                .stream().map(ReviewVideo::getId).toList();
+        List<ReviewVideoWatchSession> sessions = videoIds.isEmpty() ? List.of()
+                : reviewVideoWatchSessionRepository.findByReviewVideoIdInAndStudentIdAndReviewVideoAssignmentIdOrderByStartedAtAsc(
+                        videoIds, studentId, assignmentId);
+        if (sessions.isEmpty()) {
+            return new ConnectionStudentHistoryResponse(List.of());
+        }
+        Map<Long, List<ReviewVideoConnectionAnswer>> answersBySession = reviewVideoConnectionAnswerRepository
+                .findByWatchSession_IdIn(sessions.stream().map(ReviewVideoWatchSession::getId).toList()).stream()
+                .collect(Collectors.groupingBy(a -> a.getWatchSession().getId()));
+        Map<Long, List<ReviewVideoConnectionChoice>> choicesByQuestion = new java.util.HashMap<>();
+
+        List<ConnectionStudentHistoryResponse.SessionRow> rows = new java.util.ArrayList<>();
+        int number = 0;
+        for (ReviewVideoWatchSession session : sessions) {
+            number++;
+            List<ConnectionStudentHistoryResponse.AnswerRow> answers = answersBySession.getOrDefault(session.getId(), List.of()).stream()
+                    .sorted(Comparator.comparing(a -> a.getReviewVideoConnectionQuestion().getDisplayOrder()))
+                    .map(a -> {
+                        ReviewVideoConnectionQuestion q = a.getReviewVideoConnectionQuestion();
+                        List<ReviewVideoConnectionChoice> choices = choicesByQuestion.computeIfAbsent(q.getId(),
+                                id -> reviewVideoConnectionChoiceRepository.findByReviewVideoConnectionQuestionIdOrderByDisplayOrder(id));
+                        ReviewVideoConnectionChoice correct = choices.stream().filter(ReviewVideoConnectionChoice::isCorrect).findFirst().orElse(null);
+                        ReviewVideoConnectionChoice selected = a.getSelectedChoice();
+                        return new ConnectionStudentHistoryResponse.AnswerRow(
+                                q.getDisplayOrder(), q.getPrompt(),
+                                selected.getChoiceLabel(), selected.getContent(),
+                                correct == null ? null : correct.getChoiceLabel(), correct == null ? null : correct.getContent(),
+                                a.isCorrect());
+                    }).toList();
+            rows.add(new ConnectionStudentHistoryResponse.SessionRow(
+                    session.getId(), number, session.getReviewVideo().getTitle(), session.getStartedAt(),
+                    session.getWatchedSeconds(), session.getReviewVideo().getDurationSeconds(), session.isQualified(),
+                    session.getQuizAttemptCount(), session.isQuizPassed(), session.getQuizCompletedAt(),
+                    session.getArchivedAt() != null, answers));
+        }
+        return new ConnectionStudentHistoryResponse(rows);
     }
 
     private ReflexQuestionProgressHistoryResponse toHistoryResponse(ReflexQuestionProgressHistory h) {
@@ -396,7 +458,7 @@ public class ReviewVideoReportService {
     /** Bản MỚI NHẤT (answeredAt) mỗi cặp (studentId, questionId), key = "studentId:questionId" — mirror ReviewVideoService#isConnectionVideoPassed nhưng bulk cho CẢ LỚP thay vì 1 học sinh. */
     private Map<String, ReviewVideoConnectionAnswer> latestConnectionAnswerByStudentAndQuestion(List<Long> videoIds) {
         if (videoIds.isEmpty()) return Map.of();
-        return reviewVideoConnectionAnswerRepository.findByReviewVideoConnectionQuestion_ReviewVideoIdIn(videoIds).stream()
+        return reviewVideoConnectionAnswerRepository.findByReviewVideoConnectionQuestion_ReviewVideoIdInAndWatchSession_ArchivedAtIsNull(videoIds).stream()
                 .collect(Collectors.toMap(
                         a -> a.getStudent().getId() + ":" + a.getReviewVideoConnectionQuestion().getId(),
                         a -> a,

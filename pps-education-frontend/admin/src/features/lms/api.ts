@@ -2,6 +2,7 @@ import i18n from "@/i18n";
 import { compressImageForUpload } from "@/lib/imageCompression";
 import { ApiError, apiRequest, apiRequestBlob } from "@/lib/apiClient";
 import type { ClassResponse } from "@/features/academic/api";
+import type { Page } from "@/types";
 
 /**
  * Khớp MediaModule thật của backend — mỗi module quy định content-type/size limit riêng
@@ -204,6 +205,41 @@ export function listQuestions(bankId: number): Promise<QuestionResponse[]> {
   return apiRequest<QuestionResponse[]>(`/question-banks/${bankId}/questions`);
 }
 
+/**
+ * 1 dòng kết quả tìm kiếm câu hỏi xuyên nhiều ngân hàng/khung chương trình — khớp
+ * QuestionSearchItemResponse backend. Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review
+ * hiệu năng trang "Ngân hàng câu hỏi") thay cho cách cũ tự tải toàn bộ rồi lọc/phân trang phía
+ * client (xem QuestionBankPage.tsx).
+ */
+export interface QuestionSearchItem {
+  question: QuestionResponse;
+  bankId: number;
+  bankCode: string;
+  bankName: string;
+  bankLevel: string | null;
+  curriculumId: number | null;
+  curriculumCode: string | null;
+  curriculumName: string | null;
+}
+
+export interface QuestionSearchFilter {
+  search?: string;
+  questionType?: QuestionType | "ALL";
+  difficulty?: QuestionDifficulty | "ALL";
+  level?: string;
+  page: number;
+  size: number;
+}
+
+export function searchQuestions(filter: QuestionSearchFilter): Promise<Page<QuestionSearchItem>> {
+  const qs = new URLSearchParams({ page: String(filter.page), size: String(filter.size) });
+  if (filter.search?.trim()) qs.set("search", filter.search.trim());
+  if (filter.questionType && filter.questionType !== "ALL") qs.set("questionType", filter.questionType);
+  if (filter.difficulty && filter.difficulty !== "ALL") qs.set("difficulty", filter.difficulty);
+  if (filter.level && filter.level !== "ALL") qs.set("level", filter.level);
+  return apiRequest<Page<QuestionSearchItem>>(`/questions/search?${qs.toString()}`);
+}
+
 export interface UpdateQuestionRequest {
   content: string;
   audioUrl?: string;
@@ -278,20 +314,60 @@ export function updateExamQuestion(examId: number, questionId: number, request: 
 // ===================== Soạn đề nhanh: import Excel/Word (UC-40, bổ sung ngoài SDD gốc) =====================
 
 export interface QuestionImportedRow {
-  id: number;
+  /** null khi đây là kết quả PREVIEW (chưa ghi DB) — xem previewQuestionImport/previewExamQuestionImport. */
+  id: number | null;
   content: string;
   defaultPoints: number;
 }
 
+/**
+ * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — 1 dòng THÔ (nguyên 21 cột, chưa ép kiểu) của file
+ * đang xem trước — mirror ParsedQuestionRow backend. Dùng để dựng bảng sửa trực tiếp kiểu Excel:
+ * sửa ô nào, dựng lại file .xlsx từ TOÀN BỘ các dòng (buildXlsxTemplateBlob) rồi gửi lại qua preview
+ * để validate lại — không tự validate bằng JS (nhiều loại câu hỏi, quy tắc phức tạp, phải đi qua
+ * ĐÚNG 1 bộ luật ở backend, xem QuestionImportPanel.tsx).
+ */
+export interface QuestionImportRowPreview {
+  rowNumber: number;
+  sheetLabel: string | null;
+  kind: string | null;
+  difficulty: string | null;
+  content: string | null;
+  choiceA: string | null;
+  choiceB: string | null;
+  choiceC: string | null;
+  choiceD: string | null;
+  choiceE: string | null;
+  choiceF: string | null;
+  choiceG: string | null;
+  choiceH: string | null;
+  choiceI: string | null;
+  choiceJ: string | null;
+  correctAnswer: string | null;
+  audioUrl: string | null;
+  imageUrl: string | null;
+  referencePassage: string | null;
+  defaultPoints: string | null;
+  explanation: string | null;
+  tags: string | null;
+  instruction: string | null;
+  valid: boolean;
+  error: string | null;
+}
+
 export interface QuestionImportResponse {
-  id: number;
+  /** null khi status="PREVIEW" (chưa tạo ImportJob, chưa ghi DB) — xem Javadoc QuestionImportService#previewImport. */
+  id: number | null;
   sourceFileName: string;
   totalRows: number | null;
   successRows: number;
   failedRows: number;
+  /** "PREVIEW" (bổ sung 2026-10-19) = mới xem trước, chưa bấm "Xác nhận lưu" — còn lại như cũ (COMPLETED/PARTIAL_SUCCESS/FAILED). */
   status: string;
   errorSummary: { row: number; reason: string }[];
   createdQuestions: QuestionImportedRow[];
+  /** Chỉ có dữ liệu khi status="PREVIEW" — rỗng ở kết quả ghi DB thật. */
+  rowPreviews: QuestionImportRowPreview[];
 }
 
 /**
@@ -318,6 +394,27 @@ export function importExamQuestions(examId: number, file: File, defaultKind?: st
   formData.append("file", file);
   if (defaultKind) formData.append("defaultKind", defaultKind);
   return apiRequest<QuestionImportResponse>(`/exams/${examId}/questions/import`, { method: "POST", body: formData });
+}
+
+/**
+ * Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review UX import) — xem trước TRƯỚC KHI ghi
+ * DB: parse + validate, trả về CHÍNH XÁC cùng shape QuestionImportResponse (status="PREVIEW",
+ * id=null, mỗi createdQuestions[].id=null vì chưa tạo) để FE hiện bảng xem trước, chờ GV bấm "Xác
+ * nhận lưu" (gọi importQuestions ở trên) mới thực sự ghi DB — xem QuestionImportPanel.tsx.
+ */
+export function previewQuestionImport(bankId: number, file: File, defaultKind?: string): Promise<QuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (defaultKind) formData.append("defaultKind", defaultKind);
+  return apiRequest<QuestionImportResponse>(`/question-banks/${bankId}/questions/import/preview`, { method: "POST", body: formData });
+}
+
+/** Mirror previewQuestionImport cho luồng "Soạn Bài mới" theo Đề. */
+export function previewExamQuestionImport(examId: number, file: File, defaultKind?: string): Promise<QuestionImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (defaultKind) formData.append("defaultKind", defaultKind);
+  return apiRequest<QuestionImportResponse>(`/exams/${examId}/questions/import/preview`, { method: "POST", body: formData });
 }
 
 /**
@@ -743,6 +840,18 @@ export function exportExerciseQuestions(exerciseId: number): Promise<Blob> {
 
 export function removeExerciseQuestion(exerciseId: number, exerciseQuestionId: number): Promise<void> {
   return apiRequest<void>(`/exercises/${exerciseId}/questions/${exerciseQuestionId}`, { method: "DELETE" });
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — gỡ nhiều câu hỏi khỏi Bài cùng 1 lần
+ * gọi (trước đây phải gọi removeExerciseQuestion lặp lại từng câu, chậm khi cần dọn nhiều câu). Chỉ gỡ
+ * được khi Bài còn DRAFT, giống removeExerciseQuestion.
+ */
+export function removeExerciseQuestions(exerciseId: number, exerciseQuestionIds: number[]): Promise<void> {
+  return apiRequest<void>(`/exercises/${exerciseId}/questions`, {
+    method: "DELETE",
+    body: JSON.stringify({ exerciseQuestionIds })
+  });
 }
 
 /**
@@ -1574,4 +1683,35 @@ export interface PendingListeningGradingResponse {
 
 export function listPendingListeningGrading(): Promise<PendingListeningGradingResponse[]> {
   return apiRequest<PendingListeningGradingResponse[]>("/listening-practice/grading/pending");
+}
+
+export interface ConnectionHistoryAnswer {
+  questionOrder: number;
+  prompt: string;
+  selectedLabel: string;
+  selectedContent: string;
+  correctLabel: string | null;
+  correctContent: string | null;
+  correct: boolean;
+}
+
+export interface ConnectionHistorySession {
+  watchSessionId: number;
+  sessionNumber: number;
+  videoTitle: string;
+  startedAt: string;
+  watchedSeconds: number;
+  durationSeconds: number;
+  qualified: boolean;
+  quizAttemptCount: number;
+  quizPassed: boolean;
+  quizCompletedAt: string | null;
+  /** true = lượt đã lưu trữ khi học sinh "Làm lại từ đầu" (chỉ còn để xem lịch sử). */
+  archived: boolean;
+  answers: ConnectionHistoryAnswer[];
+}
+
+/** 2026-10-17 — chi tiết từng lượt làm clip Kết nối của 1 học sinh (icon con mắt ở trang thống kê), gồm cả lượt đã lưu trữ. */
+export function getConnectionStudentHistory(assignmentId: number, studentId: number): Promise<{ sessions: ConnectionHistorySession[] }> {
+  return apiRequest<{ sessions: ConnectionHistorySession[] }>(`/review-video-assignments/${assignmentId}/stats/students/${studentId}/connection-history`);
 }

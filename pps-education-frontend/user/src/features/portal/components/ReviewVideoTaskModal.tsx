@@ -12,6 +12,7 @@ import {
   listReviewVideoConnectionQuestionsForSession,
   reportReviewVideoProgress,
   startReviewVideoWatchSession,
+  retakeReviewVideo,
   stopReviewVideoEarly,
   submitReviewVideoConnectionAnswers
 } from "../api";
@@ -323,15 +324,26 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     setQuizOutcome(null);
     setQuizError(null);
     if (assignmentId == null) return;
-    startReviewVideoWatchSession(video.id, assignmentId)
-      .then((r) => setWatchSessionId(r.sessionId))
-      .catch(() => undefined);
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc lại tiến độ ĐÃ LƯU ngay khi
     // mở modal (trước đây "Tổng số lượt đã đạt" chỉ hiện SAU khi có report sống trong phiên đang mở,
     // nên mở lần đầu luôn thấy trống dù đã có tiến độ từ trước).
+    // 2026-10-17 (đã xác nhận với người dùng): đã hoàn thành thì KHÔNG mở lượt xem mới (BE từ chối) mà hiện
+    // luôn kết quả + nút "Làm lại từ đầu"; chưa hoàn thành (hoặc đọc tiến độ lỗi) thì mở lượt xem như cũ.
     getReviewVideoProgress(video.id, assignmentId)
-      .then((p) => setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed }))
-      .catch(() => undefined);
+      .then((p) => {
+        setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed });
+        if (p.completed) {
+          setFinalPopup({ variant: "completed" });
+          loadAnswerHistory();
+          return;
+        }
+        startReviewVideoWatchSession(video.id, assignmentId).then((r) => setWatchSessionId(r.sessionId));
+      })
+      .catch(() => {
+        startReviewVideoWatchSession(video.id, assignmentId)
+          .then((r) => setWatchSessionId(r.sessionId))
+          .catch(() => undefined);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video.id, assignmentId]);
 
@@ -486,6 +498,29 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
   const handleThresholdContinue = () => {
     setThresholdPopupOpen(false);
     startNextSession();
+  };
+
+  /**
+   * 2026-10-17 (đã xác nhận với người dùng) — "Làm lại từ đầu" sau khi hoàn thành (VD đạt 80% muốn lên 100%):
+   * BE lưu trữ các lượt cũ (giáo viên vẫn xem được lịch sử) và reset tiến độ/đáp án về 0, rồi mở ngay lượt xem đầu tiên.
+   */
+  const [retaking, setRetaking] = useState(false);
+  // 2026-10-17 (đã xác nhận với người dùng) — hỏi xác nhận trước khi làm lại từ đầu (xoá tiến độ hiện tại).
+  const [retakeConfirmOpen, setRetakeConfirmOpen] = useState(false);
+  const handleRetake = () => {
+    if (assignmentId == null || retaking) return;
+    setRetaking(true);
+    setRetakeConfirmOpen(false);
+    retakeReviewVideo(video.id, assignmentId)
+      .then((p) => {
+        setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed });
+        setFinalPopup(null);
+        setAnswerHistory(null);
+        thresholdPopupShownRef.current = false;
+        startNextSession();
+      })
+      .catch((err) => setAnswerHistoryError(friendlyApiErrorMessage(err, t("reviewVideoTask.finalPopup.retakeError"))))
+      .finally(() => setRetaking(false));
   };
 
   /** Đóng popup Hoàn thành/Kết quả — luôn đóng cả modal (đủ lượt hoặc đã chủ động dừng, không còn việc gì để làm tiếp trong modal này). */
@@ -787,11 +822,44 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
             )}
 
             <button
+              onClick={() => setRetakeConfirmOpen(true)}
+              disabled={retaking}
+              className="w-full px-3 py-2.5 sm:py-3 bg-white border border-teal text-teal-deep hover:bg-teal/10 rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
+            >
+              {t("reviewVideoTask.finalPopup.retakeButton")}
+            </button>
+            <button
               onClick={handleCloseFinalPopup}
               className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
             >
               {t("reviewVideoTask.finalPopup.closeButton")}
             </button>
+          </div>
+        </div>
+      )}
+
+      {retakeConfirmOpen && progressSummary && (
+        <div className="fixed inset-0 bg-ink/60 z-[120] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
+            <h3 className="text-base font-extrabold text-ink">{t("reviewVideoTask.retakeConfirm.title")}</h3>
+            <p className="text-xs font-bold text-muted">
+              {t("reviewVideoTask.retakeConfirm.description", { required: progressSummary.requiredViewCount })}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => setRetakeConfirmOpen(false)}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                {t("reviewVideoTask.retakeConfirm.cancelButton")}
+              </button>
+              <button
+                onClick={handleRetake}
+                disabled={retaking}
+                className="flex-1 px-4 py-2.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold disabled:opacity-50"
+              >
+                {t("reviewVideoTask.retakeConfirm.confirmButton")}
+              </button>
+            </div>
           </div>
         </div>
       )}

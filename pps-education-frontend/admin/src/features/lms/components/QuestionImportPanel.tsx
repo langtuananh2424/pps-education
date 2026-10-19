@@ -7,12 +7,16 @@ import {
   ExamTeacherType,
   ExerciseSkillCategory,
   QuestionImportResponse,
+  QuestionImportRowPreview,
   QuestionImportedRow,
   downloadExamQuestionImportWordTemplate,
   downloadQuestionImportWordTemplate,
   importExamQuestions,
-  importQuestions
+  importQuestions,
+  previewExamQuestionImport,
+  previewQuestionImport
 } from "../api";
+import Button from "@/components/ui/Button";
 import FloatingError from "@/components/ui/FloatingError";
 
 type FileFormat = "xlsx" | "docx";
@@ -47,14 +51,16 @@ const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
   ],
   WRITING: ["TU_LUAN"],
   LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NHIEU_DAP_AN", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN"],
-  READING: ["DOC_HIEU_LUOI", "DOC_DIEN_TU"]
+  // Bổ sung 2026-10-17 (đã xác nhận với người dùng) — DOC_HIEU_NOI_DAP_AN (đọc hiểu — nối đáp án, tối
+  // đa 8 lựa chọn dùng chung), mirror QuestionImportService.SKILL_CATEGORY_KIND_TOKENS.READING.
+  READING: ["DOC_HIEU_LUOI", "DOC_HIEU_NOI_DAP_AN", "DOC_DIEN_TU"]
 };
 
 /** Mirror VALID_KINDS ở QuestionImportService.java (backend) — nguồn cho dropdown "Loại câu hỏi mặc định". */
 const ALL_KIND_TOKENS = [
   "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "TU_LUAN", "SPEAKING",
   "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN", "NGHE_NHIEU_DAP_AN", "DOC_HIEU_LUOI", "DOC_DIEN_TU"
+  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "NGHE_PHIEU_THONG_TIN", "NGHE_NHIEU_DAP_AN", "DOC_HIEU_LUOI", "DOC_HIEU_NOI_DAP_AN", "DOC_DIEN_TU"
 ];
 
 /**
@@ -71,8 +77,25 @@ const IMPORT_KIND_GROUPS: { labelKey: string; tokens: string[] }[] = [
   { labelKey: "kindGroup.sentenceBuilding", tokens: ["SAP_XEP_CAU", "SAP_XEP_CHU_CAI"] },
   { labelKey: "kindGroup.essay", tokens: ["TU_LUAN"] },
   { labelKey: "kindGroup.speaking", tokens: ["SPEAKING", "NGHE_NOP_AUDIO", "NGHE_CHON_HINH"] },
-  { labelKey: "kindGroup.reading", tokens: ["DOC_HIEU_LUOI", "DOC_DIEN_TU"] }
+  { labelKey: "kindGroup.reading", tokens: ["DOC_HIEU_LUOI", "DOC_HIEU_NOI_DAP_AN", "DOC_DIEN_TU"] }
 ];
+
+/**
+ * Bổ sung 2026-10-19 (đã xác nhận với người dùng — sửa trực tiếp bảng xem trước) — ép 1
+ * QuestionImportRowPreview (nguyên 21 cột thô từ backend) thành 1 mảng ô ĐÚNG THỨ TỰ khớp
+ * `questionImportPanel.excelHeaders` (mirror comment "Thứ tự mới mỗi dòng: ..." ở `sampleRows` dưới
+ * đây) — dùng để khởi tạo lưới sửa tay VÀ dựng lại file .xlsx (buildXlsxTemplateBlob) khi bấm "Kiểm
+ * tra lại".
+ */
+function rowPreviewToCells(row: QuestionImportRowPreview): string[] {
+  return [
+    row.kind ?? "", row.difficulty ?? "", row.content ?? "",
+    row.choiceA ?? "", row.choiceB ?? "", row.choiceC ?? "", row.choiceD ?? "",
+    row.choiceE ?? "", row.choiceF ?? "", row.choiceG ?? "", row.choiceH ?? "", row.choiceI ?? "", row.choiceJ ?? "",
+    row.correctAnswer ?? "", row.audioUrl ?? "", row.imageUrl ?? "", row.referencePassage ?? "",
+    row.defaultPoints ?? "", row.explanation ?? "", row.tags ?? "", row.instruction ?? ""
+  ];
+}
 
 /**
  * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
@@ -87,10 +110,21 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   const { t } = useTranslation("lms-question-authoring");
   const [format, setFormat] = useState<FileFormat>("xlsx");
   const inputRef = useRef<HTMLInputElement>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<QuestionImportResponse | null>(null);
+  // Bổ sung 2026-10-19 (đã xác nhận với người dùng — preview trước khi lưu) — file đang chờ xác nhận,
+  // giữ lại để handleConfirm gửi LẠI đúng file này lên endpoint ghi DB thật khi GV bấm "Xác nhận lưu".
+  // Đơn giản hơn cache parsed rows ở backend (không cần job tạm/token hết hạn) — xem QuestionImportService#previewImport.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // Bổ sung 2026-10-19 (đã xác nhận với người dùng — sửa trực tiếp bảng xem trước, thay cho việc
+  // phải xuống Excel sửa rồi upload lại) — luôn khớp 1:1 với result.rowPreviews (cùng khởi tạo lại
+  // trong runPreview mỗi lần preview/kiểm tra lại thành công), chỉ khác là mảng NÀY sửa được qua
+  // input, còn result.rowPreviews là dữ liệu "đã validate" lần gần nhất (dùng để tô đỏ dòng lỗi).
+  const [editedRows, setEditedRows] = useState<string[][]>([]);
+  const isPreview = result?.status === "PREVIEW";
   // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — "Loại câu hỏi mặc định": khớp thói quen thật
   // "1 Ex chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị — chọn 1 lần ở đây thay vì gõ lại cột
   // "Loại câu hỏi" ở MỌI dòng trong file. Rỗng ("") = giữ hành vi cũ (bắt buộc mỗi dòng tự ghi loại).
@@ -113,42 +147,52 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   // đây thiếu hoàn toàn dù backend hỗ trợ từ 2026-09-17), y hệt nội dung buildTemplateBlocks() bên
   // backend (QuestionImportService.java) để 2 định dạng nhất quán. Hoist ra scope component (thay vì
   // local trong handleDownloadTemplate như trước) để dùng chung cho cả preview inline trong panel.
+  // Bổ sung 2026-10-17 (đã xác nhận với người dùng — LẦN 2 cùng ngày, sau khi GV mở file mẫu thật thấy
+  // "Đáp án E/F/G/H" nằm tít cuối bảng, cách xa "Đáp án A-D" bởi 7 cột khác) — 4 cột "Đáp án E/F/G/H"
+  // ĐẶT NGAY SAU "Đáp án D" (trước "Đáp án đúng"), gộp chung cụm 8 cột đáp án A-H liền nhau cho dễ điền
+  // tay — KHÔNG đặt cuối bảng như lần đầu nữa. An toàn vì ExcelQuestionRowParser đọc theo TÊN header
+  // (không theo vị trí cột, xem QuestionImportFieldAliases) nên đổi vị trí không ảnh hưởng parse — chỉ
+  // cần excelHeaders (vi/en lms-question-authoring.json) VÀ mọi dòng `sampleRows` dưới đây cùng đổi vị
+  // trí nhất quán. Thứ tự mới mỗi dòng: kind, difficulty, content, A, B, C, D, E, F, G, H, correctAnswer,
+  // audioUrl, imageUrl, referencePassage, points, explanation, tags, instruction.
   const sampleRows: string[][] = [
-    ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.geo"), "geo,easy", ""],
-    ["TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
-      "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", "", ""],
-    ["DIEN_TU", "", "She ___ (go) to school every day.", "", "", "", "", "goes",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), "", ""],
-    ["DIEN_TU_NHOM", "", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.", "", "", "", "", "smart|favourite|coach",
-      "", "", "activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice", "1",
+    ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "", "", "", "", "", "",
+      "B", "", "", "", "1", t("questionImportPanel.excelSampleExplanations.geo"), "geo,easy", ""],
+    ["TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "", "", "", "", "", "",
+      "B", "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", "", ""],
+    ["DIEN_TU", "", "She ___ (go) to school every day.", "", "", "", "", "", "", "", "", "", "",
+      "goes", "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), "", ""],
+    ["DIEN_TU_NHOM", "", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.", "", "", "", "", "", "", "", "", "", "",
+      "smart|favourite|coach", "", "",
+      "activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice", "1",
       t("questionImportPanel.excelSampleExplanations.fillInBlankGroup"), "", ""],
     // Cột cuối "Hướng dẫn" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14) — dòng chỉ dẫn
     // TÙY CHỌN hiện phía trên đề (chữ nghiêng, mirror "Ex. 1: ..."/"B. ..." trong đề giấy gốc) — để trống
     // thì không hiện, không ảnh hưởng gì (xem QuestionImportService#instructionText).
     ["DIEN_TU_DOAN_VAN", "",
       "In recent years, tourism has become a (1) ___ industry. Many travellers now book a (2) ___ that includes both transport and accommodation.",
-      "", "", "", "", "growing|package deal", "", "", "growing, package deal, accommodation, destination, resort", "1", "", "",
-      "Ex. 1: Fill in each blank (1-2) with the most appropriate word or phrase."],
-    ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "",
-      "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), "", ""],
-    ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "",
-      "", "", "enthusiasm, literature, variety", "1", "", "", ""],
-    ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "goes|plays",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), "", ""],
-    ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "under|next to",
-      "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
+      "", "", "", "", "", "", "", "", "", "",
+      "growing|package deal", "", "", "growing, package deal, accommodation, destination, resort", "1", "",
+      "", "Ex. 1: Fill in each blank (1-2) with the most appropriate word or phrase."],
+    ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "", "", "", "", "", "",
+      "", "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), "", ""],
+    ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "", "", "", "", "", "",
+      "", "", "", "enthusiasm, literature, variety", "1", "", "", ""],
+    ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "", "", "", "", "", "",
+      "goes|plays", "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), "", ""],
+    ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "", "", "", "", "", "",
+      "under|next to", "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
       t("questionImportPanel.excelSampleExplanations.wordBankPicture"), "", ""],
-    ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "This|is|a|pen",
-      "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), "", ""],
-    ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "s|m|i|l|e",
-      "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
+    ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "", "", "", "", "", "",
+      "This|is|a|pen", "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), "", ""],
+    ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "", "", "", "", "", "",
+      "s|m|i|l|e", "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
       t("questionImportPanel.excelSampleExplanations.letterScramble"), "", ""],
-    ["NGHE_NOP_AUDIO", "", "Listen to the audio and record your answer.", "", "", "", "", "",
-      "https://example-r2.dev/lms/questions/audio/mau-nghe.mp3", "", "", "1",
+    ["NGHE_NOP_AUDIO", "", "Listen to the audio and record your answer.", "", "", "", "", "", "", "", "", "", "",
+      "", "https://example-r2.dev/lms/questions/audio/mau-nghe.mp3", "", "", "1",
       t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), "", ""],
-    ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
-      "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
+    ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "", "", "", "", "", "",
+      "drives", "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
       t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), "", ""],
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-06 (qua ảnh chụp đề giấy thật GV gửi) —
     // nội dung mẫu dựng lại gần sát đề thật: dòng đầu "The Sea Lady" đứng riêng (cách phần sau bằng 1
@@ -156,22 +200,37 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
     // ** ** → tự in đậm làm tiêu đề mục con; toàn bộ xuống dòng còn lại GIỮ NGUYÊN (formMode bật
     // whitespace-pre-line) — khớp ĐÚNG cơ chế WordBankPreview đã có, chỉ là trước đây sample quá đơn
     // giản nên không lộ ra được hết khả năng này.
-    ["NGHE_PHIEU_THONG_TIN", "", "The Sea Lady\n\n**Main Facts:**\nBuilt in: (14) ___\nFirst tour: The Mediterranean Sea\n\n**Dinner:**\nTime: (15) ___ p.m. to 9.30 p.m.", "", "", "", "", "1999/nineteen ninety-nine|7:30/7.30/7h30",
+    ["NGHE_PHIEU_THONG_TIN", "", "The Sea Lady\n\n**Main Facts:**\nBuilt in: (14) ___\nFirst tour: The Mediterranean Sea\n\n**Dinner:**\nTime: (15) ___ p.m. to 9.30 p.m.", "", "", "", "", "", "", "", "", "", "",
+      "1999/nineteen ninety-nine|7:30/7.30/7h30",
       "https://example-r2.dev/lms/questions/audio/mau-phieu-thong-tin.mp3", "", "Write one or two words or a number or a date or a time.", "1",
       t("questionImportPanel.excelSampleExplanations.listeningFormCompletion"), "", ""],
-    ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "B",
+    ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "", "", "", "", "", "",
+      "B",
       "https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
       "https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",
       "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), "", ""],
     ["NGHE_NHIEU_DAP_AN", "", "Which TWO reasons does Irina give for visiting the exhibition?", "to meet a friend", "to improve her knowledge", "to buy something", "to entertain her child", "B|D",
       "https://example-r2.dev/lms/questions/audio/mau-nghe-nhieu-dap-an.mp3", "", "", "2", t("questionImportPanel.excelSampleExplanations.listeningMultipleAnswer"), "", ""],
     ["DOC_HIEU_LUOI", "", "Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
-      "Tom", "Max", "Anna", "", "B|A|C",
-      "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",
+      "Tom", "Max", "Anna", "", "", "", "", "", "", "",
+      "B|A|C", "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",
       t("questionImportPanel.excelSampleExplanations.gridReading"), "", ""],
+    // Bổ sung 2026-10-17 (đã xác nhận với người dùng, chỉnh lại 4 LẦN CÙNG NGÀY sau khi GV test thật:
+    // lần 1 đổi nội dung ví dụ cho khớp đúng sách (5 người Liam/Sophia/Noah/Emma/Oliver ghép 8 cơ sở vật
+    // chất); lần 2 fix lỗi hiển thị thật — "Nội dung" KHÔNG tự đánh số thủ công (hệ thống đã tự đánh số,
+    // tự làm sẽ trùng "1. 1. Liam"), dồn CẢ 2 đoạn (người + lựa chọn) vào "Đoạn văn tham chiếu" dùng
+    // chung; lần 3 đổi vị trí cột Đáp án E-H lên ngay sau D; lần 4 nới trần 8→10 (A-J) sau khi phát hiện
+    // 1 bài ngữ pháp nối câu IELTS thực tế dùng tới J — ví dụ mẫu vẫn giữ 8 lựa chọn A-H cho ngắn gọn).
+    ["DOC_HIEU_NOI_DAP_AN", "",
+      "Liam ___|Sophia ___|Noah ___|Emma ___|Oliver ___",
+      "The Main Library", "The Chemistry Laboratory", "The School Canteen", "The Modern Gym",
+      "The Computer Room", "The Eco-Garden", "The Main Playground", "The School Hall", "", "",
+      "E|B|D|A|F", "", "",
+      "THE PEOPLE\n\nLiam: wants a quiet place with comfortable chairs to study in, needs a computer for online resources and a safe locker.\n\nSophia: wants to practice science experiments after class, needs state-of-the-art equipment and must wear her school uniform.\n\nNoah: wants to play indoor basketball, needs wheelchair accessibility and a vending machine for cold refreshments.\n\nEmma: wants to read storybooks in a peaceful space with a bright lamp and a large desk, wants to borrow physical books.\n\nOliver: wants to relax outdoors near nature, prefers a quiet space with a wooden fence, cannot climb stairs.\n\nSCHOOL FACILITIES\n\nA. The Main Library: large wooden desks, private reading lamp, digital catalog, ground floor next to the entrance gate.\n\nB. The Chemistry Laboratory: state-of-the-art equipment, sinks for washing hands, school uniform required.\n\nC. The School Canteen: hot meals, fresh fruits, sweet treats, center of campus, no computers.\n\nD. The Modern Gym: basketball courts, wheelchair ramps, vending machine, outdoor shoes prohibited.\n\nE. The Computer Room: second floor, new computers, high-speed internet, secure metal lockers.\n\nF. The Eco-Garden: outdoor, no stairs, wooden fence, quiet, no food or sports allowed.\n\nG. The Main Playground: large open yard, metal fence, basic sports equipment, hot in the afternoon.\n\nH. The School Hall: graduation ceremonies, giant projector board, only open for special events.",
+      "1", t("questionImportPanel.excelSampleExplanations.matchingGroup"), "", ""],
     ["DOC_DIEN_TU", "", "",
-      "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", "", "B|A|C",
-      "", "", "The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.", "1",
+      "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", "", "", "", "", "", "", "",
+      "B|A|C", "", "", "The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.", "1",
       t("questionImportPanel.excelSampleExplanations.clozeReading"), "", ""]
   ];
 
@@ -247,6 +306,32 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
     }
   };
 
+  /**
+   * Bổ sung 2026-10-19 (đã xác nhận với người dùng — preview trước khi lưu, thay cho hành vi cũ ghi
+   * thẳng vào DB ngay khi chọn file) — chỉ gọi endpoint preview (parse + validate, KHÔNG ghi DB), giữ
+   * lại file để handleConfirm gửi lại khi GV xác nhận. Dùng chung cho cả preview lần đầu (handleFile)
+   * lẫn "Kiểm tra lại" sau khi sửa tay (handleRevalidate) — khởi tạo lại editedRows từ kết quả MỚI
+   * mỗi lần gọi, để lưới sửa luôn khớp đúng dữ liệu đã validate gần nhất.
+   */
+  const runPreview = async (file: File) => {
+    setPreviewing(true);
+    setError(null);
+    try {
+      const res = examId
+        ? await previewExamQuestionImport(examId, file, defaultKind || undefined)
+        : bankId
+          ? await previewQuestionImport(bankId, file, defaultKind || undefined)
+          : (() => { throw new Error(t("common.missingExamOrBankContext")); })();
+      setResult(res);
+      setPendingFile(file);
+      setEditedRows(res.rowPreviews.map(rowPreviewToCells));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("questionImportPanel.previewFailed"));
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
   const handleFile = async (file: File | null) => {
     if (!file) return;
     const lower = file.name.toLowerCase();
@@ -254,23 +339,54 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
       setError(t("questionImportPanel.invalidFileType"));
       return;
     }
-    setSubmitting(true);
-    setError(null);
     setResult(null);
+    await runPreview(file);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const handleCellChange = (rowIdx: number, colIdx: number, value: string) => {
+    setEditedRows((prev) => prev.map((row, i) => (i === rowIdx ? row.map((c, j) => (j === colIdx ? value : c)) : row)));
+  };
+
+  /**
+   * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — dựng lại 1 file .xlsx TỪ editedRows (đã sửa
+   * tay trên lưới) bằng buildXlsxTemplateBlob (tự dựng OOXML, không parse — an toàn, không phải
+   * thư viện ngoài xử lý file người dùng), rồi gửi lại qua ĐÚNG pipeline preview để validate lại —
+   * không tự validate bằng JS (xem Javadoc QuestionImportRowPreview phía backend).
+   */
+  const handleRevalidate = async () => {
+    const headers = t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[];
+    const blob = buildXlsxTemplateBlob(headers, editedRows);
+    const regenerated = new File([blob], "xem-truoc-da-sua.xlsx", { type: blob.type });
+    await runPreview(regenerated);
+  };
+
+  /** Gửi lại ĐÚNG file đã xem trước để ghi DB thật (giống hệt logic preview — chỉ khác dryRun ở backend). */
+  const handleConfirm = async () => {
+    if (!pendingFile) return;
+    setConfirming(true);
+    setError(null);
     try {
       const res = examId
-        ? await importExamQuestions(examId, file, defaultKind || undefined)
+        ? await importExamQuestions(examId, pendingFile, defaultKind || undefined)
         : bankId
-          ? await importQuestions(bankId, file, defaultKind || undefined)
+          ? await importQuestions(bankId, pendingFile, defaultKind || undefined)
           : (() => { throw new Error(t("common.missingExamOrBankContext")); })();
       setResult(res);
+      setPendingFile(null);
       if (res.successRows > 0) onImported(res.createdQuestions);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("questionImportPanel.importFailed"));
     } finally {
-      setSubmitting(false);
-      if (inputRef.current) inputRef.current.value = "";
+      setConfirming(false);
     }
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setPendingFile(null);
+    setEditedRows([]);
+    setError(null);
   };
 
   return (
@@ -400,23 +516,31 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
         {downloadingTemplate ? t("common.loading") : t("questionImportPanel.downloadTemplate", { format })}
       </button>
 
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={submitting}
-        className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-8 text-slate-500 hover:border-brand-orange hover:bg-orange-50/30 transition-colors disabled:opacity-50"
-      >
-        <UploadCloud className="w-6 h-6 text-brand-orange" />
-        <span className="text-sm font-bold text-slate-700">
-          {submitting ? t("common.creating") : t("questionImportPanel.clickToChooseFile", { format })}
-        </span>
-      </button>
+      {!result && (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={previewing}
+          className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-8 text-slate-500 hover:border-brand-orange hover:bg-orange-50/30 transition-colors disabled:opacity-50"
+        >
+          <UploadCloud className="w-6 h-6 text-brand-orange" />
+          <span className="text-sm font-bold text-slate-700">
+            {previewing ? t("questionImportPanel.previewing") : t("questionImportPanel.clickToChooseFile", { format })}
+          </span>
+        </button>
+      )}
       <input ref={inputRef} type="file" accept=".xlsx,.docx" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
 
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {result && (
         <div className="space-y-3">
+          {isPreview && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[13px] font-semibold text-amber-800">
+              {t("questionImportPanel.previewNotice")}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-slate-50 border border-slate-100 rounded-lg py-2">
               <div className="text-sm font-bold text-slate-800">{result.totalRows ?? "—"}</div>
@@ -432,7 +556,67 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
             </div>
           </div>
 
-          {result.errorSummary.length > 0 && (
+          {isPreview && result.rowPreviews.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-bold text-slate-600 uppercase">{t("questionImportPanel.previewRowsTitle")}</span>
+                <Button type="button" variant="secondary" size="sm" onClick={handleRevalidate} disabled={previewing || confirming}>
+                  {previewing ? t("questionImportPanel.previewing") : t("questionImportPanel.revalidateButton")}
+                </Button>
+              </div>
+              {/*
+               * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — bảng dạng Excel sửa trực tiếp: mỗi
+               * input khớp 1 cột file mẫu (xem rowPreviewToCells), dòng lỗi tô đỏ + hiện lý do ngay dưới
+               * dòng đó. Sửa xong bấm "Kiểm tra lại" (handleRevalidate) để dựng lại file + validate lại
+               * qua ĐÚNG backend, không tự validate bằng JS.
+               */}
+              <div className="border border-slate-200 rounded-lg overflow-auto max-h-[480px]">
+                <table className="text-[13px] border-collapse w-max">
+                  <thead className="sticky top-0 bg-slate-50 z-10">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left font-bold text-slate-500 border-b border-slate-200 whitespace-nowrap">#</th>
+                      {(t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[]).map((h, i) => (
+                        <th key={i} className="px-2 py-1.5 text-left font-bold text-slate-500 border-b border-slate-200 whitespace-nowrap min-w-[140px]">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.rowPreviews.map((meta, rowIdx) => (
+                      <React.Fragment key={rowIdx}>
+                        <tr className={meta.valid ? "" : "bg-rose-50/60"}>
+                          <td className="px-2 py-1 border-b border-slate-100 font-mono text-slate-400 whitespace-nowrap">
+                            {meta.sheetLabel ? `${meta.sheetLabel} · ` : ""}
+                            {meta.rowNumber}
+                          </td>
+                          {(editedRows[rowIdx] ?? []).map((cellValue, colIdx) => (
+                            <td key={colIdx} className="p-0.5 border-b border-slate-100">
+                              <input
+                                value={cellValue}
+                                onChange={(e) => handleCellChange(rowIdx, colIdx, e.target.value)}
+                                className="w-36 px-1.5 py-1 text-[13px] border border-transparent rounded focus:border-brand-red focus:outline-none bg-transparent"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                        {!meta.valid && (
+                          <tr className="bg-rose-50/60">
+                            <td />
+                            <td colSpan={editedRows[rowIdx]?.length ?? 21} className="px-2 py-1 text-rose-600 text-[12px] font-semibold border-b border-rose-100">
+                              {meta.error}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {!isPreview && result.errorSummary.length > 0 && (
             <div className="border border-rose-100 rounded-lg overflow-hidden">
               <div className="bg-rose-50 px-3 py-1.5 text-[12px] font-bold text-rose-600 uppercase">{t("questionImportPanel.errorDetailTitle")}</div>
               <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
@@ -445,6 +629,17 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
               </div>
             </div>
           )}
+
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={handleReset} disabled={confirming}>
+              {isPreview ? t("questionImportPanel.chooseAnotherFile") : t("questionImportPanel.importAnotherFile")}
+            </Button>
+            {isPreview && (
+              <Button type="button" variant="primary" size="sm" onClick={handleConfirm} disabled={confirming || result.successRows === 0}>
+                {confirming ? t("questionImportPanel.confirming") : t("questionImportPanel.confirmSaveButton", { count: result.successRows })}
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

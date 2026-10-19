@@ -13,6 +13,9 @@ import vn.com.pps.education.lms.domain.ReviewVideoSet;
 import vn.com.pps.education.lms.repository.ExerciseAttemptRepository;
 import vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.lms.repository.ReviewVideoProgressRepository;
+import vn.com.pps.education.lms.repository.ReviewVideoConnectionAnswerRepository;
+import vn.com.pps.education.lms.repository.ReviewVideoConnectionQuestionRepository;
+import vn.com.pps.education.lms.domain.ReviewVideoConnectionAnswer;
 import vn.com.pps.education.lms.repository.ReviewVideoQuestionRepository;
 import vn.com.pps.education.lms.repository.ReviewVideoRepository;
 
@@ -38,6 +41,8 @@ public class HomeworkProgressService {
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
     private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
+    private final ReviewVideoConnectionQuestionRepository reviewVideoConnectionQuestionRepository;
+    private final ReviewVideoConnectionAnswerRepository reviewVideoConnectionAnswerRepository;
 
     /** Nhãn "BTVN buổi trước" khi học sinh chưa có lượt làm nào — dùng chung cho Nhận xét hàng ngày và báo cáo ngày (UC-68). */
     public static final String NOT_DONE_LABEL = "Chưa làm bài";
@@ -46,12 +51,16 @@ public class HomeworkProgressService {
                                     ReviewVideoRepository reviewVideoRepository,
                                     ReviewVideoProgressRepository reviewVideoProgressRepository,
                                     ReviewVideoQuestionRepository reviewVideoQuestionRepository,
-                                    ReflexQuestionProgressRepository reflexQuestionProgressRepository) {
+                                    ReflexQuestionProgressRepository reflexQuestionProgressRepository,
+                                    ReviewVideoConnectionQuestionRepository reviewVideoConnectionQuestionRepository,
+                                    ReviewVideoConnectionAnswerRepository reviewVideoConnectionAnswerRepository) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
         this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
+        this.reviewVideoConnectionQuestionRepository = reviewVideoConnectionQuestionRepository;
+        this.reviewVideoConnectionAnswerRepository = reviewVideoConnectionAnswerRepository;
     }
 
     /**
@@ -221,6 +230,20 @@ public class HomeworkProgressService {
         return !attempts.isEmpty() && Boolean.TRUE.equals(attempts.get(0).getPassed());
     }
 
+    /** Điểm trắc nghiệm gộp CONNECTION ≥ completionThresholdPercent — câu trả lời MỚI NHẤT mỗi câu hỏi / tổng số câu của video. */
+    private boolean connectionScorePassed(ReviewVideo video, Long studentId) {
+        int totalQuestions = reviewVideoConnectionQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(video.getId()).size();
+        if (totalQuestions == 0) {
+            return true;
+        }
+        Map<Long, ReviewVideoConnectionAnswer> latestByQuestion = reviewVideoConnectionAnswerRepository
+                .findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentIdAndWatchSession_ArchivedAtIsNull(video.getId(), studentId).stream()
+                .collect(Collectors.toMap(a -> a.getReviewVideoConnectionQuestion().getId(), a -> a,
+                        (a, b) -> a.getAnsweredAt().isAfter(b.getAnsweredAt()) ? a : b));
+        long correct = latestByQuestion.values().stream().filter(ReviewVideoConnectionAnswer::isCorrect).count();
+        return correct * 100.0 / totalQuestions >= video.getCompletionThresholdPercent();
+    }
+
     /**
      * "Đạt" BTVN Video ôn tập — bổ sung ngoài SDD gốc, đã xác nhận với
      * người dùng 2026-08-06, dùng cho HomeworkAlertTrackingService.
@@ -242,9 +265,12 @@ public class HomeworkProgressService {
             return false;
         }
         if (set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION) {
+            // 2026-10-16 — "hoàn thành" CONNECTION không còn ngầm hiểu là đã đạt (lượt làm sai vẫn tính hoàn
+            // thành): đạt = hoàn thành VÀ điểm trắc nghiệm gộp ≥ ngưỡng % pass (mirror ReviewVideoService#isConnectionVideoPassed).
             return videos.stream().allMatch(v -> reviewVideoProgressRepository
                     .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentId(v.getId(), studentId, assignment.getId())
-                    .map(ReviewVideoProgress::isCompleted).orElse(false));
+                    .map(ReviewVideoProgress::isCompleted).orElse(false)
+                    && connectionScorePassed(v, studentId));
         }
         String label = videoProgressLabel(assignment, studentId);
         if (label == null || !label.endsWith("%")) {
