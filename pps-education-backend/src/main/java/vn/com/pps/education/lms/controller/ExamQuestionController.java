@@ -83,6 +83,19 @@ public class ExamQuestionController {
         return ResponseEntity.ok(examQuestionService.importQuestions(examId, file, actor.userId(), defaultKind));
     }
 
+    /**
+     * Bổ sung 2026-10-19 (đã xác nhận với người dùng khi review UX import) — xem trước TRƯỚC KHI
+     * ghi DB, mirror QuestionImportController#previewImport cho luồng Đề.
+     */
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
+    @PostMapping(value = "/api/exams/{examId}/questions/import/preview", consumes = "multipart/form-data")
+    public ResponseEntity<QuestionImportResponse> previewImport(@PathVariable Long examId,
+                                                                   @RequestParam("file") MultipartFile file,
+                                                                   @RequestParam(required = false) String defaultKind,
+                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examQuestionService.previewImport(examId, file, actor.userId(), defaultKind));
+    }
+
     @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
     @GetMapping("/api/exams/question-imports/template.docx")
     public ResponseEntity<byte[]> downloadWordTemplate(@RequestParam(required = false) String skillCategory,

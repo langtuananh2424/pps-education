@@ -1,6 +1,7 @@
 package vn.com.pps.education.lms.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -9,11 +10,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.lms.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.lms.dto.CreateQuestionRequest;
 import vn.com.pps.education.lms.dto.QuestionBankResponse;
 import vn.com.pps.education.lms.dto.QuestionResponse;
+import vn.com.pps.education.lms.dto.QuestionSearchItemResponse;
 import vn.com.pps.education.lms.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.lms.dto.UpdateQuestionRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -71,6 +74,23 @@ public class QuestionBankController {
     @GetMapping("/api/question-banks/{bankId}/questions")
     public ResponseEntity<List<QuestionResponse>> listQuestions(@PathVariable Long bankId) {
         return ResponseEntity.ok(questionBankService.listQuestions(bankId));
+    }
+
+    /**
+     * Trang "Ngân hàng câu hỏi" (lọc + phân trang xuyên mọi khung chương trình/ngân hàng) — bổ
+     * sung 2026-10-19, đã xác nhận với người dùng khi review hiệu năng, thay cho cách FE cũ tự
+     * tải toàn bộ rồi lọc/phân trang phía client. Xem Javadoc QuestionBankService#searchQuestions.
+     */
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.view')")
+    @GetMapping("/api/questions/search")
+    public ResponseEntity<Page<QuestionSearchItemResponse>> searchQuestions(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String questionType,
+            @RequestParam(required = false) String difficulty,
+            @RequestParam(required = false) String level,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(questionBankService.searchQuestions(search, questionType, difficulty, level, page, size));
     }
 
     /**

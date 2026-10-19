@@ -237,7 +237,15 @@
     "totalRows": "Tổng số dòng",
     "successRows": "Thành công",
     "failedRows": "Lỗi",
-    "errorDetailTitle": "Chi tiết lỗi từng dòng/block"
+    "errorDetailTitle": "Chi tiết lỗi từng dòng/block",
+    "previewing": "Đang xem trước...",
+    "previewFailed": "Xem trước thất bại.",
+    "previewNotice": "Đây là bản XEM TRƯỚC — CHƯA lưu vào hệ thống. Kiểm tra kỹ nội dung/lỗi dưới đây rồi mới bấm \"Xác nhận lưu\".",
+    "previewRowsTitle": "Các câu sẽ được tạo",
+    "confirmSaveButton": "Xác nhận lưu {{count}} câu hỏi",
+    "confirming": "Đang lưu...",
+    "chooseAnotherFile": "Chọn file khác",
+    "importAnotherFile": "Nhập file khác"
   },
   "gridQuestionBuilder": {
     "passagesSectionTitle": "Các đoạn văn ngắn (mỗi đoạn 1 nhân vật/lựa chọn)",

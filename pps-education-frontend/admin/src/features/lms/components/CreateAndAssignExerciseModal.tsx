@@ -555,7 +555,9 @@ export function ExerciseQuestionsStep({
       const newlyAttached: AttachedQuestion[] = [];
       for (const q of createdQuestions) {
         order += 1;
-        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points: q.defaultPoints });
+        // onImported chỉ được QuestionImportPanel gọi SAU khi xác nhận lưu thật (id luôn có) — id chỉ
+        // null ở bước xem trước (preview), không đi qua đường này. Xem QuestionImportPanel.tsx.
+        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id!, displayOrder: order, points: q.defaultPoints });
         newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
