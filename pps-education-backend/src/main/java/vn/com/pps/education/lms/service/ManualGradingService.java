@@ -79,12 +79,21 @@ public class ManualGradingService {
         // saveAndFlush bắt buộc — nếu chỉ save(), Hibernate có thể flush INSERT bản ghi
         // mới trước UPDATE bản cũ (thứ tự flush mặc định: insert trước update), vi phạm
         // tạm thời unique partial index idx_student_answer_grading_current (is_final=TRUE).
-        studentAnswerGradingRepository.findByStudentAnswerIdAndLatestIsTrue(studentAnswerId).ifPresent(previous -> {
+        // Chấm lần 2 (2026-10-19): GV chấm đè bản AI — giữ lại phần đánh dấu lỗi trên bài viết (markedAnswer) của
+        // AI để học sinh vẫn thấy lỗi bị bôi dấu; điểm + nhận xét + điểm tiêu chí/Key Grammar là của AI nên KHÔNG mang theo.
+        String carriedMarkedAnswer = null;
+        var previousGrading = studentAnswerGradingRepository.findByStudentAnswerIdAndLatestIsTrue(studentAnswerId);
+        if (previousGrading.isPresent()) {
+            StudentAnswerGrading previous = previousGrading.get();
+            if (previous.getGradingSource() == StudentAnswerGrading.GradingSource.AI) {
+                carriedMarkedAnswer = previous.getMarkedAnswer();
+            }
             previous.setLatest(false);
             studentAnswerGradingRepository.saveAndFlush(previous);
-        });
+        }
 
         StudentAnswerGrading grading = new StudentAnswerGrading();
+        grading.setMarkedAnswer(carriedMarkedAnswer);
         grading.setStudentAnswer(answer);
         grading.setGrader(actor);
         grading.setScore(request.score());

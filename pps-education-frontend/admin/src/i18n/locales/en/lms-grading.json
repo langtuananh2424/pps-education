@@ -32,12 +32,44 @@
       "saveFailed": "Failed to save the grade — please try again."
     }
   },
+  "aiSecondGrading": {
+    "intro": "Submissions graded by AI (Reflex Video writing/speaking steps and Writing exercises). If the AI score looks wrong, grade it again — your score replaces the AI score for the student, and the original AI score is kept for comparison.",
+    "itemType": {
+      "REFLEX_WRITING": "Reflex Video — Writing step",
+      "REFLEX_SPEAKING": "Reflex Video — Speaking step",
+      "ESSAY": "Writing exercise"
+    },
+    "awaitingBadge": "AI graded — awaiting teacher review",
+    "reviewedBadge": "Re-graded by teacher",
+    "answerLabel": "Student's answer",
+    "transcriptLabel": "Student's speech (transcript)",
+    "aiResultLabel": "AI grade",
+    "teacherResultLabel": "Teacher re-grade",
+    "gradedAt": "At {{time}}",
+    "scoreLabel": "Teacher score (0 - {{max}})",
+    "feedbackLabel": "Teacher feedback (optional)",
+    "feedbackPlaceholder": "Feedback (optional)...",
+    "saveButton": "Save",
+    "updateButton": "Update",
+    "saving": "Saving...",
+    "includeReviewed": "Show re-graded submissions too",
+    "loadingClasses": "Loading classes...",
+    "loadingItems": "Loading AI-graded submissions...",
+    "emptyClasses": "No classes have AI-graded submissions yet.",
+    "emptyItems": "Nothing to review.",
+    "errors": {
+      "loadClassesFailed": "Failed to load the list of classes.",
+      "loadItemsFailed": "Failed to load AI-graded submissions.",
+      "saveFailed": "Failed to save the grade — please try again."
+    }
+  },
   "examsPage": {
     "title": "LMS Materials & Assessment (E-Learning)",
     "subtitle": "Grade Reflex Video submissions (UC-23b) — listen to students' audio answers, score them, and leave feedback.",
     "note": "Grading essay/speaking answers for Exercises assigned by Vietnamese teachers (UC-24/27) isn't implemented here yet — it will be added separately.",
     "tabs": {
       "queue": "Grading Queue",
+      "aiReview": "AI-graded — Second grading",
       "legacy": "View by Set + Class"
     },
     "toasts": {
