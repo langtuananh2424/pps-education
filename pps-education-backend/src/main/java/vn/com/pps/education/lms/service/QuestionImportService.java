@@ -757,6 +757,7 @@ public class QuestionImportService {
         String previousPassage = null;
         String previousAudio = null;
         String previousImage = null;
+        String previousInstruction = null;
         List<QuestionRowParser.ParsedQuestionRow> currentRun = new ArrayList<>();
         for (QuestionRowParser.ParsedQuestionRow row : rows) {
             String kind;
@@ -768,27 +769,39 @@ public class QuestionImportService {
                 previousPassage = null;
                 previousAudio = null;
                 previousImage = null;
+                previousInstruction = null;
                 continue;
             }
             boolean isChoiceBased = kind.equals("TRAC_NGHIEM") || kind.equals("TRAC_NGHIEM_VOICE");
             String passage = isChoiceBased ? blankToNull(row.referencePassage()) : null;
             String audio = AUDIO_GROUPABLE_KINDS.contains(kind) ? blankToNull(row.audioUrl()) : null;
             String image = IMAGE_GROUPABLE_KINDS.contains(kind) ? blankToNull(row.imageUrl()) : null;
+            // Bổ sung 2026-10-20 (đã xác nhận với người dùng) — kênh gộp nhóm THỨ 4: nhiều dòng LIÊN
+            // TIẾP cùng điền Y HỆT 1 nội dung "Hướng dẫn" (VD "Part A: Circle the correct option...") tự
+            // gộp 1 groupKey, hiện dòng hướng dẫn đó 1 LẦN DUY NHẤT ở đầu nhóm thay vì lặp lại trước mỗi
+            // câu — dùng cho bài "N câu độc lập, không chung đoạn văn/audio/ảnh, chỉ chung 1 chỉ dẫn đề
+            // bài" (VD Cambridge/IELTS "Part A" gồm nhiều câu trắc nghiệm ngữ pháp rời rạc). KHÔNG giới
+            // hạn theo kind (khác 3 kênh trên) vì mọi kind giờ đều đọc được cột "Hướng dẫn" (xem fix gap
+            // 2026-10-20 ở mapToRequest) — áp dụng đều, kể cả MIX nhiều kind khác nhau trong cùng 1 nhóm
+            // (FE GridQuestionRowPreview/GridQuestionRow đã tự rẽ nhánh hiển thị theo từng questionType).
+            String instruction = blankToNull(row.instruction());
             boolean continuesRun = (passage != null && passage.equals(previousPassage))
                     || (audio != null && audio.equals(previousAudio))
-                    || (image != null && image.equals(previousImage));
+                    || (image != null && image.equals(previousImage))
+                    || (instruction != null && instruction.equals(previousInstruction));
             if (continuesRun) {
                 currentRun.add(row);
             } else {
                 flushGroupRun(result, currentRun);
                 currentRun = new ArrayList<>();
-                if (passage != null || audio != null || image != null) {
+                if (passage != null || audio != null || image != null || instruction != null) {
                     currentRun.add(row);
                 }
             }
             previousPassage = passage;
             previousAudio = audio;
             previousImage = image;
+            previousInstruction = instruction;
         }
         flushGroupRun(result, currentRun);
         return result;
