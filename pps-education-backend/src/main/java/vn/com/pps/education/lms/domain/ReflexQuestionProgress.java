@@ -1,5 +1,6 @@
 package vn.com.pps.education.lms.domain;
 
+import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.student.domain.Student;
 
 import jakarta.persistence.*;
@@ -180,4 +181,53 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "speaking_audit", columnDefinition = "jsonb")
     private Map<String, Object> speakingAudit;
+
+    /**
+     * V216 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19) — "Chấm lần 2": khi giáo viên chấm
+     * lại bước Viết, điểm/nhận xét của GV ghi thẳng vào {@link #writingScore}/{@link #writingFeedback} (mọi
+     * chỗ đọc điểm tự dùng điểm GV), còn điểm/nhận xét gốc của AI được giữ ở 2 cột này. {@code writingReviewedAt
+     * != null} = bước này đã được GV chấm lại; học sinh nộp lại bước này thì các cột review bị xoá.
+     */
+    @Column(name = "writing_ai_score", precision = 5, scale = 2)
+    private BigDecimal writingAiScore;
+
+    @Column(name = "writing_ai_feedback", columnDefinition = "TEXT")
+    private String writingAiFeedback;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "writing_reviewed_by")
+    private User writingReviewedBy;
+
+    @Column(name = "writing_reviewed_at")
+    private OffsetDateTime writingReviewedAt;
+
+    /** V216 — như {@link #writingAiScore}, cho bước Nói. */
+    @Column(name = "speaking_ai_score", precision = 5, scale = 2)
+    private BigDecimal speakingAiScore;
+
+    @Column(name = "speaking_ai_feedback", columnDefinition = "TEXT")
+    private String speakingAiFeedback;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "speaking_reviewed_by")
+    private User speakingReviewedBy;
+
+    @Column(name = "speaking_reviewed_at")
+    private OffsetDateTime speakingReviewedAt;
+
+    /** V216 — nộp lại bước Viết: AI chấm mới thay điểm GV cũ, xoá dấu "đã chấm lại". */
+    public void clearWritingReview() {
+        writingAiScore = null;
+        writingAiFeedback = null;
+        writingReviewedBy = null;
+        writingReviewedAt = null;
+    }
+
+    /** V216 — nộp lại bước Nói, xem {@link #clearWritingReview}. */
+    public void clearSpeakingReview() {
+        speakingAiScore = null;
+        speakingAiFeedback = null;
+        speakingReviewedBy = null;
+        speakingReviewedAt = null;
+    }
 }

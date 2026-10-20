@@ -288,6 +288,7 @@ public class ReflexSequentialGradingService {
      * gọn vì sao chưa tốt" (cổng chặn HOẶC AI chấm lỗi), không phải feedback 7 mục dài dòng như trước V181.
      */
     private void applyWritingResult(ReflexQuestionProgress progress, ReflexWritingGrammarAiGradingService.GradeResult result) {
+        progress.clearWritingReview();
         if (result != null) {
             progress.setWritingScore(BigDecimal.valueOf(result.scorePercent()));
             progress.setWritingMaxScore(HUNDRED);
@@ -361,6 +362,7 @@ public class ReflexSequentialGradingService {
      */
     private void applyWritingResultV2(ReflexQuestionProgress progress, ReflexV2AiGradingService.WritingResult result,
                                       ReviewVideoQuestion question, ReflexV2Task task) {
+        progress.clearWritingReview();
         progress.setRubricVersion(task.rubricVersion());
         if (result == null) {
             progress.setWritingScore(null);
@@ -408,6 +410,7 @@ public class ReflexSequentialGradingService {
      * {@link ReflexV2AiGradingService}); điểm cuối gồm Phát âm nằm trong {@code speakingAudit}.
      */
     private void applySpeakingResultV2(ReflexQuestionProgress progress, ReflexV2AiGradingService.SpeakingResult result) {
+        progress.clearSpeakingReview();
         if (result == null) {
             progress.setSpeakingScore(null);
             progress.setSpeakingMaxScore(null);
@@ -430,6 +433,7 @@ public class ReflexSequentialGradingService {
     }
 
     private void applySpeakingResult(ReflexQuestionProgress progress, ReflexSpeakingContentAiGradingService.GradeResult result) {
+        progress.clearSpeakingReview();
         if (result != null) {
             progress.setSpeakingScore(BigDecimal.valueOf(result.scorePercent()));
             progress.setSpeakingMaxScore(HUNDRED);
