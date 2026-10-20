@@ -10,7 +10,7 @@ import { APIRequestContext, expect } from "@playwright/test";
  * Tài khoản demo cố định (DevUserSeeder, password DEV_PASSWORD) — xem
  * pps-education-backend/.../config/DevUserSeeder.java. Không đoán mật khẩu tài khoản khác.
  */
-export const BACKEND_URL = "http://localhost:8080";
+export const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:8080";
 export const DEV_PASSWORD = "Dev@123456";
 
 export async function login(request: APIRequestContext, usernameOrEmail: string, password = DEV_PASSWORD): Promise<string> {
