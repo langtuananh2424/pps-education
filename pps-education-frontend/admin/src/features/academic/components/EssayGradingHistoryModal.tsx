@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Flag, Pencil, Save, UserCheck } from "lucide-react";
+import { Flag, Pencil, Save } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/i18nFormat";
 import Modal from "@/components/ui/Modal";
@@ -233,11 +233,6 @@ function EssayVersionRow({
           ) : (
             <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
               {t(`${keyPrefix}.notCountedBadge`)}
-            </span>
-          )}
-          {!isAi && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-100 rounded-full px-2 py-0.5">
-              <UserCheck className="w-3 h-3" /> {version.graderName}
             </span>
           )}
         </span>

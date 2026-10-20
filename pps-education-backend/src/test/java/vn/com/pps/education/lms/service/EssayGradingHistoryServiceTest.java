@@ -118,7 +118,7 @@ class EssayGradingHistoryServiceTest {
     }
 
     @Test
-    void getStudentEssayHistory_aiThenTeacher_returnsBothVersionsWithOfficialFlagOnTeacherVersion() {
+    void getStudentEssayHistory_UC41_MainFlow_returnsBothVersionsWithOfficialFlagOnTeacherVersion() {
         givenAttemptAndQuestionOrder();
         StudentAnswer answer = essayAnswer(100L);
         when(studentAnswerRepository.findByExerciseAttemptIdIn(any())).thenReturn(List.of(answer));
@@ -146,7 +146,7 @@ class EssayGradingHistoryServiceTest {
     }
 
     @Test
-    void getStudentEssayHistory_humanOnlyAnswer_isExcluded() {
+    void getStudentEssayHistory_UC41_A1_excludesHumanOnlyAnswer() {
         givenAttemptAndQuestionOrder();
         StudentAnswer answer = essayAnswer(100L);
         when(studentAnswerRepository.findByExerciseAttemptIdIn(any())).thenReturn(List.of(answer));
@@ -158,7 +158,7 @@ class EssayGradingHistoryServiceTest {
     }
 
     @Test
-    void getStudentEssayHistory_autoGradableAnswer_isIgnored() {
+    void getStudentEssayHistory_UC41_A2_ignoresAutoGradableAnswer() {
         givenAttemptAndQuestionOrder();
         StudentAnswer mcq = essayAnswer(100L);
         mcq.setAutoGradable(true);
@@ -168,7 +168,7 @@ class EssayGradingHistoryServiceTest {
     }
 
     @Test
-    void getStudentEssayHistory_noAttempt_returnsEmpty() {
+    void getStudentEssayHistory_UC41_A3_returnsEmptyWhenNoAttempt() {
         when(exerciseAssignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.of(assignment));
         when(exerciseAttemptRepository.findByExerciseAssignmentIdAndStudentIdOrderByAttemptNumberDesc(ASSIGNMENT_ID, STUDENT_ID))
                 .thenReturn(List.of());
@@ -177,7 +177,7 @@ class EssayGradingHistoryServiceTest {
     }
 
     @Test
-    void getStudentEssayHistory_teacherNotInClass_isRejected() {
+    void getStudentEssayHistory_UC41_A4_rejectsTeacherNotInClass() {
         when(exerciseAssignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.of(assignment));
         doThrow(new NotAssignedTeacherForClassException("error.notAssignedTeacherForClass.default", new Object[]{}, "no"))
                 .when(aiSecondGradingService).requireAssignedTeacher(CLASS_ID, ACTOR_ID);
@@ -187,7 +187,7 @@ class EssayGradingHistoryServiceTest {
     }
 
     @Test
-    void getStudentEssayHistory_unknownAssignment_throwsNotFound() {
+    void getStudentEssayHistory_UC41_A5_throwsNotFoundForUnknownAssignment() {
         when(exerciseAssignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getStudentEssayHistory(ASSIGNMENT_ID, STUDENT_ID, ACTOR_ID))
