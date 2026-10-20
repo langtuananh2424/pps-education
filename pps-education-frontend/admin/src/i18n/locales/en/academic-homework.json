@@ -159,6 +159,32 @@
           "loadFailed": "Failed to load the violation summary."
         }
       },
+      "essayHistory": {
+        "openButton": "AI grading history",
+        "title": "AI grading history — {{studentName}}",
+        "loading": "Loading...",
+        "loadFailed": "Could not load the AI grading history.",
+        "officialHint": "The official score of each question is the current grading (flagged). If the AI graded it wrong, the teacher adjusts the score there — the original AI grading becomes \"Not counted\" and is kept for comparison.",
+        "questionLabel": "Question {{order}}: {{prompt}}",
+        "attemptLabel": "Attempt #{{number}}",
+        "answerLabel": "Student's answer",
+        "aiLabel": "AI graded",
+        "teacherLabel": "Teacher graded",
+        "officialBadge": "Official score",
+        "notCountedBadge": "Not counted",
+        "score": "Score: {{score}}/{{maxScore}}",
+        "gradedBy": "{{name}} — {{time}}",
+        "feedbackLabel": "Feedback",
+        "criteriaLabel": "Criteria breakdown",
+        "aiOriginalScore": "(AI graded: {{score}})",
+        "edit": "Adjust score",
+        "scoreLabel": "Score (0 - {{max}})",
+        "feedbackPlaceholder": "Teacher feedback (optional) — shown to the student instead of the AI feedback...",
+        "save": "Save score",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "saveFailed": "Could not save the score — try again."
+      },
       "answerHistory": {
         "title": "Question answer history",
         "attemptSuffix": " — Attempt #{{number}}",
@@ -231,7 +257,34 @@
       "recordingFiltered": "Recording: filtered",
       "recordingRaw": "Recording: raw",
       "grammarReviewTitle": "Teacher review needed for the Grammar score",
-      "grammarReviewBody": "This recording has 2 or more red grammar errors, so the Grammar score was lowered. The AI transcribes only once and may mishear — listen to these parts before confirming the score:"
+      "grammarReviewBody": "This recording has 2 or more red grammar errors, so the Grammar score was lowered. The AI transcribes only once and may mishear — listen to these parts before confirming the score:",
+      "officialHint": "The official score of each step is the latest attempt by default (flagged); a teacher can pick the best writing/speaking attempt as the official result. If the AI grade looks wrong, a teacher can edit the score on that attempt — the original AI score is kept for comparison.",
+      "column": {
+        "writing": "Writing step",
+        "speaking": "Recording step"
+      },
+      "select": {
+        "button": "Use this attempt as the official result",
+        "selecting": "Selecting...",
+        "chosenBadge": "Teacher pick",
+        "failed": "Could not select this attempt — try again."
+      },
+      "noAttemptYet": "No attempts yet.",
+      "officialBadge": "Official score",
+      "notCountedBadge": "Not counted",
+      "reviewedBadge": "Edited by teacher",
+      "aiOriginalScore": "(AI graded: {{score}})",
+      "aiOriginalFeedbackLabel": "Original AI feedback",
+      "reviewedBy": "Re-graded by {{name}} at {{time}}",
+      "review": {
+        "edit": "Edit score",
+        "scoreLabel": "Score (0 - {{max}})",
+        "feedbackPlaceholder": "Teacher feedback (optional) — shown to the student instead of the AI feedback...",
+        "save": "Save score",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "saveFailed": "Failed to save the score — please try again."
+      }
     },
     "connectionHistoryModal": {
       "title": "Attempt details — {{studentName}}",

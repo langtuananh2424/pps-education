@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, ShieldAlert, XCircle } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, Flag, Pencil, Save, ShieldAlert, Star, UserCheck, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
@@ -16,6 +16,8 @@ import {
   getReflexStudentHistory,
   getReviewVideoAssignmentQuestionStats,
   getReviewVideoAssignmentStudentStats,
+  reviewReflexStep,
+  selectReflexAttempt,
   updateReviewVideoAssignmentLateSubmissionAllowed
 } from "@/features/lms/api";
 import Card from "@/components/ui/Card";
@@ -62,6 +64,8 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
   const [viewingStudent, setViewingStudent] = useState<{ id: number; name: string } | null>(null);
   const [exportingReflexData, setExportingReflexData] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  // Tăng khi giáo viên chấm lại điểm trong popup lịch sử — nạp lại bảng thống kê để Điểm TB/Kết quả cập nhật ngay.
+  const [statsReloadKey, setStatsReloadKey] = useState(0);
 
   const numAssignmentId = assignmentId ? parseInt(assignmentId, 10) : null;
   const isConnection = studentStats?.assignment.videoType === "CONNECTION";
@@ -142,7 +146,8 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
 
   useEffect(() => {
     if (!numAssignmentId) return;
-    setLoading(true);
+    // Nạp lại sau khi chấm lại điểm (statsReloadKey > 0) thì không bật spinner để bảng/popup không nháy.
+    if (statsReloadKey === 0) setLoading(true);
     setError(null);
     getReviewVideoAssignmentStudentStats(numAssignmentId)
       .then((res) => {
@@ -153,7 +158,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed")))
       .finally(() => setLoading(false));
-  }, [numAssignmentId]);
+  }, [numAssignmentId, statsReloadKey]);
 
   useEffect(() => {
     if (tab !== "questions" || questionStats || !numAssignmentId || !isConnection) return;
@@ -468,6 +473,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
           studentId={viewingStudent.id}
           studentName={viewingStudent.name}
           onClose={() => setViewingStudent(null)}
+          onChanged={() => setStatsReloadKey((k) => k + 1)}
         />
       )}
     </div>
@@ -567,47 +573,73 @@ function ConnectionStudentHistoryModal({
 
 /**
  * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — UC-23b (Video phản xạ): nghe lại
- * audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh, gom theo câu hỏi (viết trước, ghi âm
- * sau, mới nhất lên trên trong mỗi loại).
+ * audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh, gom theo câu hỏi, mỗi câu 2 cột Viết | Ghi âm
+ * (mới nhất lên trên).
+ *
+ * Chấm lần 2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19): điểm CHÍNH THỨC của mỗi bước luôn là
+ * lần nộp mới nhất (cờ "Điểm chính thức") — giáo viên chỉnh điểm + nhận xét ngay trên lần đó nếu thấy AI chấm
+ * chưa đúng; điểm AI gốc vẫn được hiển thị để đối chiếu. Các lần cũ chỉ để xem lại, không tính điểm.
  */
 function ReflexStudentHistoryModal({
   assignmentId,
   studentId,
   studentName,
-  onClose
+  onClose,
+  onChanged
 }: {
   assignmentId: number;
   studentId: number;
   studentName: string;
   onClose: () => void;
+  onChanged: () => void;
 }) {
   const { t, i18n } = useTranslation("academic-homework");
   const [entries, setEntries] = useState<ReflexQuestionProgressHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
+  const load = (showSpinner: boolean) => {
+    if (showSpinner) setLoading(true);
     setLoadError(null);
     getReflexStudentHistory(assignmentId, studentId)
       .then(setEntries)
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("reviewVideoDetail.reflexHistoryModal.loadFailed")))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId, studentId]);
 
   const questionGroups = React.useMemo(() => {
-    const byQuestion = new Map<number, { order: number; prompt: string; entries: ReflexQuestionProgressHistoryEntry[] }>();
+    const byQuestion = new Map<
+      number,
+      { order: number; prompt: string; writing: ReflexQuestionProgressHistoryEntry[]; speaking: ReflexQuestionProgressHistoryEntry[] }
+    >();
     for (const e of entries) {
-      const group = byQuestion.get(e.questionId) ?? { order: e.questionDisplayOrder, prompt: e.questionPrompt, entries: [] };
-      group.entries.push(e);
+      const group = byQuestion.get(e.questionId) ?? { order: e.questionDisplayOrder, prompt: e.questionPrompt, writing: [], speaking: [] };
+      (e.attemptType === "SPEAKING" ? group.speaking : group.writing).push(e);
       byQuestion.set(e.questionId, group);
     }
-    return [...byQuestion.values()].sort((a, b) => a.order - b.order);
+    const newestFirst = (a: ReflexQuestionProgressHistoryEntry, b: ReflexQuestionProgressHistoryEntry) => b.attemptNumber - a.attemptNumber;
+    return [...byQuestion.values()]
+      .map((g) => ({ ...g, writing: g.writing.sort(newestFirst), speaking: g.speaking.sort(newestFirst) }))
+      .sort((a, b) => a.order - b.order);
   }, [entries]);
 
+  const handleSaved = () => {
+    load(false);
+    onChanged();
+  };
+
   return (
-    <Modal open onClose={onClose} title={t("reviewVideoDetail.reflexHistoryModal.title", { studentName })}>
-      <div className="max-h-[70vh] overflow-y-auto space-y-4">
+    <Modal open onClose={onClose} size="xl" title={t("reviewVideoDetail.reflexHistoryModal.title", { studentName })}>
+      <div className="max-h-[78vh] overflow-y-auto space-y-4 pr-1">
+        <p className="text-[13px] text-slate-500 flex items-center gap-1.5">
+          <Flag className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          {t("reviewVideoDetail.reflexHistoryModal.officialHint")}
+        </p>
         {loading ? (
           <p className="text-sm text-slate-500">{t("reviewVideoDetail.reflexHistoryModal.loading")}</p>
         ) : loadError ? (
@@ -616,17 +648,33 @@ function ReflexStudentHistoryModal({
           <p className="text-sm text-slate-400 italic">{t("reviewVideoDetail.reflexHistoryModal.empty")}</p>
         ) : (
           questionGroups.map((group) => (
-            <div key={group.order} className="border border-slate-200 rounded-lg p-3 space-y-2">
+            <div key={group.order} className="border border-slate-200 rounded-lg p-3 space-y-3">
               <p className="text-sm font-semibold text-slate-700">
                 {t("reviewVideoDetail.reflexHistoryModal.questionLabel", { order: group.order, prompt: group.prompt })}
               </p>
-              <div className="space-y-2">
-                {[...group.entries]
-                  .sort((a, b) => (a.gradedAt ?? "").localeCompare(b.gradedAt ?? ""))
-                  .reverse()
-                  .map((entry, idx) => (
-                    <ReflexHistoryEntryRow key={`${entry.attemptType}-${entry.attemptNumber}-${idx}`} entry={entry} language={i18n.language} />
-                  ))}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {([
+                  ["writing", group.writing],
+                  ["speaking", group.speaking]
+                ] as const).map(([kind, list]) => (
+                  <div key={kind} className="space-y-2 min-w-0">
+                    <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">
+                      {t(`reviewVideoDetail.reflexHistoryModal.column.${kind}`)}
+                    </p>
+                    {list.length === 0 ? (
+                      <p className="text-[13px] text-slate-400 italic">{t("reviewVideoDetail.reflexHistoryModal.noAttemptYet")}</p>
+                    ) : (
+                      list.map((entry) => (
+                        <ReflexHistoryEntryRow
+                          key={`${entry.attemptType}-${entry.attemptNumber}`}
+                          entry={entry}
+                          language={i18n.language}
+                          onSaved={handleSaved}
+                        />
+                      ))
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           ))
@@ -636,24 +684,140 @@ function ReflexStudentHistoryModal({
   );
 }
 
-function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgressHistoryEntry; language: string }) {
+/** Hiển thị văn bản AI đã đánh dấu lỗi bằng {{err}}...{{/err}} — đoạn lỗi được bôi nền đỏ nhạt + gạch chân. */
+function MarkedText({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  const pattern = /\{\{err\}\}([\s\S]*?)\{\{\/err\}\}/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    parts.push(
+      <mark key={match.index} className="bg-rose-100 text-rose-700 rounded px-0.5 underline decoration-rose-400">
+        {match[1]}
+      </mark>
+    );
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <span className="whitespace-pre-wrap">{parts}</span>;
+}
+
+function ReflexHistoryEntryRow({
+  entry,
+  language,
+  onSaved
+}: {
+  entry: ReflexQuestionProgressHistoryEntry;
+  language: string;
+  onSaved: () => void;
+}) {
   const { t } = useTranslation("academic-homework");
   const isSpeaking = entry.attemptType === "SPEAKING";
+  const canEdit = entry.official && entry.progressId != null && entry.score != null;
+  const [editing, setEditing] = useState(false);
+  const [score, setScore] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const startEditing = () => {
+    setScore(entry.score != null ? String(entry.score) : "");
+    setFeedback(entry.feedback ?? "");
+    setSaveError(null);
+    setEditing(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (entry.progressId == null) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await reviewReflexStep(entry.progressId, entry.attemptType, {
+        score: parseFloat(score),
+        feedback: feedback.trim() ? feedback.trim() : undefined
+      });
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : t("reviewVideoDetail.reflexHistoryModal.review.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const markedText = isSpeaking ? entry.transcript : entry.markedAnswer ?? entry.answerText;
+
+  // V217 — chọn lần cũ (chưa là điểm chính thức) làm kết quả chính thức của bước.
+  const canSelect = !entry.official && entry.progressId != null && entry.score != null;
+  const [selecting, setSelecting] = useState(false);
+  const [selectError, setSelectError] = useState<string | null>(null);
+  const handleSelect = async () => {
+    if (entry.progressId == null) return;
+    setSelecting(true);
+    setSelectError(null);
+    try {
+      await selectReflexAttempt(entry.progressId, entry.attemptType, entry.attemptNumber);
+      onSaved();
+    } catch (err) {
+      setSelectError(err instanceof ApiError ? err.message : t("reviewVideoDetail.reflexHistoryModal.select.failed"));
+    } finally {
+      setSelecting(false);
+    }
+  };
+
   return (
-    <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-slate-600">
+    <div
+      className={`rounded-lg p-2.5 space-y-1.5 border ${
+        entry.official ? "bg-emerald-50/40 border-emerald-200" : "bg-slate-50 border-slate-100 opacity-90"
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-slate-600 flex items-center gap-1.5">
           {isSpeaking
             ? t("reviewVideoDetail.reflexHistoryModal.speakingAttempt", { attempt: entry.attemptNumber })
             : t("reviewVideoDetail.reflexHistoryModal.writingAttempt", { attempt: entry.attemptNumber })}
+          {entry.official ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">
+              <Flag className="w-3 h-3" /> {t("reviewVideoDetail.reflexHistoryModal.officialBadge")}
+            </span>
+          ) : (
+            <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
+              {t("reviewVideoDetail.reflexHistoryModal.notCountedBadge")}
+            </span>
+          )}
+          {entry.official && entry.selectedByTeacher && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+              <Star className="w-3 h-3" /> {t("reviewVideoDetail.reflexHistoryModal.select.chosenBadge")}
+            </span>
+          )}
+          {entry.reviewed && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-100 rounded-full px-2 py-0.5">
+              <UserCheck className="w-3 h-3" /> {t("reviewVideoDetail.reflexHistoryModal.reviewedBadge")}
+            </span>
+          )}
         </span>
-        <span className="text-[13px] text-slate-500">
+        <span className="text-[13px] font-semibold text-slate-600">
           {entry.score != null && entry.maxScore != null
             ? t("reviewVideoDetail.reflexHistoryModal.score", { score: entry.score, maxScore: entry.maxScore })
             : t("reviewVideoDetail.reflexHistoryModal.notGradedYet")}
+          {entry.reviewed && entry.aiScore != null && (
+            <span className="ml-1.5 font-normal text-slate-400">
+              {t("reviewVideoDetail.reflexHistoryModal.aiOriginalScore", { score: entry.aiScore })}
+            </span>
+          )}
         </span>
       </div>
       {entry.gradedAt && <p className="text-[12px] text-slate-400">{t("reviewVideoDetail.reflexHistoryModal.gradedAt", { time: formatDateTime(entry.gradedAt, language) })}</p>}
+      {entry.reviewed && (
+        <p className="text-[12px] text-violet-600">
+          {t("reviewVideoDetail.reflexHistoryModal.reviewedBy", {
+            name: entry.reviewerName ?? "—",
+            time: entry.reviewedAt ? formatDateTime(entry.reviewedAt, language) : ""
+          })}
+        </p>
+      )}
 
       {isSpeaking && entry.grammarReviewRequired && (
         <div className="text-[13px] text-rose-700 bg-rose-50 border border-rose-100 rounded-md p-2 space-y-1">
@@ -672,13 +836,6 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
         </div>
       )}
 
-      {!isSpeaking && entry.answerText && (
-        <p className="text-sm text-slate-700">
-          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.answerTextLabel")}: </span>
-          {entry.answerText}
-        </p>
-      )}
-
       {isSpeaking && entry.recordingFilter != null && (
         <p className="text-[12px] text-slate-400">
           {entry.recordingFilter
@@ -694,10 +851,12 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
           <p className="text-[13px] text-slate-400 italic">{t("reviewVideoDetail.reflexHistoryModal.audioNotAvailable")}</p>
         ))}
 
-      {isSpeaking && entry.transcript && (
+      {markedText && (
         <p className="text-sm text-slate-700">
-          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.transcriptLabel")}: </span>
-          {entry.transcript}
+          <span className="font-semibold">
+            {isSpeaking ? t("reviewVideoDetail.reflexHistoryModal.transcriptLabel") : t("reviewVideoDetail.reflexHistoryModal.answerTextLabel")}:{" "}
+          </span>
+          <MarkedText text={markedText} />
         </p>
       )}
 
@@ -705,6 +864,12 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
         <p className="text-sm text-slate-600">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.feedbackLabel")}: </span>
           {entry.feedback}
+        </p>
+      )}
+      {entry.reviewed && entry.aiFeedback && (
+        <p className="text-[13px] text-slate-400">
+          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.aiOriginalFeedbackLabel")}: </span>
+          {entry.aiFeedback}
         </p>
       )}
 
@@ -729,6 +894,68 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
           </ul>
         </div>
       )}
+
+      {canSelect && (
+        <div className="pt-1" data-testid="reflex-select-attempt">
+          <button
+            type="button"
+            disabled={selecting}
+            onClick={handleSelect}
+            className="inline-flex items-center gap-1 text-[13px] font-bold text-amber-700 hover:underline cursor-pointer disabled:opacity-60"
+          >
+            <Star className="w-3.5 h-3.5" /> {selecting ? t("reviewVideoDetail.reflexHistoryModal.select.selecting") : t("reviewVideoDetail.reflexHistoryModal.select.button")}
+          </button>
+          {selectError && <p className="text-[13px] text-rose-600">{selectError}</p>}
+        </div>
+      )}
+
+      {canEdit &&
+        (editing ? (
+          <form onSubmit={handleSave} className="space-y-2 pt-2 border-t border-emerald-100">
+            <div className="flex items-center gap-2">
+              <label className="text-[12px] font-bold uppercase text-slate-500 shrink-0">
+                {t("reviewVideoDetail.reflexHistoryModal.review.scoreLabel", { max: entry.maxScore ?? 100 })}
+              </label>
+              <input
+                type="number"
+                required
+                min={0}
+                max={entry.maxScore ?? 100}
+                step={0.1}
+                value={score}
+                onChange={(ev) => setScore(ev.target.value)}
+                className="w-24 bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none"
+              />
+            </div>
+            <textarea
+              rows={2}
+              value={feedback}
+              onChange={(ev) => setFeedback(ev.target.value)}
+              placeholder={t("reviewVideoDetail.reflexHistoryModal.review.feedbackPlaceholder")}
+              className="w-full bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none"
+            />
+            {saveError && <p className="text-[13px] text-rose-600">{saveError}</p>}
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" disabled={saving} className="!py-1.5">
+                <Save className="w-4 h-4" />
+                {saving ? t("reviewVideoDetail.reflexHistoryModal.review.saving") : t("reviewVideoDetail.reflexHistoryModal.review.save")}
+              </Button>
+              <Button type="button" variant="secondary" disabled={saving} onClick={() => setEditing(false)} className="!py-1.5">
+                {t("reviewVideoDetail.reflexHistoryModal.review.cancel")}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={startEditing}
+              className="inline-flex items-center gap-1 text-[13px] font-bold text-brand-orange hover:underline cursor-pointer"
+            >
+              <Pencil className="w-3.5 h-3.5" /> {t("reviewVideoDetail.reflexHistoryModal.review.edit")}
+            </button>
+          </div>
+        ))}
     </div>
   );
 }

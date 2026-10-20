@@ -41,7 +41,7 @@ function QuestionImages({ imageUrl }: { imageUrl: string }) {
     .map((u) => u.trim())
     .filter(Boolean);
   if (urls.length <= 1) {
-    return <img src={urls[0] ?? imageUrl} alt="" className="max-h-40 rounded-lg mb-2" />;
+    return <img src={urls[0] ?? imageUrl} alt="" className="max-h-80 rounded-lg mb-2" />;
   }
   return (
     <div className="grid grid-cols-5 gap-2 mb-2">

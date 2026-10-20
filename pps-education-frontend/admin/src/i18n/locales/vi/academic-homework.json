@@ -159,6 +159,32 @@
           "loadFailed": "Không tải được tổng hợp vi phạm."
         }
       },
+      "essayHistory": {
+        "openButton": "Lịch sử chấm AI",
+        "title": "Lịch sử chấm AI — {{studentName}}",
+        "loading": "Đang tải...",
+        "loadFailed": "Không tải được lịch sử chấm AI.",
+        "officialHint": "Điểm chính thức của mỗi câu là bản chấm hiện hành (có cờ). Nếu thấy AI chấm chưa đúng, giáo viên chỉnh điểm ở bản đó — bản AI gốc chuyển sang \"Không tính\" và vẫn được giữ để đối chiếu.",
+        "questionLabel": "Câu {{order}}: {{prompt}}",
+        "attemptLabel": "Lượt #{{number}}",
+        "answerLabel": "Bài làm của học sinh",
+        "aiLabel": "AI chấm",
+        "teacherLabel": "Giáo viên chấm",
+        "officialBadge": "Điểm chính thức",
+        "notCountedBadge": "Không tính",
+        "score": "Điểm: {{score}}/{{maxScore}}",
+        "gradedBy": "{{name}} — {{time}}",
+        "feedbackLabel": "Nhận xét",
+        "criteriaLabel": "Chi tiết theo tiêu chí",
+        "aiOriginalScore": "(AI chấm: {{score}})",
+        "edit": "Chỉnh điểm",
+        "scoreLabel": "Điểm (0 - {{max}})",
+        "feedbackPlaceholder": "Nhận xét của giáo viên (tùy chọn) — sẽ hiện cho học sinh thay nhận xét của AI...",
+        "save": "Lưu điểm",
+        "saving": "Đang lưu...",
+        "cancel": "Hủy",
+        "saveFailed": "Lưu điểm thất bại — thử lại."
+      },
       "answerHistory": {
         "title": "Lịch sử trả lời câu hỏi",
         "attemptSuffix": " — Lượt #{{number}}",
@@ -231,7 +257,34 @@
       "recordingFiltered": "Thu âm: đã qua bộ lọc",
       "recordingRaw": "Thu âm: bản ghi thô",
       "grammarReviewTitle": "Cần giáo viên soát điểm Ngữ pháp",
-      "grammarReviewBody": "Bài có từ 2 lỗi đỏ ngữ pháp nên điểm Ngữ pháp bị hạ. AI chỉ phiên âm một lần và có thể nghe nhầm — hãy nghe lại các chỗ dưới đây trước khi chốt điểm:"
+      "grammarReviewBody": "Bài có từ 2 lỗi đỏ ngữ pháp nên điểm Ngữ pháp bị hạ. AI chỉ phiên âm một lần và có thể nghe nhầm — hãy nghe lại các chỗ dưới đây trước khi chốt điểm:",
+      "officialHint": "Điểm chính thức của mỗi bước mặc định là lần nộp mới nhất (có cờ); giáo viên có thể chọn lần Viết/Nói tốt nhất làm kết quả chính thức. Nếu thấy AI chấm chưa đúng, giáo viên có thể chỉnh điểm ở lần đó — điểm AI gốc vẫn được giữ để đối chiếu.",
+      "column": {
+        "writing": "Bước Viết",
+        "speaking": "Bước Ghi âm"
+      },
+      "select": {
+        "button": "Chọn lần này làm kết quả chính thức",
+        "selecting": "Đang chọn...",
+        "chosenBadge": "GV chọn",
+        "failed": "Không chọn được lần này — thử lại."
+      },
+      "noAttemptYet": "Chưa có lần nào.",
+      "officialBadge": "Điểm chính thức",
+      "notCountedBadge": "Không tính",
+      "reviewedBadge": "GV đã chỉnh",
+      "aiOriginalScore": "(AI chấm: {{score}})",
+      "aiOriginalFeedbackLabel": "Nhận xét gốc của AI",
+      "reviewedBy": "{{name}} đã chấm lại lúc {{time}}",
+      "review": {
+        "edit": "Chỉnh điểm",
+        "scoreLabel": "Điểm (0 - {{max}})",
+        "feedbackPlaceholder": "Nhận xét của giáo viên (tùy chọn) — sẽ hiện cho học sinh thay nhận xét của AI...",
+        "save": "Lưu điểm",
+        "saving": "Đang lưu...",
+        "cancel": "Hủy",
+        "saveFailed": "Lưu điểm thất bại — thử lại."
+      }
     },
     "connectionHistoryModal": {
       "title": "Chi tiết các lượt làm — {{studentName}}",

@@ -215,14 +215,29 @@ public class ReviewVideoReportService {
         ReviewVideoAssignment assignment = getAssignmentOrThrow(assignmentId);
         requireAssignedTeacher(assignment.getSchoolClass().getId(), actorUserId);
 
-        return reflexQuestionProgressHistoryRepository
-                .findByReviewVideoAssignmentIdAndStudentIdOrderByCreatedAtAsc(assignmentId, studentId)
-                .stream()
+        List<ReflexQuestionProgressHistory> history = reflexQuestionProgressHistoryRepository
+                .findByReviewVideoAssignmentIdAndStudentIdOrderByCreatedAtAsc(assignmentId, studentId);
+        Map<Long, ReflexQuestionProgress> progressByQuestion = reflexQuestionProgressRepository
+                .findByReviewVideoAssignmentIdAndStudentId(assignmentId, studentId).stream()
+                .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId(), p -> p, (a, b) -> a));
+        // Điểm chính thức = lần giáo viên chọn (V217), không có thì lần MỚI NHẤT của từng (câu hỏi, bước) — xem
+        // ReflexQuestionProgressHistoryResponse#official.
+        Map<String, Integer> latestAttempt = new java.util.HashMap<>();
+        history.forEach(h -> latestAttempt.merge(officialKey(h), h.getAttemptNumber(), Math::max));
+        history.stream().filter(ReflexQuestionProgressHistory::isTeacherSelected)
+                .forEach(h -> latestAttempt.put(officialKey(h), h.getAttemptNumber()));
+
+        return history.stream()
                 .sorted(Comparator
                         .comparing((ReflexQuestionProgressHistory h) -> h.getReviewVideoQuestion().getDisplayOrder())
                         .thenComparing(h -> h.getCreatedAt()))
-                .map(this::toHistoryResponse)
+                .map(h -> toHistoryResponse(h, progressByQuestion.get(h.getReviewVideoQuestion().getId()),
+                        h.getAttemptNumber() == latestAttempt.get(officialKey(h))))
                 .toList();
+    }
+
+    private static String officialKey(ReflexQuestionProgressHistory h) {
+        return h.getReviewVideoQuestion().getId() + ":" + h.getAttemptType();
     }
 
     /**
@@ -276,7 +291,16 @@ public class ReviewVideoReportService {
         return new ConnectionStudentHistoryResponse(rows);
     }
 
-    private ReflexQuestionProgressHistoryResponse toHistoryResponse(ReflexQuestionProgressHistory h) {
+    /**
+     * @param progress dòng tiến trình hiện tại của câu hỏi (điểm chính thức + thông tin giáo viên chấm lại)
+     * @param official lần này là lần mới nhất của bước — chỉ lần này mới mang điểm chấm lại của giáo viên
+     */
+    private ReflexQuestionProgressHistoryResponse toHistoryResponse(ReflexQuestionProgressHistory h,
+                                                                    ReflexQuestionProgress progress, boolean official) {
+        boolean writing = h.getAttemptType() == ReflexQuestionProgressHistory.AttemptType.WRITING;
+        boolean reviewed = official && progress != null
+                && (writing ? progress.getWritingReviewedAt() : progress.getSpeakingReviewedAt()) != null;
+        var reviewer = reviewed ? (writing ? progress.getWritingReviewedBy() : progress.getSpeakingReviewedBy()) : null;
         return new ReflexQuestionProgressHistoryResponse(
                 h.getReviewVideoQuestion().getId(),
                 h.getReviewVideoQuestion().getPrompt(),
@@ -285,9 +309,9 @@ public class ReviewVideoReportService {
                 h.getAttemptNumber(),
                 h.getAnswerText(),
                 h.getAudioUrl(),
-                h.getScore(),
+                reviewed ? (writing ? progress.getWritingScore() : progress.getSpeakingScore()) : h.getScore(),
                 h.getMaxScore(),
-                h.getFeedback(),
+                reviewed ? (writing ? progress.getWritingFeedback() : progress.getSpeakingFeedback()) : h.getFeedback(),
                 h.getMarkedAnswer(),
                 h.getHint(),
                 h.getTranscript(),
@@ -295,7 +319,15 @@ public class ReviewVideoReportService {
                 h.getGradedAt(),
                 h.isGrammarReviewRequired(),
                 h.getGrammarReviewQuotes() == null ? List.of() : h.getGrammarReviewQuotes(),
-                h.getRecordingFilter());
+                h.getRecordingFilter(),
+                progress == null ? null : progress.getId(),
+                official,
+                reviewed,
+                reviewed ? h.getScore() : null,
+                reviewed ? h.getFeedback() : null,
+                reviewer == null ? null : reviewer.getFullName(),
+                reviewed ? (writing ? progress.getWritingReviewedAt() : progress.getSpeakingReviewedAt()) : null,
+                h.isTeacherSelected());
     }
 
     /**
@@ -317,7 +349,11 @@ public class ReviewVideoReportService {
         manifest.append("ma_hoc_sinh,ten_hoc_sinh,cau_hoi_thu_tu,cau_hoi_prompt,loai,lan_lam,ten_file_audio,")
                 // V198/V199: 2 cột cuối — cờ cần giáo viên soát Ngữ pháp, chế độ thu âm (1 = đã lọc, 0 = thô, trống = không
                 // rõ). Thêm vào CUỐI để công cụ đọc manifest cũ không lệch cột.
-                .append("diem,diem_toi_da,transcript,feedback,cham_luc,can_soat_ngu_phap,loc_thu_am\n");
+                .append("diem,diem_toi_da,transcript,feedback,cham_luc,can_soat_ngu_phap,loc_thu_am,")
+                // V217: nhãn của giáo viên để fine-tune — giao_vien_chon = 1 khi giáo viên chọn lần này làm kết quả chính
+                // thức; diem/nhan_xet_giao_vien = điểm + nhận xét giáo viên chốt (trống = chưa chỉnh), đối chiếu với
+                // diem/feedback là bản AI gốc. Cũng thêm vào CUỐI.
+                .append("giao_vien_chon,diem_giao_vien,nhan_xet_giao_vien\n");
 
         try (ByteArrayOutputStream buffer = new ByteArrayOutputStream();
              ZipOutputStream zip = new ZipOutputStream(buffer, StandardCharsets.UTF_8)) {
@@ -341,7 +377,10 @@ public class ReviewVideoReportService {
                         .append(csv(h.getFeedback())).append(',')
                         .append(h.getGradedAt() == null ? "" : h.getGradedAt()).append(',')
                         .append(h.isGrammarReviewRequired() ? 1 : 0).append(',')
-                        .append(h.getRecordingFilter() == null ? "" : (h.getRecordingFilter() ? "1" : "0")).append('\n');
+                        .append(h.getRecordingFilter() == null ? "" : (h.getRecordingFilter() ? "1" : "0")).append(',')
+                        .append(h.isTeacherSelected() ? 1 : 0).append(',')
+                        .append(h.getTeacherScore() == null ? "" : h.getTeacherScore()).append(',')
+                        .append(csv(h.getTeacherFeedback())).append('\n');
             }
             zip.putNextEntry(new ZipEntry("manifest.csv"));
             // BOM để Excel mở tiếng Việt UTF-8 không bị lỗi font (giống ExportExcel hiện có ở FE).

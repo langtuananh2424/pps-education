@@ -34,6 +34,22 @@ public record ReflexQuestionProgressHistoryResponse(
         /** V198 — các đoạn transcript bị tô đỏ ngữ pháp; rỗng khi không cần soát. */
         List<String> grammarReviewQuotes,
         /** V199 — true = bản ghi đã lọc, false = thô, null = không rõ (trước V199 / bài viết). */
-        Boolean recordingFilter
+        Boolean recordingFilter,
+        /** reflex_question_progress.id của câu hỏi này — dùng để gọi chấm lại điểm chính thức. */
+        Long progressId,
+        /**
+         * Lần này đang là điểm CHÍNH THỨC của bước (viết/nói) của câu hỏi — mặc định là lần nộp MỚI NHẤT, hoặc lần
+         * giáo viên đã chọn (V217); các lần còn lại chỉ để xem lịch sử, không tính.
+         */
+        boolean official,
+        /** Giáo viên đã chấm lại điểm chính thức (chỉ có thể true ở lần official, V216). */
+        boolean reviewed,
+        /** Điểm AI gốc trước khi giáo viên chấm lại; null khi chưa chấm lại. Khi reviewed, score/feedback là của giáo viên. */
+        BigDecimal aiScore,
+        String aiFeedback,
+        String reviewerName,
+        OffsetDateTime reviewedAt,
+        /** V217 — giáo viên đã chọn lần này làm kết quả chính thức (khác mặc định "lần mới nhất"). */
+        boolean selectedByTeacher
 ) {
 }
