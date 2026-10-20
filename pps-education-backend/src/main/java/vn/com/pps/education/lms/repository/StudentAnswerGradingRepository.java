@@ -15,16 +15,8 @@ public interface StudentAnswerGradingRepository extends JpaRepository<StudentAns
     /** UC-74 (bổ sung 2026-09-30) — bản chấm hiện hành (kèm điểm tiêu chí) của nhiều câu trả lời, 1 truy vấn. */
     List<StudentAnswerGrading> findByStudentAnswerIdInAndLatestIsTrue(Collection<Long> studentAnswerIds);
 
-    /**
-     * Chấm lần 2 (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) — mọi bản chấm của AI (kể cả bản đã bị GV chấm đè)
-     * cho bài tập giao cho 1 lớp, mới nhất trước. Lượt làm không gắn bản giao (tự luyện) bị loại.
-     */
-    @Query("""
-            SELECT g FROM StudentAnswerGrading g
-            WHERE g.gradingSource = :source
-            AND g.studentAnswer.exerciseAttempt.exerciseAssignment.schoolClass.id = :classId
-            ORDER BY g.gradedAt DESC
-            """)
-    List<StudentAnswerGrading> findByGradingSourceAndClassId(@Param("source") StudentAnswerGrading.GradingSource source,
-                                                              @Param("classId") Long classId);
+    /** Chấm lần 2 ESSAY (bổ sung 2026-10-20) — toàn bộ bản chấm (AI + giáo viên) của nhiều câu trả lời, mới nhất trước. */
+    @Query("SELECT g FROM StudentAnswerGrading g JOIN FETCH g.grader WHERE g.studentAnswer.id IN :studentAnswerIds " +
+            "ORDER BY g.gradedAt DESC, g.id DESC")
+    List<StudentAnswerGrading> findHistoryByStudentAnswerIds(@Param("studentAnswerIds") Collection<Long> studentAnswerIds);
 }

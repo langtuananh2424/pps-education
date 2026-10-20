@@ -62,17 +62,4 @@ public interface ReflexQuestionProgressRepository extends JpaRepository<ReflexQu
     @Query("UPDATE ReflexQuestionProgress p SET p.writingAttemptCount = p.writingAttemptCount + 1 " +
             "WHERE p.id = :id AND p.writingAttemptCount < :max")
     int incrementWritingAttemptCountIfBelowLimit(@Param("id") Long id, @Param("max") int max);
-
-    /**
-     * Chấm lần 2 (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) — các dòng tiến trình của 1 lớp có ít nhất 1
-     * bước đã được AI chấm thành công (có điểm). Mới cập nhật trước.
-     */
-    @Query("""
-            SELECT p FROM ReflexQuestionProgress p
-            WHERE p.reviewVideoAssignment.schoolClass.id = :classId
-            AND ((p.writingScore IS NOT NULL AND p.writingGradedAt IS NOT NULL)
-              OR (p.speakingScore IS NOT NULL AND p.speakingGradedAt IS NOT NULL))
-            ORDER BY p.updatedAt DESC
-            """)
-    List<ReflexQuestionProgress> findAiGradedByClassId(@Param("classId") Long classId);
 }

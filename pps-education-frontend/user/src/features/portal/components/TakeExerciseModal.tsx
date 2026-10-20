@@ -212,19 +212,58 @@ function hasMeaningfulChoiceCaption(choiceLabel: string, content: string): boole
  * nhất là 1 URL sai định dạng, ảnh không tải được nên học sinh không thấy ảnh nào. Tách thành danh sách,
  * hiện dạng lưới có số thứ tự khi có NHIỀU ảnh; các loại câu hỏi khác chỉ có 1 URL vẫn hiện như cũ.
  */
+/**
+ * Bổ sung 2026-10-20 (người dùng báo ảnh câu hỏi quá bé, học sinh không nhìn rõ) — chạm/bấm vào ảnh để
+ * xem toàn màn hình (ảnh có chữ/chi tiết nhỏ). Dùng chung cho mọi ảnh câu hỏi trong file này.
+ */
+function ZoomableImage({ src, className, wrapperClassName }: { src: string; className: string; wrapperClassName?: string }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={`block cursor-zoom-in ${wrapperClassName ?? ""}`}>
+        <img src={src} alt="" className={className} />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-3 cursor-zoom-out"
+            onClick={() => setOpen(false)}
+          >
+            <img src={src} alt="" className="max-w-full max-h-full object-contain rounded-lg bg-white" />
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setOpen(false)}
+              className="absolute top-3 right-3 rounded-full bg-white/90 p-2 text-ink"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 function QuestionImages({ imageUrl, className }: { imageUrl: string; className: string }) {
   const urls = imageUrl
     .split("|")
     .map((u) => u.trim())
     .filter(Boolean);
   if (urls.length <= 1) {
-    return <img src={urls[0] ?? imageUrl} alt="" className={className} />;
+    return <ZoomableImage src={urls[0] ?? imageUrl} className={className} wrapperClassName="max-w-full" />;
   }
   return (
-    <div className="grid grid-cols-5 gap-2">
+    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
       {urls.map((url, i) => (
         <div key={i} className="space-y-1">
-          <img src={url} alt="" className="w-full aspect-square object-contain rounded-lg border border-line/60 bg-white" />
+          <ZoomableImage src={url} className="w-full aspect-square object-contain rounded-lg border border-line/60 bg-white" wrapperClassName="w-full" />
           <p className="text-center text-[10px] font-bold text-muted">{i + 1}</p>
         </div>
       ))}
@@ -1324,7 +1363,7 @@ export function QuestionBlock({
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
-      {question.imageUrl && <QuestionImages imageUrl={question.imageUrl} className="w-full max-w-[240px] rounded-xl border border-line/60" />}
+      {question.imageUrl && <QuestionImages imageUrl={question.imageUrl} className="w-full max-w-[520px] rounded-xl border border-line/60" />}
 
       {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
         // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
@@ -1447,15 +1486,14 @@ export function QuestionBlock({
           }
           inputMode={question.structuredContent.inputMode}
           formMode={question.structuredContent.format === "form"}
-          // 2026-10-14 (đã xác nhận với người dùng) — form (phiếu thông tin) vẫn tái dùng referencePassage
-          // như cũ; các loại WORD_BANK khác (DIEN_TU_HOP_TU_VUNG/_ANH, DIEN_TU_DOAN_VAN) nay đọc
-          // structuredContent.instruction (cột Excel/Word "Hướng dẫn" riêng, xem QuestionImportService) —
-          // trước đây luôn null, không có cách nào hiện dòng chỉ dẫn "Ex. 1: ..." cho các loại này.
-          instruction={
-            question.structuredContent.format === "form"
-              ? question.referencePassage
-              : (question.structuredContent.instruction ?? null)
-          }
+          // 2026-10-14 (đã xác nhận với người dùng) — form (phiếu thông tin) trước đây CHỈ tái dùng
+          // referencePassage (cột Transcript); các loại WORD_BANK khác (DIEN_TU_HOP_TU_VUNG/_ANH,
+          // DIEN_TU_DOAN_VAN) đọc structuredContent.instruction (cột Excel/Word "Hướng dẫn" riêng).
+          // Bổ sung 2026-10-20 (đã xác nhận với người dùng — fix gap thật, backend nay gộp cột "Hướng
+          // dẫn" cho MỌI kind kể cả NGHE_PHIEU_THONG_TIN, xem QuestionImportService) — ưu tiên
+          // structuredContent.instruction (cột "Hướng dẫn" tường minh) nếu có, fallback về
+          // referencePassage (Transcript) cho dữ liệu cũ chưa điền cột mới.
+          instruction={question.structuredContent.instruction ?? (question.structuredContent.format === "form" ? question.referencePassage : null)}
           initialAnswer={answer?.structuredAnswer ?? undefined}
           readOnly={readOnly}
           saving={saving}
@@ -2196,10 +2234,10 @@ export function GridQuestionGroup({
             const displayNum = startNumber != null ? startNumber + qIndex : q.displayOrder;
             return (
               <div key={q.id} className="space-y-1.5">
-                <img
-                  src={q.imageUrl ?? undefined}
-                  alt=""
+                <ZoomableImage
+                  src={q.imageUrl ?? ""}
                   className="w-full aspect-square object-contain rounded-xl border border-line/60 bg-white"
+                  wrapperClassName="w-full"
                 />
                 <p className="text-center text-[10px] sm:text-xs font-bold text-muted">{displayNum}</p>
                 <input
@@ -2263,7 +2301,7 @@ export function GridQuestionGroup({
                * those", mỗi câu 1 ảnh khác nhau) — trước đây chỉ câu đơn lẻ (không thuộc nhóm) mới hiện
                * ảnh, khối "grid" này thiếu hẳn nên ảnh bị lưu nhưng học sinh không thấy.
                */}
-              {!isSharedImageGroup && q.imageUrl && <QuestionImages imageUrl={q.imageUrl} className="w-full max-w-[240px] rounded-xl border border-line/60" />}
+              {!isSharedImageGroup && q.imageUrl && <QuestionImages imageUrl={q.imageUrl} className="w-full max-w-[520px] rounded-xl border border-line/60" />}
 
               {/*
                * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây

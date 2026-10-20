@@ -215,14 +215,26 @@ public class ReviewVideoReportService {
         ReviewVideoAssignment assignment = getAssignmentOrThrow(assignmentId);
         requireAssignedTeacher(assignment.getSchoolClass().getId(), actorUserId);
 
-        return reflexQuestionProgressHistoryRepository
-                .findByReviewVideoAssignmentIdAndStudentIdOrderByCreatedAtAsc(assignmentId, studentId)
-                .stream()
+        List<ReflexQuestionProgressHistory> history = reflexQuestionProgressHistoryRepository
+                .findByReviewVideoAssignmentIdAndStudentIdOrderByCreatedAtAsc(assignmentId, studentId);
+        Map<Long, ReflexQuestionProgress> progressByQuestion = reflexQuestionProgressRepository
+                .findByReviewVideoAssignmentIdAndStudentId(assignmentId, studentId).stream()
+                .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId(), p -> p, (a, b) -> a));
+        // Điểm chính thức = lần MỚI NHẤT của từng (câu hỏi, bước) — xem ReflexQuestionProgressHistoryResponse#official.
+        Map<String, Integer> latestAttempt = new java.util.HashMap<>();
+        history.forEach(h -> latestAttempt.merge(officialKey(h), h.getAttemptNumber(), Math::max));
+
+        return history.stream()
                 .sorted(Comparator
                         .comparing((ReflexQuestionProgressHistory h) -> h.getReviewVideoQuestion().getDisplayOrder())
                         .thenComparing(h -> h.getCreatedAt()))
-                .map(this::toHistoryResponse)
+                .map(h -> toHistoryResponse(h, progressByQuestion.get(h.getReviewVideoQuestion().getId()),
+                        h.getAttemptNumber() == latestAttempt.get(officialKey(h))))
                 .toList();
+    }
+
+    private static String officialKey(ReflexQuestionProgressHistory h) {
+        return h.getReviewVideoQuestion().getId() + ":" + h.getAttemptType();
     }
 
     /**
@@ -276,7 +288,16 @@ public class ReviewVideoReportService {
         return new ConnectionStudentHistoryResponse(rows);
     }
 
-    private ReflexQuestionProgressHistoryResponse toHistoryResponse(ReflexQuestionProgressHistory h) {
+    /**
+     * @param progress dòng tiến trình hiện tại của câu hỏi (điểm chính thức + thông tin giáo viên chấm lại)
+     * @param official lần này là lần mới nhất của bước — chỉ lần này mới mang điểm chấm lại của giáo viên
+     */
+    private ReflexQuestionProgressHistoryResponse toHistoryResponse(ReflexQuestionProgressHistory h,
+                                                                    ReflexQuestionProgress progress, boolean official) {
+        boolean writing = h.getAttemptType() == ReflexQuestionProgressHistory.AttemptType.WRITING;
+        boolean reviewed = official && progress != null
+                && (writing ? progress.getWritingReviewedAt() : progress.getSpeakingReviewedAt()) != null;
+        var reviewer = reviewed ? (writing ? progress.getWritingReviewedBy() : progress.getSpeakingReviewedBy()) : null;
         return new ReflexQuestionProgressHistoryResponse(
                 h.getReviewVideoQuestion().getId(),
                 h.getReviewVideoQuestion().getPrompt(),
@@ -285,9 +306,9 @@ public class ReviewVideoReportService {
                 h.getAttemptNumber(),
                 h.getAnswerText(),
                 h.getAudioUrl(),
-                h.getScore(),
+                reviewed ? (writing ? progress.getWritingScore() : progress.getSpeakingScore()) : h.getScore(),
                 h.getMaxScore(),
-                h.getFeedback(),
+                reviewed ? (writing ? progress.getWritingFeedback() : progress.getSpeakingFeedback()) : h.getFeedback(),
                 h.getMarkedAnswer(),
                 h.getHint(),
                 h.getTranscript(),
@@ -295,7 +316,14 @@ public class ReviewVideoReportService {
                 h.getGradedAt(),
                 h.isGrammarReviewRequired(),
                 h.getGrammarReviewQuotes() == null ? List.of() : h.getGrammarReviewQuotes(),
-                h.getRecordingFilter());
+                h.getRecordingFilter(),
+                progress == null ? null : progress.getId(),
+                official,
+                reviewed,
+                reviewed ? h.getScore() : null,
+                reviewed ? h.getFeedback() : null,
+                reviewer == null ? null : reviewer.getFullName(),
+                reviewed ? (writing ? progress.getWritingReviewedAt() : progress.getSpeakingReviewedAt()) : null);
     }
 
     /**

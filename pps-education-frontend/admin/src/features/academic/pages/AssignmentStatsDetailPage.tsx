@@ -16,6 +16,7 @@ import {
   StudentAnswerRow,
   exportExerciseAssignmentStats,
   getAttemptAnswers,
+  getEssayGradingHistory,
   getAttemptIntegritySummary,
   getExerciseAssignmentQuestionStats,
   getExerciseAssignmentStudentStats,
@@ -33,6 +34,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
 import Time24Input from "@/components/ui/Time24Input";
 import Modal from "@/components/ui/Modal";
+import EssayGradingHistoryModal from "@/features/academic/components/EssayGradingHistoryModal";
 import FloatingError from "@/components/ui/FloatingError";
 
 const studentStatusVariants: Record<string, any> = {
@@ -573,10 +575,12 @@ export function StudentDetailModal({
     activeMemberIndex === 0 ? (initialStudent ?? null) : null
   );
   const [loadingStudent, setLoadingStudent] = React.useState(false);
+  // Tăng sau khi giáo viên chấm lại câu ESSAY để tải lại điểm/câu trả lời đang hiển thị.
+  const [reloadKey, setReloadKey] = React.useState(0);
   const [studentError, setStudentError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (activeMemberIndex === 0 && initialStudent) {
+    if (activeMemberIndex === 0 && initialStudent && reloadKey === 0) {
       setStudent(initialStudent);
       return;
     }
@@ -586,7 +590,7 @@ export function StudentDetailModal({
       .then((res) => setStudent(res.students.find((s) => s.studentId === studentId) ?? null))
       .catch((err) => setStudentError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed")))
       .finally(() => setLoadingStudent(false));
-  }, [activeMemberIndex, activeMember.assignmentId, studentId, initialStudent]);
+  }, [activeMemberIndex, activeMember.assignmentId, studentId, initialStudent, reloadKey]);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây LUÔN tải câu trả lời
   // của lượt MỚI NHẤT (student.attemptId), dù học sinh có nhiều lượt làm — GV không xem lại được câu
@@ -611,7 +615,18 @@ export function StudentDetailModal({
       .then(setAnswers)
       .catch((err) => setAnswerError(err instanceof ApiError ? err.message : t("exerciseDetail.studentModal.answerHistory.loadFailed")))
       .finally(() => setLoadingAnswers(false));
-  }, [viewingAttemptId]);
+  }, [viewingAttemptId, reloadKey]);
+
+  // Chấm lần 2 bài Writing do AI chấm (bổ sung ngoài SDD gốc, xác nhận 2026-10-20) — nút mở popup "Lịch sử chấm AI"
+  // chỉ hiện khi học sinh có câu ESSAY từng được AI chấm trong Bài đang xem.
+  const [hasEssayAiHistory, setHasEssayAiHistory] = React.useState(false);
+  const [essayHistoryOpen, setEssayHistoryOpen] = React.useState(false);
+  React.useEffect(() => {
+    setHasEssayAiHistory(false);
+    getEssayGradingHistory(activeMember.assignmentId, studentId)
+      .then((list) => setHasEssayAiHistory(list.length > 0))
+      .catch(() => undefined);
+  }, [activeMember.assignmentId, studentId]);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — StudentAnswerRow (từ
   // /answers/for-grading) chỉ trả selectedChoiceIds/correctChoiceIds thô (ID) + questionId, không
@@ -753,7 +768,7 @@ export function StudentDetailModal({
 
           {/* Lịch sử trả lời câu hỏi */}
           <div>
-            <h3 className="font-semibold text-sm mb-3 text-slate-900">
+            <h3 className="font-semibold text-sm mb-3 text-slate-900 flex flex-wrap items-center gap-2">
               {t("exerciseDetail.studentModal.answerHistory.title")}
               {viewingAttemptId != null && (
                 <span className="font-normal text-slate-500">
@@ -761,6 +776,11 @@ export function StudentDetailModal({
                     number: attempts.find((a) => a.id === viewingAttemptId)?.attemptNumber ?? "?"
                   })}
                 </span>
+              )}
+              {hasEssayAiHistory && (
+                <Button size="sm" variant="secondary" className="ml-auto" onClick={() => setEssayHistoryOpen(true)}>
+                  {t("exerciseDetail.studentModal.essayHistory.openButton")}
+                </Button>
               )}
             </h3>
             <FloatingError message={answerError} />
@@ -840,6 +860,19 @@ export function StudentDetailModal({
           </Button>
         </div>
       </div>
+      {essayHistoryOpen && (
+        <EssayGradingHistoryModal
+          assignmentId={activeMember.assignmentId}
+          studentId={studentId}
+          studentName={studentFullName}
+          onClose={() => setEssayHistoryOpen(false)}
+          onChanged={() => {
+            onRefreshStats?.();
+            // Điểm câu ESSAY đổi -> tải lại bảng "Thông tin lượt làm" lẫn danh sách câu trả lời.
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

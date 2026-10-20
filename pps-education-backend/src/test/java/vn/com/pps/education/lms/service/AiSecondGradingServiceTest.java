@@ -16,10 +16,9 @@ import vn.com.pps.education.lms.domain.ReviewVideo;
 import vn.com.pps.education.lms.domain.ReviewVideoAssignment;
 import vn.com.pps.education.lms.domain.ReviewVideoQuestion;
 import vn.com.pps.education.lms.domain.ReviewVideoSet;
-import vn.com.pps.education.lms.dto.AiGradedItemResponse;
 import vn.com.pps.education.lms.dto.ReviewReflexStepRequest;
 import vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository;
-import vn.com.pps.education.lms.repository.StudentAnswerGradingRepository;
+import vn.com.pps.education.permission.service.PermissionEvaluationService;
 import vn.com.pps.education.student.domain.Student;
 
 import java.math.BigDecimal;
@@ -47,9 +46,9 @@ class AiSecondGradingServiceTest {
     @Mock
     private ReflexQuestionProgressRepository reflexQuestionProgressRepository;
     @Mock
-    private StudentAnswerGradingRepository studentAnswerGradingRepository;
-    @Mock
     private UserRepository userRepository;
+    @Mock
+    private PermissionEvaluationService permissionEvaluationService;
 
     private AiSecondGradingService service;
     private ReflexQuestionProgress progress;
@@ -58,7 +57,7 @@ class AiSecondGradingServiceTest {
     @BeforeEach
     void setUp() {
         service = new AiSecondGradingService(classTeacherRepository, reflexQuestionProgressRepository,
-                studentAnswerGradingRepository, userRepository);
+                userRepository, permissionEvaluationService);
 
         SchoolClass schoolClass = new SchoolClass();
         schoolClass.setId(CLASS_ID);
@@ -109,7 +108,7 @@ class AiSecondGradingServiceTest {
     void reviewReflexStep_writing_replacesScoreAndKeepsAiOriginal() {
         givenAssignedTeacher();
 
-        AiGradedItemResponse response = service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+        service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
                 new ReviewReflexStepRequest(BigDecimal.valueOf(85), "Bài đúng ngữ pháp"), TEACHER_ID);
 
         assertThat(progress.getWritingScore()).isEqualByComparingTo("85");
@@ -120,12 +119,6 @@ class AiSecondGradingServiceTest {
         // Bước Nói không bị đụng tới
         assertThat(progress.getSpeakingScore()).isEqualByComparingTo("55");
         assertThat(progress.getSpeakingReviewedAt()).isNull();
-
-        assertThat(response.itemType()).isEqualTo("REFLEX_WRITING");
-        assertThat(response.reviewed()).isTrue();
-        assertThat(response.aiScore()).isEqualByComparingTo("40");
-        assertThat(response.reviewedScore()).isEqualByComparingTo("85");
-        assertThat(response.reviewerName()).isEqualTo("Cô Lan");
     }
 
     @Test
@@ -175,5 +168,19 @@ class AiSecondGradingServiceTest {
         assertThat(progress.getWritingReviewedAt()).isNull();
         assertThat(progress.getWritingAiScore()).isNull();
         assertThat(progress.getWritingReviewedBy()).isNull();
+    }
+
+    @Test
+    void reviewReflexStep_admin_canReviewClassHeDoesNotTeach() {
+        when(permissionEvaluationService.hasPermission(TEACHER_ID, AiSecondGradingService.PERM_ADMIN_SCOPE)).thenReturn(true);
+        when(reflexQuestionProgressRepository.findById(PROGRESS_ID)).thenReturn(Optional.of(progress));
+        when(userRepository.findById(TEACHER_ID)).thenReturn(Optional.of(teacher));
+        when(reflexQuestionProgressRepository.save(any(ReflexQuestionProgress.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(BigDecimal.valueOf(90), null), TEACHER_ID);
+
+        assertThat(progress.getWritingScore()).isEqualByComparingTo("90");
+        verify(classTeacherRepository, never()).existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(any(), any());
     }
 }

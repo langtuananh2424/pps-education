@@ -8,48 +8,43 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import vn.com.pps.education.lms.dto.AiGradedClassSummaryResponse;
-import vn.com.pps.education.lms.dto.AiGradedItemResponse;
+import vn.com.pps.education.lms.dto.EssayGradingHistoryResponse;
 import vn.com.pps.education.lms.dto.ReviewReflexStepRequest;
 import vn.com.pps.education.lms.service.AiSecondGradingService;
+import vn.com.pps.education.lms.service.EssayGradingHistoryService;
 import vn.com.pps.education.security.AuthenticatedUser;
 
 import java.util.List;
 
-/**
- * Chấm lần 2 các bài do AI chấm (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) — xem Javadoc
- * {@link AiSecondGradingService}. Chấm lại câu ESSAY dùng endpoint sẵn có {@code POST /api/answers/{id}/grade}
- * (UC-41), không có endpoint riêng.
- */
+/** Chấm lần 2 bài Video phản xạ do AI chấm (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) — xem Javadoc {@link AiSecondGradingService}. */
 @RestController
 @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
 public class AiSecondGradingController {
 
     private final AiSecondGradingService aiSecondGradingService;
+    private final EssayGradingHistoryService essayGradingHistoryService;
 
-    public AiSecondGradingController(AiSecondGradingService aiSecondGradingService) {
+    public AiSecondGradingController(AiSecondGradingService aiSecondGradingService,
+                                     EssayGradingHistoryService essayGradingHistoryService) {
         this.aiSecondGradingService = aiSecondGradingService;
+        this.essayGradingHistoryService = essayGradingHistoryService;
     }
 
-    @GetMapping("/api/grading/ai-graded/classes")
-    public ResponseEntity<List<AiGradedClassSummaryResponse>> listClasses(@AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(aiSecondGradingService.listClasses(actor.userId()));
-    }
-
-    @GetMapping("/api/classes/{classId}/ai-graded-items")
-    public ResponseEntity<List<AiGradedItemResponse>> listItems(@PathVariable Long classId,
-                                                                @RequestParam(defaultValue = "false") boolean includeReviewed,
-                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(aiSecondGradingService.listItems(classId, includeReviewed, actor.userId()));
+    /** Lịch sử bản chấm (AI + giáo viên) các câu ESSAY của 1 học sinh trong 1 bản giao BTVN; chấm lại qua POST /api/answers/{id}/grade. */
+    @GetMapping("/api/exercise-assignments/{assignmentId}/students/{studentId}/essay-grading-history")
+    public ResponseEntity<List<EssayGradingHistoryResponse>> getEssayGradingHistory(@PathVariable Long assignmentId,
+                                                                                    @PathVariable Long studentId,
+                                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(essayGradingHistoryService.getStudentEssayHistory(assignmentId, studentId, actor.userId()));
     }
 
     @PostMapping("/api/reflex-progress/{progressId}/review/{step}")
-    public ResponseEntity<AiGradedItemResponse> reviewReflexStep(@PathVariable Long progressId,
-                                                                 @PathVariable AiSecondGradingService.ReflexStep step,
-                                                                 @Valid @RequestBody ReviewReflexStepRequest request,
-                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(aiSecondGradingService.reviewReflexStep(progressId, step, request, actor.userId()));
+    public ResponseEntity<Void> reviewReflexStep(@PathVariable Long progressId,
+                                                 @PathVariable AiSecondGradingService.ReflexStep step,
+                                                 @Valid @RequestBody ReviewReflexStepRequest request,
+                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
+        aiSecondGradingService.reviewReflexStep(progressId, step, request, actor.userId());
+        return ResponseEntity.noContent().build();
     }
 }

@@ -102,9 +102,14 @@ export interface QuestionStructuredContent {
   format?: "form";
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn TÙY CHỌN hiện phía
-   * trên câu hỏi WORD_BANK (chữ nghiêng, VD "Ex. 1: Fill in each blank..."), đọc từ cột Excel/Word
-   * "Hướng dẫn" (xem QuestionImportService). Không áp dụng khi `format === "form"` — loại đó vẫn tái
-   * dùng `referencePassage` như cũ (xem WordBankBlock/WordBankPreview).
+   * trên câu hỏi (chữ nghiêng, VD "Ex. 1: Fill in each blank..."), đọc từ cột Excel/Word "Hướng dẫn"
+   * (xem QuestionImportService). Lúc đầu chỉ 4 kind đọc cột này (TRAC_NGHIEM, TRAC_NGHIEM_VOICE,
+   * ANH_TRAC_NGHIEM, DIEN_TU_HOP_TU_VUNG, DIEN_TU_HOP_TU_VUNG_ANH, DIEN_TU_DOAN_VAN, DIEN_TU_NHOM,
+   * DOC_HIEU_LUOI) — bổ sung 2026-10-20 (đã xác
+   * nhận với người dùng — fix gap thật) mọi kind còn lại đều đọc được, kể cả `format === "form"`
+   * (NGHE_PHIEU_THONG_TIN): field này giờ ưu tiên hơn `referencePassage` nếu có, fallback về
+   * `referencePassage` (cột Transcript) cho dữ liệu cũ chưa điền cột "Hướng dẫn" (xem
+   * WordBankBlock/WordBankPreview).
    */
   instruction?: string;
 }
@@ -1238,6 +1243,16 @@ export interface ReflexQuestionProgressHistoryEntry {
   grammarReviewQuotes: string[];
   /** V199 — chế độ thu âm thực tế: true = đã lọc, false = thô, null = không rõ (trước V199 / bài viết). */
   recordingFilter: boolean | null;
+  /** reflex_question_progress.id của câu hỏi — dùng để chấm lại điểm chính thức. */
+  progressId: number | null;
+  /** Lần này đang là điểm CHÍNH THỨC của bước (lần nộp mới nhất); các lần cũ chỉ để xem lịch sử, không tính. */
+  official: boolean;
+  /** Giáo viên đã chấm lại điểm chính thức — khi true, score/feedback là của giáo viên, aiScore/aiFeedback là bản gốc của AI. */
+  reviewed: boolean;
+  aiScore: number | null;
+  aiFeedback: string | null;
+  reviewerName: string | null;
+  reviewedAt: string | null;
 }
 
 /** V191 — giáo viên nghe lại audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh (Video phản xạ). */
@@ -1516,56 +1531,12 @@ export function gradeReviewVideoSubmission(submissionId: number, request: GradeR
   });
 }
 
-// ===================== Chấm lần 2 bài AI đã chấm (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) =====================
-
-export type AiGradedItemType = "REFLEX_WRITING" | "REFLEX_SPEAKING" | "ESSAY";
-
-export interface AiGradedClassSummaryResponse {
-  classId: number;
-  classCode: string;
-  className: string;
-  awaitingReviewCount: number;
-  totalAiGradedCount: number;
-}
-
-/** 1 bài/1 bước AI đã chấm. refId = reflex_question_progress.id (REFLEX_*) hoặc student_answers.id (ESSAY). aiScore luôn là điểm GỐC của AI, reviewedScore là điểm GV chấm lại (null nếu chưa). */
-export interface AiGradedItemResponse {
-  itemType: AiGradedItemType;
-  refId: number;
-  studentId: number;
-  studentFullName: string;
-  sourceTitle: string;
-  prompt: string | null;
-  studentText: string | null;
-  markedText: string | null;
-  audioUrl: string | null;
-  aiScore: number;
-  maxScore: number;
-  aiFeedback: string | null;
-  aiGradedAt: string | null;
-  reviewed: boolean;
-  reviewedScore: number | null;
-  reviewedFeedback: string | null;
-  reviewedAt: string | null;
-  reviewerName: string | null;
-}
-
-export function listAiGradedClasses(): Promise<AiGradedClassSummaryResponse[]> {
-  return apiRequest<AiGradedClassSummaryResponse[]>("/grading/ai-graded/classes");
-}
-
-export function listAiGradedItems(classId: number, includeReviewed: boolean): Promise<AiGradedItemResponse[]> {
-  return apiRequest<AiGradedItemResponse[]>(`/classes/${classId}/ai-graded-items?includeReviewed=${includeReviewed}`);
-}
-
-/** Video phản xạ: chấm lại 1 bước (điểm % 0-100 như điểm AI). */
-export function reviewReflexStep(progressId: number, step: "WRITING" | "SPEAKING", request: { score: number; feedback?: string }): Promise<AiGradedItemResponse> {
-  return apiRequest<AiGradedItemResponse>(`/reflex-progress/${progressId}/review/${step}`, { method: "POST", body: JSON.stringify(request) });
-}
-
-/** ESSAY: dùng endpoint chấm tay UC-41 — bản AI chuyển thành lịch sử, bản GV là bản hiện hành. */
-export function gradeStudentAnswer(studentAnswerId: number, request: { score: number; maxScore: number; feedback?: string }): Promise<unknown> {
-  return apiRequest<unknown>(`/answers/${studentAnswerId}/grade`, { method: "POST", body: JSON.stringify(request) });
+/**
+ * Chấm lần 2 (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) — giáo viên chỉnh điểm chính thức của 1 bước (Viết/Nói)
+ * Video phản xạ ngay trong popup "Lịch sử chấm AI". Điểm % 0-100 như điểm AI; điểm AI gốc vẫn được giữ.
+ */
+export function reviewReflexStep(progressId: number, step: "WRITING" | "SPEAKING", request: { score: number; feedback?: string }): Promise<void> {
+  return apiRequest<void>(`/reflex-progress/${progressId}/review/${step}`, { method: "POST", body: JSON.stringify(request) });
 }
 
 // ===================== Kho Video Ôn tập — Câu hỏi trắc nghiệm Video Kết nối (V76) =====================
