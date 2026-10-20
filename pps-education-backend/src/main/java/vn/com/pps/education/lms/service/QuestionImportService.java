@@ -1032,6 +1032,26 @@ public class QuestionImportService {
             skill = resolveSkill(row, null);
         }
 
+        // Bổ sung 2026-10-20 (đã xác nhận với người dùng) — fix gap thật: cột "Hướng dẫn" trước đây chỉ
+        // được 4 kind tự đọc riêng (isChoiceBased qua instructionOnlyContent() ở trên; DIEN_TU_HOP_TU_VUNG*/
+        // DIEN_TU_DOAN_VAN tự put vào sc) — mọi kind còn lại (DIEN_TU, TU_LUAN, SPEAKING, SAP_XEP_*, mọi
+        // kind NGHE_*, NGHE_PHIEU_THONG_TIN) điền cột này vẫn bị bỏ qua lặng lẽ. Gộp chung TẠI ĐÂY (sau khi
+        // mọi nhánh kind đã set xong structuredContent riêng) thay vì sửa từng nhánh — áp dụng đều cho tất
+        // cả, không ghi đè nếu nhánh đã tự set "instruction" rồi (containsKey check). KIND_FORM_COMPLETION
+        // (WORD_BANK format=form) trước đây CHỈ hiện hướng dẫn qua cột "Transcript" (referencePassage) —
+        // nay FE ưu tiên structuredContent.instruction nếu có, fallback về referencePassage (xem
+        // QuestionPreview.tsx/TakeExerciseModal.tsx), nên merge ở đây vẫn có tác dụng cho kind đó.
+        String instructionText = blankToNull(row.instruction());
+        if (instructionText != null) {
+            if (structuredContent == null) {
+                structuredContent = Map.of("instruction", instructionText.trim());
+            } else if (!structuredContent.containsKey("instruction")) {
+                Map<String, Object> merged = new LinkedHashMap<>(structuredContent);
+                merged.put("instruction", instructionText.trim());
+                structuredContent = merged;
+            }
+        }
+
         String questionType = kind.startsWith("TRAC_NGHIEM") || kind.equals("NGHE_CHON_HINH") || kind.equals(KIND_IMAGE_CHOICE) ? "MULTIPLE_CHOICE"
                 : kind.equals(KIND_LISTENING_MULTIPLE_ANSWER) ? "MULTIPLE_ANSWER"
                 : kind.equals("DIEN_TU") || kind.equals("NGHE_DIEN_TU") ? "FILL_IN_BLANK"
@@ -1164,7 +1184,10 @@ public class QuestionImportService {
      * — dùng khi nhiều chỗ trống đánh số (1, 2, 3...) nằm chung 1 ảnh chụp nguyên đề gốc (VD bảng thông
      * tin nhiều cột khó gõ lại bằng text, xem Javadoc KIND_IMAGE_FILL_GROUP ở đầu lớp). "Nội dung" mỗi
      * phần tử chỉ cần nhãn ngắn khớp đúng số thứ tự trong ảnh (VD "1. ___"), không cần gõ lại câu — do đó
-     * KHÔNG tái dùng "wordBox"/"instruction"/referencePassage như DIEN_TU_NHOM (không có ý nghĩa ở đây).
+     * KHÔNG tái dùng "wordBox"/referencePassage như DIEN_TU_NHOM (không có ý nghĩa ở đây, đề đã nằm
+     * trong ảnh). "Hướng dẫn" (bổ sung 2026-10-20, đã xác nhận với người dùng — fix gap thật, trước đó
+     * kind này KHÔNG đọc cột này dù mọi kind nhóm khác đều có) VẪN dùng được — hiện phía trên ảnh dùng
+     * chung cho cả nhóm (mirror cách DIEN_TU_NHOM đặt cùng 1 structuredContent lên mọi câu trong nhóm).
      * BẮT BUỘC "URL Hình ảnh" + "Kỹ năng" tường minh (không có suy luận ngầm, xem resolveSkill).
      */
     private List<CreateQuestionRequest> mapToImageFillGroupRequests(QuestionRowParser.ParsedQuestionRow row, Long bankId, boolean rejectActiveDuplicate) {
@@ -1215,11 +1238,12 @@ public class QuestionImportService {
         String explanation = blankToNull(row.explanation());
         String imageUrl = row.imageUrl().trim();
         String groupKey = "imagefill-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+        Map<String, Object> structuredContent = instructionOnlyContent(row);
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < sentences.size(); i++) {
             requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", skill, difficulty, sentences.get(i),
-                    null, imageUrl, null, explanation, answers.get(i), defaultPoints, tags, null, null, groupKey));
+                    null, imageUrl, null, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
         }
         return requests;
     }
@@ -1359,11 +1383,15 @@ public class QuestionImportService {
         String groupKey = "matching-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
         String groupSkill = resolveSkill(row, "READING");
 
+        // Bổ sung 2026-10-20 (đã xác nhận với người dùng — fix gap thật): kind nhóm này trước đây không
+        // đọc cột "Hướng dẫn" dù các kind nhóm khác (DIEN_TU_NHOM/DOC_HIEU_LUOI) đều đã có.
+        Map<String, Object> structuredContent = instructionOnlyContent(row);
+
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < questions.size(); i++) {
             String correctLetter = answerLetterAt(answerLetters, i, optionCount);
             requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", groupSkill, difficulty, questions.get(i),
-                    null, null, referencePassage, explanation, correctLetter, defaultPoints, tags, null, null, groupKey));
+                    null, null, referencePassage, explanation, correctLetter, defaultPoints, tags, null, structuredContent, groupKey));
         }
         return requests;
     }
@@ -1446,6 +1474,9 @@ public class QuestionImportService {
         String referencePassage = row.referencePassage().trim();
         String groupKey = "cloze-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
         String groupSkill = resolveSkill(row, "READING");
+        // Bổ sung 2026-10-20 (đã xác nhận với người dùng — fix gap thật): kind nhóm này trước đây không
+        // đọc cột "Hướng dẫn" dù các kind nhóm khác (DIEN_TU_NHOM/DOC_HIEU_LUOI) đều đã có.
+        Map<String, Object> structuredContent = instructionOnlyContent(row);
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < blankCount; i++) {
@@ -1460,7 +1491,7 @@ public class QuestionImportService {
                 choicesForBlank.add(new QuestionChoiceRequest(label, content.trim(), null, label.equals(correctLetter), col + 1));
             }
             requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", groupSkill, difficulty, labels.get(i),
-                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForBlank, null, groupKey));
+                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForBlank, structuredContent, groupKey));
         }
         return requests;
     }
