@@ -28,5 +28,11 @@ public record QuestionImportResponse(
          */
         List<QuestionImportRowPreview> rowPreviews
 ) {
-    public record QuestionImportedRow(Long id, String content, BigDecimal defaultPoints) {}
+    /**
+     * {@code displayNumberOverride} (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V218)
+     * — xem Javadoc {@code Question.displayNumberOverride}; FE (CreateAndAssignExerciseModal.tsx#
+     * handleImportCompleted) đọc field này để tính exercise_questions.display_order lúc gắn câu hỏi
+     * import vào Bài, thay cho đếm tuần tự thuần túy. {@code null} = giữ hành vi đếm cũ.
+     */
+    public record QuestionImportedRow(Long id, String content, BigDecimal defaultPoints, Integer displayNumberOverride) {}
 }

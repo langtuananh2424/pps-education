@@ -130,4 +130,19 @@ public class Question {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "key_grammar", columnDefinition = "jsonb")
     private List<String> keyGrammar;
+
+    /**
+     * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V218) —
+     * khớp đúng số đã in sẵn trong ảnh/sơ đồ sách gốc (VD sơ đồ IELTS Listening đánh số 36-40) khi hệ
+     * thống mặc định tự đếm tuần tự từ 1 trong mỗi Bài. {@code null} (mặc định) = giữ nguyên hành vi tự
+     * đếm cũ. Chỉ CÂU ĐẦU TIÊN của 1 dòng Excel (với kind nhóm sinh nhiều câu) cần set — các câu sau
+     * trong cùng nhóm để {@code null}, FE tự cộng dồn +1 tiếp từ số của câu đầu (xem
+     * CreateAndAssignExerciseModal.tsx#handleImportCompleted).
+     *
+     * Giới hạn đã biết: lưu trên Question (không phải exercise_questions), nên câu hỏi TÁI SỬ DỤNG ở
+     * nhiều Bài khác nhau sẽ bị áp CÙNG 1 số ghi đè ở mọi Bài — chỉ nên dùng cho câu hỏi soạn riêng cho
+     * 1 Bài cụ thể.
+     */
+    @Column(name = "display_number_override")
+    private Integer displayNumberOverride;
 }

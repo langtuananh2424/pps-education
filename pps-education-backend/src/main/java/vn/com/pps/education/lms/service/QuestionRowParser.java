@@ -88,6 +88,14 @@ public interface QuestionRowParser {
              * kind dùng chung cho cả 4 kỹ năng, tên kind không tự nói lên kỹ năng như các kind cũ) — tùy
              * chọn với mọi kind khác (để trống giữ nguyên hành vi suy luận ngầm cũ).
              */
-            String skill
+            String skill,
+            /**
+             * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — "Số thứ tự hiển thị ghi
+             * đè" (khớp số in sẵn trong ảnh/sơ đồ sách gốc, VD sơ đồ IELTS Listening đánh số 36-40),
+             * xem Javadoc {@code Question.displayNumberOverride}. TÙY CHỌN, để trống giữ nguyên hành vi
+             * tự đếm tuần tự cũ. Số nguyên thô CHƯA ép kiểu ở đây — xem
+             * QuestionImportService#resolveDisplayNumberOverride.
+             */
+            String displayNumberOverride
     ) {}
 }

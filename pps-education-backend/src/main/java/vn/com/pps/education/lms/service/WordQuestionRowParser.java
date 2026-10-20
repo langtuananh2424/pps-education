@@ -141,6 +141,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
         String tags;
         String instruction;
         String skill;
+        String displayNumberOverride;
         String lastField = "content";
 
         MutableRow(int blockNumber) {
@@ -160,6 +161,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
                 case "tags" -> tags = value;
                 case "instruction" -> instruction = value;
                 case "skill" -> skill = value;
+                case "displayNumberOverride" -> displayNumberOverride = value;
                 default -> { }
             }
         }
@@ -189,7 +191,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
         ParsedQuestionRow toParsedRow() {
             return new ParsedQuestionRow(blockNumber, null, kind, difficulty, content, choiceA, choiceB, choiceC, choiceD,
                     correctAnswer, audioUrl, imageUrl, referencePassage, defaultPoints, explanation, tags, instruction,
-                    choiceE, choiceF, choiceG, choiceH, choiceI, choiceJ, skill);
+                    choiceE, choiceF, choiceG, choiceH, choiceI, choiceJ, skill, displayNumberOverride);
         }
     }
 }

@@ -326,6 +326,9 @@ public class QuestionImportService {
                                     "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
                         }
                         Map<String, Object> summary = new LinkedHashMap<>();
+                        // displayNumberOverride giống nhau ở cả 2 nhánh (lấy thẳng từ request, không phụ
+                        // thuộc dryRun) — xem Javadoc QuestionImportResponse.QuestionImportedRow.
+                        summary.put("displayNumberOverride", request.displayNumberOverride());
                         if (dryRun) {
                             // Preview — KHÔNG ghi DB, chỉ mô phỏng sẽ tạo gì (xem Javadoc previewImport).
                             summary.put("id", null);
@@ -355,7 +358,8 @@ public class QuestionImportService {
             if (dryRun) {
                 List<QuestionImportResponse.QuestionImportedRow> previewRows = createdQuestions.stream()
                         .map(m -> new QuestionImportResponse.QuestionImportedRow(
-                                (Long) m.get("id"), (String) m.get("content"), (BigDecimal) m.get("defaultPoints")))
+                                (Long) m.get("id"), (String) m.get("content"), (BigDecimal) m.get("defaultPoints"),
+                                (Integer) m.get("displayNumberOverride")))
                         .toList();
                 return new QuestionImportResponse(null, file.getOriginalFilename(), parsedRows.size(), successRowCount,
                         errors.size(), "PREVIEW", errors, previewRows, rowPreviews);
@@ -1074,7 +1078,8 @@ public class QuestionImportService {
                 : "SPEAKING";
 
         return new CreateQuestionRequest(bankId, questionType, skill, difficulty, row.content().trim(),
-                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, structuredContent, autoGroupKey);
+                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, structuredContent, autoGroupKey,
+                resolveDisplayNumberOverride(row));
     }
 
     /**
@@ -1180,11 +1185,13 @@ public class QuestionImportService {
         String groupAudioUrl = blankToNull(row.audioUrl());
         String groupSkill = resolveSkill(row, groupAudioUrl != null ? "LISTENING" : null);
 
+        Integer displayNumberOverride = resolveDisplayNumberOverride(row);
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < sentences.size(); i++) {
             String imageUrl = images == null || images.get(i).isEmpty() ? null : images.get(i);
             requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", groupSkill, difficulty, sentences.get(i),
-                    groupAudioUrl, imageUrl, groupReferencePassage, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
+                    groupAudioUrl, imageUrl, groupReferencePassage, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey,
+                    i == 0 ? displayNumberOverride : null));
         }
         return requests;
     }
@@ -1267,10 +1274,12 @@ public class QuestionImportService {
         // (mirror referencePassage của mapToGridGroupRequests), FE đã có sẵn khung hiển thị, không cần sửa.
         String referencePassage = blankToNull(row.referencePassage());
 
+        Integer displayNumberOverride = resolveDisplayNumberOverride(row);
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < sentences.size(); i++) {
             requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", skill, difficulty, sentences.get(i),
-                    null, imageUrl, referencePassage, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
+                    null, imageUrl, referencePassage, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey,
+                    i == 0 ? displayNumberOverride : null));
         }
         return requests;
     }
@@ -1333,11 +1342,13 @@ public class QuestionImportService {
         String groupSkill = resolveSkill(row, "READING");
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
+        Integer displayNumberOverride = resolveDisplayNumberOverride(row);
         for (int i = 0; i < questions.size(); i++) {
             String correctLetter = answerLetterAt(answerLetters, i, sharedChoices.size());
             List<QuestionChoiceRequest> choicesForQuestion = applyCorrectLetter(sharedChoices, correctLetter);
             requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", groupSkill, difficulty, questions.get(i),
-                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, instructionOnlyContent(row), groupKey));
+                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, instructionOnlyContent(row), groupKey,
+                    i == 0 ? displayNumberOverride : null));
         }
         return requests;
     }
@@ -1414,11 +1425,13 @@ public class QuestionImportService {
         // đọc cột "Hướng dẫn" dù các kind nhóm khác (DIEN_TU_NHOM/DOC_HIEU_LUOI) đều đã có.
         Map<String, Object> structuredContent = instructionOnlyContent(row);
 
+        Integer displayNumberOverride = resolveDisplayNumberOverride(row);
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < questions.size(); i++) {
             String correctLetter = answerLetterAt(answerLetters, i, optionCount);
             requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", groupSkill, difficulty, questions.get(i),
-                    null, null, referencePassage, explanation, correctLetter, defaultPoints, tags, null, structuredContent, groupKey));
+                    null, null, referencePassage, explanation, correctLetter, defaultPoints, tags, null, structuredContent, groupKey,
+                    i == 0 ? displayNumberOverride : null));
         }
         return requests;
     }
@@ -1505,6 +1518,7 @@ public class QuestionImportService {
         // đọc cột "Hướng dẫn" dù các kind nhóm khác (DIEN_TU_NHOM/DOC_HIEU_LUOI) đều đã có.
         Map<String, Object> structuredContent = instructionOnlyContent(row);
 
+        Integer displayNumberOverride = resolveDisplayNumberOverride(row);
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < blankCount; i++) {
             String correctLetter = answerLetterAt(answerLetters, i, optionColumns.size());
@@ -1518,7 +1532,8 @@ public class QuestionImportService {
                 choicesForBlank.add(new QuestionChoiceRequest(label, content.trim(), null, label.equals(correctLetter), col + 1));
             }
             requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", groupSkill, difficulty, labels.get(i),
-                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForBlank, structuredContent, groupKey));
+                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForBlank, structuredContent, groupKey,
+                    i == 0 ? displayNumberOverride : null));
         }
         return requests;
     }
@@ -1716,6 +1731,25 @@ public class QuestionImportService {
         return choices;
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — "Số thứ tự hiển thị ghi đè" (xem
+     * Javadoc {@code Question.displayNumberOverride}). TÙY CHỌN, để trống trả null (giữ hành vi tự đếm
+     * tuần tự cũ ở CreateAndAssignExerciseModal.tsx). Chỉ áp cho CÂU ĐẦU TIÊN của 1 dòng Excel với kind
+     * nhóm (xem mapToGroupRequests/mapToGridGroupRequests/mapToMatchingGroupRequests/
+     * mapToClozeGroupRequests/mapToImageFillGroupRequests) — các câu con sau luôn null.
+     */
+    private Integer resolveDisplayNumberOverride(QuestionRowParser.ParsedQuestionRow row) {
+        if (isBlank(row.displayNumberOverride())) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(row.displayNumberOverride().trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(
+                    "Số thứ tự hiển thị không hợp lệ: '" + row.displayNumberOverride() + "' — phải là số nguyên.");
+        }
+    }
+
     private BigDecimal parsePoints(String raw) {
         if (isBlank(raw)) {
             return new BigDecimal("1.0");
@@ -1805,7 +1839,9 @@ public class QuestionImportService {
                 Long id = ((Number) map.get("id")).longValue();
                 String content = (String) map.get("content");
                 BigDecimal defaultPoints = new BigDecimal(map.get("defaultPoints").toString());
-                createdQuestions.add(new QuestionImportResponse.QuestionImportedRow(id, content, defaultPoints));
+                Object dno = map.get("displayNumberOverride");
+                Integer displayNumberOverride = dno == null ? null : ((Number) dno).intValue();
+                createdQuestions.add(new QuestionImportResponse.QuestionImportedRow(id, content, defaultPoints, displayNumberOverride));
             }
         }
         return new QuestionImportResponse(job.getId(), job.getSourceFileName(), job.getTotalRows(), job.getSuccessRows(),
@@ -1818,6 +1854,6 @@ public class QuestionImportService {
                 row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD(),
                 row.choiceE(), row.choiceF(), row.choiceG(), row.choiceH(), row.choiceI(), row.choiceJ(),
                 row.correctAnswer(), row.audioUrl(), row.imageUrl(), row.referencePassage(), row.defaultPoints(),
-                row.explanation(), row.tags(), row.instruction(), row.skill(), valid, error);
+                row.explanation(), row.tags(), row.instruction(), row.skill(), row.displayNumberOverride(), valid, error);
     }
 }

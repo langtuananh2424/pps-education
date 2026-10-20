@@ -172,7 +172,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "WORD_BANK", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null,
-                        new BigDecimal("1.0"), null, null, null, null),
+                        new BigDecimal("1.0"), null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -183,7 +183,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> questionBankService.createQuestion(
                 new CreateQuestionRequest(bank.id(), "SENTENCE_BUILDING", "GRAMMAR", "EASY",
                         "Sắp xếp thành câu.", null, null, null, null, null,
-                        new BigDecimal("1.0"), null, null, null, null),
+                        new BigDecimal("1.0"), null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -752,7 +752,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                         "She ___ to school every day.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(
                                 new QuestionChoiceRequest("A", "go", null, false, 1),
-                                new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
+                                new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null, null),
                 teacher.getId());
     }
 
