@@ -233,7 +233,7 @@
       "titleSuffix": " — {{title}}"
     },
     "exportReflexData": {
-      "button": "Download all audio + AI grading results",
+      "button": "Download full attempt history + grading results",
       "exporting": "Exporting...",
       "failed": "Could not export data."
     },

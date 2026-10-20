@@ -15,6 +15,9 @@ public interface ReflexQuestionProgressRepository extends JpaRepository<ReflexQu
     Optional<ReflexQuestionProgress> findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(
             Long reviewVideoQuestionId, Long studentId, Long reviewVideoAssignmentId);
 
+    /** Toàn bộ tiến trình của 1 lần giao — dùng cho file xuất kết quả chính thức (ReviewVideoReportService#exportReflexData). */
+    List<ReflexQuestionProgress> findByReviewVideoAssignmentId(Long reviewVideoAssignmentId);
+
     List<ReflexQuestionProgress> findByReviewVideoAssignmentIdAndStudentId(Long reviewVideoAssignmentId, Long studentId);
 
     /** V145 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — dùng cho báo cáo GV (ReviewVideoReportService), lấy 1 lần cho cả lớp thay vì N truy vấn/học sinh. */
