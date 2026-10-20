@@ -130,7 +130,7 @@ export function QuestionImages({ imageUrl, large }: { imageUrl: string; large?: 
       <img
         src={urls[0] ?? imageUrl}
         alt=""
-        className={large ? "block w-full max-w-[780px] mx-auto rounded-xl border border-slate-200" : "w-full max-w-[240px] rounded-xl border border-slate-200"}
+        className={large ? "block w-full max-w-[780px] mx-auto rounded-xl border border-slate-200" : "w-full max-w-[520px] rounded-xl border border-slate-200"}
       />
     );
   }
