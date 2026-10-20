@@ -2008,6 +2008,47 @@ export function getAttemptAnswers(attemptId: number): Promise<StudentAnswerRow[]
   return apiRequest<StudentAnswerRow[]>(`/attempts/${attemptId}/answers/for-grading`);
 }
 
+export interface EssayGradingVersion {
+  id: number;
+  score: number;
+  maxScore: number;
+  feedback: string | null;
+  /** Bài viết có đánh dấu lỗi `{{mã|đoạn}}` (rubric v3); null khi không có. */
+  markedAnswer: string | null;
+  criteriaScores: { criterion: string; percent: number }[] | null;
+  gradedAt: string;
+  gradingSource: "AI" | "HUMAN";
+  graderName: string;
+  /** Bản chấm hiện hành (student_answer_grading.is_final) = điểm chính thức. */
+  official: boolean;
+}
+
+export interface EssayGradingHistoryEntry {
+  studentAnswerId: number;
+  attemptId: number;
+  attemptNumber: number;
+  submittedAt: string | null;
+  questionId: number;
+  questionDisplayOrder: number;
+  questionContent: string;
+  answerText: string | null;
+  /** Mới nhất trước. */
+  versions: EssayGradingVersion[];
+}
+
+/**
+ * Chấm lần 2 bài Writing do AI chấm (bổ sung ngoài SDD gốc, xác nhận 2026-10-20): lịch sử bản chấm các câu ESSAY của 1
+ * học sinh trong 1 bản giao BTVN — chỉ câu từng được AI chấm. Giáo viên chấm lại bằng gradeEssayAnswer.
+ */
+export function getEssayGradingHistory(assignmentId: number, studentId: number): Promise<EssayGradingHistoryEntry[]> {
+  return apiRequest<EssayGradingHistoryEntry[]>(`/exercise-assignments/${assignmentId}/students/${studentId}/essay-grading-history`);
+}
+
+/** UC-41: chấm đè — bản chấm cũ (AI) chuyển "Không tính", điểm giáo viên là điểm chính thức. */
+export function gradeEssayAnswer(studentAnswerId: number, request: { score: number; maxScore: number; feedback?: string }): Promise<unknown> {
+  return apiRequest<unknown>(`/answers/${studentAnswerId}/grade`, { method: "POST", body: JSON.stringify(request) });
+}
+
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — Giáo viên xem TOÀN BỘ lịch sử
  * nhiều lượt làm bài của 1 học sinh (kể cả lượt bị hệ thống dừng ép do vi phạm giám sát) để tự

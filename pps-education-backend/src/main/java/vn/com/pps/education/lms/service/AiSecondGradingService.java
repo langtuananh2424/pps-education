@@ -104,7 +104,8 @@ public class AiSecondGradingService {
                 "Bước này chưa được AI chấm — không thể chấm lần 2.");
     }
 
-    private void requireAssignedTeacher(Long classId, Long actorUserId) {
+    /** Phạm vi chấm lần 2: giáo viên đứng lớp thật hoặc quyền {@value #PERM_ADMIN_SCOPE}; dùng chung với {@link EssayGradingHistoryService}. */
+    public void requireAssignedTeacher(Long classId, Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, PERM_ADMIN_SCOPE)) {
             return;
         }

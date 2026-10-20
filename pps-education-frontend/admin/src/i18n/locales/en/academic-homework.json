@@ -159,6 +159,32 @@
           "loadFailed": "Failed to load the violation summary."
         }
       },
+      "essayHistory": {
+        "openButton": "AI grading history",
+        "title": "AI grading history — {{studentName}}",
+        "loading": "Loading...",
+        "loadFailed": "Could not load the AI grading history.",
+        "officialHint": "The official score of each question is the current grading (flagged). If the AI graded it wrong, the teacher adjusts the score there — the original AI grading becomes \"Not counted\" and is kept for comparison.",
+        "questionLabel": "Question {{order}}: {{prompt}}",
+        "attemptLabel": "Attempt #{{number}}",
+        "answerLabel": "Student's answer",
+        "aiLabel": "AI graded",
+        "teacherLabel": "Teacher graded",
+        "officialBadge": "Official score",
+        "notCountedBadge": "Not counted",
+        "score": "Score: {{score}}/{{maxScore}}",
+        "gradedBy": "{{name}} — {{time}}",
+        "feedbackLabel": "Feedback",
+        "criteriaLabel": "Criteria breakdown",
+        "aiOriginalScore": "(AI graded: {{score}})",
+        "edit": "Adjust score",
+        "scoreLabel": "Score (0 - {{max}})",
+        "feedbackPlaceholder": "Teacher feedback (optional) — shown to the student instead of the AI feedback...",
+        "save": "Save score",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "saveFailed": "Could not save the score — try again."
+      },
       "answerHistory": {
         "title": "Question answer history",
         "attemptSuffix": " — Attempt #{{number}}",

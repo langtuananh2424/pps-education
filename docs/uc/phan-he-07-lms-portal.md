@@ -2350,10 +2350,27 @@ UC-40: Soạn & giao đề kiểm tra
 > của AI. Học sinh nộp lại bước nào thì dấu "đã chấm lại" của bước đó bị
 > xoá. Quyền: giáo viên đứng lớp thật (`class_teachers`,
 > `assigned_to IS NULL`) hoặc tài khoản có `lms.review-video.manage`
-> (vượt rào lớp, V107). Bài tập Writing (ESSAY) chưa có giao diện chấm
-> lần 2 ở trang thống kê (backend vẫn chấm đè được qua
-> `ManualGradingService#gradeAnswer`); luyện Nói (listening practice)
-> không có AI chấm nên không thuộc phạm vi.
+> (vượt rào lớp, V107). Luyện Nói (listening practice) không có AI chấm
+> nên không thuộc phạm vi.
+>
+> **Bài tập Writing (ESSAY) do AI chấm (2026-10-20, đã xác nhận với người
+> dùng):** cùng cách, giáo viên chấm lại câu ESSAY trong popup **"Lịch sử
+> chấm AI"** (nút cạnh tiêu đề "Lịch sử trả lời câu hỏi" của chi tiết học
+> sinh, trang *Thống kê BTVN theo lớp* --- cả bản giao lẻ lẫn Lô). Nút chỉ
+> hiện khi học sinh có câu ESSAY từng được AI chấm. Popup rộng (size xl),
+> mỗi câu liệt kê các lượt làm; mỗi lượt hiện toàn bộ bản chấm (AI + giáo
+> viên), mới nhất trước: **bản hiện hành** (`student_answer_grading.is_final
+> = true`) mang cờ "Điểm chính thức", bản cũ ghi "Không tính" và không
+> chỉnh được; điểm AI gốc luôn hiện kèm để đối chiếu. Xem lịch sử qua `GET
+> /api/exercise-assignments/{assignmentId}/students/{studentId}/
+> essay-grading-history` (`EssayGradingHistoryService`, chỉ trả câu từng có
+> bản chấm `grading_source='AI'`; phạm vi như chấm lần 2 Video phản xạ:
+> giáo viên đứng lớp thật hoặc `lms.review-video.manage`). Chấm lại dùng
+> nguyên `POST /api/answers/{id}/grade` (`ManualGradingService#gradeAnswer`,
+> UC-41): bản AI chuyển `is_final=false`, bản `HUMAN` mới là điểm chính
+> thức và mang theo `marked_answer` của AI (học sinh vẫn thấy lỗi bị bôi);
+> điểm tiêu chí/Key Grammar/nhận xét của AI không mang theo. Điểm tổng lượt
+> làm, ngưỡng đạt và báo cáo tự dùng điểm mới.
 
 > **Bổ sung V144/V148 (2026-08-24, đã xác nhận với người dùng) --- mục lục
 > Sách giáo trình cho Kho đề (đang thiếu ở tài liệu này, bổ sung lại
