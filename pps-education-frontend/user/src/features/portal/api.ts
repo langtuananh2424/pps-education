@@ -1092,9 +1092,14 @@ export interface ExerciseQuestionResponse {
     format?: "form";
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn TÙY CHỌN hiện phía
-     * trên câu hỏi WORD_BANK (chữ nghiêng, VD "Ex. 1: Fill in each blank..."), đọc từ cột Excel/Word
-     * "Hướng dẫn" lúc soạn đề (xem QuestionImportService). Không áp dụng khi `format === "form"` — loại
-     * đó vẫn tái dùng `referencePassage` như cũ (xem TakeExerciseModal#WordBankBlock).
+     * trên câu hỏi (chữ nghiêng, VD "Ex. 1: Fill in each blank..."), đọc từ cột Excel/Word "Hướng dẫn"
+     * lúc soạn đề (xem QuestionImportService). Lúc đầu chỉ 4 kind đọc cột này (TRAC_NGHIEM,
+     * TRAC_NGHIEM_VOICE, ANH_TRAC_NGHIEM, DIEN_TU_HOP_TU_VUNG, DIEN_TU_HOP_TU_VUNG_ANH,
+     * DIEN_TU_DOAN_VAN, DIEN_TU_NHOM, DOC_HIEU_LUOI) — bổ sung
+     * 2026-10-20 (đã xác nhận với người dùng — fix gap thật) mọi kind còn lại đều đọc được, kể cả
+     * `format === "form"` (NGHE_PHIEU_THONG_TIN): field này giờ ưu tiên hơn `referencePassage` nếu có,
+     * fallback về `referencePassage` (cột Transcript) cho dữ liệu cũ chưa điền cột "Hướng dẫn" (xem
+     * TakeExerciseModal#WordBankBlock).
      */
     instruction?: string;
   } | null;
