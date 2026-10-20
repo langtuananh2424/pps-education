@@ -78,6 +78,16 @@ public interface QuestionRowParser {
             String choiceG,
             String choiceH,
             String choiceI,
-            String choiceJ
+            String choiceJ,
+            /**
+             * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — cột "Kỹ năng" tường minh
+             * (LISTENING/READING/WRITING/SPEAKING/GRAMMAR/OTHER, khớp {@code Question.Skill}), dùng cho
+             * MỌI kind — fix gap thật: trước đây skill chỉ tự suy ra NGẦM theo kind (NGHE_*→LISTENING,
+             * SPEAKING→SPEAKING), các kind Đọc/Ngữ pháp/Viết luôn để null dù enum đã có đủ 6 giá trị từ
+             * đầu (xem QuestionImportService#resolveSkill). BẮT BUỘC với ANH_TRAC_NGHIEM/ANH_DIEN_TU (2
+             * kind dùng chung cho cả 4 kỹ năng, tên kind không tự nói lên kỹ năng như các kind cũ) — tùy
+             * chọn với mọi kind khác (để trống giữ nguyên hành vi suy luận ngầm cũ).
+             */
+            String skill
     ) {}
 }
