@@ -1253,6 +1253,8 @@ export interface ReflexQuestionProgressHistoryEntry {
   aiFeedback: string | null;
   reviewerName: string | null;
   reviewedAt: string | null;
+  /** V217 — giáo viên đã chọn lần này làm kết quả chính thức (khác mặc định "lần mới nhất"). */
+  selectedByTeacher: boolean;
 }
 
 /** V191 — giáo viên nghe lại audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh (Video phản xạ). */
@@ -1537,6 +1539,11 @@ export function gradeReviewVideoSubmission(submissionId: number, request: GradeR
  */
 export function reviewReflexStep(progressId: number, step: "WRITING" | "SPEAKING", request: { score: number; feedback?: string }): Promise<void> {
   return apiRequest<void>(`/reflex-progress/${progressId}/review/${step}`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** V217 (xác nhận 2026-10-20) — giáo viên chọn lần Viết/Nói tốt nhất làm kết quả chính thức của bước. */
+export function selectReflexAttempt(progressId: number, step: "WRITING" | "SPEAKING", attemptNumber: number): Promise<void> {
+  return apiRequest<void>(`/reflex-progress/${progressId}/select/${step}/${attemptNumber}`, { method: "POST" });
 }
 
 // ===================== Kho Video Ôn tập — Câu hỏi trắc nghiệm Video Kết nối (V76) =====================

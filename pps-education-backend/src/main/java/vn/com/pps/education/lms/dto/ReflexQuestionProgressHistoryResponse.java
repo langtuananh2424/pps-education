@@ -38,8 +38,8 @@ public record ReflexQuestionProgressHistoryResponse(
         /** reflex_question_progress.id của câu hỏi này — dùng để gọi chấm lại điểm chính thức. */
         Long progressId,
         /**
-         * Lần này đang là điểm CHÍNH THỨC của bước (viết/nói) của câu hỏi — reflex_question_progress ghi đè
-         * tại chỗ nên điểm chính thức luôn là lần nộp MỚI NHẤT; các lần cũ chỉ để xem lịch sử, không tính.
+         * Lần này đang là điểm CHÍNH THỨC của bước (viết/nói) của câu hỏi — mặc định là lần nộp MỚI NHẤT, hoặc lần
+         * giáo viên đã chọn (V217); các lần còn lại chỉ để xem lịch sử, không tính.
          */
         boolean official,
         /** Giáo viên đã chấm lại điểm chính thức (chỉ có thể true ở lần official, V216). */
@@ -48,6 +48,8 @@ public record ReflexQuestionProgressHistoryResponse(
         BigDecimal aiScore,
         String aiFeedback,
         String reviewerName,
-        OffsetDateTime reviewedAt
+        OffsetDateTime reviewedAt,
+        /** V217 — giáo viên đã chọn lần này làm kết quả chính thức (khác mặc định "lần mới nhất"). */
+        boolean selectedByTeacher
 ) {
 }

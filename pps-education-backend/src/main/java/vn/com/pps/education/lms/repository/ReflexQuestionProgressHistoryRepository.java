@@ -12,4 +12,8 @@ public interface ReflexQuestionProgressHistoryRepository extends JpaRepository<R
     /** Dùng cho xuất dữ liệu toàn bộ lớp/lần giao (ReviewVideoReportService#exportReflexData). */
     List<ReflexQuestionProgressHistory> findByReviewVideoAssignmentIdOrderByStudentIdAscCreatedAtAsc(
             Long reviewVideoAssignmentId);
+
+    /** V217 — mọi lần nộp của 1 bước (viết/nói) của 1 tiến trình, cũ trước; dùng chọn/chấm lại lần tốt nhất. */
+    List<ReflexQuestionProgressHistory> findByReflexQuestionProgressIdAndAttemptTypeOrderByAttemptNumberAsc(
+            Long reflexQuestionProgressId, ReflexQuestionProgressHistory.AttemptType attemptType);
 }
