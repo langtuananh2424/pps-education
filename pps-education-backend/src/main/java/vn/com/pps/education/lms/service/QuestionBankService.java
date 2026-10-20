@@ -204,6 +204,7 @@ public class QuestionBankService {
             question.setDefaultPoints(request.defaultPoints());
         }
         question.setTags(request.tags());
+        question.setDisplayNumberOverride(request.displayNumberOverride());
         question.setCreatedBy(actor);
         question = questionRepository.save(question);
         List<QuestionChoice> savedChoices = saveChoices(question, request.choices());
@@ -514,7 +515,7 @@ public class QuestionBankService {
                 q.getContent(), q.getAudioUrl(), q.getImageUrl(), q.getReferencePassage(), q.getExplanation(),
                 q.getCorrectAnswerText(),
                 q.getDefaultPoints(), q.getTags(), q.getStatus().name(), q.getCreatedBy().getId(), choices,
-                q.getStructuredContent(), q.getGroupKey(), q.getKeyGrammar());
+                q.getStructuredContent(), q.getGroupKey(), q.getKeyGrammar(), q.getDisplayNumberOverride());
     }
 
     private QuestionChoiceResponse toResponse(QuestionChoice c) {

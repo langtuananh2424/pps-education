@@ -187,6 +187,12 @@ export interface QuestionResponse {
    * hỏi này sau này.
    */
   keyGrammar: string[] | null;
+  /**
+   * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V217) — xem
+   * Javadoc backend Question.displayNumberOverride. null = giữ nguyên hành vi tự đếm tuần tự cũ khi gắn
+   * câu hỏi này vào 1 Bài (xem CreateAndAssignExerciseModal.tsx).
+   */
+  displayNumberOverride: number | null;
 }
 
 /** Key Grammar — 1 mã cấu trúc khả dụng để chọn, nguồn cho dropdown ở modal "Sửa câu hỏi". */
@@ -323,6 +329,12 @@ export interface QuestionImportedRow {
   id: number | null;
   content: string;
   defaultPoints: number;
+  /**
+   * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V217) — xem
+   * Javadoc backend Question.displayNumberOverride. null = giữ nguyên hành vi tự đếm tuần tự cũ khi gắn
+   * vào Bài (xem CreateAndAssignExerciseModal.tsx#handleImportCompleted).
+   */
+  displayNumberOverride: number | null;
 }
 
 /**
@@ -359,6 +371,9 @@ export interface QuestionImportRowPreview {
   // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — cột "Kỹ năng" tường minh, xem Javadoc backend
   // QuestionRowParser.ParsedQuestionRow#skill.
   skill: string | null;
+  // Bổ sung 2026-10-20 (đã xác nhận với người dùng) — "Số thứ tự hiển thị ghi đè", xem Javadoc backend
+  // QuestionRowParser.ParsedQuestionRow#displayNumberOverride.
+  displayNumberOverride: string | null;
   valid: boolean;
   error: string | null;
 }

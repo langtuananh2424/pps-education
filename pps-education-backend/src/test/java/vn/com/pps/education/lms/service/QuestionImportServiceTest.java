@@ -498,6 +498,75 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V217) — "Số thứ tự hiển thị ghi đè":
+     * 1 câu hỏi đơn (không thuộc kind nhóm) ghi đè số hiển thị khi gắn vào Bài, thay cho tự đếm tuần tự.
+     */
+    @Test
+    void importQuestions_boSung_appliesDisplayNumberOverrideToSingleQuestion() throws IOException {
+        byte[] file = buildExcelWithHeaders(
+                new String[]{"Loại câu hỏi", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng", "Điểm", "Số thứ tự hiển thị"},
+                new String[][]{
+                        {"TRAC_NGHIEM", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B", "1", "14"}
+                });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "override.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.createdQuestions()).hasSize(1);
+        assertThat(result.createdQuestions().get(0).displayNumberOverride()).isEqualTo(14);
+
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).displayNumberOverride()).isEqualTo(14);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V217) — kind nhóm (DIEN_TU_NHOM, 1
+     * dòng → N câu con): số ghi đè chỉ áp cho CÂU ĐẦU TIÊN theo đúng thứ tự "Nội dung" — các câu con sau
+     * trong CÙNG nhóm luôn null (FE tự cộng dồn +1 tiếp, xem CreateAndAssignExerciseModal.tsx).
+     */
+    @Test
+    void importQuestions_boSung_appliesDisplayNumberOverrideOnlyToFirstQuestionInGroup() throws IOException {
+        byte[] file = buildExcelWithHeaders(
+                new String[]{"Loại câu hỏi", "Nội dung", "Đáp án đúng", "Điểm", "Số thứ tự hiển thị"},
+                new String[][]{
+                        {"DIEN_TU_NHOM", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.",
+                                "smart|favourite|coach", "1", "36"}
+                });
+
+        questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "override-nhom.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        assertThat(saved).hasSize(3);
+        assertThat(findByContentPrefix(saved, "Tom is very").displayNumberOverride()).isEqualTo(36);
+        assertThat(findByContentPrefix(saved, "English is my").displayNumberOverride()).isNull();
+        assertThat(findByContentPrefix(saved, "Our football").displayNumberOverride()).isNull();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V217) — A2 (lỗi từng dòng, không
+     * chặn dòng khác): số ghi đè không phải số nguyên hợp lệ chỉ làm fail ĐÚNG dòng đó.
+     */
+    @Test
+    void importQuestions_boSung_rejectsNonNumericDisplayNumberOverrideForJustThatRow() throws IOException {
+        byte[] file = buildExcelWithHeaders(
+                new String[]{"Loại câu hỏi", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án đúng", "Điểm", "Số thứ tự hiển thị"},
+                new String[][]{
+                        {"TRAC_NGHIEM", "Invalid override row.", "A", "B", "A", "1", "khong-phai-so"},
+                        {"TRAC_NGHIEM", "Valid row without override.", "A", "B", "A", "1", null}
+                });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "override-invalid.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(1);
+    }
+
+    /**
      * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — 1 số bài DIEN_TU_NHOM (VD "tìm và sửa lỗi
      * trong đoạn văn") cần hiện ĐÚNG đoạn văn gốc làm ngữ cảnh, không phải hộp từ vựng tham khảo — cột
      * "Đoạn văn tham chiếu" trông như 1 đoạn văn tự nhiên (dài hoặc có dấu kết câu ./!/?) thì dùng làm
@@ -597,7 +666,7 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     void importQuestions_boSung_fillInBlankGroupPreChecksDuplicateBeforeCreatingAnyQuestionInGroup() throws IOException {
         questionBankService.createQuestion(new CreateQuestionRequest(bank.id(), "FILL_IN_BLANK", null, "MEDIUM",
                 "English is my ___ subject.", null, null, null, null, "favourite",
-                new BigDecimal("1"), null, null, null, null), teacher.getId());
+                new BigDecimal("1"), null, null, null, null, null), teacher.getId());
 
         byte[] file = buildExcel(new String[][]{
                 {"DIEN_TU_NHOM", null,

@@ -110,14 +110,18 @@ function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): Render
   return blocks;
 }
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V217 — "Số thứ tự hiển thị ghi đè") —
+ * TRƯỚC ĐÂY hàm này tự đếm tuần tự thuần túy từ 1 theo VỊ TRÍ mảng, bỏ qua hẳn
+ * `exercise_questions.display_order` THẬT đã lưu trong DB (dù `questions` lấy từ listExerciseQuestions,
+ * API thật) — bug có sẵn TRƯỚC KHI có tính năng ghi đè: panel xem trước luôn hiện số 1,2,3... dù học
+ * sinh làm bài thật (TakeExerciseModal.tsx) lại hiện ĐÚNG displayOrder đã lưu, 2 nơi lệch nhau bất kỳ
+ * khi nào displayOrder không trùng khít vị trí mảng (VD GV ghi đè số hiển thị, hoặc sắp xếp lại câu hỏi
+ * theo cách khác không liền mạch từ 1). Sửa: đọc THẲNG displayOrder của câu ĐẦU TIÊN mỗi khối — khớp
+ * đúng 1 nguồn dữ liệu DUY NHẤT với màn học sinh làm bài thật, không tính toán lại gì thêm.
+ */
 function computeStartNumbers(blocks: RenderBlock[]): number[] {
-  const starts: number[] = [];
-  let n = 1;
-  for (const b of blocks) {
-    starts.push(n);
-    n += b.type === "grid" ? b.questions.length : 1;
-  }
-  return starts;
+  return blocks.map((b) => (b.type === "grid" ? b.questions[0].displayOrder : b.question.displayOrder));
 }
 
 interface ExerciseStudentPreviewModalProps {

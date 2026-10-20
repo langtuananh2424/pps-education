@@ -27,5 +27,11 @@ public record QuestionResponse(
          * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — mảng mã
          * cấu trúc đã gắn cho câu hỏi này, NULL/rỗng = không kiểm. Chỉ có ý nghĩa khi questionType=ESSAY.
          */
-        List<String> keyGrammar
+        List<String> keyGrammar,
+        /**
+         * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V217)
+         * — xem Javadoc {@code Question.displayNumberOverride}. {@code null} = giữ nguyên hành vi tự
+         * đếm tuần tự cũ khi gắn câu hỏi này vào 1 Bài (xem CreateAndAssignExerciseModal.tsx).
+         */
+        Integer displayNumberOverride
 ) {}

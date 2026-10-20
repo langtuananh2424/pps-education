@@ -519,7 +519,11 @@ export function ExerciseQuestionsStep({
     onError(null);
     try {
       const points = question.defaultPoints ?? 0;
-      const eq = await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder: existingCount + attached.length + 1, points });
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — "Số thứ tự hiển thị ghi đè" (V217):
+      // ưu tiên dùng số GV đã ghi đè lúc soạn/import câu hỏi (khớp số in sẵn trong ảnh/sơ đồ sách gốc),
+      // rơi về đếm tuần tự cũ khi không có — xem Javadoc Question.displayNumberOverride.
+      const displayOrder = question.displayNumberOverride ?? existingCount + attached.length + 1;
+      const eq = await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder, points });
       setAttached((prev) => [...prev, { exerciseQuestionId: eq.id, content: question.content, points: eq.points }]);
       setComposeFormKey((k) => k + 1); // remount QuestionEditorForm rỗng để soạn tiếp câu khác
     } catch (err) {
@@ -537,7 +541,8 @@ export function ExerciseQuestionsStep({
       let order = existingCount + attached.length;
       const newlyAttached: AttachedQuestion[] = [];
       for (const q of createdQuestions) {
-        order += 1;
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — V217, mirror handleComposeCreated.
+        order = q.displayNumberOverride ?? order + 1;
         const points = q.defaultPoints ?? 0;
         const eq = await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points });
         newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
@@ -556,7 +561,10 @@ export function ExerciseQuestionsStep({
       let order = existingCount + attached.length;
       const newlyAttached: AttachedQuestion[] = [];
       for (const q of createdQuestions) {
-        order += 1;
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — V217: ưu tiên số GV ghi đè
+        // trong cột Excel "Số thứ tự hiển thị" (chỉ câu ĐẦU TIÊN của 1 dòng/nhóm có giá trị, các câu con
+        // sau trong cùng nhóm luôn null nên tự +1 tiếp bình thường) — xem Question.displayNumberOverride.
+        order = q.displayNumberOverride ?? order + 1;
         // onImported chỉ được QuestionImportPanel gọi SAU khi xác nhận lưu thật (id luôn có) — id chỉ
         // null ở bước xem trước (preview), không đi qua đường này. Xem QuestionImportPanel.tsx.
         const eq = await addExerciseQuestion(exercise.id, { questionId: q.id!, displayOrder: order, points: q.defaultPoints });
