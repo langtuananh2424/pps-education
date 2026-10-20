@@ -3,6 +3,7 @@ package vn.com.pps.education.lms.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import vn.com.pps.education.academic.domain.SchoolClass;
 import vn.com.pps.education.lms.domain.StudentAnswerGrading;
 
 import java.util.Collection;
@@ -27,4 +28,11 @@ public interface StudentAnswerGradingRepository extends JpaRepository<StudentAns
             """)
     List<StudentAnswerGrading> findByGradingSourceAndClassId(@Param("source") StudentAnswerGrading.GradingSource source,
                                                               @Param("classId") Long classId);
+
+    /** Chấm lần 2 — mọi lớp có bài tập được AI chấm, cho tài khoản quản trị (không cần đứng lớp). */
+    @Query("""
+            SELECT DISTINCT g.studentAnswer.exerciseAttempt.exerciseAssignment.schoolClass FROM StudentAnswerGrading g
+            WHERE g.gradingSource = :source
+            """)
+    List<SchoolClass> findClassesByGradingSource(@Param("source") StudentAnswerGrading.GradingSource source);
 }

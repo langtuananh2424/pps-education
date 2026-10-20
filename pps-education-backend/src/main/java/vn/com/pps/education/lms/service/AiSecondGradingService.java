@@ -18,6 +18,7 @@ import vn.com.pps.education.lms.dto.AiGradedItemResponse;
 import vn.com.pps.education.lms.dto.ReviewReflexStepRequest;
 import vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.lms.repository.StudentAnswerGradingRepository;
+import vn.com.pps.education.permission.service.PermissionEvaluationService;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -43,8 +44,10 @@ import java.util.stream.Collectors;
  * Luyện Nói (listening practice) không có AI chấm nên không thuộc phạm vi này.
  *
  * Phạm vi giáo viên: lớp mình đang đứng tên thật (class_teachers, assignedTo IS NULL) — mirror
- * ReviewVideoService#getPendingGradingSummaryForTeacher. Authorization quyền ở controller
- * (lms.grading.manage).
+ * ReviewVideoService#getPendingGradingSummaryForTeacher. Tài khoản có quyền quản trị
+ * {@value #PERM_ADMIN_SCOPE} (vượt rào lớp, V107 — mirror ReviewVideoService#requireAssignedTeacher) xem và
+ * chấm lại được MỌI lớp, kể cả khi không đứng lớp (sửa 2026-10-20: trước đây admin/quản lý thấy tab rỗng vì
+ * chỉ liệt kê lớp đứng tên). Authorization quyền ở controller (lms.grading.manage).
  */
 @Service
 public class AiSecondGradingService {
@@ -52,6 +55,7 @@ public class AiSecondGradingService {
     static final String TYPE_REFLEX_WRITING = "REFLEX_WRITING";
     static final String TYPE_REFLEX_SPEAKING = "REFLEX_SPEAKING";
     static final String TYPE_ESSAY = "ESSAY";
+    static final String PERM_ADMIN_SCOPE = "lms.review-video.manage";
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
     /** Bước của Video phản xạ mà giáo viên chấm lại. */
@@ -61,11 +65,14 @@ public class AiSecondGradingService {
     private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
     private final StudentAnswerGradingRepository studentAnswerGradingRepository;
     private final UserRepository userRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
 
     public AiSecondGradingService(ClassTeacherRepository classTeacherRepository,
                                   ReflexQuestionProgressRepository reflexQuestionProgressRepository,
                                   StudentAnswerGradingRepository studentAnswerGradingRepository,
-                                  UserRepository userRepository) {
+                                  UserRepository userRepository,
+                                  PermissionEvaluationService permissionEvaluationService) {
+        this.permissionEvaluationService = permissionEvaluationService;
         this.classTeacherRepository = classTeacherRepository;
         this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
         this.studentAnswerGradingRepository = studentAnswerGradingRepository;
@@ -75,10 +82,12 @@ public class AiSecondGradingService {
     /** Landing: các lớp giáo viên đang đứng lớp thật có bài AI đã chấm, kèm số bài chưa chấm lại. */
     @Transactional(readOnly = true)
     public List<AiGradedClassSummaryResponse> listClasses(Long actorUserId) {
-        List<SchoolClass> myClasses = classTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
-                .map(ClassTeacher::getSchoolClass)
-                .distinct()
-                .toList();
+        List<SchoolClass> myClasses = permissionEvaluationService.hasPermission(actorUserId, PERM_ADMIN_SCOPE)
+                ? classesWithAiGradedData()
+                : classTeacherRepository.findByTeacherIdAndAssignedToIsNull(actorUserId).stream()
+                        .map(ClassTeacher::getSchoolClass)
+                        .distinct()
+                        .toList();
         List<AiGradedClassSummaryResponse> result = new ArrayList<>();
         for (SchoolClass schoolClass : myClasses) {
             List<AiGradedItemResponse> items = collectItems(schoolClass.getId());
@@ -156,7 +165,19 @@ public class AiSecondGradingService {
                 "Bước này chưa được AI chấm — không thể chấm lần 2.");
     }
 
+    /** Quản trị: mọi lớp có bài AI đã chấm (Video phản xạ + bài tập Writing), không trùng lớp. */
+    private List<SchoolClass> classesWithAiGradedData() {
+        Map<Long, SchoolClass> byId = new LinkedHashMap<>();
+        reflexQuestionProgressRepository.findClassesWithAiGraded().forEach(c -> byId.putIfAbsent(c.getId(), c));
+        studentAnswerGradingRepository.findClassesByGradingSource(StudentAnswerGrading.GradingSource.AI)
+                .forEach(c -> byId.putIfAbsent(c.getId(), c));
+        return List.copyOf(byId.values());
+    }
+
     private void requireAssignedTeacher(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_ADMIN_SCOPE)) {
+            return;
+        }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
                     "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");

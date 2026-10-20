@@ -182,7 +182,7 @@ test("Giáo viên chấm lần 2 bài Writing + Video phản xạ do AI chấm",
     .toBe("85.00|40.00|true|true");
 });
 
-test("Giáo viên không đứng lớp không chấm lần 2 được (403)", async ({ request }) => {
+test("Tài khoản không đứng lớp và không có quyền quản trị bị chặn (403)", async ({ request }) => {
   const token = await login(request, "opsmanager");
   const res = await request.post(`${BACKEND_URL}/api/reflex-progress/${fx.progressId}/review/SPEAKING`, {
     headers: authHeaders(token),
@@ -190,4 +190,16 @@ test("Giáo viên không đứng lớp không chấm lần 2 được (403)", as
   });
   expect([401, 403]).toContain(res.status());
   expect(sql(`select speaking_score from reflex_question_progress where id=${fx.progressId}`)).toBe("55.00");
+});
+
+test("Admin/quản lý không đứng lớp vẫn thấy và chấm lại được bài AI đã chấm", async ({ request }) => {
+  const token = await login(request, "sysadmin");
+  expect(sql("select count(*) from class_teachers where teacher_user_id=1 and assigned_to is null")).toBe("0"); // đúng là không đứng lớp nào
+  const classes = (await json(await request.get(`${BACKEND_URL}/api/grading/ai-graded/classes`, { headers: authHeaders(token) }), "GET lớp AI đã chấm")) as Array<{ classId: number }>;
+  expect(classes.map((c) => c.classId)).toContain(fx.classId);
+  const items = (await json(await request.get(`${BACKEND_URL}/api/classes/${fx.classId}/ai-graded-items?includeReviewed=true`, { headers: authHeaders(token) }), "GET bài AI đã chấm")) as Array<{ refId: number; itemType: string }>;
+  expect(items.some((i) => i.itemType === "REFLEX_SPEAKING" && i.refId === fx.progressId)).toBeTruthy();
+  const res = await request.post(`${BACKEND_URL}/api/reflex-progress/${fx.progressId}/review/SPEAKING`, { headers: authHeaders(token), data: { score: 62, feedback: "Admin chấm lại" } });
+  expect(res.ok(), await res.text()).toBeTruthy();
+  expect(sql(`select speaking_score||'|'||speaking_ai_score from reflex_question_progress where id=${fx.progressId}`)).toBe("62.00|55.00");
 });

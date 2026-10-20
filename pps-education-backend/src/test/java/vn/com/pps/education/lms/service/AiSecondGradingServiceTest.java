@@ -20,6 +20,7 @@ import vn.com.pps.education.lms.dto.AiGradedItemResponse;
 import vn.com.pps.education.lms.dto.ReviewReflexStepRequest;
 import vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.lms.repository.StudentAnswerGradingRepository;
+import vn.com.pps.education.permission.service.PermissionEvaluationService;
 import vn.com.pps.education.student.domain.Student;
 
 import java.math.BigDecimal;
@@ -50,6 +51,8 @@ class AiSecondGradingServiceTest {
     private StudentAnswerGradingRepository studentAnswerGradingRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private PermissionEvaluationService permissionEvaluationService;
 
     private AiSecondGradingService service;
     private ReflexQuestionProgress progress;
@@ -58,7 +61,7 @@ class AiSecondGradingServiceTest {
     @BeforeEach
     void setUp() {
         service = new AiSecondGradingService(classTeacherRepository, reflexQuestionProgressRepository,
-                studentAnswerGradingRepository, userRepository);
+                studentAnswerGradingRepository, userRepository, permissionEvaluationService);
 
         SchoolClass schoolClass = new SchoolClass();
         schoolClass.setId(CLASS_ID);
@@ -175,5 +178,45 @@ class AiSecondGradingServiceTest {
         assertThat(progress.getWritingReviewedAt()).isNull();
         assertThat(progress.getWritingAiScore()).isNull();
         assertThat(progress.getWritingReviewedBy()).isNull();
+    }
+
+    @Test
+    void listClasses_admin_seesEveryClassWithAiDataWithoutTeachingIt() {
+        SchoolClass reflexClass = new SchoolClass();
+        reflexClass.setId(CLASS_ID);
+        reflexClass.setClassCode("L1");
+        reflexClass.setName("Lớp 1");
+        SchoolClass essayClass = new SchoolClass();
+        essayClass.setId(11L);
+        essayClass.setClassCode("L2");
+        essayClass.setName("Lớp 2");
+        when(permissionEvaluationService.hasPermission(TEACHER_ID, AiSecondGradingService.PERM_ADMIN_SCOPE)).thenReturn(true);
+        when(reflexQuestionProgressRepository.findClassesWithAiGraded()).thenReturn(java.util.List.of(reflexClass));
+        when(studentAnswerGradingRepository.findClassesByGradingSource(any())).thenReturn(java.util.List.of(reflexClass, essayClass));
+        when(reflexQuestionProgressRepository.findAiGradedByClassId(CLASS_ID)).thenReturn(java.util.List.of(progress));
+        when(reflexQuestionProgressRepository.findAiGradedByClassId(11L)).thenReturn(java.util.List.of());
+        when(studentAnswerGradingRepository.findByGradingSourceAndClassId(any(), any())).thenReturn(java.util.List.of());
+
+        var classes = service.listClasses(TEACHER_ID);
+
+        // Lớp 1 chỉ xuất hiện 1 lần dù có cả dữ liệu Video phản xạ lẫn bài tập; lớp 2 không còn mục nào nên bị ẩn.
+        assertThat(classes).hasSize(1);
+        assertThat(classes.get(0).classId()).isEqualTo(CLASS_ID);
+        assertThat(classes.get(0).awaitingReviewCount()).isEqualTo(2);
+        verify(classTeacherRepository, never()).findByTeacherIdAndAssignedToIsNull(any());
+    }
+
+    @Test
+    void reviewReflexStep_admin_canReviewClassHeDoesNotTeach() {
+        when(permissionEvaluationService.hasPermission(TEACHER_ID, AiSecondGradingService.PERM_ADMIN_SCOPE)).thenReturn(true);
+        when(reflexQuestionProgressRepository.findById(PROGRESS_ID)).thenReturn(Optional.of(progress));
+        when(userRepository.findById(TEACHER_ID)).thenReturn(Optional.of(teacher));
+        when(reflexQuestionProgressRepository.save(any(ReflexQuestionProgress.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(BigDecimal.valueOf(90), null), TEACHER_ID);
+
+        assertThat(progress.getWritingScore()).isEqualByComparingTo("90");
+        verify(classTeacherRepository, never()).existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(any(), any());
     }
 }
