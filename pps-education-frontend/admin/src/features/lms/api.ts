@@ -1516,6 +1516,58 @@ export function gradeReviewVideoSubmission(submissionId: number, request: GradeR
   });
 }
 
+// ===================== Chấm lần 2 bài AI đã chấm (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) =====================
+
+export type AiGradedItemType = "REFLEX_WRITING" | "REFLEX_SPEAKING" | "ESSAY";
+
+export interface AiGradedClassSummaryResponse {
+  classId: number;
+  classCode: string;
+  className: string;
+  awaitingReviewCount: number;
+  totalAiGradedCount: number;
+}
+
+/** 1 bài/1 bước AI đã chấm. refId = reflex_question_progress.id (REFLEX_*) hoặc student_answers.id (ESSAY). aiScore luôn là điểm GỐC của AI, reviewedScore là điểm GV chấm lại (null nếu chưa). */
+export interface AiGradedItemResponse {
+  itemType: AiGradedItemType;
+  refId: number;
+  studentId: number;
+  studentFullName: string;
+  sourceTitle: string;
+  prompt: string | null;
+  studentText: string | null;
+  markedText: string | null;
+  audioUrl: string | null;
+  aiScore: number;
+  maxScore: number;
+  aiFeedback: string | null;
+  aiGradedAt: string | null;
+  reviewed: boolean;
+  reviewedScore: number | null;
+  reviewedFeedback: string | null;
+  reviewedAt: string | null;
+  reviewerName: string | null;
+}
+
+export function listAiGradedClasses(): Promise<AiGradedClassSummaryResponse[]> {
+  return apiRequest<AiGradedClassSummaryResponse[]>("/grading/ai-graded/classes");
+}
+
+export function listAiGradedItems(classId: number, includeReviewed: boolean): Promise<AiGradedItemResponse[]> {
+  return apiRequest<AiGradedItemResponse[]>(`/classes/${classId}/ai-graded-items?includeReviewed=${includeReviewed}`);
+}
+
+/** Video phản xạ: chấm lại 1 bước (điểm % 0-100 như điểm AI). */
+export function reviewReflexStep(progressId: number, step: "WRITING" | "SPEAKING", request: { score: number; feedback?: string }): Promise<AiGradedItemResponse> {
+  return apiRequest<AiGradedItemResponse>(`/reflex-progress/${progressId}/review/${step}`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** ESSAY: dùng endpoint chấm tay UC-41 — bản AI chuyển thành lịch sử, bản GV là bản hiện hành. */
+export function gradeStudentAnswer(studentAnswerId: number, request: { score: number; maxScore: number; feedback?: string }): Promise<unknown> {
+  return apiRequest<unknown>(`/answers/${studentAnswerId}/grade`, { method: "POST", body: JSON.stringify(request) });
+}
+
 // ===================== Kho Video Ôn tập — Câu hỏi trắc nghiệm Video Kết nối (V76) =====================
 
 export interface ConnectionChoiceRequest {
