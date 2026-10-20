@@ -16,10 +16,8 @@ import vn.com.pps.education.lms.domain.ReviewVideo;
 import vn.com.pps.education.lms.domain.ReviewVideoAssignment;
 import vn.com.pps.education.lms.domain.ReviewVideoQuestion;
 import vn.com.pps.education.lms.domain.ReviewVideoSet;
-import vn.com.pps.education.lms.dto.AiGradedItemResponse;
 import vn.com.pps.education.lms.dto.ReviewReflexStepRequest;
 import vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository;
-import vn.com.pps.education.lms.repository.StudentAnswerGradingRepository;
 import vn.com.pps.education.permission.service.PermissionEvaluationService;
 import vn.com.pps.education.student.domain.Student;
 
@@ -48,8 +46,6 @@ class AiSecondGradingServiceTest {
     @Mock
     private ReflexQuestionProgressRepository reflexQuestionProgressRepository;
     @Mock
-    private StudentAnswerGradingRepository studentAnswerGradingRepository;
-    @Mock
     private UserRepository userRepository;
     @Mock
     private PermissionEvaluationService permissionEvaluationService;
@@ -61,7 +57,7 @@ class AiSecondGradingServiceTest {
     @BeforeEach
     void setUp() {
         service = new AiSecondGradingService(classTeacherRepository, reflexQuestionProgressRepository,
-                studentAnswerGradingRepository, userRepository, permissionEvaluationService);
+                userRepository, permissionEvaluationService);
 
         SchoolClass schoolClass = new SchoolClass();
         schoolClass.setId(CLASS_ID);
@@ -112,7 +108,7 @@ class AiSecondGradingServiceTest {
     void reviewReflexStep_writing_replacesScoreAndKeepsAiOriginal() {
         givenAssignedTeacher();
 
-        AiGradedItemResponse response = service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+        service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
                 new ReviewReflexStepRequest(BigDecimal.valueOf(85), "Bài đúng ngữ pháp"), TEACHER_ID);
 
         assertThat(progress.getWritingScore()).isEqualByComparingTo("85");
@@ -123,12 +119,6 @@ class AiSecondGradingServiceTest {
         // Bước Nói không bị đụng tới
         assertThat(progress.getSpeakingScore()).isEqualByComparingTo("55");
         assertThat(progress.getSpeakingReviewedAt()).isNull();
-
-        assertThat(response.itemType()).isEqualTo("REFLEX_WRITING");
-        assertThat(response.reviewed()).isTrue();
-        assertThat(response.aiScore()).isEqualByComparingTo("40");
-        assertThat(response.reviewedScore()).isEqualByComparingTo("85");
-        assertThat(response.reviewerName()).isEqualTo("Cô Lan");
     }
 
     @Test
@@ -178,32 +168,6 @@ class AiSecondGradingServiceTest {
         assertThat(progress.getWritingReviewedAt()).isNull();
         assertThat(progress.getWritingAiScore()).isNull();
         assertThat(progress.getWritingReviewedBy()).isNull();
-    }
-
-    @Test
-    void listClasses_admin_seesEveryClassWithAiDataWithoutTeachingIt() {
-        SchoolClass reflexClass = new SchoolClass();
-        reflexClass.setId(CLASS_ID);
-        reflexClass.setClassCode("L1");
-        reflexClass.setName("Lớp 1");
-        SchoolClass essayClass = new SchoolClass();
-        essayClass.setId(11L);
-        essayClass.setClassCode("L2");
-        essayClass.setName("Lớp 2");
-        when(permissionEvaluationService.hasPermission(TEACHER_ID, AiSecondGradingService.PERM_ADMIN_SCOPE)).thenReturn(true);
-        when(reflexQuestionProgressRepository.findClassesWithAiGraded()).thenReturn(java.util.List.of(reflexClass));
-        when(studentAnswerGradingRepository.findClassesByGradingSource(any())).thenReturn(java.util.List.of(reflexClass, essayClass));
-        when(reflexQuestionProgressRepository.findAiGradedByClassId(CLASS_ID)).thenReturn(java.util.List.of(progress));
-        when(reflexQuestionProgressRepository.findAiGradedByClassId(11L)).thenReturn(java.util.List.of());
-        when(studentAnswerGradingRepository.findByGradingSourceAndClassId(any(), any())).thenReturn(java.util.List.of());
-
-        var classes = service.listClasses(TEACHER_ID);
-
-        // Lớp 1 chỉ xuất hiện 1 lần dù có cả dữ liệu Video phản xạ lẫn bài tập; lớp 2 không còn mục nào nên bị ẩn.
-        assertThat(classes).hasSize(1);
-        assertThat(classes.get(0).classId()).isEqualTo(CLASS_ID);
-        assertThat(classes.get(0).awaitingReviewCount()).isEqualTo(2);
-        verify(classTeacherRepository, never()).findByTeacherIdAndAssignedToIsNull(any());
     }
 
     @Test

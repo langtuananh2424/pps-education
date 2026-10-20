@@ -17,7 +17,6 @@ import {
   listReviewVideoSubmissionsForGrading,
   listReviewVideos
 } from "../api";
-import AiSecondGradingPanel from "../components/AiSecondGradingPanel";
 import ReviewVideoGradingPanel from "../components/ReviewVideoGradingPanel";
 import CountBadge from "@/components/ui/CountBadge";
 import Select from "@/components/ui/Select";
@@ -59,7 +58,7 @@ function buildStudentGroups(submissions: ReviewVideoSubmissionResponse[], sortKe
   return groups;
 }
 
-type ViewMode = "queue" | "aiReview" | "legacy";
+type ViewMode = "queue" | "legacy";
 
 /**
  * UC-23b Main Flow bước 3-4: giáo viên chọn 1 Bộ Video phản xạ + 1 lớp đã gán bộ đó, nghe và chấm điểm
@@ -238,18 +237,6 @@ export default function ExamsPage() {
             type="button"
             onClick={() => {
               setError(null);
-              setMode("aiReview");
-            }}
-            className={`px-3.5 py-2 text-sm font-bold rounded-lg transition-colors cursor-pointer ${
-              mode === "aiReview" ? "bg-brand-orange text-white shadow-soft" : "text-slate-500 hover:bg-slate-100"
-            }`}
-          >
-            {t("examsPage.tabs.aiReview")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setError(null);
               setMode("legacy");
             }}
             className={`px-3.5 py-2 text-sm font-bold rounded-lg transition-colors cursor-pointer ${
@@ -263,9 +250,7 @@ export default function ExamsPage() {
 
       <FloatingError message={error} onClose={() => setError(null)} />
 
-      {mode === "aiReview" ? (
-        <AiSecondGradingPanel onSaved={() => showToast(t("examsPage.toasts.saved"))} />
-      ) : mode === "queue" ? (
+      {mode === "queue" ? (
         !queueClass ? (
           loadingLanding ? (
             <p className="text-sm text-slate-500">{t("examsPage.queue.loadingLanding")}</p>

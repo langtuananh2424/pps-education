@@ -2334,24 +2334,26 @@ UC-40: Soạn & giao đề kiểm tra
 > `GEMINI_API_KEY`.
 
 > **Bổ sung V216 (2026-10-19, đã xác nhận với người dùng) --- Chấm lần 2
-> các bài do AI chấm** (Video phản xạ bước Viết/Nói + câu ESSAY Bài
-> Writing): vì học sinh phản ánh AI đôi khi chấm chưa đúng, trang "Hàng
-> chờ chấm bài" có thêm tab **"AI đã chấm --- Chấm lần 2"**
-> (`AiSecondGradingController`/`AiSecondGradingService`). Giáo viên đứng
-> lớp thật (`class_teachers`, `assigned_to IS NULL`) thấy theo từng lớp
-> các bài AI đã chấm (mặc định chỉ bài chưa chấm lại, tick "Hiện cả bài
-> đã chấm lại" để xem hết) kèm điểm + nhận xét AI, rồi chấm đè. **Điểm
-> giáo viên thay điểm chính thức**, điểm AI gốc vẫn giữ để đối chiếu:
-> Video phản xạ ghi điểm GV thẳng vào `reflex_question_progress.
-> writing_score/speaking_score` (ngưỡng đạt, mở khoá câu, báo cáo, tiến
-> độ BTVN tự dùng điểm mới; điểm/nhận xét AI gốc ở cột `*_ai_score`/
-> `*_ai_feedback`, người chấm/thời điểm ở `*_reviewed_by/_at` --- V216);
-> học sinh nộp lại bước đó thì AI chấm mới và các dấu "đã chấm lại" bị
-> xoá. Câu ESSAY dùng lại `ManualGradingService#gradeAnswer` (bản AI
-> chuyển `latest=false` làm lịch sử, bản GV `grading_source='HUMAN'` là
-> bản hiện hành, giữ lại `marked_answer` của AI để học sinh vẫn thấy lỗi
-> được đánh dấu). Luyện Nói (listening practice) không có AI chấm nên
-> không thuộc phạm vi.
+> bài Video phản xạ do AI chấm:** vì học sinh phản ánh AI đôi khi chấm
+> chưa đúng, giáo viên chỉnh điểm ngay trong popup **"Lịch sử chấm AI"**
+> (icon con mắt ở cột "Xem chi tiết") của trang *Thống kê BTVN theo lớp*
+> (`ReviewVideoAssignmentStatsDetailPage`), KHÔNG đặt ở "Hàng chờ chấm
+> bài". Popup rộng, mỗi câu chia 2 cột Viết | Ghi âm; **điểm chính thức
+> của mỗi bước luôn là lần nộp mới nhất** (`reflex_question_progress` ghi
+> đè tại chỗ) và được đánh cờ "Điểm chính thức", các lần cũ ghi "Không
+> tính" và không chỉnh được. Chỉnh điểm qua `POST /api/reflex-progress/
+> {id}/review/{WRITING|SPEAKING}` (`AiSecondGradingService`): điểm giáo
+> viên ghi thẳng vào `writing_score/speaking_score` (ngưỡng đạt, mở khoá
+> câu, báo cáo, tiến độ BTVN tự dùng điểm mới); điểm + nhận xét AI gốc
+> giữ ở `*_ai_score/*_ai_feedback`, người chấm/thời điểm ở `*_reviewed_by/
+> _at` (V216); `reflex_question_progress_history` giữ nguyên là snapshot
+> của AI. Học sinh nộp lại bước nào thì dấu "đã chấm lại" của bước đó bị
+> xoá. Quyền: giáo viên đứng lớp thật (`class_teachers`,
+> `assigned_to IS NULL`) hoặc tài khoản có `lms.review-video.manage`
+> (vượt rào lớp, V107). Bài tập Writing (ESSAY) chưa có giao diện chấm
+> lần 2 ở trang thống kê (backend vẫn chấm đè được qua
+> `ManualGradingService#gradeAnswer`); luyện Nói (listening practice)
+> không có AI chấm nên không thuộc phạm vi.
 
 > **Bổ sung V144/V148 (2026-08-24, đã xác nhận với người dùng) --- mục lục
 > Sách giáo trình cho Kho đề (đang thiếu ở tài liệu này, bổ sung lại

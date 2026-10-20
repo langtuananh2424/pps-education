@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import vn.com.pps.education.academic.domain.SchoolClass;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgress;
 
 import java.util.List;
@@ -63,25 +62,4 @@ public interface ReflexQuestionProgressRepository extends JpaRepository<ReflexQu
     @Query("UPDATE ReflexQuestionProgress p SET p.writingAttemptCount = p.writingAttemptCount + 1 " +
             "WHERE p.id = :id AND p.writingAttemptCount < :max")
     int incrementWritingAttemptCountIfBelowLimit(@Param("id") Long id, @Param("max") int max);
-
-    /**
-     * Chấm lần 2 (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) — các dòng tiến trình của 1 lớp có ít nhất 1
-     * bước đã được AI chấm thành công (có điểm). Mới cập nhật trước.
-     */
-    @Query("""
-            SELECT p FROM ReflexQuestionProgress p
-            WHERE p.reviewVideoAssignment.schoolClass.id = :classId
-            AND ((p.writingScore IS NOT NULL AND p.writingGradedAt IS NOT NULL)
-              OR (p.speakingScore IS NOT NULL AND p.speakingGradedAt IS NOT NULL))
-            ORDER BY p.updatedAt DESC
-            """)
-    List<ReflexQuestionProgress> findAiGradedByClassId(@Param("classId") Long classId);
-
-    /** Chấm lần 2 — mọi lớp có ít nhất 1 bước đã được AI chấm, cho tài khoản quản trị (không cần đứng lớp). */
-    @Query("""
-            SELECT DISTINCT p.reviewVideoAssignment.schoolClass FROM ReflexQuestionProgress p
-            WHERE (p.writingScore IS NOT NULL AND p.writingGradedAt IS NOT NULL)
-               OR (p.speakingScore IS NOT NULL AND p.speakingGradedAt IS NOT NULL)
-            """)
-    List<SchoolClass> findClassesWithAiGraded();
 }

@@ -231,7 +231,28 @@
       "recordingFiltered": "Thu âm: đã qua bộ lọc",
       "recordingRaw": "Thu âm: bản ghi thô",
       "grammarReviewTitle": "Cần giáo viên soát điểm Ngữ pháp",
-      "grammarReviewBody": "Bài có từ 2 lỗi đỏ ngữ pháp nên điểm Ngữ pháp bị hạ. AI chỉ phiên âm một lần và có thể nghe nhầm — hãy nghe lại các chỗ dưới đây trước khi chốt điểm:"
+      "grammarReviewBody": "Bài có từ 2 lỗi đỏ ngữ pháp nên điểm Ngữ pháp bị hạ. AI chỉ phiên âm một lần và có thể nghe nhầm — hãy nghe lại các chỗ dưới đây trước khi chốt điểm:",
+      "officialHint": "Điểm chính thức của mỗi bước là lần nộp mới nhất (có cờ). Nếu thấy AI chấm chưa đúng, giáo viên có thể chỉnh điểm ở lần đó — điểm AI gốc vẫn được giữ để đối chiếu.",
+      "column": {
+        "writing": "Bước Viết",
+        "speaking": "Bước Ghi âm"
+      },
+      "noAttemptYet": "Chưa có lần nào.",
+      "officialBadge": "Điểm chính thức",
+      "notCountedBadge": "Không tính",
+      "reviewedBadge": "GV đã chỉnh",
+      "aiOriginalScore": "(AI chấm: {{score}})",
+      "aiOriginalFeedbackLabel": "Nhận xét gốc của AI",
+      "reviewedBy": "{{name}} đã chấm lại lúc {{time}}",
+      "review": {
+        "edit": "Chỉnh điểm",
+        "scoreLabel": "Điểm (0 - {{max}})",
+        "feedbackPlaceholder": "Nhận xét của giáo viên (tùy chọn) — sẽ hiện cho học sinh thay nhận xét của AI...",
+        "save": "Lưu điểm",
+        "saving": "Đang lưu...",
+        "cancel": "Hủy",
+        "saveFailed": "Lưu điểm thất bại — thử lại."
+      }
     },
     "connectionHistoryModal": {
       "title": "Chi tiết các lượt làm — {{studentName}}",
