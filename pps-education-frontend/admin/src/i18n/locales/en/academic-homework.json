@@ -266,7 +266,7 @@
       "select": {
         "button": "Use this attempt as the official result",
         "selecting": "Selecting...",
-        "chosenBadge": "Teacher-picked best attempt",
+        "chosenBadge": "Teacher pick",
         "failed": "Could not select this attempt — try again."
       },
       "noAttemptYet": "No attempts yet.",

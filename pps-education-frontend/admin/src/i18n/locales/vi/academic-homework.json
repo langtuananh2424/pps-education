@@ -266,7 +266,7 @@
       "select": {
         "button": "Chọn lần này làm kết quả chính thức",
         "selecting": "Đang chọn...",
-        "chosenBadge": "GV chọn lần tốt nhất",
+        "chosenBadge": "GV chọn",
         "failed": "Không chọn được lần này — thử lại."
       },
       "noAttemptYet": "Chưa có lần nào.",

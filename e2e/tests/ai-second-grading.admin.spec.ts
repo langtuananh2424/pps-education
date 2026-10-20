@@ -149,7 +149,7 @@ test("Giáo viên chọn lần Viết tốt nhất làm kết quả chính thứ
 
   await writing1.getByRole("button", { name: "Chọn lần này làm kết quả chính thức" }).click();
   await expect(writing1).toContainText("Điểm chính thức");
-  await expect(writing1).toContainText("GV chọn lần tốt nhất");
+  await expect(writing1).toContainText("GV chọn");
   await expect(writing2).toContainText("Không tính");
   await page.screenshot({ path: "screenshots/ai2-popup-3-select.png" });
 
