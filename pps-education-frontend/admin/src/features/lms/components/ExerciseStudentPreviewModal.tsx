@@ -111,7 +111,7 @@ function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): Render
 }
 
 /**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V217 — "Số thứ tự hiển thị ghi đè") —
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V218 — "Số thứ tự hiển thị ghi đè") —
  * TRƯỚC ĐÂY hàm này tự đếm tuần tự thuần túy từ 1 theo VỊ TRÍ mảng, bỏ qua hẳn
  * `exercise_questions.display_order` THẬT đã lưu trong DB (dù `questions` lấy từ listExerciseQuestions,
  * API thật) — bug có sẵn TRƯỚC KHI có tính năng ghi đè: panel xem trước luôn hiện số 1,2,3... dù học

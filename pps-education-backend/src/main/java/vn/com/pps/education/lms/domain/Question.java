@@ -132,7 +132,7 @@ public class Question {
     private List<String> keyGrammar;
 
     /**
-     * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V217) —
+     * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V218) —
      * khớp đúng số đã in sẵn trong ảnh/sơ đồ sách gốc (VD sơ đồ IELTS Listening đánh số 36-40) khi hệ
      * thống mặc định tự đếm tuần tự từ 1 trong mỗi Bài. {@code null} (mặc định) = giữ nguyên hành vi tự
      * đếm cũ. Chỉ CÂU ĐẦU TIÊN của 1 dòng Excel (với kind nhóm sinh nhiều câu) cần set — các câu sau

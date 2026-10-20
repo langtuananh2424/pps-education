@@ -498,7 +498,7 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V217) — "Số thứ tự hiển thị ghi đè":
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V218) — "Số thứ tự hiển thị ghi đè":
      * 1 câu hỏi đơn (không thuộc kind nhóm) ghi đè số hiển thị khi gắn vào Bài, thay cho tự đếm tuần tự.
      */
     @Test
@@ -522,7 +522,7 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V217) — kind nhóm (DIEN_TU_NHOM, 1
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V218) — kind nhóm (DIEN_TU_NHOM, 1
      * dòng → N câu con): số ghi đè chỉ áp cho CÂU ĐẦU TIÊN theo đúng thứ tự "Nội dung" — các câu con sau
      * trong CÙNG nhóm luôn null (FE tự cộng dồn +1 tiếp, xem CreateAndAssignExerciseModal.tsx).
      */
@@ -546,7 +546,7 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V217) — A2 (lỗi từng dòng, không
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 (V218) — A2 (lỗi từng dòng, không
      * chặn dòng khác): số ghi đè không phải số nguyên hợp lệ chỉ làm fail ĐÚNG dòng đó.
      */
     @Test

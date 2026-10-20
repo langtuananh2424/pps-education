@@ -188,7 +188,7 @@ export interface QuestionResponse {
    */
   keyGrammar: string[] | null;
   /**
-   * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V217) — xem
+   * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V218) — xem
    * Javadoc backend Question.displayNumberOverride. null = giữ nguyên hành vi tự đếm tuần tự cũ khi gắn
    * câu hỏi này vào 1 Bài (xem CreateAndAssignExerciseModal.tsx).
    */
@@ -330,7 +330,7 @@ export interface QuestionImportedRow {
   content: string;
   defaultPoints: number;
   /**
-   * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V217) — xem
+   * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V218) — xem
    * Javadoc backend Question.displayNumberOverride. null = giữ nguyên hành vi tự đếm tuần tự cũ khi gắn
    * vào Bài (xem CreateAndAssignExerciseModal.tsx#handleImportCompleted).
    */
@@ -1268,7 +1268,7 @@ export interface ReflexQuestionProgressHistoryEntry {
   aiFeedback: string | null;
   reviewerName: string | null;
   reviewedAt: string | null;
-  /** V217 — giáo viên đã chọn lần này làm kết quả chính thức (khác mặc định "lần mới nhất"). */
+  /** V218 — giáo viên đã chọn lần này làm kết quả chính thức (khác mặc định "lần mới nhất"). */
   selectedByTeacher: boolean;
 }
 
@@ -1556,7 +1556,7 @@ export function reviewReflexStep(progressId: number, step: "WRITING" | "SPEAKING
   return apiRequest<void>(`/reflex-progress/${progressId}/review/${step}`, { method: "POST", body: JSON.stringify(request) });
 }
 
-/** V217 (xác nhận 2026-10-20) — giáo viên chọn lần Viết/Nói tốt nhất làm kết quả chính thức của bước. */
+/** V218 (xác nhận 2026-10-20) — giáo viên chọn lần Viết/Nói tốt nhất làm kết quả chính thức của bước. */
 export function selectReflexAttempt(progressId: number, step: "WRITING" | "SPEAKING", attemptNumber: number): Promise<void> {
   return apiRequest<void>(`/reflex-progress/${progressId}/select/${step}/${attemptNumber}`, { method: "POST" });
 }

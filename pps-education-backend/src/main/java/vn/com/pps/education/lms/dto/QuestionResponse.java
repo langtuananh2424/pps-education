@@ -29,7 +29,7 @@ public record QuestionResponse(
          */
         List<String> keyGrammar,
         /**
-         * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V217)
+         * Số thứ tự hiển thị ghi đè (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20, V218)
          * — xem Javadoc {@code Question.displayNumberOverride}. {@code null} = giữ nguyên hành vi tự
          * đếm tuần tự cũ khi gắn câu hỏi này vào 1 Bài (xem CreateAndAssignExerciseModal.tsx).
          */

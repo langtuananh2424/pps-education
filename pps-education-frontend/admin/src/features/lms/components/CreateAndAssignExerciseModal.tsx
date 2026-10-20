@@ -519,7 +519,7 @@ export function ExerciseQuestionsStep({
     onError(null);
     try {
       const points = question.defaultPoints ?? 0;
-      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — "Số thứ tự hiển thị ghi đè" (V217):
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — "Số thứ tự hiển thị ghi đè" (V218):
       // ưu tiên dùng số GV đã ghi đè lúc soạn/import câu hỏi (khớp số in sẵn trong ảnh/sơ đồ sách gốc),
       // rơi về đếm tuần tự cũ khi không có — xem Javadoc Question.displayNumberOverride.
       const displayOrder = question.displayNumberOverride ?? existingCount + attached.length + 1;
@@ -541,7 +541,7 @@ export function ExerciseQuestionsStep({
       let order = existingCount + attached.length;
       const newlyAttached: AttachedQuestion[] = [];
       for (const q of createdQuestions) {
-        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — V217, mirror handleComposeCreated.
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — V218, mirror handleComposeCreated.
         order = q.displayNumberOverride ?? order + 1;
         const points = q.defaultPoints ?? 0;
         const eq = await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points });
@@ -561,7 +561,7 @@ export function ExerciseQuestionsStep({
       let order = existingCount + attached.length;
       const newlyAttached: AttachedQuestion[] = [];
       for (const q of createdQuestions) {
-        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — V217: ưu tiên số GV ghi đè
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — V218: ưu tiên số GV ghi đè
         // trong cột Excel "Số thứ tự hiển thị" (chỉ câu ĐẦU TIÊN của 1 dòng/nhóm có giá trị, các câu con
         // sau trong cùng nhóm luôn null nên tự +1 tiếp bình thường) — xem Question.displayNumberOverride.
         order = q.displayNumberOverride ?? order + 1;

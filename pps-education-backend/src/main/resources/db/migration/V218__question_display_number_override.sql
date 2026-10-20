@@ -11,4 +11,4 @@
 ALTER TABLE questions
     ADD COLUMN display_number_override INTEGER NULL;
 
-COMMENT ON COLUMN questions.display_number_override IS 'Số thứ tự hiển thị ghi đè khi gắn vào Bài (V217); NULL = tự đếm tuần tự như cũ';
+COMMENT ON COLUMN questions.display_number_override IS 'Số thứ tự hiển thị ghi đè khi gắn vào Bài (V218); NULL = tự đếm tuần tự như cũ';
