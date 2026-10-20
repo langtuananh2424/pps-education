@@ -53,6 +53,7 @@ export type UiQuestionKind =
   | "VOICE_PICTURE_CHOICE"
   | "INLINE_CHOICE"
   | "MULTIPLE_ANSWER"
+  | "LISTENING_MULTIPLE_ANSWER"
   | "TRUE_FALSE"
   | "FILL_IN_BLANK"
   | "FILL_IN_BLANK_PICTURE"
@@ -76,7 +77,7 @@ export type UiQuestionKind =
  * gộp vào nhóm Trắc nghiệm.
  */
 const KIND_GROUPS: { labelKey: string; kinds: UiQuestionKind[] }[] = [
-  { labelKey: "kindGroup.multipleChoice", kinds: ["MULTIPLE_CHOICE", "VOICE_MULTIPLE_CHOICE", "VOICE_PICTURE_CHOICE", "INLINE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"] },
+  { labelKey: "kindGroup.multipleChoice", kinds: ["MULTIPLE_CHOICE", "VOICE_MULTIPLE_CHOICE", "VOICE_PICTURE_CHOICE", "INLINE_CHOICE", "MULTIPLE_ANSWER", "LISTENING_MULTIPLE_ANSWER", "TRUE_FALSE"] },
   { labelKey: "kindGroup.fillInBlank", kinds: ["FILL_IN_BLANK", "FILL_IN_BLANK_PICTURE", "LISTENING_FILL_IN_BLANK"] },
   { labelKey: "kindGroup.wordBank", kinds: ["WORD_BANK", "WORD_BANK_PICTURE", "WORD_BANK_PASSAGE", "LISTENING_FORM_COMPLETION"] },
   { labelKey: "kindGroup.sentenceBuilding", kinds: ["SENTENCE_BUILDING", "LETTER_SCRAMBLE"] },
@@ -90,6 +91,7 @@ const kindMeta: Record<UiQuestionKind, { icon: typeof CheckSquare; activeClass: 
   VOICE_PICTURE_CHOICE: { icon: ImageIcon, activeClass: "bg-indigo-50 border-indigo-400 text-indigo-800 ring-1 ring-indigo-300", iconClass: "text-indigo-600" },
   INLINE_CHOICE: { icon: SplitSquareHorizontal, activeClass: "bg-teal-50 border-teal-400 text-teal-800 ring-1 ring-teal-300", iconClass: "text-teal-600" },
   MULTIPLE_ANSWER: { icon: ListChecks, activeClass: "bg-lime-50 border-lime-400 text-lime-800 ring-1 ring-lime-300", iconClass: "text-lime-600" },
+  LISTENING_MULTIPLE_ANSWER: { icon: Headphones, activeClass: "bg-blue-50 border-blue-500 text-blue-900 ring-1 ring-blue-400", iconClass: "text-blue-700" },
   TRUE_FALSE: { icon: ToggleLeft, activeClass: "bg-emerald-50 border-emerald-500 text-emerald-900 ring-1 ring-emerald-400", iconClass: "text-emerald-700" },
   FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" },
   FILL_IN_BLANK_PICTURE: { icon: ImagePlus, activeClass: "bg-amber-50 border-amber-500 text-amber-900 ring-1 ring-amber-400", iconClass: "text-amber-700" },
@@ -109,6 +111,7 @@ const kindMeta: Record<UiQuestionKind, { icon: typeof CheckSquare; activeClass: 
 const AUDIO_SECTION_STYLE: Partial<Record<UiQuestionKind, { box: string; title: string; icon: typeof Volume2; icon2: string }>> = {
   VOICE_MULTIPLE_CHOICE: { box: "bg-blue-50/40 border-blue-200", title: "text-blue-900", icon: Volume2, icon2: "text-blue-600" },
   VOICE_PICTURE_CHOICE: { box: "bg-indigo-50/40 border-indigo-200", title: "text-indigo-900", icon: ImageIcon, icon2: "text-indigo-600" },
+  LISTENING_MULTIPLE_ANSWER: { box: "bg-blue-50/40 border-blue-200", title: "text-blue-900", icon: Headphones, icon2: "text-blue-600" },
   LISTENING_FILL_IN_BLANK: { box: "bg-violet-50/40 border-violet-200", title: "text-violet-900", icon: PenLine, icon2: "text-violet-600" },
   LISTENING_AUDIO_SUBMISSION: { box: "bg-sky-50/40 border-sky-200", title: "text-sky-900", icon: Headphones, icon2: "text-sky-600" },
   LISTENING_FORM_COMPLETION: { box: "bg-violet-50/40 border-violet-200", title: "text-violet-900", icon: ClipboardList, icon2: "text-violet-600" }
@@ -138,6 +141,7 @@ const MOCK_PREVIEW_QUESTIONS: Record<UiQuestionKind, ExerciseQuestionResponse> =
   VOICE_PICTURE_CHOICE: { ...MOCK_BASE, questionType: "MULTIPLE_CHOICE", questionContent: "Listen to the audio and choose the correct picture.", choices: mockChoices(["🖼 Hình 1", "🖼 Hình 2", "🖼 Hình 3", "🖼 Hình 4"]), skill: "LISTENING", audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
   INLINE_CHOICE: { ...MOCK_BASE, questionType: "MULTIPLE_CHOICE", questionContent: "She ___ to school every day.", choices: mockChoices(["goes", "go"]), skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
   MULTIPLE_ANSWER: { ...MOCK_BASE, questionType: "MULTIPLE_ANSWER", questionContent: "Which of the following are fruits? (chọn tất cả đáp án đúng)", choices: mockChoices(["Apple", "Carrot", "Banana", "Potato"]), skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
+  LISTENING_MULTIPLE_ANSWER: { ...MOCK_BASE, questionType: "MULTIPLE_ANSWER", questionContent: "Which TWO reasons does Irina give for visiting the exhibition? (chọn 2 đáp án)", choices: mockChoices(["to meet a friend", "to improve her knowledge", "to buy something", "to entertain her child"]), skill: "LISTENING", audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
   TRUE_FALSE: { ...MOCK_BASE, questionType: "TRUE_FALSE", questionContent: "The Earth is flat.", choices: mockChoices(["Đúng", "Sai"]), skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
   FILL_IN_BLANK: { ...MOCK_BASE, questionType: "FILL_IN_BLANK", questionContent: "The cat sat on the ___.", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
   FILL_IN_BLANK_PICTURE: { ...MOCK_BASE, questionType: "FILL_IN_BLANK", questionContent: "This is a picture of a ___.", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
@@ -227,7 +231,7 @@ function toKind(question?: QuestionResponse): UiQuestionKind {
   if (!question) return "MULTIPLE_CHOICE";
   // Gắn lại 2026-10-05 — kiểm TRƯỚC nhánh MULTIPLE_CHOICE/choices.length===2 ở dưới, nếu không
   // TRUE_FALSE (luôn đúng 2 lựa chọn) sẽ bị nhận nhầm thành INLINE_CHOICE.
-  if (question.questionType === "MULTIPLE_ANSWER") return "MULTIPLE_ANSWER";
+  if (question.questionType === "MULTIPLE_ANSWER") return question.skill === "LISTENING" ? "LISTENING_MULTIPLE_ANSWER" : "MULTIPLE_ANSWER";
   if (question.questionType === "TRUE_FALSE") return "TRUE_FALSE";
   if (question.questionType === "ESSAY") return "ESSAY";
   if (question.questionType === "SPEAKING") return question.skill === "LISTENING" ? "LISTENING_AUDIO_SUBMISSION" : "SPEAKING";
@@ -390,7 +394,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       setOptions(["", ""]);
       setChoiceImageUrls(["", ""]);
       setCorrectIndex(0);
-    } else if ((value === "MULTIPLE_CHOICE" || value === "VOICE_MULTIPLE_CHOICE" || value === "VOICE_PICTURE_CHOICE" || value === "MULTIPLE_ANSWER") && options.length !== 4) {
+    } else if ((value === "MULTIPLE_CHOICE" || value === "VOICE_MULTIPLE_CHOICE" || value === "VOICE_PICTURE_CHOICE" || value === "MULTIPLE_ANSWER" || value === "LISTENING_MULTIPLE_ANSWER") && options.length !== 4) {
       setOptions(["", "", "", ""]);
       setChoiceImageUrls(["", "", "", ""]);
       setCorrectIndex(0);
@@ -435,7 +439,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   };
 
   const isVoiceOrListeningAudio =
-    kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "LISTENING_AUDIO_SUBMISSION" || kind === "LISTENING_FILL_IN_BLANK" || kind === "LISTENING_FORM_COMPLETION";
+    kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "LISTENING_MULTIPLE_ANSWER" || kind === "LISTENING_AUDIO_SUBMISSION" || kind === "LISTENING_FILL_IN_BLANK" || kind === "LISTENING_FORM_COMPLETION";
   /**
    * V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Điền từ - Hộp từ vựng/Sắp
    * xếp câu cho phép KÈM audio nghe TÙY CHỌN (khác isVoiceOrListeningAudio ở trên — audio KHÔNG bắt
@@ -457,14 +461,16 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   // Gắn lại 2026-10-05 — MULTIPLE_ANSWER/TRUE_FALSE dùng chung cơ chế choices[] với MULTIPLE_CHOICE
   // (backend không ràng buộc số lượng isCorrect theo questionType, xem Javadoc Question.java), chỉ
   // khác ở cách đánh dấu đáp án đúng (nhiều đáp án vs đúng 1) — xem isMultiAnswer bên dưới.
-  const isChoiceKind = kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "INLINE_CHOICE" || kind === "MULTIPLE_ANSWER" || kind === "TRUE_FALSE";
-  const isMultiAnswer = kind === "MULTIPLE_ANSWER";
+  const isChoiceKind = kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "INLINE_CHOICE" || kind === "MULTIPLE_ANSWER" || kind === "LISTENING_MULTIPLE_ANSWER" || kind === "TRUE_FALSE";
+  const isMultiAnswer = kind === "MULTIPLE_ANSWER" || kind === "LISTENING_MULTIPLE_ANSWER";
   // Dùng để build CreateQuestionRequest.questionType khi tạo mới VÀ để dựng câu hỏi mẫu cho pane xem
   // trước sống (xem previewQuestion bên dưới) — tách khỏi handleSubmit để không tính lại 2 lần.
   const resolvedQuestionType: QuestionType =
     kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "INLINE_CHOICE"
       ? "MULTIPLE_CHOICE"
-      : kind === "LISTENING_AUDIO_SUBMISSION"
+      : kind === "LISTENING_MULTIPLE_ANSWER"
+        ? "MULTIPLE_ANSWER"
+        : kind === "LISTENING_AUDIO_SUBMISSION"
         ? "SPEAKING"
         : kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE"
           ? "FILL_IN_BLANK"
@@ -517,7 +523,9 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           ? t("questionEditorForm.errors.audioRequiredVoice")
           : kind === "VOICE_PICTURE_CHOICE"
             ? t("questionEditorForm.errors.audioRequiredVoicePicture")
-            : kind === "LISTENING_FILL_IN_BLANK"
+            : kind === "LISTENING_MULTIPLE_ANSWER"
+              ? t("questionEditorForm.errors.audioRequiredListeningMultipleAnswer")
+              : kind === "LISTENING_FILL_IN_BLANK"
               ? t("questionEditorForm.errors.audioRequiredListeningFillInBlank")
               : kind === "LISTENING_FORM_COMPLETION"
                 ? t("questionEditorForm.errors.audioRequiredListeningFormCompletion")

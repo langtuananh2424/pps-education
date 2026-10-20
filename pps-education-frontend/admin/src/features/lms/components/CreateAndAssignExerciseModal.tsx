@@ -60,6 +60,7 @@ interface ListeningGroupSourceItem {
 function deriveListeningSubKind(item: ListeningGroupSourceItem): ListeningSubKind | null {
   if (item.questionType === "FILL_IN_BLANK") return "LISTENING_FILL_IN_BLANK";
   if (item.questionType === "SPEAKING") return "LISTENING_AUDIO_SUBMISSION";
+  if (item.questionType === "MULTIPLE_ANSWER") return "LISTENING_MULTIPLE_ANSWER";
   if (item.questionType === "MULTIPLE_CHOICE") return item.hasImageChoice ? "VOICE_PICTURE_CHOICE" : "VOICE_MULTIPLE_CHOICE";
   return null;
 }

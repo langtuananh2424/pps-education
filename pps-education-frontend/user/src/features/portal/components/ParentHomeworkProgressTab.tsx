@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDate, formatDateTimeHm } from "@/lib/format";
-import { HomeworkProgressResponse, HomeworkSkillItemResponse, listHomeworkProgress } from "../api";
+import { HomeworkProgressResponse, HomeworkSkillItemResponse, LateSubmissionWindow, listHomeworkProgress } from "../api";
 import Breadcrumb, { BreadcrumbItem } from "@/components/ui/Breadcrumb";
 
 /**
@@ -116,6 +116,8 @@ interface HomeworkCard {
   items: HomeworkSkillItemResponse[];
   status: SubmissionStatus;
   overdue: boolean;
+  /** Cửa nộp muộn của bản giao (null = không có bản giao online). Xem isLateWindowOpen. */
+  lateSubmission: LateSubmissionWindow | null;
 }
 
 interface UnitGroup {
@@ -157,6 +159,22 @@ function submissionStatus(progress: string | null, passed: boolean | null): Subm
   return "GRADED";
 }
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — mirror AssignmentsTab (Portal Học sinh):
+ * quá hạn gốc nhưng giáo viên còn cho nộp muộn và chưa qua hạn chót nộp muộn (nếu có) thì con vẫn làm được
+ * → không tính "quá hạn", giữ ở "Cần hoàn thành" kèm badge "Được nộp muộn…".
+ */
+function isLateWindowOpen(card: HomeworkCard): boolean {
+  const late = card.lateSubmission;
+  if (!late || !late.allowed) return false;
+  return late.deadline == null || new Date(late.deadline) >= new Date();
+}
+
+/** "Quá hạn thật" = pending + quá dueAt gốc + không còn cửa nộp muộn. */
+function isCardOverduePending(card: HomeworkCard): boolean {
+  return card.status === "PENDING" && card.overdue && !isLateWindowOpen(card);
+}
+
 function buildCards(rows: HomeworkProgressResponse[], t: (key: string, opts?: Record<string, unknown>) => string): HomeworkCard[] {
   const cards: HomeworkCard[] = [];
   for (const row of rows) {
@@ -176,7 +194,8 @@ function buildCards(rows: HomeworkProgressResponse[], t: (key: string, opts?: Re
         sessionDate: row.commentDate,
         items: row.grammarItems,
         status: submissionStatus(row.grammarProgress, row.grammarPassed),
-        overdue: row.grammarDueAt != null && new Date(row.grammarDueAt) < new Date()
+        overdue: row.grammarDueAt != null && new Date(row.grammarDueAt) < new Date(),
+        lateSubmission: row.grammarLateSubmission
       });
     }
     if (row.readingTitle) {
@@ -194,7 +213,8 @@ function buildCards(rows: HomeworkProgressResponse[], t: (key: string, opts?: Re
         sessionDate: row.commentDate,
         items: row.readingItems,
         status: submissionStatus(row.readingProgress, row.readingPassed),
-        overdue: row.readingDueAt != null && new Date(row.readingDueAt) < new Date()
+        overdue: row.readingDueAt != null && new Date(row.readingDueAt) < new Date(),
+        lateSubmission: row.readingLateSubmission
       });
     }
     if (row.writingTitle) {
@@ -212,7 +232,8 @@ function buildCards(rows: HomeworkProgressResponse[], t: (key: string, opts?: Re
         sessionDate: row.commentDate,
         items: row.writingItems,
         status: submissionStatus(row.writingProgress, row.writingPassed),
-        overdue: row.writingDueAt != null && new Date(row.writingDueAt) < new Date()
+        overdue: row.writingDueAt != null && new Date(row.writingDueAt) < new Date(),
+        lateSubmission: row.writingLateSubmission
       });
     }
     if (row.videoTitle) {
@@ -231,7 +252,8 @@ function buildCards(rows: HomeworkProgressResponse[], t: (key: string, opts?: Re
         sessionDate: row.commentDate,
         items: [],
         status: submissionStatus(row.videoProgress, row.videoPassed),
-        overdue: row.videoDueAt != null && new Date(row.videoDueAt) < new Date()
+        overdue: row.videoDueAt != null && new Date(row.videoDueAt) < new Date(),
+        lateSubmission: row.videoLateSubmission
       });
     }
   }
@@ -274,6 +296,14 @@ function HomeworkCardView({
             <AlertCircle size={14} aria-hidden="true" />
             {t("assignments.exercise.overduePrefix")}
             {formatDateTimeHm(card.dueAt!, language)}
+          </span>
+        )}
+        {card.status === "PENDING" && card.overdue && isLateWindowOpen(card) && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg border bg-teal/10 text-teal border-teal/20">
+            <CheckCircle2 size={14} aria-hidden="true" />
+            {card.lateSubmission?.deadline
+              ? t("assignments.exercise.lateSubmissionUntil", { date: formatDateTimeHm(card.lateSubmission.deadline, language) })
+              : t("assignments.exercise.lateSubmissionUnlimited")}
           </span>
         )}
         <span className="px-2.5 py-0.5 rounded-lg border bg-white/70 text-muted border-line/60">{card.teacherLabel}</span>
@@ -319,8 +349,8 @@ function HomeworkCardView({
  */
 function NavCard({ title, icon: Icon, cards, onOpen }: { title: string; icon: LucideIcon; cards: HomeworkCard[]; onOpen: () => void }) {
   const { t } = useTranslation("portal-exercises");
-  const overdueCount = cards.filter((c) => c.status === "PENDING" && c.overdue).length;
-  const pendingCount = cards.filter((c) => c.status === "PENDING" && !c.overdue).length;
+  const overdueCount = cards.filter(isCardOverduePending).length;
+  const pendingCount = cards.filter((c) => c.status === "PENDING" && !isCardOverduePending(c)).length;
   return (
     <button
       type="button"
@@ -410,14 +440,14 @@ export default function ParentHomeworkProgressTab({
   const offlineRows = rows.filter((r) => r.grammarOfflineText || r.readingOfflineText || r.writingOfflineText);
 
   const tabAllCount = cards.length;
-  const tabPendingCount = cards.filter((c) => c.status === "PENDING" && !c.overdue).length;
+  const tabPendingCount = cards.filter((c) => c.status === "PENDING" && !isCardOverduePending(c)).length;
   const tabGradedCount = cards.filter((c) => c.status !== "PENDING").length;
-  const tabOverdueCount = cards.filter((c) => c.status === "PENDING" && c.overdue).length;
+  const tabOverdueCount = cards.filter(isCardOverduePending).length;
 
   const filteredCards = cards.filter((c) => {
-    if (filterStatus === "PENDING") return c.status === "PENDING" && !c.overdue;
+    if (filterStatus === "PENDING") return c.status === "PENDING" && !isCardOverduePending(c);
     if (filterStatus === "GRADED") return c.status !== "PENDING";
-    if (filterStatus === "OVERDUE") return c.status === "PENDING" && c.overdue;
+    if (filterStatus === "OVERDUE") return isCardOverduePending(c);
     return true;
   });
 

@@ -814,7 +814,30 @@ public class ExerciseAttemptService {
         if (question.getQuestionType() == Question.QuestionType.WORD_BANK) {
             return structuredPartialScore(question, "blanks", answer.getStructuredAnswer(), points);
         }
+        if (question.getQuestionType() == Question.QuestionType.MULTIPLE_ANSWER) {
+            return multipleAnswerPartialScore(answer, points);
+        }
         return correct ? points : BigDecimal.ZERO;
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — MULTIPLE_ANSWER (VD IELTS Listening
+     * "Choose TWO letters A-E") chấm TỪNG PHẦN thay vì all-or-nothing: mỗi đáp án đúng đã chọn được 1/N
+     * điểm, mỗi đáp án sai đã chọn bị trừ 1/N (N = số đáp án đúng), sàn 0 — để học sinh chọn hết mọi
+     * ô cũng không thể đạt điểm. {@code isCorrect} của câu vẫn chỉ true khi chọn ĐÚNG HẾT
+     * (xem {@link #isAnswerCorrect}), chỉ điểm số là từng phần.
+     */
+    private BigDecimal multipleAnswerPartialScore(StudentAnswer answer, BigDecimal points) {
+        List<QuestionChoice> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(answer.getQuestion().getId());
+        Set<Long> correctIds = choices.stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).collect(Collectors.toSet());
+        if (correctIds.isEmpty() || answer.getSelectedChoiceIds() == null) {
+            return BigDecimal.ZERO;
+        }
+        Set<Long> selected = Set.copyOf(answer.getSelectedChoiceIds());
+        long right = selected.stream().filter(correctIds::contains).count();
+        long wrong = selected.size() - right;
+        long net = Math.max(0, right - wrong);
+        return points.multiply(BigDecimal.valueOf(net)).divide(BigDecimal.valueOf(correctIds.size()), 2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal structuredPartialScore(Question question, String key, List<String> given, BigDecimal points) {

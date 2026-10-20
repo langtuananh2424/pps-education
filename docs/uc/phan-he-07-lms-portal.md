@@ -2333,6 +2333,26 @@ UC-40: Soạn & giao đề kiểm tra
 > 4.5 nếu có `ANTHROPIC_API_KEY`, fallback Gemini Flash nếu chỉ có
 > `GEMINI_API_KEY`.
 
+> **Bổ sung V216 (2026-10-19, đã xác nhận với người dùng) --- Chấm lần 2
+> các bài do AI chấm** (Video phản xạ bước Viết/Nói + câu ESSAY Bài
+> Writing): vì học sinh phản ánh AI đôi khi chấm chưa đúng, trang "Hàng
+> chờ chấm bài" có thêm tab **"AI đã chấm --- Chấm lần 2"**
+> (`AiSecondGradingController`/`AiSecondGradingService`). Giáo viên đứng
+> lớp thật (`class_teachers`, `assigned_to IS NULL`) thấy theo từng lớp
+> các bài AI đã chấm (mặc định chỉ bài chưa chấm lại, tick "Hiện cả bài
+> đã chấm lại" để xem hết) kèm điểm + nhận xét AI, rồi chấm đè. **Điểm
+> giáo viên thay điểm chính thức**, điểm AI gốc vẫn giữ để đối chiếu:
+> Video phản xạ ghi điểm GV thẳng vào `reflex_question_progress.
+> writing_score/speaking_score` (ngưỡng đạt, mở khoá câu, báo cáo, tiến
+> độ BTVN tự dùng điểm mới; điểm/nhận xét AI gốc ở cột `*_ai_score`/
+> `*_ai_feedback`, người chấm/thời điểm ở `*_reviewed_by/_at` --- V216);
+> học sinh nộp lại bước đó thì AI chấm mới và các dấu "đã chấm lại" bị
+> xoá. Câu ESSAY dùng lại `ManualGradingService#gradeAnswer` (bản AI
+> chuyển `latest=false` làm lịch sử, bản GV `grading_source='HUMAN'` là
+> bản hiện hành, giữ lại `marked_answer` của AI để học sinh vẫn thấy lỗi
+> được đánh dấu). Luyện Nói (listening practice) không có AI chấm nên
+> không thuộc phạm vi.
+
 > **Bổ sung V144/V148 (2026-08-24, đã xác nhận với người dùng) --- mục lục
 > Sách giáo trình cho Kho đề (đang thiếu ở tài liệu này, bổ sung lại
 > 2026-09-13 khi làm UC-72 dưới đây):** 1 "Đề" (`Exam`) không chỉ gắn 1
