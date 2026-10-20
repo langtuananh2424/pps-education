@@ -32,44 +32,12 @@
       "saveFailed": "Lưu điểm thất bại — thử lại."
     }
   },
-  "aiSecondGrading": {
-    "intro": "Các bài do AI chấm (Video phản xạ bước Viết/Nói và bài tập Writing). Nếu thấy AI chấm chưa đúng, hãy chấm lại — điểm của giáo viên sẽ thay điểm AI cho học sinh, điểm gốc của AI vẫn được lưu để đối chiếu.",
-    "itemType": {
-      "REFLEX_WRITING": "Video phản xạ — Bước Viết",
-      "REFLEX_SPEAKING": "Video phản xạ — Bước Nói",
-      "ESSAY": "Bài tập Writing"
-    },
-    "awaitingBadge": "AI chấm — chờ GV xem lại",
-    "reviewedBadge": "GV đã chấm lại",
-    "answerLabel": "Bài làm của học sinh",
-    "transcriptLabel": "Lời nói của học sinh (phiên âm)",
-    "aiResultLabel": "AI chấm",
-    "teacherResultLabel": "Giáo viên chấm lại",
-    "gradedAt": "Lúc {{time}}",
-    "scoreLabel": "Điểm giáo viên (0 - {{max}})",
-    "feedbackLabel": "Nhận xét của giáo viên (tùy chọn)",
-    "feedbackPlaceholder": "Nhận xét (tùy chọn)...",
-    "saveButton": "Lưu",
-    "updateButton": "Cập nhật",
-    "saving": "Đang lưu...",
-    "includeReviewed": "Hiện cả bài đã chấm lại",
-    "loadingClasses": "Đang tải danh sách lớp...",
-    "loadingItems": "Đang tải các bài AI đã chấm...",
-    "emptyClasses": "Chưa có lớp nào có bài do AI chấm.",
-    "emptyItems": "Không có bài nào cần xem lại.",
-    "errors": {
-      "loadClassesFailed": "Không tải được danh sách lớp.",
-      "loadItemsFailed": "Không tải được các bài AI đã chấm.",
-      "saveFailed": "Lưu điểm thất bại — thử lại."
-    }
-  },
   "examsPage": {
     "title": "Tài Liệu & Khảo Thí LMS (E-Learning)",
     "subtitle": "Chấm bài Video phản xạ (UC-23b) — nghe audio học sinh trả lời, cho điểm và nhận xét.",
     "note": "Chấm câu tự luận/nói của Bài tập (Exercise) do giáo viên Việt Nam giao (UC-24/27) chưa triển khai ở đây — sẽ bổ sung riêng.",
     "tabs": {
       "queue": "Hàng chờ chấm bài",
-      "aiReview": "AI đã chấm — Chấm lần 2",
       "legacy": "Xem theo Bộ + Lớp"
     },
     "toasts": {
