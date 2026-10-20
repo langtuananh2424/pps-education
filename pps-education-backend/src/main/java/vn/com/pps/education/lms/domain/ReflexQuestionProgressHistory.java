@@ -107,4 +107,25 @@ public class ReflexQuestionProgressHistory extends BaseAuditEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "grammar_review_quotes", columnDefinition = "jsonb")
     private List<String> grammarReviewQuotes;
+
+    /**
+     * V217 (bổ sung ngoài SDD gốc, xác nhận 2026-10-20) — giáo viên chọn lần này làm kết quả chính thức của bước
+     * (thay vì mặc định là lần mới nhất). Tối đa 1 lần/bước; xoá khi học sinh nộp lại bước đó.
+     */
+    @Column(name = "teacher_selected", nullable = false)
+    private boolean teacherSelected;
+
+    /** V217 — điểm + nhận xét giáo viên chốt cho lần này (nhãn đối chiếu với điểm AI gốc {@link #score}); null = chưa chỉnh. */
+    @Column(name = "teacher_score", precision = 5, scale = 2)
+    private BigDecimal teacherScore;
+
+    @Column(name = "teacher_feedback", columnDefinition = "TEXT")
+    private String teacherFeedback;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_by")
+    private vn.com.pps.education.auth.domain.User teacherBy;
+
+    @Column(name = "teacher_at")
+    private OffsetDateTime teacherAt;
 }

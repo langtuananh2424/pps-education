@@ -258,10 +258,16 @@
       "recordingRaw": "Recording: raw",
       "grammarReviewTitle": "Teacher review needed for the Grammar score",
       "grammarReviewBody": "This recording has 2 or more red grammar errors, so the Grammar score was lowered. The AI transcribes only once and may mishear — listen to these parts before confirming the score:",
-      "officialHint": "The official score of each step is the latest attempt (flagged). If the AI grade looks wrong, a teacher can edit the score on that attempt — the original AI score is kept for comparison.",
+      "officialHint": "The official score of each step is the latest attempt by default (flagged); a teacher can pick the best writing/speaking attempt as the official result. If the AI grade looks wrong, a teacher can edit the score on that attempt — the original AI score is kept for comparison.",
       "column": {
         "writing": "Writing step",
         "speaking": "Recording step"
+      },
+      "select": {
+        "button": "Use this attempt as the official result",
+        "selecting": "Selecting...",
+        "chosenBadge": "Teacher-picked best attempt",
+        "failed": "Could not select this attempt — try again."
       },
       "noAttemptYet": "No attempts yet.",
       "officialBadge": "Official score",

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, Flag, Pencil, Save, ShieldAlert, UserCheck, XCircle } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, Flag, Pencil, Save, ShieldAlert, Star, UserCheck, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
@@ -17,6 +17,7 @@ import {
   getReviewVideoAssignmentQuestionStats,
   getReviewVideoAssignmentStudentStats,
   reviewReflexStep,
+  selectReflexAttempt,
   updateReviewVideoAssignmentLateSubmissionAllowed
 } from "@/features/lms/api";
 import Card from "@/components/ui/Card";
@@ -748,6 +749,24 @@ function ReflexHistoryEntryRow({
 
   const markedText = isSpeaking ? entry.transcript : entry.markedAnswer ?? entry.answerText;
 
+  // V217 — chọn lần cũ (chưa là điểm chính thức) làm kết quả chính thức của bước.
+  const canSelect = !entry.official && entry.progressId != null && entry.score != null;
+  const [selecting, setSelecting] = useState(false);
+  const [selectError, setSelectError] = useState<string | null>(null);
+  const handleSelect = async () => {
+    if (entry.progressId == null) return;
+    setSelecting(true);
+    setSelectError(null);
+    try {
+      await selectReflexAttempt(entry.progressId, entry.attemptType, entry.attemptNumber);
+      onSaved();
+    } catch (err) {
+      setSelectError(err instanceof ApiError ? err.message : t("reviewVideoDetail.reflexHistoryModal.select.failed"));
+    } finally {
+      setSelecting(false);
+    }
+  };
+
   return (
     <div
       className={`rounded-lg p-2.5 space-y-1.5 border ${
@@ -766,6 +785,11 @@ function ReflexHistoryEntryRow({
           ) : (
             <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
               {t("reviewVideoDetail.reflexHistoryModal.notCountedBadge")}
+            </span>
+          )}
+          {entry.official && entry.selectedByTeacher && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+              <Star className="w-3 h-3" /> {t("reviewVideoDetail.reflexHistoryModal.select.chosenBadge")}
             </span>
           )}
           {entry.reviewed && (
@@ -868,6 +892,20 @@ function ReflexHistoryEntryRow({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {canSelect && (
+        <div className="pt-1" data-testid="reflex-select-attempt">
+          <button
+            type="button"
+            disabled={selecting}
+            onClick={handleSelect}
+            className="inline-flex items-center gap-1 text-[13px] font-bold text-amber-700 hover:underline cursor-pointer disabled:opacity-60"
+          >
+            <Star className="w-3.5 h-3.5" /> {selecting ? t("reviewVideoDetail.reflexHistoryModal.select.selecting") : t("reviewVideoDetail.reflexHistoryModal.select.button")}
+          </button>
+          {selectError && <p className="text-[13px] text-rose-600">{selectError}</p>}
         </div>
       )}
 
