@@ -72,6 +72,10 @@ public class SpeakingAiGradingTestService {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
 
+    /** Hotfix 2026-10-21 — dùng chung NINE_ROUTER_TIMEOUT_SECONDS với NineRouterAiClient (trước đây hardcode 60 giây). */
+    @Value("${app.ai-grading.nine-router-timeout-seconds:150}")
+    private int requestTimeoutSeconds;
+
     @Value("${app.ai-grading.openai-api-key:}")
     private String openAiApiKey;
 
@@ -140,7 +144,7 @@ public class SpeakingAiGradingTestService {
                     .uri(URI.create("https://api.openai.com/v1/audio/transcriptions"))
                     .header("Authorization", "Bearer " + openAiApiKey)
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -191,7 +195,7 @@ public class SpeakingAiGradingTestService {
                     .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent"))
                     .header("x-goog-api-key", geminiApiKey)
                     .header("content-type", "application/json")
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -247,7 +251,7 @@ public class SpeakingAiGradingTestService {
                     .header("x-api-key", anthropicApiKey)
                     .header("anthropic-version", "2023-06-01")
                     .header("content-type", "application/json")
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -280,7 +284,7 @@ public class SpeakingAiGradingTestService {
                     .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent"))
                     .header("x-goog-api-key", geminiApiKey)
                     .header("content-type", "application/json")
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

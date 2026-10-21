@@ -208,6 +208,7 @@ services:
       # .env, không sửa code.
       NINE_ROUTER_MAX_CONCURRENT: ${NINE_ROUTER_MAX_CONCURRENT:-5}
       NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS: ${NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS:-20}
+      NINE_ROUTER_TIMEOUT_SECONDS: ${NINE_ROUTER_TIMEOUT_SECONDS:-150}
       # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - fix gap tương tự MAIL_FROM_ADDRESS: .env server
       # đã có key thật cho UC-73 (tự dò thời lượng video YouTube khi import Excel hàng loạt, xem
       # YouTubeDurationService.java) nhưng chưa từng được truyền vào container - tính năng luôn báo
