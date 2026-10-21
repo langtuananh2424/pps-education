@@ -1336,7 +1336,7 @@ export function QuestionBlock({
          */}
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
           {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
-            <span className="block text-sm sm:text-base italic font-normal text-muted whitespace-pre-line mb-2">{question.structuredContent.instruction}</span>
+            <span className="block text-sm sm:text-base italic font-normal text-muted whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
           )}
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
