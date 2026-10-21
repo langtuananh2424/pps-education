@@ -72,7 +72,13 @@ final class QuestionImportFieldAliases {
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — dòng hướng dẫn hiện phía
             // trên câu hỏi dạng Điền từ (xem Javadoc QuestionRowParser.ParsedQuestionRow#instruction).
             Map.entry("huong dan", "instruction"), Map.entry("instruction", "instruction"),
-            Map.entry("chi dan", "instruction"), Map.entry("direction", "instruction")
+            Map.entry("chi dan", "instruction"), Map.entry("direction", "instruction"),
+
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — "Số thứ tự hiển thị ghi
+            // đè" (xem Javadoc QuestionRowParser.ParsedQuestionRow#displayNumberOverride).
+            Map.entry("so thu tu hien thi", "displayNumberOverride"), Map.entry("display number", "displayNumberOverride"),
+            Map.entry("so thu tu", "displayNumberOverride"), Map.entry("display number override", "displayNumberOverride"),
+            Map.entry("so ghi de", "displayNumberOverride")
     );
 
     /** Trả về tên field nội bộ ({@code ParsedQuestionRow}) khớp với 1 header/nhãn, hoặc null nếu không nhận diện được. */
