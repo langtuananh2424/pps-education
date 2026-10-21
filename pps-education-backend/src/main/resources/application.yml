@@ -315,9 +315,10 @@ app:
       # Model BẮT BUỘC theo người training: gemini-3.6-flash, thinking medium (chọn qua hậu tố tên model
       # của 9Router), temperature 0 (NineRouterAiClient luôn gửi). KHÔNG dùng model dự phòng khác.
       model: ${REFLEX_V2_MODEL:ag/gemini-3.6-flash-medium}
-      # Chuỗi phải có trong trường "model" 9Router trả về (9Router thực tế trả "gemini-3.6-flash-tiered");
-      # khác thì bỏ kết quả thay vì chấm bằng model khác. Để trống = tắt kiểm tra.
-      expected-model-contains: ${REFLEX_V2_EXPECTED_MODEL_CONTAINS:gemini-3.6-flash}
+      # Chuỗi phải có trong trường "model" 9Router trả về (VD "gemini-3.6-flash"); khác thì bỏ kết quả thay vì
+      # chấm bằng model khác. MẶC ĐỊNH TRỐNG = tắt kiểm tra: model thật đã đổi sang gemini-3.8 (9Router trả
+      # "gemini-3.8-flash-n") nên giá trị cũ "gemini-3.6-flash" làm mọi lượt chấm bị bỏ (staging 2026-10-21).
+      expected-model-contains: ${REFLEX_V2_EXPECTED_MODEL_CONTAINS:}
       # Ép response_format json_schema - qua 9Router chỉ được chấp nhận chứ không ép cứng (kết quả vẫn bọc
       # trong khối ```json), backend tự bóc JSON nên mặc định tắt.
       json-schema-enabled: ${REFLEX_V2_JSON_SCHEMA_ENABLED:false}

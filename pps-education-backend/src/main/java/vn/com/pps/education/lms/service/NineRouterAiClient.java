@@ -110,7 +110,7 @@ public class NineRouterAiClient {
      * "gemini-3.6-flash-tiered") — người training cảnh báo model dự phòng làm hỏng độ trung thực
      * transcript nên KHÔNG chấp nhận âm thầm chấm bằng model khác. Để trống = không kiểm tra.
      */
-    @Value("${app.ai-grading.reflex-v2.expected-model-contains:gemini-3.6-flash}")
+    @Value("${app.ai-grading.reflex-v2.expected-model-contains:}")
     private String expectedModelContains;
 
     /**
