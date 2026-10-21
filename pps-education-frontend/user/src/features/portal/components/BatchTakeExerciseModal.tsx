@@ -178,7 +178,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     setSavingQuestionId(questionId);
     setError(null);
     try {
-      const res = await saveAnswer(sub.attempt.id, { questionId, selectedChoiceIds: choiceIds });
+      const res = await textSaves.trackPending(saveAnswer(sub.attempt.id, { questionId, selectedChoiceIds: choiceIds }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
@@ -193,7 +193,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     setSavingQuestionId(questionId);
     setError(null);
     try {
-      const res = await saveAnswer(sub.attempt.id, { questionId, structuredAnswer: values });
+      const res = await textSaves.trackStructured(questionId, values, saveAnswer(sub.attempt.id, { questionId, structuredAnswer: values }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
@@ -209,7 +209,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     setError(null);
     try {
       const { url } = await uploadMedia(file, "EXERCISE_ANSWER_SUBMISSION");
-      const res = await saveAnswer(sub.attempt.id, { questionId, audioAnswerUrl: url });
+      const res = await textSaves.trackPending(saveAnswer(sub.attempt.id, { questionId, audioAnswerUrl: url }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.submitAudioError")));
@@ -254,13 +254,24 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
       const toSubmit = subs.filter((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s));
       // Fix 2026-10-21: xem Javadoc ở TakeExerciseModal#handleSubmit — chờ lần lưu blur đang bay và lưu
       // nốt bản nháp ô gõ chưa lên server TRƯỚC khi nộp (cả Lô nộp cùng lúc, tự nộp khi vi phạm cũng qua đây).
-      const unsaved = await textSaves.settleAndGetUnsaved(textDraft, (qid) => answersByQuestion.get(qid)?.answerText);
-      await Promise.all(
-        unsaved.map(([qid, text]) => {
-          const sub = toSubmit.find((s) => s.questions.some((q) => q.questionId === qid));
-          return sub ? textSaves.track(qid, text, saveAnswer(sub.attempt.id, { questionId: qid, answerText: text })).catch(() => undefined) : undefined;
-        })
+      const unsaved = await textSaves.settleAndGetUnsaved(
+        textDraft,
+        (qid) => answersByQuestion.get(qid)?.answerText,
+        (qid) => answersByQuestion.get(qid)?.structuredAnswer
       );
+      const subOf = (qid: number) => toSubmit.find((s) => s.questions.some((q) => q.questionId === qid));
+      await Promise.all([
+        ...unsaved.texts.map(([qid, text]) => {
+          const sub = subOf(qid);
+          return sub ? textSaves.track(qid, text, saveAnswer(sub.attempt.id, { questionId: qid, answerText: text })).catch(() => undefined) : undefined;
+        }),
+        ...unsaved.structured.map(([qid, values]) => {
+          const sub = subOf(qid);
+          return sub
+            ? textSaves.trackStructured(qid, values, saveAnswer(sub.attempt.id, { questionId: qid, structuredAnswer: values })).catch(() => undefined)
+            : undefined;
+        })
+      ]);
       const updatedAttempts = await Promise.all(toSubmit.map((s) => submitAttempt(s.attempt.id)));
       setSubs((prev) =>
         prev
@@ -277,6 +288,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
         return merged;
       });
       setTextDraft({});
+      textSaves.reset();
       setJustSubmitted(true);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.submitError")));
@@ -353,6 +365,8 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
         return s;
       });
       setSubs(refreshed);
+      setTextDraft({});
+      textSaves.reset();
       // V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — lượt mới không còn trống
       // hoàn toàn: BE đã carry-forward sẵn các câu ĐÃ ĐÚNG ở lượt trước (xem
       // ExerciseAttemptService#startAttempt) — phải tải lại đúng answers của lượt mới (listAnswers),
@@ -689,6 +703,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                       onTextBlur={() => handleTextBlur(sub.item.exerciseId, block.question.questionId)}
                       onChoiceToggle={(ids) => handleChoiceAnswer(sub.item.exerciseId, block.question.questionId, ids)}
                       onStructuredAnswer={(vals) => handleStructuredAnswer(sub.item.exerciseId, block.question.questionId, vals)}
+                      onStructuredDraft={(vals) => textSaves.noteStructuredDraft(block.question.questionId, vals)}
                       onAudioUpload={(file) => handleAudioAnswer(sub.item.exerciseId, block.question.questionId, file)}
                       onFilePickerOpen={() => undefined}
                       attemptId={sub.attempt.id}
