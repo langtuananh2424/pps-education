@@ -130,7 +130,8 @@
       "transcriptLabel": "Transcript"
     },
     "wordBank": {
-      "choosePlaceholder": "— chọn —"
+      "choosePlaceholder": "— chọn —",
+      "boxLabel": "Hộp từ vựng"
     },
     "sentenceBuilding": {
       "instructions": "Chạm các khối bên dưới theo đúng thứ tự để dựng câu..."
