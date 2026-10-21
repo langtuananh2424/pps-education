@@ -290,6 +290,9 @@ app:
     # lần thử, V139). Với UC-40/41 (WritingAiGradingService, câu ESSAY) câu trả lời rơi lại hàng chờ Giáo
     # viên chấm thủ công như mọi lỗi AI khác (V138) - KHÔNG có 1 fallback chung cho mọi caller.
     nine-router-acquire-timeout-seconds: ${NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS:20}
+    # Hạn chờ MỖI lượt gọi 9Router (giây) - mọi bước chấm AI (viết/nói/REFLEX/nhận xét). Gemini 3.8 medium
+    # suy luận dài nên chấm mất 35-90 giây; nginx /api/ phải có proxy_read_timeout lớn hơn giá trị này.
+    nine-router-timeout-seconds: ${NINE_ROUTER_TIMEOUT_SECONDS:150}
     # Model chấm text (POST /chat/completions) - tên combo đã tạo trong Dashboard 9Router → Combo &
     # Vision Adapter (VD "teacher-models").
     nine-router-model: ${NINE_ROUTER_MODEL:}

@@ -50,6 +50,10 @@ server {
         limit_req zone=pps_api burst=500 nodelay;
         proxy_pass http://127.0.0.1:__API_PORT__/api/;
         proxy_http_version 1.1;
+        # Chấm AI (viết/nói REFLEX...) mất 35-90 giây; mặc định nginx cắt sau 60 giây bằng 504 trong khi backend
+        # vẫn chấm xong -> học sinh nộp lại -> trùng lượt. Phải lớn hơn NINE_ROUTER_TIMEOUT_SECONDS (150).
+        proxy_read_timeout 180s;
+        proxy_send_timeout 180s;
         proxy_set_header Host $host;
         # IP thật (CF-Connecting-IP) thay vì 127.0.0.1 của cloudflared - backend dùng cho
         # login_attempts/audit log và LoginIpThrottle (server.forward-headers-strategy=native).

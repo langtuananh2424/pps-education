@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.common.ReflexV2Task;
 import vn.com.pps.education.lms.domain.AiGradingTokenUsage;
@@ -164,7 +165,14 @@ public class ReflexSequentialGradingService {
             recordUsage(AiGradingTokenUsage.Step.WRITING, "chat", result == null ? null : result.usage(), progress);
             applyWritingResult(progress, result);
         }
-        progress = reflexQuestionProgressRepository.save(progress);
+        try {
+            progress = reflexQuestionProgressRepository.save(progress);
+        } catch (DataIntegrityViolationException e) {
+            // Hotfix 2026-10-21 — 2 lần nộp gần như đồng thời cho CÙNG câu chưa có dòng tiến trình (VD nộp lại khi
+            // lượt đầu đang chấm 40-90 giây): lượt đến sau vi phạm unique (review_video_question_id, student_id,
+            // assignment) và trước đây trả 500. Báo rõ để học sinh tải lại xem kết quả của lượt đầu.
+            throw new RetakeNotAllowedException("Câu trả lời của con đang được chấm ở một lần nộp khác — vui lòng đợi rồi tải lại trang để xem kết quả.");
+        }
         recordWritingHistory(progress);
         return toResponse(progress);
     }

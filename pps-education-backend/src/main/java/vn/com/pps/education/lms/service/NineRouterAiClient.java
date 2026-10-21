@@ -97,6 +97,14 @@ public class NineRouterAiClient {
     private int acquireTimeoutSeconds;
 
     /**
+     * Hotfix 2026-10-21 — hạn chờ MỖI lượt gọi 9Router (chat/JSON/audio/STT), trước đây hardcode 60–90 giây.
+     * Chấm viết/nói bằng Gemini 3.8 medium mất 35–90 giây (suy luận dài) nên bị "request timed out" →
+     * "Không chấm được tự động". Chỉnh qua NINE_ROUTER_TIMEOUT_SECONDS, không cần build lại image.
+     */
+    @Value("${app.ai-grading.nine-router-timeout-seconds:150}")
+    private int requestTimeoutSeconds;
+
+    /**
      * Bổ sung 2026-09-21 (đã xác nhận với người dùng) — cho các lệnh gọi chấm Speaking v2 (bộ tiêu chí
      * Khối 6-7, xem {@code ReflexV2AiGradingService}): nếu true thì gửi kèm {@code response_format}
      * json_schema. Mặc định TẮT vì đã thử trên 9Router: field được chấp nhận nhưng kết quả vẫn bọc
@@ -304,7 +312,7 @@ public class NineRouterAiClient {
                     .uri(URI.create(baseUrl + "/chat/completions"))
                     .header("Authorization", "Bearer " + apiKey)
                     .header("content-type", "application/json")
-                    .timeout(Duration.ofSeconds(90))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
             long startedAtMillis = System.currentTimeMillis();
@@ -386,7 +394,7 @@ public class NineRouterAiClient {
                     .uri(URI.create(baseUrl + "/chat/completions"))
                     .header("Authorization", "Bearer " + apiKey)
                     .header("content-type", "application/json")
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
             long startedAtMillis = System.currentTimeMillis();
@@ -516,7 +524,7 @@ public class NineRouterAiClient {
                 .uri(URI.create(baseUrl + "/chat/completions"))
                 .header("Authorization", "Bearer " + apiKey)
                 .header("content-type", "application/json")
-                .timeout(Duration.ofSeconds(90))
+                .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -607,7 +615,7 @@ public class NineRouterAiClient {
                 .uri(URI.create(baseUrl + "/audio/transcriptions"))
                 .header("Authorization", "Bearer " + apiKey)
                 .header("content-type", "multipart/form-data; boundary=" + boundary)
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
         long startedAtMillis = System.currentTimeMillis();
