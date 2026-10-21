@@ -130,7 +130,8 @@
       "transcriptLabel": "Transcript"
     },
     "wordBank": {
-      "choosePlaceholder": "— choose —"
+      "choosePlaceholder": "— choose —",
+      "boxLabel": "Word bank"
     },
     "sentenceBuilding": {
       "instructions": "Tap the chunks below in the right order to build the sentence..."
