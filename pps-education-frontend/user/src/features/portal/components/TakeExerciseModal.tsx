@@ -739,7 +739,16 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     setSubmitting(true);
     setError(null);
     try {
+      // Fix 2026-10-21: ô gõ chỉ lưu khi blur, nên chữ gõ dở (hết giờ tự nộp khi con trỏ còn trong ô,
+      // lưu blur lỗi mạng...) có thể chưa lên server → câu bị chấm "không trả lời" dù ô vẫn hiện chữ.
+      // Lưu nốt mọi bản nháp chưa khớp server TRƯỚC khi nộp (best effort, lỗi lưu không chặn nộp).
+      await Promise.all(
+        Object.entries(textDraft)
+          .filter(([qid, text]) => text !== (answersByQuestion.get(Number(qid))?.answerText ?? ""))
+          .map(([qid, text]) => saveAnswer(attempt.id, { questionId: Number(qid), answerText: text }).catch(() => undefined))
+      );
       const updated = await submitAttempt(attempt.id);
+      setTextDraft({});
       setAttempt(updated);
       loadAnswers(updated.id);
       setJustSubmitted(true);
