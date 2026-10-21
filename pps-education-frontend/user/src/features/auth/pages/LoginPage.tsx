@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { consumeSessionEnded } from "@/lib/tokenStorage";
 import { ChevronDown, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -21,6 +22,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bị đá về đây do phiên hết hiệu lực (thường vì đăng nhập ở trình duyệt/app khác) — giải thích 1 lần.
+  const [sessionEndedNotice] = useState(() => consumeSessionEnded());
   /**
    * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-19) — tài khoản Học sinh đã có phiên
    * ACTIVE ở thiết bị khác: backend trả 409 (ActiveSessionExistsException, xem
@@ -149,6 +152,11 @@ export default function LoginPage() {
           <p className="card-sub">{t("card.subtitle")}</p>
 
           <form onSubmit={handleSubmit}>
+            {sessionEndedNotice && (
+              <div style={{ marginBottom: 16 }} className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 p-3 rounded-xl">
+                {t("errors.sessionEnded")}
+              </div>
+            )}
             {error && (
               <div style={{ marginBottom: 16 }} className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">
                 {error}

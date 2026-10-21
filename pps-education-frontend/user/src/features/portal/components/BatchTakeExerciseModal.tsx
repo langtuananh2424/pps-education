@@ -28,7 +28,9 @@ import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
 
 /** Bổ sung 2026-09-04 (đã xác nhận với người dùng) — xem Javadoc effect tự nộp khi vượt ngưỡng vi phạm ở dưới. */
-const BATCH_VIOLATION_AUTO_SUBMIT_THRESHOLD = 3;
+const BATCH_VIOLATION_AUTO_SUBMIT_THRESHOLD = 5;
+/** Bỏ qua lần rời trang ngắn dưới ngưỡng này (popup xin quyền, thông báo hệ thống, vuốt nhầm...). */
+const BATCH_MIN_VIOLATION_DURATION_MS = 5000;
 
 const SKILL_LABEL_KEY: Record<string, string> = {
   VOCAB_GRAMMAR: "assignments.batch.skillLabel.VOCAB_GRAMMAR",
@@ -133,6 +135,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
    */
   const { violationCount, isMonitoringActive, justViolated } = useIntegrityMonitor({
     enabled: !stoppedByViolation && (subs ?? []).some((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s)),
+    minViolationDurationMs: BATCH_MIN_VIOLATION_DURATION_MS,
     onFullscreenExit: () => {
       if (document.fullscreenEnabled) document.documentElement.requestFullscreen().catch(() => undefined);
     }
@@ -298,8 +301,8 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   };
 
   /**
-   * Bổ sung 2026-09-04 (đã xác nhận với người dùng — ngưỡng 3 lần, chỉ báo Giáo viên không báo phụ
-   * huynh) — đủ 3 lần thoát ra ngoài (violationCount đếm cục bộ ở client, xem useIntegrityMonitor phía
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng — ngưỡng ban đầu 3 lần, chỉ báo Giáo viên không báo phụ
+   * huynh) — đủ 5 lần thoát ra ngoài (mỗi lần rời ≥5 giây, đổi app + thoát fullscreen chỉ tính 1; nới 2026-10-21 vì học sinh bị tự nộp oan) (violationCount đếm cục bộ ở client, xem useIntegrityMonitor phía
    * trên) trong lúc còn Bài đang dở thì TỰ ĐỘNG nộp hết cả Lô (gọi lại handleSubmit() y hệt bấm nút
    * "Nộp bài" thường — KHÔNG có API "nộp cả Lô" riêng) rồi báo 1 lần cho Giáo viên phụ trách lớp qua
    * notifyBatchIntegrityViolation (attempt của Bài đầu tiên chỉ để BE tra ra đúng học sinh/lớp — xem
@@ -470,7 +473,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
           <div className="max-w-2xl lg:max-w-3xl w-full flex justify-center">
             <div key={violationCount} role="alert" className="flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop-centered max-w-full">
               <ShieldAlert size={18} className="shrink-0" />
-              <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+              <span className="text-xs font-black">{t("monitoring.violationToastBatch", { count: violationCount, max: BATCH_VIOLATION_AUTO_SUBMIT_THRESHOLD })}</span>
             </div>
           </div>
         </div>
@@ -589,7 +592,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
           <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
             {/* Bổ sung 2026-09-04 — chip nhỏ báo đang giám sát chống gian lận + số lần vi phạm, mirror
                 TakeExerciseModal/ReflexVideoTaskPage (MonitoringBadge). */}
-            {isMonitoringActive && <MonitoringBadge violationCount={violationCount} />}
+            {isMonitoringActive && <MonitoringBadge violationCount={violationCount} maxCount={BATCH_VIOLATION_AUTO_SUBMIT_THRESHOLD} />}
             {/* V152 — nút "Xem đáp án & đóng lượt" tường minh, chỉ hiện khi CẢ LÔ đã đạt (từng Bài tự
                 đạt ngưỡng riêng) nhưng còn lượt làm lại — xem canRevealAndClose/handleRevealAndClose. */}
             {canRevealAndClose && (

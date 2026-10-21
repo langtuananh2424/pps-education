@@ -1,6 +1,8 @@
 {
   "monitoring": {
     "violationToast": "Noted: you just left the exercise while it was in progress!",
+    "violationToastBatch": "Recorded {{count}}/{{max}}: you just left the exercise. At {{max}} the work is submitted automatically!",
+    "tooltipAutoSubmitSuffix": " After {{max}} exits the work is submitted automatically and your teacher is notified.",
     "badgeAriaLabel": "Anti-cheating monitoring status",
     "tooltip": "We're monitoring this exercise — leaving it ({{exitNote}}) will be recorded.",
     "tooltipViolationSuffix": " Recorded {{count}} time(s) so far.",
