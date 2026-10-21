@@ -198,6 +198,7 @@ services:
       # Luồng chấm Speaking v2 (Khối 6-7, UC-23b) - mặc định TẮT, xem application.yml app.ai-grading.reflex-v2.
       REFLEX_V2_ENABLED: ${REFLEX_V2_ENABLED:-false}
       REFLEX_V2_MODEL: ${REFLEX_V2_MODEL:-ag/gemini-3.6-flash-medium}
+      REFLEX_V2_EXPECTED_MODEL_CONTAINS: ${REFLEX_V2_EXPECTED_MODEL_CONTAINS:-}
       REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION: ${REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION:-false}
       # Giới hạn concurrency gọi sang 9Router (xem NineRouterAiClient.java) - đổi qua .env khi load test
       # để tìm ngưỡng an toàn, không cần build lại image.
