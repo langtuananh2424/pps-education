@@ -1929,6 +1929,18 @@ function WordBankBlock({
     initialAnswer && initialAnswer.length === blankCount ? initialAnswer : new Array(blankCount).fill("")
   );
 
+  // 2026-10-21 — hộp từ hiện NGAY TRÊN đoạn văn dạng bảng 4 từ/hàng, xáo trộn thứ tự hiển thị (mirror
+  // QuestionPreview#WordBankPreview ở admin; trước đây ô gõ tay hiện chip bên DƯỚI nên lệch bản xem trước).
+  const shuffledWordPool = useMemo(() => {
+    const arr = [...wordPool];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSelect = (idx: number, value: string) => {
     const next = selections.map((s, i) => (i === idx ? value : s));
     setSelections(next);
@@ -1960,6 +1972,24 @@ function WordBankBlock({
        * (trước đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc). */}
       {instruction && <p className="text-sm sm:text-base italic text-muted">{renderRichText(instruction)}</p>}
       {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{renderRichText(title)}</p>}
+      {wordPool.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-muted uppercase tracking-wider">{t("takeExercise.wordBank.boxLabel")}</p>
+          <table className="w-full border-collapse text-sm sm:text-base text-ink">
+            <tbody>
+              {chunkArray(shuffledWordPool, 4).map((row, ri) => (
+                <tr key={ri}>
+                  {row.map((w, ci) => (
+                    <td key={ci} className="border border-line/70 text-center font-bold px-2 py-2">
+                      {w}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <p className={`text-sm sm:text-base lg:text-lg ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-ink leading-8 lg:leading-10`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
@@ -1994,15 +2024,6 @@ function WordBankBlock({
           </React.Fragment>
         ))}
       </p>
-      {inputMode === "text" && wordPool.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 bg-sky-2/60 border border-line/60 rounded-lg p-2.5">
-          {wordPool.map((w, wIdx) => (
-            <span key={`${w}-${wIdx}`} className="text-xs sm:text-sm font-bold text-ink bg-surface border border-line/70 rounded-md px-2 py-1">
-              {w}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
