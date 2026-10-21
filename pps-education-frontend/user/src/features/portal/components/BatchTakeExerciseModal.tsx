@@ -21,6 +21,7 @@ import {
   submitAttempt,
   uploadMedia
 } from "../api";
+import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
 import { GridQuestionGroup, QuestionBlock, canRetakeExercise, groupQuestionsByGroupKey, isLockedCarriedOver } from "./TakeExerciseModal";
 import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
@@ -92,6 +93,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   const [subs, setSubs] = useState<SubExercise[] | null>(null);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
   const [textDraft, setTextDraft] = useState<Record<number, string>>({});
+  const textSaves = useTextAnswerSaves();
   const [listeningProgress, setListeningProgress] = useState<Map<string, ListeningPlayProgressResponse>>(new Map());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -224,7 +226,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     setSavingQuestionId(questionId);
     setError(null);
     try {
-      const res = await saveAnswer(sub.attempt.id, { questionId, answerText: text });
+      const res = await textSaves.track(questionId, text, saveAnswer(sub.attempt.id, { questionId, answerText: text }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
@@ -250,6 +252,15 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     setError(null);
     try {
       const toSubmit = subs.filter((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s));
+      // Fix 2026-10-21: xem Javadoc ở TakeExerciseModal#handleSubmit — chờ lần lưu blur đang bay và lưu
+      // nốt bản nháp ô gõ chưa lên server TRƯỚC khi nộp (cả Lô nộp cùng lúc, tự nộp khi vi phạm cũng qua đây).
+      const unsaved = await textSaves.settleAndGetUnsaved(textDraft, (qid) => answersByQuestion.get(qid)?.answerText);
+      await Promise.all(
+        unsaved.map(([qid, text]) => {
+          const sub = toSubmit.find((s) => s.questions.some((q) => q.questionId === qid));
+          return sub ? textSaves.track(qid, text, saveAnswer(sub.attempt.id, { questionId: qid, answerText: text })).catch(() => undefined) : undefined;
+        })
+      );
       const updatedAttempts = await Promise.all(toSubmit.map((s) => submitAttempt(s.attempt.id)));
       setSubs((prev) =>
         prev
@@ -265,6 +276,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
         answerLists.flat().forEach((a) => merged.set(a.questionId, a));
         return merged;
       });
+      setTextDraft({});
       setJustSubmitted(true);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.submitError")));

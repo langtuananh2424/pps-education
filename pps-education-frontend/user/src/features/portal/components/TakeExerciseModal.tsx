@@ -27,6 +27,7 @@ import {
   uploadMedia
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
+import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
 import MonitoringBadge from "./MonitoringBadge";
 import { ScoreSticker } from "./ScoreSticker";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
@@ -512,6 +513,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
   const [textDraft, setTextDraft] = useState<Record<number, string>>({});
+  const textSaves = useTextAnswerSaves();
   const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — gợi ý tapescript câu hỏi Nghe, mở
   // khóa sau khi nghe HẾT audio đủ số lần cấu hình. Key theo listeningKeyOf (groupKey nếu có, không
@@ -725,7 +727,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     setSavingQuestionId(questionId);
     setError(null);
     try {
-      const res = await saveAnswer(attempt.id, { questionId, answerText: text });
+      const res = await textSaves.track(questionId, text, saveAnswer(attempt.id, { questionId, answerText: text }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
@@ -739,14 +741,12 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     setSubmitting(true);
     setError(null);
     try {
-      // Fix 2026-10-21: ô gõ chỉ lưu khi blur, nên chữ gõ dở (hết giờ tự nộp khi con trỏ còn trong ô,
-      // lưu blur lỗi mạng...) có thể chưa lên server → câu bị chấm "không trả lời" dù ô vẫn hiện chữ.
-      // Lưu nốt mọi bản nháp chưa khớp server TRƯỚC khi nộp (best effort, lỗi lưu không chặn nộp).
-      await Promise.all(
-        Object.entries(textDraft)
-          .filter(([qid, text]) => text !== (answersByQuestion.get(Number(qid))?.answerText ?? ""))
-          .map(([qid, text]) => saveAnswer(attempt.id, { questionId: Number(qid), answerText: text }).catch(() => undefined))
-      );
+      // Fix 2026-10-21: ô gõ chỉ lưu khi blur, nên chữ gõ dở (lần lưu blur còn đang bay trên mạng chậm,
+      // lỗi mạng, hết giờ tự nộp khi con trỏ còn trong ô...) có thể chưa lên server → câu bị chấm "không
+      // trả lời" dù ô vẫn hiện chữ. Chờ lần lưu đang bay + lưu nốt mọi bản nháp chưa khớp TRƯỚC khi nộp
+      // (best effort, lỗi lưu không chặn nộp).
+      const unsaved = await textSaves.settleAndGetUnsaved(textDraft, (qid) => answersByQuestion.get(qid)?.answerText);
+      await Promise.all(unsaved.map(([qid, text]) => textSaves.track(qid, text, saveAnswer(attempt.id, { questionId: qid, answerText: text })).catch(() => undefined)));
       const updated = await submitAttempt(attempt.id);
       setTextDraft({});
       setAttempt(updated);
