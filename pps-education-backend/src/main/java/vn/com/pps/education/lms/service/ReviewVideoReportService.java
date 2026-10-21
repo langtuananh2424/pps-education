@@ -6,6 +6,7 @@ import vn.com.pps.education.permission.service.PermissionEvaluationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.academic.domain.ClassEnrollment;
+import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgress;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgressHistory;
 import vn.com.pps.education.lms.domain.ReviewVideo;
@@ -222,10 +223,7 @@ public class ReviewVideoReportService {
                 .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId(), p -> p, (a, b) -> a));
         // Điểm chính thức = lần giáo viên chọn (V217), không có thì lần MỚI NHẤT của từng (câu hỏi, bước) — xem
         // ReflexQuestionProgressHistoryResponse#official.
-        Map<String, Integer> latestAttempt = new java.util.HashMap<>();
-        history.forEach(h -> latestAttempt.merge(officialKey(h), h.getAttemptNumber(), Math::max));
-        history.stream().filter(ReflexQuestionProgressHistory::isTeacherSelected)
-                .forEach(h -> latestAttempt.put(officialKey(h), h.getAttemptNumber()));
+        Map<String, Integer> latestAttempt = officialAttemptNumbers(history, false);
 
         return history.stream()
                 .sorted(Comparator
@@ -345,6 +343,7 @@ public class ReviewVideoReportService {
         List<ReflexQuestionProgressHistory> history = reflexQuestionProgressHistoryRepository
                 .findByReviewVideoAssignmentIdOrderByStudentIdAscCreatedAtAsc(assignmentId);
 
+        Map<String, Integer> officialAttempts = officialAttemptNumbers(history, true);
         StringBuilder manifest = new StringBuilder();
         manifest.append("ma_hoc_sinh,ten_hoc_sinh,cau_hoi_thu_tu,cau_hoi_prompt,loai,lan_lam,ten_file_audio,")
                 // V198/V199: 2 cột cuối — cờ cần giáo viên soát Ngữ pháp, chế độ thu âm (1 = đã lọc, 0 = thô, trống = không
@@ -353,7 +352,10 @@ public class ReviewVideoReportService {
                 // V217: nhãn của giáo viên để fine-tune — giao_vien_chon = 1 khi giáo viên chọn lần này làm kết quả chính
                 // thức; diem/nhan_xet_giao_vien = điểm + nhận xét giáo viên chốt (trống = chưa chỉnh), đối chiếu với
                 // diem/feedback là bản AI gốc. Cũng thêm vào CUỐI.
-                .append("giao_vien_chon,diem_giao_vien,nhan_xet_giao_vien\n");
+                .append("giao_vien_chon,diem_giao_vien,nhan_xet_giao_vien,")
+                // Lịch sử đầy đủ của từng lần làm: bài viết của học sinh, bài viết đã đánh dấu lỗi, điểm theo tiêu chí, cách
+                // luyện AI gợi ý, lần này có là kết quả chính thức không, ai chấm/chỉnh và lúc nào. Cũng thêm vào CUỐI.
+                .append("bai_viet,bai_viet_danh_dau_loi,tieu_chi,cach_luyen,la_chinh_thuc,giao_vien_cham,giao_vien_cham_luc\n");
 
         try (ByteArrayOutputStream buffer = new ByteArrayOutputStream();
              ZipOutputStream zip = new ZipOutputStream(buffer, StandardCharsets.UTF_8)) {
@@ -380,13 +382,17 @@ public class ReviewVideoReportService {
                         .append(h.getRecordingFilter() == null ? "" : (h.getRecordingFilter() ? "1" : "0")).append(',')
                         .append(h.isTeacherSelected() ? 1 : 0).append(',')
                         .append(h.getTeacherScore() == null ? "" : h.getTeacherScore()).append(',')
-                        .append(csv(h.getTeacherFeedback())).append('\n');
+                        .append(csv(h.getTeacherFeedback())).append(',')
+                        .append(csv(h.getAnswerText())).append(',')
+                        .append(csv(h.getMarkedAnswer())).append(',')
+                        .append(csv(formatCriteria(h.getCriteriaScores()))).append(',')
+                        .append(csv(h.getHint())).append(',')
+                        .append(h.getAttemptNumber() == officialAttempts.get(exportKey(h)) ? 1 : 0).append(',')
+                        .append(csv(h.getTeacherBy() == null ? null : h.getTeacherBy().getFullName())).append(',')
+                        .append(h.getTeacherAt() == null ? "" : h.getTeacherAt()).append('\n');
             }
-            zip.putNextEntry(new ZipEntry("manifest.csv"));
-            // BOM để Excel mở tiếng Việt UTF-8 không bị lỗi font (giống ExportExcel hiện có ở FE).
-            zip.write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
-            zip.write(manifest.toString().getBytes(StandardCharsets.UTF_8));
-            zip.closeEntry();
+            writeCsvEntry(zip, "manifest.csv", manifest);
+            writeCsvEntry(zip, "ket_qua_chinh_thuc.csv", buildOfficialResultsCsv(assignmentId));
             zip.finish();
             return buffer.toByteArray();
         } catch (java.io.IOException e) {
@@ -431,6 +437,78 @@ public class ReviewVideoReportService {
             }
         }
         return "bin";
+    }
+
+    private static void writeCsvEntry(ZipOutputStream zip, String name, CharSequence content) throws java.io.IOException {
+        zip.putNextEntry(new ZipEntry(name));
+        // BOM để Excel mở tiếng Việt UTF-8 không bị lỗi font (giống ExportExcel hiện có ở FE).
+        zip.write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
+        zip.write(content.toString().getBytes(StandardCharsets.UTF_8));
+        zip.closeEntry();
+    }
+
+    /**
+     * Kết quả CHÍNH THỨC hiện tại của từng (học sinh, câu hỏi, bước) — lấy từ {@link ReflexQuestionProgress} (điểm sau khi
+     * giáo viên chọn lần tốt nhất / chỉnh điểm), kèm điểm + nhận xét AI gốc và người chấm lại, để đối chiếu với
+     * manifest.csv (từng lần làm).
+     */
+    private StringBuilder buildOfficialResultsCsv(Long assignmentId) {
+        StringBuilder out = new StringBuilder();
+        out.append("ma_hoc_sinh,ten_hoc_sinh,cau_hoi_thu_tu,cau_hoi_prompt,buoc,so_lan_nop,diem_chinh_thuc,diem_toi_da,")
+                .append("nhan_xet_chinh_thuc,diem_ai_goc,nhan_xet_ai_goc,giao_vien_cham_lai,cham_lai_luc,nop_tre\n");
+        List<ReflexQuestionProgress> rows = reflexQuestionProgressRepository.findByReviewVideoAssignmentId(assignmentId).stream()
+                .sorted(Comparator.comparing((ReflexQuestionProgress p) -> p.getStudent().getId())
+                        .thenComparing(p -> p.getReviewVideoQuestion().getDisplayOrder()))
+                .toList();
+        for (ReflexQuestionProgress p : rows) {
+            if (p.getWritingAttemptCount() > 0) {
+                appendOfficialRow(out, p, "WRITING", p.getWritingAttemptCount(), p.getWritingScore(), p.getWritingMaxScore(),
+                        p.getWritingFeedback(), p.getWritingAiScore(), p.getWritingAiFeedback(), p.getWritingReviewedBy(), p.getWritingReviewedAt());
+            }
+            if (p.getSpeakingAttemptCount() > 0) {
+                appendOfficialRow(out, p, "SPEAKING", p.getSpeakingAttemptCount(), p.getSpeakingScore(), p.getSpeakingMaxScore(),
+                        p.getSpeakingFeedback(), p.getSpeakingAiScore(), p.getSpeakingAiFeedback(), p.getSpeakingReviewedBy(), p.getSpeakingReviewedAt());
+            }
+        }
+        return out;
+    }
+
+    private void appendOfficialRow(StringBuilder out, ReflexQuestionProgress p, String step, int attempts, java.math.BigDecimal score,
+                                   java.math.BigDecimal maxScore, String feedback, java.math.BigDecimal aiScore, String aiFeedback,
+                                   vn.com.pps.education.auth.domain.User reviewer, java.time.OffsetDateTime reviewedAt) {
+        Student student = p.getStudent();
+        out.append(csv(student.getStudentCode())).append(',')
+                .append(csv(student.getUser().getFullName())).append(',')
+                .append(p.getReviewVideoQuestion().getDisplayOrder()).append(',')
+                .append(csv(p.getReviewVideoQuestion().getPrompt())).append(',')
+                .append(step).append(',')
+                .append(attempts).append(',')
+                .append(score == null ? "" : score).append(',')
+                .append(maxScore == null ? "" : maxScore).append(',')
+                .append(csv(feedback)).append(',')
+                .append(aiScore == null ? "" : aiScore).append(',')
+                .append(csv(aiFeedback)).append(',')
+                .append(csv(reviewer == null ? null : reviewer.getFullName())).append(',')
+                .append(reviewedAt == null ? "" : reviewedAt).append(',')
+                .append(p.isLateSubmission() ? 1 : 0).append('\n');
+    }
+
+    /** Lần chính thức của từng bước: lần giáo viên chọn (V217), không có thì lần nộp mới nhất. Khoá theo học sinh khi {@code perStudent}. */
+    private static Map<String, Integer> officialAttemptNumbers(List<ReflexQuestionProgressHistory> history, boolean perStudent) {
+        Map<String, Integer> official = new java.util.HashMap<>();
+        history.forEach(h -> official.merge(perStudent ? exportKey(h) : officialKey(h), h.getAttemptNumber(), Math::max));
+        history.stream().filter(ReflexQuestionProgressHistory::isTeacherSelected)
+                .forEach(h -> official.put(perStudent ? exportKey(h) : officialKey(h), h.getAttemptNumber()));
+        return official;
+    }
+
+    private static String exportKey(ReflexQuestionProgressHistory h) {
+        return h.getStudent().getId() + ":" + officialKey(h);
+    }
+
+    private static String formatCriteria(List<CriteriaScoreItem> criteria) {
+        return criteria == null || criteria.isEmpty() ? null
+                : criteria.stream().map(c -> c.criterion() + ": " + c.percent() + "%").collect(Collectors.joining("; "));
     }
 
     private String csv(String value) {

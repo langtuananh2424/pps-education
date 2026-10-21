@@ -2401,6 +2401,17 @@ UC-40: Soạn & giao đề kiểm tra
 > xoá nhưng điểm giáo viên đã chốt ở lần cũ vẫn giữ làm nhãn. Bài tập Writing
 > (ESSAY) không đổi: `student_answer_grading` đã giữ đủ bản AI + giáo viên.
 >
+> **File xuất "Tải toàn bộ lịch sử làm bài + kết quả chấm" (2026-10-20):**
+> nút ở trang *Thống kê BTVN* Video phản xạ (`GET /api/review-video-assignments/
+> {id}/export-reflex-data`) xuất ZIP gồm `audio/` (mọi lần ghi âm) và 2 file
+> CSV. `manifest.csv` = từng lần làm (đọc `reflex_question_progress_history`):
+> điểm/nhận xét AI, transcript, và thêm 7 cột cuối `bai_viet,
+> bai_viet_danh_dau_loi, tieu_chi, cach_luyen, la_chinh_thuc, giao_vien_cham,
+> giao_vien_cham_luc` (cùng 3 cột nhãn giáo viên V217). `ket_qua_chinh_thuc.csv`
+> = kết quả chính thức hiện tại của từng (học sinh, câu, bước) từ
+> `reflex_question_progress`: điểm/nhận xét chính thức, điểm + nhận xét AI gốc,
+> giáo viên chấm lại và nộp trễ.
+>
 > **Bài tập Writing (ESSAY) do AI chấm (2026-10-20, đã xác nhận với người
 > dùng):** cùng cách, giáo viên chấm lại câu ESSAY trong popup **"Lịch sử
 > chấm AI"** (nút cạnh tiêu đề "Lịch sử trả lời câu hỏi" của chi tiết học
