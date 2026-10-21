@@ -768,7 +768,11 @@ public class ExerciseService {
         }
         Map<String, Object> shuffled = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : raw.entrySet()) {
-            if (entry.getValue() instanceof List<?> list) {
+            // "chunkOrder" (bổ sung 2026-10-21, đã xác nhận với người dùng) KHÔNG được xáo trộn — đây là
+            // thứ tự XÁO TRỘN CỐ ĐỊNH do GV tự soạn sẵn (từ cột "Nội dung" của SAP_XEP_CAU, xem
+            // QuestionImportService), không phải thứ tự đáp án đúng nên không có gì để lộ — xáo trộn thêm
+            // ở đây sẽ phá mất yêu cầu hiện đúng thứ tự GV đã soạn.
+            if (entry.getValue() instanceof List<?> list && !"chunkOrder".equals(entry.getKey())) {
                 List<Object> copy = new ArrayList<>(list);
                 Collections.shuffle(copy);
                 shuffled.put(entry.getKey(), copy);

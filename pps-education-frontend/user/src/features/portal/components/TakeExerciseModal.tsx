@@ -1500,7 +1500,13 @@ export function QuestionBlock({
           onChange={onStructuredAnswer}
         />
       ) : question.questionType === "SENTENCE_BUILDING" && question.structuredContent?.chunks ? (
-        <SentenceBuildingBlock chunkPool={question.structuredContent.chunks} readOnly={readOnly} saving={saving} onChange={onStructuredAnswer} />
+        <SentenceBuildingBlock
+          chunkPool={question.structuredContent.chunks}
+          chunkOrder={question.structuredContent.chunkOrder}
+          readOnly={readOnly}
+          saving={saving}
+          onChange={onStructuredAnswer}
+        />
       ) : (
         <div className="space-y-2">
           <textarea
@@ -2017,11 +2023,14 @@ function WordBankBlock({
  */
 function SentenceBuildingBlock({
   chunkPool,
+  chunkOrder,
   readOnly,
   saving,
   onChange
 }: {
   chunkPool: string[];
+  /** Bổ sung 2026-10-21, đã xác nhận với người dùng — thứ tự xáo trộn CỐ ĐỊNH do GV soạn sẵn (cột "Nội dung" của SAP_XEP_CAU). Có thì dùng ĐÚNG thứ tự này thay vì tự xáo trộn ngẫu nhiên. */
+  chunkOrder?: string[];
   readOnly: boolean;
   saving: boolean;
   onChange: (values: string[]) => void;
@@ -2029,6 +2038,20 @@ function SentenceBuildingBlock({
   const { t } = useTranslation("portal-exercises");
   const shuffled = useMemo(() => {
     const arr = chunkPool.map((text, idx) => ({ text, idx }));
+    // Thứ tự GV soạn sẵn (chunkOrder) ưu tiên trước — khớp từng khối với chunkPool theo chữ (không phân
+    // biệt hoa/thường, trim), tiêu thụ 1 phần tử/lần để xử lý đúng khi có khối trùng chữ (VD "the" lặp
+    // lại). Không khớp đủ (dữ liệu cũ thiếu/lệch) thì rơi về xáo trộn ngẫu nhiên như trước.
+    if (chunkOrder && chunkOrder.length === arr.length) {
+      const remaining = [...arr];
+      const ordered: typeof arr = [];
+      for (const word of chunkOrder) {
+        const idx = remaining.findIndex((s) => s.text.trim().toLowerCase() === word.trim().toLowerCase());
+        if (idx === -1) break;
+        ordered.push(remaining[idx]);
+        remaining.splice(idx, 1);
+      }
+      if (ordered.length === arr.length) return ordered;
+    }
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];

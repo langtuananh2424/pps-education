@@ -1334,6 +1334,22 @@ UC-24: Làm bài kiểm tra trực tuyến
 > `ExerciseAttempt`/`student_answers`) — KHÔNG áp dụng cho quiz cuối lượt
 > xem Review Video CONNECTION (UC-23b) hay luồng REFLEX ở trên (2 luồng đó
 > dùng bảng/cơ chế retry khác, ngoài phạm vi thay đổi lần này).
+>
+> Bổ sung 2026-10-21 (đã xác nhận với người dùng — fix bug thật: câu
+> `WORD_BANK` nhiều ô trong 1 đoạn văn (VD "Fill in each blank 1-10") bị
+> dừng bài giữa chừng — thoát ra ngoài vượt ngưỡng giám sát, xem
+> `forceStopByIntegrityViolation` — rồi làm lại thì MẤT HẾT kể cả các ô đã
+> điền đúng, vì carry-forward ở trên chỉ áp dụng khi CẢ CÂU đúng 100%):
+> câu `WORD_BANK` dạng `blanks` thường (KHÔNG áp dụng `format=form`
+> "Nghe điền phiếu thông tin" — so khớp phức tạp hơn 1-1) CHƯA đúng hết
+> vẫn mang các Ô ĐÃ ĐÚNG (so khớp case-insensitive + trim, giống
+> `isAnswerCorrect`) sang làm bản nháp ban đầu của lượt mới —
+> `carried_over_from_previous_attempt=false` (KHÔNG khoá, học sinh sửa lại
+> được bình thường, chỉ cần điền nốt ô sai/thiếu). Chấm lại từ đầu qua
+> đúng 1 pipeline `isAnswerCorrect`/`computeAutoScore` sẵn có khi nộp lượt
+> mới, không cộng dồn điểm thủ công. Chỉ áp dụng `WORD_BANK` (đã có sẵn
+> chấm điểm từng phần `structuredPartialScore` cùng granularity) —
+> `SENTENCE_BUILDING` (all-or-nothing, có thứ tự) chưa áp dụng.
 
 ---
 
@@ -2100,6 +2116,16 @@ UC-40: Soạn & giao đề kiểm tra
 >      lưu thứ tự học sinh đã chọn — chấm bằng so khớp elementwise
 >      case-insensitive + trim với `structured_content`, cả 2 dạng đều tự
 >      chấm được (`AUTO_GRADABLE_TYPES`).
+>      Bổ sung 2026-10-21 (đã xác nhận với người dùng — fix bug thật: khối
+>      hiện cho học sinh chọn từng gộp cụm khác hẳn danh sách từ GV liệt kê
+>      trong "Nội dung", xem `QuestionImportService`): GV có thể liệt kê sẵn
+>      các khối theo thứ tự xáo trộn CỐ ĐỊNH ngay trong cột "Nội dung" khi
+>      import Excel/Word (cách nhau dấu `/`, tập khối phải khớp CHÍNH XÁC
+>      với `chunks` — sai thì BE báo lỗi ngay lúc import). Khi có, lưu thêm
+>      key `chunkOrder` — Portal hiện ĐÚNG thứ tự này (không xáo trộn ngẫu
+>      nhiên thêm); không có thì vẫn xáo trộn ngẫu nhiên như hành vi gốc.
+>      `chunkOrder` không bị `shuffledStructuredContent` xáo trộn (không
+>      phải đáp án đúng, không có gì để lộ).
 >   3. **Chọn từ trong câu** (`INLINE_CHOICE`, kind ảo ở FE): `MULTIPLE_CHOICE`
 >      với đúng 2 `choices` thay vì 4 — không đổi backend, giống cách
 >      "Trắc nghiệm Voice" đã là kind ảo từ trước.

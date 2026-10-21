@@ -222,7 +222,8 @@ public class ExerciseAttemptService {
         // saveAnswer() chặn sửa lên các câu này ở phía Backend (không chỉ ẩn nút ở FE).
         if (lastAttempt != null) {
             ExerciseAttempt newAttempt = attempt;
-            studentAnswerRepository.findByExerciseAttemptId(lastAttempt.getId()).stream()
+            List<StudentAnswer> previousAnswers = studentAnswerRepository.findByExerciseAttemptId(lastAttempt.getId());
+            previousAnswers.stream()
                     .filter(a -> a.isAutoGradable() && Boolean.TRUE.equals(a.getCorrect()))
                     .forEach(previousAnswer -> {
                         StudentAnswer carried = new StudentAnswer();
@@ -235,6 +236,31 @@ public class ExerciseAttemptService {
                         carried.setAutoGradable(previousAnswer.isAutoGradable());
                         carried.setCarriedOverFromPreviousAttempt(true);
                         studentAnswerRepository.save(carried);
+                    });
+            // Bổ sung 2026-10-21 (đã xác nhận với người dùng — fix bug thật: bài WORD_BANK nhiều ô trong
+            // 1 đoạn văn (VD "Fill in each blank 1-10") bị dừng bài giữa chừng (thoát ra ngoài quá
+            // ngưỡng giám sát) rồi làm lại thì MẤT HẾT kể cả các ô đã điền đúng, vì carry-forward ở trên
+            // chỉ áp dụng khi CẢ CÂU đúng 100%) — câu WORD_BANK (không phải dạng "Nghe điền phiếu thông
+            // tin") CHƯA đúng hết vẫn mang các Ô ĐÃ ĐÚNG sang làm bản nháp ban đầu của lượt mới (KHÔNG
+            // khoá — carriedOverFromPreviousAttempt=false, học sinh sửa lại được bình thường, chỉ cần
+            // điền nốt ô sai/thiếu; chấm lại từ đầu như đáp án tự gõ qua đúng 1 pipeline
+            // isAnswerCorrect()/computeAutoScore() sẵn có, không cộng dồn điểm thủ công). Chỉ áp dụng
+            // WORD_BANK vì đã có sẵn chấm điểm từng phần (structuredPartialScore) cùng granularity —
+            // SENTENCE_BUILDING (all-or-nothing, có thứ tự) chưa áp dụng.
+            previousAnswers.stream()
+                    .filter(a -> a.isAutoGradable() && !Boolean.TRUE.equals(a.getCorrect())
+                            && a.getQuestion().getQuestionType() == Question.QuestionType.WORD_BANK)
+                    .forEach(previousAnswer -> {
+                        List<String> partial = partiallyCorrectBlanks(previousAnswer.getQuestion(), previousAnswer.getStructuredAnswer());
+                        if (partial == null) {
+                            return;
+                        }
+                        StudentAnswer draft = new StudentAnswer();
+                        draft.setExerciseAttempt(newAttempt);
+                        draft.setQuestion(previousAnswer.getQuestion());
+                        draft.setStructuredAnswer(partial);
+                        draft.setAutoGradable(previousAnswer.isAutoGradable());
+                        studentAnswerRepository.save(draft);
                     });
         }
 
@@ -773,6 +799,35 @@ public class ExerciseAttemptService {
             }
         }
         return true;
+    }
+
+    /**
+     * Bổ sung 2026-10-21 (đã xác nhận với người dùng) — dùng cho carry-forward TỪNG Ô ở
+     * {@link #startAttempt}: câu WORD_BANK (blanks thường, KHÔNG phải form) chưa đúng hết vẫn giữ lại
+     * những ô ĐÃ khớp đáp án đúng (so khớp y hệt {@link #structuredAnswerMatches}: case-insensitive +
+     * trim), các ô còn lại trả về chuỗi rỗng để học sinh tự điền nốt. Trả về {@code null} khi không có
+     * ô nào đúng (không cần tạo bản nháp) hoặc câu không hợp lệ để so khớp theo kiểu này (form/null).
+     */
+    private List<String> partiallyCorrectBlanks(Question question, List<String> given) {
+        if (given == null || isFormCompletion(question) || question.getStructuredContent() == null) {
+            return null;
+        }
+        if (!(question.getStructuredContent().get("blanks") instanceof List<?> correctList)) {
+            return null;
+        }
+        List<String> result = new ArrayList<>();
+        boolean anyCorrect = false;
+        for (int i = 0; i < correctList.size(); i++) {
+            String correct = String.valueOf(correctList.get(i));
+            String submitted = i < given.size() ? given.get(i) : null;
+            if (submitted != null && correct.trim().equalsIgnoreCase(submitted.trim())) {
+                result.add(submitted);
+                anyCorrect = true;
+            } else {
+                result.add("");
+            }
+        }
+        return anyCorrect ? result : null;
     }
 
     /** Dạng "Nghe điền phiếu thông tin" (structuredContent.format="form") — xem {@link FormAnswerMatcher}. */
