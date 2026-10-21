@@ -86,6 +86,8 @@ export type QuestionType = "MULTIPLE_CHOICE" | "MULTIPLE_ANSWER" | "TRUE_FALSE" 
 export interface QuestionStructuredContent {
   blanks?: string[];
   chunks?: string[];
+  /** Bổ sung 2026-10-21, đã xác nhận với người dùng — SAP_XEP_CAU: thứ tự xáo trộn CỐ ĐỊNH do GV soạn sẵn trong cột "Nội dung" (khớp tập từ với `chunks`, khác thứ tự) khi import Excel/Word. */
+  chunkOrder?: string[];
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — hộp từ vựng hiển thị cho học sinh (WORD_BANK), tách khỏi `blanks` (đáp án đúng) để có thể chứa từ nhiễu. Bỏ trống = dùng `blanks` làm hộp từ như hành vi cũ. */
   wordBankOptions?: string[];
   /**

@@ -148,12 +148,20 @@ vào ô nhập chữ** thay vì chọn từ danh sách. Hộp từ chỉ để *
 
 ### 2.8 `SAP_XEP_CAU` — Sắp xếp câu
 - **Đáp án đúng** = các khối từ/cụm theo **đúng thứ tự câu hoàn chỉnh**, cách nhau `|`.
-- Tối thiểu **2 khối**. Hệ thống tự xáo trộn khi học sinh làm bài.
+- Tối thiểu **2 khối**.
+- **Nội dung** có 2 cách dùng:
+  - Câu hướng dẫn thường (không có dấu `/`) — hệ thống **tự xáo trộn ngẫu nhiên** các khối mỗi lần học
+    sinh làm bài (như trước giờ).
+  - Liệt kê sẵn CHÍNH các khối theo **thứ tự xáo trộn cố định**, cách nhau dấu `/` (VD "capital / is /
+    Paris / ..."). Khi dùng cách này, **tập khối liệt kê ở Nội dung phải khớp CHÍNH XÁC** (không thiếu/
+    thừa/lệch từ, chỉ khác THỨ TỰ) với tập khối ở Đáp án đúng — sai thì BE báo lỗi ngay lúc import.
+    Học sinh sẽ thấy khối hiện ĐÚNG theo thứ tự đã liệt kê ở Nội dung (không xáo trộn thêm nữa).
 
 | Loại câu hỏi | Nội dung | Đáp án đúng |
 |---|---|---|
 | SAP_XEP_CAU | Sắp xếp thành câu hoàn chỉnh. | This\|is\|a\|pen |
 | SAP_XEP_CAU | Put the words in order. | I\|usually\|get up\|at six |
+| SAP_XEP_CAU | capital / is / Paris / France / of / the / famous / for / its / architecture / . | Paris\|is\|the\|capital\|of\|France\|famous\|for\|its\|architecture\|. |
 
 ### 2.9 `SAP_XEP_CHU_CAI` — Sắp xếp chữ cái
 Mỗi chữ cái 1 phần tử, `|` ngăn cách, đúng thứ tự tạo từ đúng; tối thiểu 2 chữ cái.
