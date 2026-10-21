@@ -195,7 +195,8 @@ interface ConnectionThresholdValue {
  * hỏi, gộp mọi lượt, CHỈ CONNECTION) — xem đủ video luôn bắt buộc 100% (cố định, không còn cấu hình
  * được). N câu hỏi (soạn ở ConnectionQuizBuilder) được chia đều ngẫu nhiên riêng theo từng học sinh
  * qua đúng số "lượt đạt tối thiểu" bên dưới (M). requiredViewCount/sessionPassRatioThresholdPercent
- * (V167) CHỈ áp dụng CONNECTION. Để trống dùng mặc định BE (80%/1 lượt/70%).
+ * (V167) CHỈ áp dụng CONNECTION. Để trống dùng mặc định BE (80%/1 lượt/100% — V218, trước đó 70%, PM
+ * chốt CONNECTION phải xem hết đủ lượt mới tính hoàn thành, 100% tắt hẳn nhánh dừng sớm theo mặc định).
  *
  * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — với video REFLEX,
  * completionThresholdPercent mang Ý NGHĨA KHÁC HẲN: ngưỡng % đạt (viết VÀ nói) mỗi câu hỏi (trước đó
@@ -269,7 +270,7 @@ function ConnectionThresholdFields({
               max={100}
               value={value.sessionPassRatioThresholdPercent}
               onChange={(e) => onChange({ ...value, sessionPassRatioThresholdPercent: e.target.value })}
-              placeholder="70"
+              placeholder="100"
               className={inputClass}
             />
           </div>
