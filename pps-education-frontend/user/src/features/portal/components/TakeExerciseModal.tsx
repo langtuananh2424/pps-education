@@ -27,6 +27,7 @@ import {
   uploadMedia
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
+import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
 import MonitoringBadge from "./MonitoringBadge";
 import { ScoreSticker } from "./ScoreSticker";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
@@ -512,6 +513,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
   const [textDraft, setTextDraft] = useState<Record<number, string>>({});
+  const textSaves = useTextAnswerSaves();
   const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — gợi ý tapescript câu hỏi Nghe, mở
   // khóa sau khi nghe HẾT audio đủ số lần cấu hình. Key theo listeningKeyOf (groupKey nếu có, không
@@ -663,7 +665,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     setSavingQuestionId(questionId);
     setError(null);
     try {
-      const res = await saveAnswer(attempt.id, { questionId, selectedChoiceIds: choiceIds });
+      const res = await textSaves.trackPending(saveAnswer(attempt.id, { questionId, selectedChoiceIds: choiceIds }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
@@ -678,7 +680,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     setSavingQuestionId(questionId);
     setError(null);
     try {
-      const res = await saveAnswer(attempt.id, { questionId, structuredAnswer: values });
+      const res = await textSaves.trackStructured(questionId, values, saveAnswer(attempt.id, { questionId, structuredAnswer: values }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
@@ -698,7 +700,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     setError(null);
     try {
       const { url } = await uploadMedia(file, "EXERCISE_ANSWER_SUBMISSION");
-      const res = await saveAnswer(attempt.id, { questionId, audioAnswerUrl: url });
+      const res = await textSaves.trackPending(saveAnswer(attempt.id, { questionId, audioAnswerUrl: url }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.submitAudioError")));
@@ -725,7 +727,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     setSavingQuestionId(questionId);
     setError(null);
     try {
-      const res = await saveAnswer(attempt.id, { questionId, answerText: text });
+      const res = await textSaves.track(questionId, text, saveAnswer(attempt.id, { questionId, answerText: text }));
       setAnswersByQuestion((prev) => new Map(prev).set(questionId, res));
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.saveAnswerError")));
@@ -739,7 +741,24 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     setSubmitting(true);
     setError(null);
     try {
+      // Fix 2026-10-21: ô gõ chỉ lưu khi blur, nên chữ gõ dở (lần lưu blur còn đang bay trên mạng chậm,
+      // lỗi mạng, hết giờ tự nộp khi con trỏ còn trong ô...) có thể chưa lên server → câu bị chấm "không
+      // trả lời" dù ô vẫn hiện chữ. Chờ lần lưu đang bay + lưu nốt mọi bản nháp chưa khớp TRƯỚC khi nộp
+      // (best effort, lỗi lưu không chặn nộp).
+      const unsaved = await textSaves.settleAndGetUnsaved(
+        textDraft,
+        (qid) => answersByQuestion.get(qid)?.answerText,
+        (qid) => answersByQuestion.get(qid)?.structuredAnswer
+      );
+      await Promise.all([
+        ...unsaved.texts.map(([qid, text]) => textSaves.track(qid, text, saveAnswer(attempt.id, { questionId: qid, answerText: text })).catch(() => undefined)),
+        ...unsaved.structured.map(([qid, values]) =>
+          textSaves.trackStructured(qid, values, saveAnswer(attempt.id, { questionId: qid, structuredAnswer: values })).catch(() => undefined)
+        )
+      ]);
       const updated = await submitAttempt(attempt.id);
+      setTextDraft({});
+      textSaves.reset();
       setAttempt(updated);
       loadAnswers(updated.id);
       setJustSubmitted(true);
@@ -769,6 +788,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       const fresh = await startAttempt(item.exerciseId, item.assignmentId);
       setAttempt(fresh);
       setTextDraft({});
+      textSaves.reset();
       setJustSubmitted(false);
       loadAnswers(fresh.id);
     } catch (err) {
@@ -1096,6 +1116,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   onTextBlur={() => handleTextBlur(block.question.questionId)}
                   onChoiceToggle={(choiceIds) => handleChoiceAnswer(block.question.questionId, choiceIds)}
                   onStructuredAnswer={(values) => handleStructuredAnswer(block.question.questionId, values)}
+                  onStructuredDraft={(values) => textSaves.noteStructuredDraft(block.question.questionId, values)}
                   onAudioUpload={(file) => handleAudioAnswer(block.question.questionId, file)}
                   onFilePickerOpen={suppressForFilePicker}
                   attemptId={attempt?.id}
@@ -1257,6 +1278,7 @@ export function QuestionBlock({
   onTextBlur,
   onChoiceToggle,
   onStructuredAnswer,
+  onStructuredDraft,
   onAudioUpload,
   onFilePickerOpen,
   attemptId,
@@ -1275,6 +1297,8 @@ export function QuestionBlock({
   onTextBlur: () => void;
   onChoiceToggle: (choiceIds: number[]) => void;
   onStructuredAnswer: (values: string[]) => void;
+  /** Trạng thái hiện tại (kể cả dở dang) của khối điền từ/sắp xếp câu — để nộp bài lưu nốt phần chưa lên server. */
+  onStructuredDraft?: (values: string[]) => void;
   onAudioUpload: (file: File) => void;
   onFilePickerOpen: () => void;
   attemptId: number | undefined;
@@ -1336,7 +1360,7 @@ export function QuestionBlock({
          */}
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
           {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
-            <span className="block text-sm sm:text-base italic font-normal text-muted whitespace-pre-line mb-2">{question.structuredContent.instruction}</span>
+            <span className="block text-sm sm:text-base italic font-normal text-muted whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
           )}
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
@@ -1498,9 +1522,17 @@ export function QuestionBlock({
           readOnly={readOnly}
           saving={saving}
           onChange={onStructuredAnswer}
+          onDraft={onStructuredDraft}
         />
       ) : question.questionType === "SENTENCE_BUILDING" && question.structuredContent?.chunks ? (
-        <SentenceBuildingBlock chunkPool={question.structuredContent.chunks} readOnly={readOnly} saving={saving} onChange={onStructuredAnswer} />
+        <SentenceBuildingBlock
+          chunkPool={question.structuredContent.chunks}
+          initialAnswer={answer?.structuredAnswer ?? undefined}
+          readOnly={readOnly}
+          saving={saving}
+          onChange={onStructuredAnswer}
+          onDraft={onStructuredDraft}
+        />
       ) : (
         <div className="space-y-2">
           <textarea
@@ -1901,7 +1933,8 @@ function WordBankBlock({
   initialAnswer,
   readOnly,
   saving,
-  onChange
+  onChange,
+  onDraft
 }: {
   content: string;
   wordPool: string[];
@@ -1912,6 +1945,7 @@ function WordBankBlock({
   readOnly: boolean;
   saving: boolean;
   onChange: (values: string[]) => void;
+  onDraft?: (values: string[]) => void;
 }) {
   const { t } = useTranslation("portal-exercises");
   // Bổ sung 2026-09-17, đã xác nhận với người dùng — content của bài đọc dạng "đoạn văn" (VD
@@ -1929,14 +1963,30 @@ function WordBankBlock({
     initialAnswer && initialAnswer.length === blankCount ? initialAnswer : new Array(blankCount).fill("")
   );
 
+  // 2026-10-21 — hộp từ hiện NGAY TRÊN đoạn văn dạng bảng 4 từ/hàng, xáo trộn thứ tự hiển thị (mirror
+  // QuestionPreview#WordBankPreview ở admin; trước đây ô gõ tay hiện chip bên DƯỚI nên lệch bản xem trước).
+  const shuffledWordPool = useMemo(() => {
+    const arr = [...wordPool];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSelect = (idx: number, value: string) => {
     const next = selections.map((s, i) => (i === idx ? value : s));
     setSelections(next);
+    // Chọn dở dang cũng báo lên modal cha để lúc nộp bài lưu nốt (chấm theo tỉ lệ ô đúng) — chỉ lưu NGAY khi đủ.
+    onDraft?.(next);
     if (next.every((s) => s)) onChange(next);
   };
 
   const handleTypeChange = (idx: number, value: string) => {
-    setSelections((prev) => prev.map((s, i) => (i === idx ? value : s)));
+    const next = selections.map((s, i) => (i === idx ? value : s));
+    setSelections(next);
+    onDraft?.(next.map((s) => s.trim()));
   };
 
   // Bổ sung 2026-10-02 (đã xác nhận với người dùng) — trước đây bắt BUỘC điền đủ mọi ô mới lưu, nên
@@ -1960,6 +2010,24 @@ function WordBankBlock({
        * (trước đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc). */}
       {instruction && <p className="text-sm sm:text-base italic text-muted">{renderRichText(instruction)}</p>}
       {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{renderRichText(title)}</p>}
+      {wordPool.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-muted uppercase tracking-wider">{t("takeExercise.wordBank.boxLabel")}</p>
+          <table className="w-full border-collapse text-sm sm:text-base text-ink">
+            <tbody>
+              {chunkArray(shuffledWordPool, 4).map((row, ri) => (
+                <tr key={ri}>
+                  {row.map((w, ci) => (
+                    <td key={ci} className="border border-line/70 text-center font-bold px-2 py-2">
+                      {w}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <p className={`text-sm sm:text-base lg:text-lg ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-ink leading-8 lg:leading-10`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
@@ -1969,7 +2037,9 @@ function WordBankBlock({
                 <input
                   type="text"
                   value={selections[idx]}
-                  disabled={readOnly || saving}
+                  // Không khoá theo `saving`: lưu 1 ô (blur) làm cả đoạn bị khoá, học sinh bấm sang ô kế tiếp thì
+                  // ô đó mất focus và các phím gõ trong lúc chờ bị nuốt mất.
+                  disabled={readOnly}
                   onChange={(e) => handleTypeChange(idx, e.target.value)}
                   onBlur={handleTypeBlur}
                   className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1 mx-1 sm:px-3 sm:py-2 rounded-lg align-middle focus:outline-none disabled:opacity-70 w-28 sm:w-36"
@@ -1994,15 +2064,6 @@ function WordBankBlock({
           </React.Fragment>
         ))}
       </p>
-      {inputMode === "text" && wordPool.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 bg-sky-2/60 border border-line/60 rounded-lg p-2.5">
-          {wordPool.map((w, wIdx) => (
-            <span key={`${w}-${wIdx}`} className="text-xs sm:text-sm font-bold text-ink bg-surface border border-line/70 rounded-md px-2 py-1">
-              {w}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -2017,14 +2078,19 @@ function WordBankBlock({
  */
 function SentenceBuildingBlock({
   chunkPool,
+  initialAnswer,
   readOnly,
   saving,
-  onChange
+  onChange,
+  onDraft
 }: {
   chunkPool: string[];
+  /** Thứ tự đã lưu ở server — khôi phục các khối đã xếp khi mở lại màn (trước đây luôn hiện lại như chưa làm). */
+  initialAnswer?: string[];
   readOnly: boolean;
   saving: boolean;
   onChange: (values: string[]) => void;
+  onDraft?: (values: string[]) => void;
 }) {
   const { t } = useTranslation("portal-exercises");
   const shuffled = useMemo(() => {
@@ -2036,7 +2102,14 @@ function SentenceBuildingBlock({
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [usedIndices, setUsedIndices] = useState<number[]>([]);
+  const [usedIndices, setUsedIndices] = useState<number[]>(() => {
+    const used: number[] = [];
+    (initialAnswer ?? []).forEach((text) => {
+      const match = shuffled.find((s) => s.text === text && !used.includes(s.idx));
+      if (match) used.push(match.idx);
+    });
+    return used;
+  });
 
   const built = usedIndices.map((i) => shuffled.find((s) => s.idx === i)?.text ?? "");
   const available = shuffled.filter((s) => !usedIndices.includes(s.idx));
@@ -2045,13 +2118,18 @@ function SentenceBuildingBlock({
     if (readOnly || saving) return;
     const next = [...usedIndices, idx];
     setUsedIndices(next);
+    const texts = next.map((i) => shuffled.find((s) => s.idx === i)?.text ?? "");
+    onDraft?.(texts);
     if (next.length === chunkPool.length) {
-      onChange(next.map((i) => shuffled.find((s) => s.idx === i)?.text ?? ""));
+      onChange(texts);
     }
   };
   const removeChunk = (position: number) => {
     if (readOnly || saving) return;
-    setUsedIndices((prev) => prev.filter((_, i) => i !== position));
+    const next = usedIndices.filter((_, i) => i !== position);
+    setUsedIndices(next);
+    // Gỡ khối sau khi đã xếp đủ: server vẫn giữ thứ tự cũ cho tới khi lưu lại — báo bản nháp để nộp bài lưu nốt.
+    onDraft?.(next.map((i) => shuffled.find((s) => s.idx === i)?.text ?? ""));
   };
 
   return (
