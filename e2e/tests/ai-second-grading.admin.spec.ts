@@ -11,7 +11,7 @@ import { BACKEND_URL, DEV_PASSWORD, authHeaders, createAndEnrollStudent, login }
  * chấm (reflex_question_progress + lịch sử) được chèn bằng SQL — đúng hình dạng ReflexSequentialGradingService ghi ra.
  */
 function sql(statement: string): string {
-  return execFileSync("docker", ["exec", "pps-education-db", "psql", "-U", "pps_app", "-d", "pps_education", "-At", "-c", statement], {
+  return execFileSync("docker", ["exec", "pps-education-db", "psql", "-U", "pps_app", "-d", process.env.E2E_DB ?? "pps_education", "-At", "-c", statement], {
     encoding: "utf8"
   }).trim();
 }
@@ -56,8 +56,8 @@ test.beforeAll(async ({ request }) => {
   )));
   const history = (type: string, n: number, score: number) =>
     sql(
-      `insert into reflex_question_progress_history (reflex_question_progress_id, review_video_question_id, student_id, review_video_assignment_id, attempt_type, attempt_number, score, max_score, feedback, graded_at) ` +
-        `values (${progressId}, ${questionId}, ${studentId}, ${assignmentId}, '${type}', ${n}, ${score}, 100, 'AI lần ${n}', now())`
+      `insert into reflex_question_progress_history (reflex_question_progress_id, review_video_question_id, student_id, review_video_assignment_id, attempt_type, attempt_number, answer_text, score, max_score, feedback, graded_at) ` +
+        `values (${progressId}, ${questionId}, ${studentId}, ${assignmentId}, '${type}', ${n}, ${type === "WRITING" ? "'I plays football'" : "null"}, ${score}, 100, 'AI lần ${n}', now())`
     );
   history("WRITING", 1, 30);
   history("WRITING", 2, 40);
@@ -127,4 +127,46 @@ test("Admin không đứng lớp chấm lại được và lịch sử trả v�
   const official = history.filter((h) => h.official).map((h) => `${h.attemptType}${h.attemptNumber}`).sort();
   expect(official).toEqual(["SPEAKING1", "WRITING2"]);
   expect(history.find((h) => h.attemptType === "SPEAKING")).toMatchObject({ reviewed: true, score: 62, aiScore: 55 });
+});
+
+test("Giáo viên chọn lần Viết tốt nhất làm kết quả chính thức, điểm đã chốt ở lần khác được giữ", async ({ page }) => {
+  await page.goto("/login");
+  await page.locator('input[type="text"]').first().fill("teacher");
+  await page.locator('input[type="password"]').fill(DEV_PASSWORD);
+  await page.locator('button[type="submit"]').click();
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+
+  await page.goto(`/academic/homework-stats/review-video/${fx.assignmentId}`);
+  const row = page.locator("tr", { hasText: fx.studentName });
+  await expect(row).toBeVisible();
+  await row.locator("button[title]").last().click();
+  const modal = page.locator("div.fixed.inset-0.z-50").last();
+
+  // Lần 2 đang là điểm chính thức (mặc định = mới nhất, đã được chỉnh ở test trước); lần 1 chọn được, lần chính thức thì không.
+  const writing1 = modal.locator("div.rounded-lg", { hasText: "Viết — lần 1" }).last();
+  const writing2 = modal.locator("div.rounded-lg", { hasText: "Viết — lần 2" }).last();
+  await expect(writing2.getByTestId("reflex-select-attempt")).toHaveCount(0);
+
+  await writing1.getByRole("button", { name: "Chọn lần này làm kết quả chính thức" }).click();
+  await expect(writing1).toContainText("Điểm chính thức");
+  await expect(writing1).toContainText("GV chọn");
+  await expect(writing2).toContainText("Không tính");
+  await page.screenshot({ path: "screenshots/ai2-popup-3-select.png" });
+
+  // Điểm chính thức của tiến trình = lần 1 (30), bước Nói không bị đụng tới.
+  expect(sql(`select writing_score||'|'||answer_text from reflex_question_progress where id=${fx.progressId}`)).toBe("30.00|I plays football");
+  expect(sql(`select string_agg(attempt_number||':'||teacher_selected, ',' order by attempt_number) from reflex_question_progress_history where reflex_question_progress_id=${fx.progressId} and attempt_type='WRITING'`))
+    .toBe("1:true,2:false");
+
+  // Chọn lại lần 2: điểm GV đã chốt (85) ở lần đó được khôi phục, lần 1 hết cờ.
+  await writing2.getByRole("button", { name: "Chọn lần này làm kết quả chính thức" }).click();
+  await expect(writing2).toContainText("85/100");
+  await expect(writing1).toContainText("Không tính");
+  expect(sql(`select writing_score from reflex_question_progress where id=${fx.progressId}`)).toBe("85.00");
+});
+
+test("Chọn lần cần quyền: tài khoản ngoài lớp bị chặn (403)", async ({ request }) => {
+  const token = await login(request, "opsmanager");
+  const res = await request.post(`${BACKEND_URL}/api/reflex-progress/${fx.progressId}/select/WRITING/1`, { headers: authHeaders(token) });
+  expect([401, 403]).toContain(res.status());
 });

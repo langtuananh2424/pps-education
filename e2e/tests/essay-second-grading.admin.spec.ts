@@ -13,7 +13,7 @@ import { BACKEND_URL, DEV_PASSWORD, authHeaders, createAndEnrollStudent, findUsa
  * ExerciseAttemptService#gradeAndFinalize ghi ra. Việc chấm lại của giáo viên đi qua API/UI thật.
  */
 function sql(statement: string): string {
-  return execFileSync("docker", ["exec", "pps-education-db", "psql", "-U", "pps_app", "-d", "pps_education", "-At", "-c", statement], {
+  return execFileSync("docker", ["exec", "pps-education-db", "psql", "-U", "pps_app", "-d", process.env.E2E_DB ?? "pps_education", "-At", "-c", statement], {
     encoding: "utf8"
   }).trim();
 }

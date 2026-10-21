@@ -463,6 +463,7 @@ public class ReflexSequentialGradingService {
         h.setStudent(progress.getStudent());
         h.setReviewVideoAssignment(progress.getReviewVideoAssignment());
         h.setAttemptType(ReflexQuestionProgressHistory.AttemptType.WRITING);
+        clearTeacherSelection(progress, ReflexQuestionProgressHistory.AttemptType.WRITING);
         h.setAttemptNumber(progress.getWritingAttemptCount());
         h.setAnswerText(progress.getAnswerText());
         h.setScore(progress.getWritingScore());
@@ -474,6 +475,23 @@ public class ReflexSequentialGradingService {
         reflexQuestionProgressHistoryRepository.save(h);
     }
 
+    /**
+     * V217 — học sinh nộp lại bước: lần mới trở thành kết quả chính thức nên bỏ cờ "giáo viên chọn" của lần cũ (điểm
+     * giáo viên đã chốt ở lần cũ vẫn giữ làm nhãn). Bước này của {@link ReflexQuestionProgress} đã bị AI chấm mới ghi đè.
+     */
+    private void clearTeacherSelection(ReflexQuestionProgress progress, ReflexQuestionProgressHistory.AttemptType type) {
+        if (progress.getId() == null) {
+            return;
+        }
+        reflexQuestionProgressHistoryRepository
+                .findByReflexQuestionProgressIdAndAttemptTypeOrderByAttemptNumberAsc(progress.getId(), type).stream()
+                .filter(ReflexQuestionProgressHistory::isTeacherSelected)
+                .forEach(old -> {
+                    old.setTeacherSelected(false);
+                    reflexQuestionProgressHistoryRepository.save(old);
+                });
+    }
+
     /** V191 — như {@link #recordWritingHistory}, cho bước ghi âm (có audioUrl/transcript/criteriaScores). */
     private void recordSpeakingHistory(ReflexQuestionProgress progress, Boolean recordingFilter) {
         ReflexQuestionProgressHistory h = new ReflexQuestionProgressHistory();
@@ -482,6 +500,7 @@ public class ReflexSequentialGradingService {
         h.setStudent(progress.getStudent());
         h.setReviewVideoAssignment(progress.getReviewVideoAssignment());
         h.setAttemptType(ReflexQuestionProgressHistory.AttemptType.SPEAKING);
+        clearTeacherSelection(progress, ReflexQuestionProgressHistory.AttemptType.SPEAKING);
         h.setAttemptNumber(progress.getSpeakingAttemptCount());
         h.setAudioUrl(progress.getAudioUrl());
         h.setScore(progress.getSpeakingScore());

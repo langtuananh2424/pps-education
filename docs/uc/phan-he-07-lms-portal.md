@@ -2353,6 +2353,28 @@ UC-40: Soạn & giao đề kiểm tra
 > (vượt rào lớp, V107). Luyện Nói (listening practice) không có AI chấm
 > nên không thuộc phạm vi.
 >
+> **Bổ sung V217 (2026-10-20, đã xác nhận với người dùng) --- Chọn lần
+> Viết/Nói tốt nhất làm kết quả chính thức (Video phản xạ):** ngoài việc
+> chỉnh điểm, giáo viên có thể **chọn lần Viết hoặc lần Nói tốt nhất**
+> (nút "Chọn lần này làm kết quả chính thức" ở các lần chưa chính thức
+> trong popup "Lịch sử chấm AI") thay cho mặc định "lần nộp mới nhất", rồi
+> chỉnh điểm ở lần đó. `POST /api/reflex-progress/{id}/select/{WRITING|
+> SPEAKING}/{attemptNumber}` (`AiSecondGradingService#selectReflexAttempt`,
+> cùng phạm vi quyền chấm lần 2): cờ `teacher_selected` đặt trên đúng 1
+> dòng `reflex_question_progress_history` của bước (unique index), điểm +
+> nhận xét + nội dung bài làm của lần đó (điểm giáo viên đã chốt ở lần đó
+> nếu có, không thì điểm AI --- chọn = xác nhận) được đưa lên
+> `reflex_question_progress` để ngưỡng đạt, mở khoá bước Nói, báo cáo và
+> tiến độ BTVN tự dùng điểm mới; điểm AI gốc giữ ở `*_ai_*`. Điểm +
+> nhận xét giáo viên chốt cho từng lần lưu cạnh bản AI gốc ở
+> `teacher_score/teacher_feedback/teacher_by/teacher_at` của
+> `reflex_question_progress_history` --- làm **nhãn** (AI gốc vs giáo viên)
+> cho dữ liệu fine-tune; file xuất "audio + kết quả AI chấm" thêm 3 cột cuối
+> `giao_vien_chon, diem_giao_vien, nhan_xet_giao_vien`. Học sinh nộp lại bước
+> đó thì lần mới thay thế (kết quả chính thức về lại "mới nhất"), cờ chọn bị
+> xoá nhưng điểm giáo viên đã chốt ở lần cũ vẫn giữ làm nhãn. Bài tập Writing
+> (ESSAY) không đổi: `student_answer_grading` đã giữ đủ bản AI + giáo viên.
+>
 > **Bài tập Writing (ESSAY) do AI chấm (2026-10-20, đã xác nhận với người
 > dùng):** cùng cách, giáo viên chấm lại câu ESSAY trong popup **"Lịch sử
 > chấm AI"** (nút cạnh tiêu đề "Lịch sử trả lời câu hỏi" của chi tiết học

@@ -36,6 +36,9 @@ public record QuestionImportRowPreview(
         // Bổ sung 2026-10-19 (đã xác nhận với người dùng) — cột "Kỹ năng" tường minh, xem Javadoc
         // vn.com.pps.education.lms.service.QuestionRowParser.ParsedQuestionRow#skill.
         String skill,
+        // Bổ sung 2026-10-20 (đã xác nhận với người dùng) — "Số thứ tự hiển thị ghi đè", xem Javadoc
+        // vn.com.pps.education.lms.service.QuestionRowParser.ParsedQuestionRow#displayNumberOverride.
+        String displayNumberOverride,
         boolean valid,
         String error
 ) {}

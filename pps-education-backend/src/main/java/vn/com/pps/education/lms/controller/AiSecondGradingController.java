@@ -39,6 +39,16 @@ public class AiSecondGradingController {
         return ResponseEntity.ok(essayGradingHistoryService.getStudentEssayHistory(assignmentId, studentId, actor.userId()));
     }
 
+    /** Chọn lần Viết/Nói tốt nhất làm kết quả chính thức của bước (V217). */
+    @PostMapping("/api/reflex-progress/{progressId}/select/{step}/{attemptNumber}")
+    public ResponseEntity<Void> selectReflexAttempt(@PathVariable Long progressId,
+                                                    @PathVariable AiSecondGradingService.ReflexStep step,
+                                                    @PathVariable int attemptNumber,
+                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        aiSecondGradingService.selectReflexAttempt(progressId, step, attemptNumber, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/api/reflex-progress/{progressId}/review/{step}")
     public ResponseEntity<Void> reviewReflexStep(@PathVariable Long progressId,
                                                  @PathVariable AiSecondGradingService.ReflexStep step,

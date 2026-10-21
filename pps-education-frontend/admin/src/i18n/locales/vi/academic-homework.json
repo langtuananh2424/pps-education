@@ -258,10 +258,16 @@
       "recordingRaw": "Thu âm: bản ghi thô",
       "grammarReviewTitle": "Cần giáo viên soát điểm Ngữ pháp",
       "grammarReviewBody": "Bài có từ 2 lỗi đỏ ngữ pháp nên điểm Ngữ pháp bị hạ. AI chỉ phiên âm một lần và có thể nghe nhầm — hãy nghe lại các chỗ dưới đây trước khi chốt điểm:",
-      "officialHint": "Điểm chính thức của mỗi bước là lần nộp mới nhất (có cờ). Nếu thấy AI chấm chưa đúng, giáo viên có thể chỉnh điểm ở lần đó — điểm AI gốc vẫn được giữ để đối chiếu.",
+      "officialHint": "Điểm chính thức của mỗi bước mặc định là lần nộp mới nhất (có cờ); giáo viên có thể chọn lần Viết/Nói tốt nhất làm kết quả chính thức. Nếu thấy AI chấm chưa đúng, giáo viên có thể chỉnh điểm ở lần đó — điểm AI gốc vẫn được giữ để đối chiếu.",
       "column": {
         "writing": "Bước Viết",
         "speaking": "Bước Ghi âm"
+      },
+      "select": {
+        "button": "Chọn lần này làm kết quả chính thức",
+        "selecting": "Đang chọn...",
+        "chosenBadge": "GV chọn",
+        "failed": "Không chọn được lần này — thử lại."
       },
       "noAttemptYet": "Chưa có lần nào.",
       "officialBadge": "Điểm chính thức",
