@@ -1,11 +1,14 @@
 package vn.com.pps.education.lms.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.common.KeyGrammarOutcome;
 import vn.com.pps.education.lms.domain.AiGradingTokenUsage;
 import vn.com.pps.education.academic.domain.ClassEnrollment;
+import vn.com.pps.education.academic.domain.Curriculum;
 import vn.com.pps.education.lms.domain.Exercise;
 import vn.com.pps.education.lms.domain.ExerciseAssignment;
 import vn.com.pps.education.lms.domain.ExerciseAttempt;
@@ -48,6 +51,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -99,6 +103,13 @@ public class ExerciseAttemptService {
     private final StudentAnswerGradingRepository studentAnswerGradingRepository;
     private final WritingAiGradingService writingAiGradingService;
     private final AiGradingTokenUsageRecorder tokenUsageRecorder;
+    private final TransactionTemplate tx;
+
+    /**
+     * Lượt đang nộp bài (đang chờ AI chấm Writing ngoài giao dịch DB) — chặn bấm Nộp 2 lần liên tiếp làm
+     * gọi AI trùng, vì trong lúc chờ AI lượt vẫn ở IN_PROGRESS (chưa có giao dịch nào chốt trạng thái).
+     */
+    private final Set<Long> submitsInFlight = ConcurrentHashMap.newKeySet();
 
     private static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
             Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE,
@@ -116,7 +127,8 @@ public class ExerciseAttemptService {
                                    UserRepository userRepository,
                                    StudentAnswerGradingRepository studentAnswerGradingRepository,
                                    WritingAiGradingService writingAiGradingService,
-                                   AiGradingTokenUsageRecorder tokenUsageRecorder) {
+                                   AiGradingTokenUsageRecorder tokenUsageRecorder,
+                                   PlatformTransactionManager transactionManager) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.exerciseAttemptHistoryRepository = exerciseAttemptHistoryRepository;
         this.studentAnswerRepository = studentAnswerRepository;
@@ -130,6 +142,7 @@ public class ExerciseAttemptService {
         this.studentAnswerGradingRepository = studentAnswerGradingRepository;
         this.writingAiGradingService = writingAiGradingService;
         this.tokenUsageRecorder = tokenUsageRecorder;
+        this.tx = new TransactionTemplate(transactionManager);
     }
 
     /**
@@ -320,30 +333,88 @@ public class ExerciseAttemptService {
         return toResponse(answer);
     }
 
-    /** Main Flow bước 3-6, A1 (nộp muộn), A3 (toàn trắc nghiệm): nộp bài, tự chấm phần trắc nghiệm ngay. */
-    @Transactional
+    /**
+     * Main Flow bước 3-6, A1 (nộp muộn), A3 (toàn trắc nghiệm): nộp bài, tự chấm phần trắc nghiệm ngay.
+     *
+     * KHÔNG đặt {@code @Transactional} trên cả method: AI chấm Writing mất 35–90 giây/bài, giữ giao dịch
+     * (và kết nối DB) suốt thời gian đó làm cạn pool lúc đông học sinh nộp cùng lúc. Tách 3 bước: (1) giao
+     * dịch ngắn đọc + kiểm tra điều kiện nộp, gom đầu vào cho AI; (2) gọi AI NGOÀI giao dịch; (3) giao
+     * dịch ngắn ghi toàn bộ điểm/chốt trạng thái. Nếu AI lỗi, câu đó vẫn rơi hàng chờ chấm tay như cũ.
+     */
     public ExerciseAttemptResponse submitAttempt(Long attemptId, Long actorUserId) {
+        if (!submitsInFlight.add(attemptId)) {
+            throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{},
+                    "Lượt làm bài này đang được nộp và chấm, vui lòng chờ trong giây lát.");
+        }
+        try {
+            OffsetDateTime now = OffsetDateTime.now();
+            List<EssayAiJob> jobs = tx.execute(status -> prepareSubmit(attemptId, actorUserId, now));
+            Map<Long, WritingAiGradingService.GradeResult> aiResults = new LinkedHashMap<>();
+            for (EssayAiJob job : jobs) {
+                aiResults.put(job.answerId(), writingAiGradingService.grade(job.essayText(), job.taskPrompt(),
+                        job.curriculum(), job.keyGrammar()));
+            }
+            return tx.execute(status -> {
+                ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
+                if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
+                    throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{}, "Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
+                }
+                applyLateSubmissionRules(attempt, now);
+                attempt = gradeAndFinalize(attempt, now, aiResults);
+                writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
+                return toResponse(attempt);
+            });
+        } finally {
+            submitsInFlight.remove(attemptId);
+        }
+    }
+
+    /** Đầu vào đã sao ra khỏi entity để gọi AI ngoài giao dịch (không còn đụng lazy-loading). */
+    private record EssayAiJob(Long answerId, String essayText, String taskPrompt, Curriculum curriculum, List<String> keyGrammar) {
+    }
+
+    private List<EssayAiJob> prepareSubmit(Long attemptId, Long actorUserId, OffsetDateTime now) {
         ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
             throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{}, "Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
+        applyLateSubmissionRules(attempt, now);
+        return essayJobsOf(attempt);
+    }
 
-        OffsetDateTime now = OffsetDateTime.now();
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "trễ hạn" (đánh dấu
+     * lateSubmission=true, không trừ điểm) vẫn tính từ dueAt GỐC như cũ; CHỈ điều kiện CHẶN HẲN mới
+     * xét thêm lateSubmissionDeadline (isPastEffectiveDeadline) — nộp trong khoảng (dueAt,
+     * lateSubmissionDeadline] vẫn là "nộp muộn nhưng còn nộp được", không phải trong hạn gốc.
+     */
+    private void applyLateSubmissionRules(ExerciseAttempt attempt, OffsetDateTime now) {
         ExerciseAssignment assignment = attempt.getExerciseAssignment();
-        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "trễ hạn" (đánh dấu
-        // lateSubmission=true, không trừ điểm) vẫn tính từ dueAt GỐC như cũ; CHỈ điều kiện CHẶN HẲN mới
-        // xét thêm lateSubmissionDeadline (isPastEffectiveDeadline) — nộp trong khoảng (dueAt,
-        // lateSubmissionDeadline] vẫn là "nộp muộn nhưng còn nộp được", không phải trong hạn gốc.
         if (assignment != null && assignment.getDueAt() != null && now.isAfter(assignment.getDueAt())) {
             if (assignment.isPastEffectiveDeadline()) {
                 throw new SubmissionPastDeadlineException("error.submissionPastDeadline.exerciseAttempt", new Object[]{assignment.getDueAt()}, "Lượt làm bài này đã quá hạn nộp (" + assignment.getDueAt() + ").");
             }
             attempt.setLateSubmission(true);
         }
+    }
 
-        attempt = gradeAndFinalize(attempt, now);
-        writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
-        return toResponse(attempt);
+    /** Các câu ESSAY của Bài Writing cần AI chấm (cùng điều kiện với bước chấm AI trong {@link #gradeAndFinalize}). */
+    private List<EssayAiJob> essayJobsOf(ExerciseAttempt attempt) {
+        List<EssayAiJob> jobs = new ArrayList<>();
+        if (attempt.getExercise().getSkillCategory() != Exercise.SkillCategory.WRITING) {
+            return jobs;
+        }
+        Curriculum curriculum = attempt.getExercise().getExam().getCurriculum();
+        curriculum.getGradeLevel(); // khởi tạo proxy lazy (nếu có) khi còn trong giao dịch
+        for (StudentAnswer answer : studentAnswerRepository.findByExerciseAttemptId(attempt.getId())) {
+            if (answer.isAutoGradable() || answer.getQuestion().getQuestionType() != Question.QuestionType.ESSAY) {
+                continue;
+            }
+            List<String> keyGrammar = answer.getQuestion().getKeyGrammar();
+            jobs.add(new EssayAiJob(answer.getId(), answer.getAnswerText(), answer.getQuestion().getContent(),
+                    curriculum, keyGrammar == null ? null : new ArrayList<>(keyGrammar)));
+        }
+        return jobs;
     }
 
     /**
@@ -397,6 +468,15 @@ public class ExerciseAttemptService {
 
     /** Tự chấm phần trắc nghiệm + chốt trạng thái — dùng chung cho submitAttempt (học sinh tự nộp) và forceStopByIntegrityViolation (hệ thống dừng ép). */
     private ExerciseAttempt gradeAndFinalize(ExerciseAttempt attempt, OffsetDateTime now) {
+        return gradeAndFinalize(attempt, now, null);
+    }
+
+    /**
+     * @param precomputedAiResults kết quả AI đã chấm sẵn ngoài giao dịch theo answerId (submitAttempt);
+     *                             {@code null} = chưa có, tự gọi AI tại chỗ (dừng ép, hết giờ).
+     */
+    private ExerciseAttempt gradeAndFinalize(ExerciseAttempt attempt, OffsetDateTime now,
+                                             Map<Long, WritingAiGradingService.GradeResult> precomputedAiResults) {
         List<ExerciseQuestion> exerciseQuestions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(attempt.getExercise().getId());
         Map<Long, BigDecimal> pointsByQuestionId = exerciseQuestions.stream()
                 .collect(Collectors.toMap(eq -> eq.getQuestion().getId(), ExerciseQuestion::getPoints));
@@ -432,7 +512,7 @@ public class ExerciseAttemptService {
                     continue;
                 }
                 BigDecimal points = pointsByQuestionId.getOrDefault(answer.getQuestion().getId(), BigDecimal.ZERO);
-                BigDecimal score = gradeEssayWithAi(answer, points, now, attempt.getExercise());
+                BigDecimal score = gradeEssayWithAi(answer, points, now, attempt.getExercise(), precomputedAiResults);
                 if (score != null) {
                     aiGradeScore = aiGradeScore.add(score);
                     aiGradedAnswerIds.add(answer.getId());
@@ -462,13 +542,16 @@ public class ExerciseAttemptService {
      * StudentAnswerGrading.GradingSource). Trả null nếu AI chưa cấu hình/gọi lỗi — answer giữ nguyên
      * chưa có điểm, tự rơi vào hàng chờ chấm tay UC-41 như hành vi mặc định cũ.
      */
-    private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now, Exercise exercise) {
+    private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now, Exercise exercise,
+                                        Map<Long, WritingAiGradingService.GradeResult> precomputedAiResults) {
         // V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — Key Grammar gắn vào CHÍNH
         // câu hỏi (Question.keyGrammar), không phải Bài — xem Javadoc Question#keyGrammar lý do đổi so
         // với thiết kế trước đó (gắn Bài): người dùng muốn Key Grammar đi cùng đúng đề bài tự luận cụ thể,
         // sửa ở modal "Sửa câu hỏi" thay vì "Sửa Bài".
-        WritingAiGradingService.GradeResult result = writingAiGradingService.grade(answer.getAnswerText(),
-                answer.getQuestion().getContent(), exercise.getExam().getCurriculum(), answer.getQuestion().getKeyGrammar());
+        WritingAiGradingService.GradeResult result = precomputedAiResults != null && precomputedAiResults.containsKey(answer.getId())
+                ? precomputedAiResults.get(answer.getId())
+                : writingAiGradingService.grade(answer.getAnswerText(),
+                        answer.getQuestion().getContent(), exercise.getExam().getCurriculum(), answer.getQuestion().getKeyGrammar());
         tokenUsageRecorder.record(AiGradingTokenUsage.Step.ESSAY, "chat", null, result == null ? null : result.usage(),
                 answer.getExerciseAttempt().getStudent(), null, null);
         if (result == null) {
