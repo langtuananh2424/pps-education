@@ -126,8 +126,10 @@ management:
 app:
   jwt:
     secret: ${JWT_SECRET:CHANGE_THIS_SECRET_IN_ENV_MIN_256_BITS_xxxxxxxxxxxxxxxxxxxx}
-    access-token-ttl-minutes: 15
-    refresh-token-ttl-days: 14
+    # 2026-10-22 (đã xác nhận với người dùng): access 15 -> 30 phút (giảm nửa số lần refresh — mỗi lần refresh là 1 cơ hội
+    # mất phản hồi trên mạng di động), refresh 14 -> 30 ngày (tự gia hạn mỗi lần dùng).
+    access-token-ttl-minutes: 30
+    refresh-token-ttl-days: 30
   security:
     brute-force:
       max-failed-attempts: 5
@@ -143,9 +145,9 @@ app:
     session:
       max-active-sessions: ${MAX_ACTIVE_SESSIONS:0}
       student-max-active-sessions: ${STUDENT_MAX_ACTIVE_SESSIONS:1}
-      # Refresh token vừa xoay vòng trong khoảng này bị dùng lại (nhiều tab refresh cùng lúc) chỉ bị
-      # từ chối, không bị coi là đánh cắp token (không thu hồi toàn bộ phiên).
-      refresh-reuse-grace-seconds: 30
+      # Refresh token vừa xoay vòng trong khoảng này bị dùng lại (nhiều tab refresh cùng lúc, hoặc thiết bị mất phản hồi
+      # refresh lần trước) được cấp lại cặp token mới thay vì bị từ chối — xem AuthService#reissueAfterLostRotation.
+      refresh-reuse-grace-seconds: 300
     google:
       # CSV client-id (Web/Mobile) dùng làm audience khi verify id_token (UC-01 A4).
       client-ids: ${GOOGLE_OAUTH_CLIENT_IDS:}

@@ -45,4 +45,8 @@ public class RefreshToken {
 
     @Column(name = "last_used_at")
     private OffsetDateTime lastUsedAt;
+
+    /** V220 — họ token: chung cho mọi token sinh ra từ 1 lần đăng nhập (null = token cũ trước V220, tự là 1 họ). */
+    @Column(name = "family_id", length = 36)
+    private String familyId;
 }
