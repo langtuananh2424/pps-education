@@ -213,26 +213,29 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         assertThat(result.totalViolationCount()).isEqualTo(0);
     }
 
-    /** A: vượt ngưỡng số lần (mặc định 3) -- báo phụ huynh + giáo viên đúng 1 lần, lô tiếp theo không báo lại. */
+    /** A: vượt ngưỡng số lần (mặc định 5, V221) -- báo phụ huynh + giáo viên đúng 1 lần, lô tiếp theo không báo lại. */
     @Test
     void recordEvents_A_notifiesParentAndTeacherExactlyOnceWhenCountThresholdCrossed() {
         ExerciseAttemptResponse attempt = startAssignedAttempt();
 
-        attemptIntegrityService.recordEvents(AttemptType.EXERCISE, attempt.id(), oneEvent(10), studentUser.getId());
-        attemptIntegrityService.recordEvents(AttemptType.EXERCISE, attempt.id(), oneEvent(10), studentUser.getId());
-        IntegrityEventBatchResponse thirdBatch = attemptIntegrityService.recordEvents(AttemptType.EXERCISE, attempt.id(),
+        for (int i = 0; i < 4; i++) {
+            IntegrityEventBatchResponse early = attemptIntegrityService.recordEvents(AttemptType.EXERCISE, attempt.id(),
+                    oneEvent(10), studentUser.getId());
+            assertThat(early.notifiedByThisBatch()).isFalse();
+        }
+        IntegrityEventBatchResponse fifthBatch = attemptIntegrityService.recordEvents(AttemptType.EXERCISE, attempt.id(),
                 oneEvent(10), studentUser.getId());
 
-        assertThat(thirdBatch.notifiedByThisBatch()).isTrue();
+        assertThat(fifthBatch.notifiedByThisBatch()).isTrue();
         assertThat(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10)))
                 .as("phụ huynh nhận đúng 1 thông báo").hasSize(1);
         assertThat(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(teacher.getId(), PageRequest.of(0, 10)))
                 .as("giáo viên phụ trách lớp cũng nhận thông báo").hasSize(1);
 
-        // Lô thứ 4 vẫn vượt ngưỡng nhưng đã báo rồi -- không báo trùng.
-        IntegrityEventBatchResponse fourthBatch = attemptIntegrityService.recordEvents(AttemptType.EXERCISE, attempt.id(),
+        // Lô thứ 6 vẫn vượt ngưỡng nhưng đã báo rồi -- không báo trùng.
+        IntegrityEventBatchResponse sixthBatch = attemptIntegrityService.recordEvents(AttemptType.EXERCISE, attempt.id(),
                 oneEvent(10), studentUser.getId());
-        assertThat(fourthBatch.notifiedByThisBatch()).isFalse();
+        assertThat(sixthBatch.notifiedByThisBatch()).isFalse();
         assertThat(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))).hasSize(1);
     }
 

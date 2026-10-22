@@ -27,6 +27,7 @@
   },
   "errors": {
     "requestTimeout": "Mạng chậm hoặc mất kết nối, yêu cầu đã quá thời gian chờ. Vui lòng thử lại.",
+    "sessionRefreshUnavailable": "Chưa kết nối được máy chủ để giữ phiên đăng nhập. Bài làm của bạn vẫn được giữ — vui lòng thử lại sau vài giây.",
     "imageTooLarge": "Ảnh quá lớn (tối đa {{maxMb}}MB). Vui lòng chọn ảnh khác."
   }
 }

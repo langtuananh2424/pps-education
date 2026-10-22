@@ -686,8 +686,13 @@ public class ReviewVideoService {
         video.setCompletionThresholdPercent(
                 request.completionThresholdPercent() == null ? defaultCompletionThreshold : request.completionThresholdPercent());
         video.setRequiredViewCount(request.requiredViewCount() == null ? 1 : request.requiredViewCount());
+        // V218 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-21) — đổi mặc định 70→100: PM
+        // chốt lại CONNECTION phải xem HẾT đủ requiredViewCount lượt mới tính hoàn thành, không cho dừng
+        // sớm theo mặc định nữa (100% tắt hẳn nhánh dừng sớm ở stopEarly/handleContinueAfterQuiz — viewCount
+        // đếm lượt ĐẠT luôn ≤ finishedCount đếm lượt đã nộp nên không thể chạm ngưỡng 100% trước khi đã
+        // hoàn thành tự nhiên). Giáo viên vẫn tự hạ ngưỡng nếu muốn cho phép dừng sớm ở video cụ thể.
         video.setSessionPassRatioThresholdPercent(
-                request.sessionPassRatioThresholdPercent() == null ? 70 : request.sessionPassRatioThresholdPercent());
+                request.sessionPassRatioThresholdPercent() == null ? 100 : request.sessionPassRatioThresholdPercent());
         // V213 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-15) — chỉ REFLEX dùng, mặc
         // định 70 (xem ReviewVideoReportService#buildReflexStudentRows).
         video.setPassRatioThresholdPercent(

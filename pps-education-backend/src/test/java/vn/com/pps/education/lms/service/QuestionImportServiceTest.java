@@ -229,6 +229,53 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * Bổ sung 2026-10-21 (đã xác nhận với người dùng — fix bug thật: khối cho học sinh chọn ở
+     * SAP_XEP_CAU hiện gộp cụm khác hẳn danh sách từ GV liệt kê trong "Nội dung", học sinh không khớp
+     * được với đề). Khi "Nội dung" liệt kê sẵn các khối cách nhau dấu "/" và TẬP khối đó khớp đúng với
+     * "Đáp án đúng" (chỉ khác thứ tự), hệ thống lưu thêm key "chunkOrder" = thứ tự đã liệt kê trong Nội
+     * dung — Portal sẽ hiện ĐÚNG thứ tự này thay vì tự xáo trộn ngẫu nhiên (xem
+     * ExerciseService#shuffledStructuredContent loại trừ key này khỏi xáo trộn).
+     */
+    @Test
+    void importQuestions_UC40_boSung_sapXepCauStoresChunkOrderWhenContentListsMatchingWords() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"SAP_XEP_CAU", "MEDIUM", "capital / is / Paris / France / of / the / famous / for / its / architecture / .",
+                        null, null, null, null, "Paris|is|the|capital|of|France|famous|for|its|architecture|.",
+                        null, null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "sap-xep-cau.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+        QuestionResponse q = findByContentPrefix(questionBankService.listQuestions(bank.id()), "capital / is / Paris");
+        assertThat(q.questionType()).isEqualTo("SENTENCE_BUILDING");
+        assertThat(q.structuredContent().get("chunks")).isEqualTo(
+                List.of("Paris", "is", "the", "capital", "of", "France", "famous", "for", "its", "architecture", "."));
+        assertThat(q.structuredContent().get("chunkOrder")).isEqualTo(
+                List.of("capital", "is", "Paris", "France", "of", "the", "famous", "for", "its", "architecture", "."));
+    }
+
+    /** Alternate Flow: "Nội dung" liệt kê khối theo dấu "/" nhưng KHÔNG khớp tập từ với "Đáp án đúng" (gộp cụm/thiếu/thừa) — import phải báo lỗi, không âm thầm lưu sai. */
+    @Test
+    void importQuestions_UC40_boSung_sapXepCauRejectsContentWordListMismatchingAnswer() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"SAP_XEP_CAU", "MEDIUM", "capital / is / Paris / France / of / the / famous / for / its / architecture / .",
+                        null, null, null, null, "Paris|is|famous for its architecture|the capital of France",
+                        null, null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "sap-xep-cau-lech.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.successRows()).isEqualTo(0);
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("không khớp từng khối với \"Nội dung\"");
+        assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
+    }
+
+    /**
      * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — nhiều câu TRAC_NGHIEM ĐỘC LẬP (đáp án riêng
      * từng câu, khác DOC_HIEU_LUOI dùng chung 1 bộ đáp án) nhưng cùng tham chiếu 1 đoạn văn dài — các
      * dòng LIÊN TIẾP cùng "Đoạn văn tham chiếu" (khớp nguyên văn) tự động gộp chung 1 groupKey để FE

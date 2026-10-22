@@ -86,6 +86,8 @@ export type QuestionType = "MULTIPLE_CHOICE" | "MULTIPLE_ANSWER" | "TRUE_FALSE" 
 export interface QuestionStructuredContent {
   blanks?: string[];
   chunks?: string[];
+  /** Bổ sung 2026-10-21, đã xác nhận với người dùng — SAP_XEP_CAU: thứ tự xáo trộn CỐ ĐỊNH do GV soạn sẵn trong cột "Nội dung" (khớp tập từ với `chunks`, khác thứ tự) khi import Excel/Word. */
+  chunkOrder?: string[];
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — hộp từ vựng hiển thị cho học sinh (WORD_BANK), tách khỏi `blanks` (đáp án đúng) để có thể chứa từ nhiễu. Bỏ trống = dùng `blanks` làm hộp từ như hành vi cũ. */
   wordBankOptions?: string[];
   /**
@@ -1270,6 +1272,8 @@ export interface ReflexQuestionProgressHistoryEntry {
   reviewedAt: string | null;
   /** V218 — giáo viên đã chọn lần này làm kết quả chính thức (khác mặc định "lần mới nhất"). */
   selectedByTeacher: boolean;
+  /** Band AI gốc khi giáo viên đã sửa band (khi đó criteriaScores là bản của giáo viên); null = chưa sửa band. */
+  aiCriteriaScores: { criterion: string; percent: number }[] | null;
 }
 
 /** V191 — giáo viên nghe lại audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh (Video phản xạ). */
@@ -1551,8 +1555,9 @@ export function gradeReviewVideoSubmission(submissionId: number, request: GradeR
 /**
  * Chấm lần 2 (bổ sung ngoài SDD gốc, xác nhận 2026-10-19) — giáo viên chỉnh điểm chính thức của 1 bước (Viết/Nói)
  * Video phản xạ ngay trong popup "Lịch sử chấm AI". Điểm % 0-100 như điểm AI; điểm AI gốc vẫn được giữ.
+ * Gửi criteriaScores (điểm từng band, 2026-10-22) thì server tự tính lại điểm tổng từ band và bỏ qua score.
  */
-export function reviewReflexStep(progressId: number, step: "WRITING" | "SPEAKING", request: { score: number; feedback?: string }): Promise<void> {
+export function reviewReflexStep(progressId: number, step: "WRITING" | "SPEAKING", request: { score?: number; feedback?: string; criteriaScores?: { criterion: string; percent: number }[] }): Promise<void> {
   return apiRequest<void>(`/reflex-progress/${progressId}/review/${step}`, { method: "POST", body: JSON.stringify(request) });
 }
 

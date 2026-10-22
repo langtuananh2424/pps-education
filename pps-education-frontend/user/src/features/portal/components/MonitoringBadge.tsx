@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
  * hết chiều rộng trước đây. Đặt cạnh nút Thoát/Đóng ở header, luôn "ghim" cố định vì header không
  * cuộn. Bấm để bật/tắt dòng cảnh báo đầy đủ (đóng lại khi bấm ra ngoài).
  */
-export default function MonitoringBadge({ violationCount, exitNote }: { violationCount: number; exitNote?: string }) {
+export default function MonitoringBadge({ violationCount, exitNote, maxCount }: { violationCount: number; exitNote?: string; maxCount?: number }) {
   const { t } = useTranslation("portal-exercises");
   const [open, setOpen] = useState(false);
   const hasViolation = violationCount > 0;
@@ -24,7 +24,7 @@ export default function MonitoringBadge({ violationCount, exitNote }: { violatio
         }`}
       >
         <ShieldAlert size={14} className="shrink-0" />
-        {hasViolation && <span>{violationCount}</span>}
+        {hasViolation && <span>{maxCount ? `${violationCount}/${maxCount}` : violationCount}</span>}
       </button>
       {open && (
         <>
@@ -36,6 +36,7 @@ export default function MonitoringBadge({ violationCount, exitNote }: { violatio
             <p className="text-[11px] font-bold text-amber-800 leading-relaxed">
               {t("monitoring.tooltip", { exitNote: exitNote ?? t("monitoring.defaultExitNote") })}
               {hasViolation && t("monitoring.tooltipViolationSuffix", { count: violationCount })}
+              {maxCount ? t("monitoring.tooltipAutoSubmitSuffix", { max: maxCount }) : null}
             </p>
           </div>
         </>
