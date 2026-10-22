@@ -127,20 +127,22 @@ class AuthServiceRefreshLogoutTest extends AbstractIntegrationTest {
     }
 
     /**
-     * Sửa lỗi 2026-09-29 — 2 tab dùng chung 1 refresh token (localStorage) refresh gần như đồng thời:
-     * tab chậm hơn gửi token vừa bị tab kia xoay vòng. Chỉ từ chối token đó, KHÔNG coi là đánh cắp —
-     * phiên mới tab kia vừa nhận vẫn phải còn dùng được.
+     * Sửa lỗi 2026-10-22 — "mất phản hồi refresh" (điện thoại đóng băng/mất sóng sau khi server đã xoay vòng) hoặc 2
+     * tab refresh cùng lúc: dùng lại token vừa xoay vòng trong ân hạn được cấp lại cặp token mới thay vì bị từ chối,
+     * phiên cũ/mới đều không bị thu hồi.
      */
     @Test
-    void refresh_boSung_reuseWithinGraceRejectsWithoutRevokingOtherSessions() {
+    void refresh_boSung_reuseWithinGraceIssuesFreshTokensWithoutRevokingSessions() {
         String originalToken = loginAndGetRefreshToken();
-        RefreshTokenResponse fasterTab = authService.refresh(new RefreshTokenRequest(originalToken), request());
+        RefreshTokenResponse lostResponse = authService.refresh(new RefreshTokenRequest(originalToken), request());
 
-        assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(originalToken), request()))
-                .isInstanceOf(InvalidRefreshTokenException.class);
+        RefreshTokenResponse retry = authService.refresh(new RefreshTokenRequest(originalToken), request());
+        assertThat(retry.accessToken()).isNotBlank();
+        assertThat(retry.refreshToken()).isNotBlank().isNotEqualTo(originalToken).isNotEqualTo(lostResponse.refreshToken());
 
-        RefreshTokenResponse next = authService.refresh(new RefreshTokenRequest(fasterTab.refreshToken()), request());
-        assertThat(next.accessToken()).isNotBlank();
+        // Cả token tab kia nhận được lẫn token cấp lại đều còn dùng được.
+        assertThat(authService.refresh(new RefreshTokenRequest(lostResponse.refreshToken()), request()).accessToken()).isNotBlank();
+        assertThat(authService.refresh(new RefreshTokenRequest(retry.refreshToken()), request()).accessToken()).isNotBlank();
     }
 
     /**
