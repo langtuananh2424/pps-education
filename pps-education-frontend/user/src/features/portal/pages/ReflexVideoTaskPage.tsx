@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, CheckCircle2, Dumbbell, Lightbulb, Loader2, Lock, Mic, Pause, PenLine, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Dumbbell, Lightbulb, Loader2, Lock, Mic, Pause, PenLine, Play, RotateCcw, ShieldAlert, Square, Volume2 } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReflexQuestionProgressResponse,
   ReviewVideoQuestionResponse,
   ReviewVideoResponse,
+  fetchSpeakingAudioArrayBuffer,
   getReflexRecordingConfig,
   listMyReflexProgress,
   listReviewVideoQuestions,
@@ -170,6 +171,307 @@ function renderHighlightedErrors(text: string, unclearTooltip: string): React.Re
 }
 
 /**
+ * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — nhặt từ trang spike test Speaking (ký hiệu âm vị
+ * Azure gần ARPAbet, chữ thường) -> IPA chuẩn, dùng để hiển thị bảng phiên âm cho học sinh. Không có
+ * trong bảng thì giữ nguyên ký hiệu gốc (không chặn hiển thị).
+ */
+const ARPABET_TO_IPA: Record<string, string> = {
+  aa: "ɑ", ae: "æ", ah: "ʌ", ao: "ɔ", aw: "aʊ", ax: "ə", ay: "aɪ",
+  b: "b", ch: "tʃ", d: "d", dh: "ð", eh: "ɛ", er: "ɝ", ey: "eɪ",
+  f: "f", g: "ɡ", hh: "h", ih: "ɪ", iy: "i", jh: "dʒ", k: "k",
+  l: "l", m: "m", n: "n", ng: "ŋ", ow: "oʊ", oy: "ɔɪ", p: "p",
+  r: "r", s: "s", sh: "ʃ", t: "t", th: "θ", uh: "ʊ", uw: "u",
+  v: "v", w: "w", y: "j", z: "z", zh: "ʒ"
+};
+function toIpa(phoneme: string): string {
+  return ARPABET_TO_IPA[phoneme.toLowerCase()] ?? phoneme;
+}
+/** Dưới mức này coi là PHÁT ÂM SAI (nêu đích danh âm vị trong tooltip). */
+const PRONUNCIATION_WRONG_THRESHOLD = 60;
+/** Dưới mức này nhưng không hẳn "sai" — vẫn đáng chú ý, gạch chân màu vàng, không có dòng "phát âm sai âm". */
+const PRONUNCIATION_WATCH_THRESHOLD = 80;
+
+/** Đọc to 1 từ bằng giọng tiếng Anh của trình duyệt (Web Speech API) — không tốn chi phí AI, không cần audio mẫu riêng. */
+function speakWord(word: string) {
+  try {
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(word);
+    utter.lang = "en-US";
+    window.speechSynthesis.speak(utter);
+  } catch {
+    // Trình duyệt không hỗ trợ Web Speech API — bỏ qua, im lặng không báo lỗi (tính năng phụ, không chặn luồng chính).
+  }
+}
+
+/**
+ * Sửa 2026-10-22 (đã xác nhận với người dùng, ĐÚNG mockup người dùng gửi, lần 2 — lần sửa trước đọc
+ * nhầm mockup chỉ cần gạch chân, thực ra mockup có CẢ hàng IPA cố định dưới MỖI từ LẪN tooltip khi chạm
+ * vào từ sai) — mỗi từ là 1 cột flex riêng (word + IPA xếp dọc, không dùng text chạy liên tục nữa nên
+ * không còn lo bug dính chữ do khoảng trắng bị cắt trong inline-block). Từ tốt: chữ + IPA đều màu xám
+ * trung tính, không nền. Từ có vấn đề: nền màu (đỏ/vàng) + chạm vào hiện tooltip (từ + IPA cả từ + icon
+ * loa đọc mẫu qua Web Speech API + dòng "Phát âm sai âm /x/" nêu đích danh âm vị cụ thể).
+ */
+function PronunciationWord({
+  word
+}: {
+  word: { word: string; accuracyScore: number | null; errorType: string | null; phonemes: { phoneme: string; accuracyScore: number | null }[] };
+}) {
+  const [open, setOpen] = useState(false);
+  const score = word.accuracyScore;
+  const severity: "good" | "watch" | "wrong" =
+    score === null || score >= PRONUNCIATION_WATCH_THRESHOLD ? "good" : score >= PRONUNCIATION_WRONG_THRESHOLD ? "watch" : "wrong";
+  const ipa = word.phonemes.map((p) => toIpa(p.phoneme)).join("");
+  const wrongPhonemes = word.phonemes
+    .filter((p) => p.accuracyScore !== null && p.accuracyScore < PRONUNCIATION_WRONG_THRESHOLD)
+    .sort((a, b) => (a.accuracyScore ?? 0) - (b.accuracyScore ?? 0))
+    .map((p) => toIpa(p.phoneme));
+
+  const highlight =
+    severity === "wrong"
+      ? "bg-rose-100 text-rose-700"
+      : severity === "watch"
+        ? "bg-amber-100 text-amber-700"
+        : "bg-emerald-100 text-emerald-700";
+
+  return (
+    <span
+      className="relative inline-flex flex-col items-center cursor-help"
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen((o) => !o);
+      }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <span className={`rounded px-1 text-[14px] normal-case ${highlight}`}>{word.word}</span>
+      {ipa && <span className="font-mono text-[11px] text-muted">{ipa}</span>}
+      {open && (
+        <span className="absolute z-10 left-1/2 -translate-x-1/2 bottom-full mb-1 flex flex-col items-start whitespace-nowrap rounded-md bg-ink text-white text-[12px] font-medium px-2.5 py-1.5 normal-case gap-1">
+          <span className="flex items-center gap-1.5">
+            <span className="font-mono">{word.word} /{ipa}/</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                speakWord(word.word);
+              }}
+              className="text-white/80 hover:text-white"
+              aria-label="Nghe phát âm mẫu"
+            >
+              <Volume2 size={13} />
+            </button>
+          </span>
+          {wrongPhonemes.length > 0 && (
+            <span className="text-rose-300">
+              Phát âm sai âm {wrongPhonemes.map((p) => `/${p}/`).join(", ")}
+            </span>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — overlay chấm bài trước đây chỉ có 1 dòng mô tả tĩnh
+ * suốt 10-17 giây chờ (thời gian thật đo được qua log, chủ yếu do Claude sinh JSON checkpoint) — cảm giác
+ * như treo máy. KHÔNG thể hiện transcript/kết quả thật giữa chừng (1 request HTTP chặn tới khi xong hẳn
+ * cả pipeline, đổi sang streaming/tách API là thay đổi kiến trúc lớn hơn, chưa làm ở đợt này) — giải pháp
+ * AN TOÀN, chỉ sửa FE: hiện tên giai đoạn ước lượng theo thời gian thật đã đo (Groq STT luôn xong <1.5s)
+ * + thanh tiến trình chạy TIỆM CẬN 92% (không bao giờ đầy — tránh ngầm hứa "sắp xong" sai khi thực tế còn
+ * lâu) + số giây trôi qua, để học sinh thấy hệ thống đang chạy chứ không đứng hình.
+ */
+function GradingProgress({ active, kind }: { active: boolean; kind: "writing" | "speaking" }) {
+  const { t } = useTranslation("portal-exercises");
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setElapsedMs(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const id = window.setInterval(() => setElapsedMs(Date.now() - startedAt), 100);
+    return () => window.clearInterval(id);
+  }, [active]);
+
+  if (!active) return null;
+  const elapsedSec = elapsedMs / 1000;
+  const stageLabel =
+    kind === "speaking" && elapsedSec < 1.5
+      ? t("reflexVideoTask.gradingOverlay.stageTranscribing")
+      : t("reflexVideoTask.gradingOverlay.stageGrading");
+  const progressPercent = Math.min(92, 100 * (1 - Math.exp(-elapsedSec / 6)));
+
+  return (
+    <div className="w-full max-w-[220px] space-y-1.5">
+      <p className="text-[11px] font-bold text-muted normal-case">
+        {stageLabel} ({Math.round(elapsedSec)}s)
+      </p>
+      <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+        <div className="h-full rounded-full bg-teal transition-[width] duration-200 ease-out" style={{ width: `${progressPercent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — nhặt từ trang spike test Speaking: vẽ dạng sóng âm
+ * (biên độ trung bình từng đoạn nhỏ) từ chính audio đã ghi âm, giúp nhìn trực quan đoạn nào có tiếng/im
+ * lặng/lên giọng xuống giọng để đối chiếu bằng mắt với transcript — KHÔNG thay cho việc nghe lại.
+ *
+ * Sửa 2026-10-22 (đã xác nhận với người dùng, phát hiện khi test thật) — BAN ĐẦU fetch thẳng audioUrl
+ * (R2 public-base-url) để decode, nhưng bucket đó KHÔNG bật CORS cho fetch() (chỉ ổn cho `<audio src>`
+ * phát trực tiếp) → fetch bị trình duyệt chặn âm thầm, waveform không bao giờ vẽ được. Đổi sang gọi qua
+ * {@link fetchSpeakingAudioArrayBuffer} — proxy byte audio qua chính API backend (không bị CORS chặn vì
+ * cùng origin qua proxy dev/production, xem ReflexSequentialGradingController#downloadSpeakingAudio).
+ *
+ * Sửa 2026-10-22 (đã xác nhận với người dùng) — thêm đồng bộ với `<audio>` đang phát: phần sóng ĐÃ PHÁT
+ * tô đậm (teal-600), phần CHƯA PHÁT tô nhạt (teal-200), chạy theo `timeupdate` của audio. Bấm vào sóng
+ * cũng tua tới đúng vị trí (set `audioEl.currentTime`). Tách biên độ từng cột ra tính 1 LẦN (decode xong)
+ * thay vì vẽ lại toàn bộ phép tính mỗi lần tick — chỉ fillRect lại theo progress, rẻ hơn hẳn.
+ *
+ * Sửa 2026-10-22 (đã xác nhận với người dùng, phát hiện khi test thật — "sóng với voice không khớp
+ * nhau") — bug lệch timeline, không phải bug tô màu: `<audio src>` lấy `duration` do trình duyệt tự
+ * demux file WebM/Opus (MediaRecorder ghi ra, thường THIẾU metadata thời lượng chuẩn, trình duyệt phải
+ * ước lượng) — khác với `audioBuffer.duration` do CHÍNH `decodeAudioData()` giải mã ra (dùng để chia cột
+ * sóng). Hai con số này không phải lúc nào cũng khớp nhau cho file WebM ghi từ MediaRecorder → chia tiến
+ * độ theo `audioEl.duration` (sai) trong khi cột sóng được chia theo `audioBuffer.duration` (đúng với dữ
+ * liệu thật) làm lệch hẳn vị trí hiển thị so với tiếng đang phát. Fix: dùng CHUNG 1 mốc — lưu lại
+ * `audioBuffer.duration` lúc decode, lấy làm mẫu số khi tính tiến độ thay vì `audioEl.duration`.
+ */
+function AudioWaveform({
+  questionId,
+  assignmentId,
+  audioEl
+}: {
+  questionId: number;
+  assignmentId: number;
+  audioEl: HTMLAudioElement | null;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const barsRef = useRef<number[]>([]);
+  const [failed, setFailed] = useState(false);
+  const [, forceRedraw] = useState(0);
+
+  const draw = (progress: number) => {
+    const canvas = canvasRef.current;
+    const bars = barsRef.current;
+    if (!canvas || bars.length === 0) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const width = canvas.width;
+    const height = canvas.height;
+    const barWidth = width / bars.length;
+    ctx.clearRect(0, 0, width, height);
+    bars.forEach((amplitude, i) => {
+      const barHeight = Math.max(3, Math.min(height, amplitude * height * 7));
+      ctx.fillStyle = i / bars.length <= progress ? "#0d9488" : "#99f6e4";
+      ctx.fillRect(i * barWidth, (height - barHeight) / 2, Math.max(1, barWidth - 1), barHeight);
+    });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    barsRef.current = [];
+    (async () => {
+      try {
+        const arrayBuffer = await fetchSpeakingAudioArrayBuffer(questionId, assignmentId);
+        const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+        const audioCtx = new AudioContextCtor();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        audioCtx.close();
+        if (cancelled) return;
+        const channelData = audioBuffer.getChannelData(0);
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const width = (canvas.width = canvas.clientWidth || 600);
+        const barCount = Math.min(300, width);
+        const samplesPerBar = Math.floor(channelData.length / barCount) || 1;
+        const bars: number[] = [];
+        for (let i = 0; i < barCount; i++) {
+          let sum = 0;
+          const start = i * samplesPerBar;
+          for (let j = 0; j < samplesPerBar; j++) {
+            sum += Math.abs(channelData[start + j] || 0);
+          }
+          bars.push(sum / samplesPerBar);
+        }
+        barsRef.current = bars;
+        forceRedraw((n) => n + 1); // kích hoạt render lại để effect dưới vẽ lần đầu (progress 0).
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [questionId, assignmentId]);
+
+  // Sửa 2026-10-22 (đã xác nhận với người dùng, phát hiện khi test thật lần 2 — phát hết bài "0:13/0:13"
+  // mà sóng mới tô ~70%) — lần sửa trước ĐOÁN SAI CHIỀU: audioBuffer.duration (decodeAudioData) thực tế
+  // DÀI HƠN audioEl.duration (thời lượng thật trình duyệt phát) cho file WebM/Opus này, không phải ngắn
+  // hơn như đoán ban đầu. Quay lại dùng audioEl.duration (thời lượng THẬT đang phát, luôn đúng theo định
+  // nghĩa vì chính nó quyết định khi nào currentTime dừng) làm mốc duy nhất — bỏ hẳn decodedDurationRef
+  // khỏi phép tính tiến độ. Thêm "ended" ép cứng progress=100% phòng sai số làm tròn ở cuối bài.
+  const progressOf = (el: HTMLAudioElement) => (el.duration > 0 ? Math.min(1, el.currentTime / el.duration) : 0);
+
+  // Sửa 2026-10-22 (đã xác nhận với người dùng — "nhìn chạy cứ dật dật") — `timeupdate` của HTMLMediaElement
+  // chỉ bắn ~4 lần/giây và không đều, nên tô tiến độ nhảy cóc qua từng cụm cột thay vì chạy mượt như app ghi
+  // âm điện thoại thật. Đổi sang vòng lặp `requestAnimationFrame` chạy LIÊN TỤC trong lúc đang phát (60fps,
+  // dừng hẳn khi pause/ended/unmount) — mượt hệt animation thanh tiến trình native, `timeupdate`/`seeking`
+  // chỉ còn giữ lại để vẽ đúng vị trí ngay khi tua trong lúc đang PAUSE (rAF không chạy lúc đó).
+  useEffect(() => {
+    draw(audioEl ? progressOf(audioEl) : 0);
+    if (!audioEl) return;
+    let rafId: number | null = null;
+    const loop = () => {
+      draw(progressOf(audioEl));
+      if (!audioEl.paused && !audioEl.ended) {
+        rafId = requestAnimationFrame(loop);
+      } else {
+        rafId = null;
+      }
+    };
+    const onPlay = () => {
+      if (rafId == null) rafId = requestAnimationFrame(loop);
+    };
+    const onPauseOrSeek = () => draw(progressOf(audioEl));
+    const onEnded = () => draw(1);
+    audioEl.addEventListener("play", onPlay);
+    audioEl.addEventListener("pause", onPauseOrSeek);
+    audioEl.addEventListener("seeking", onPauseOrSeek);
+    audioEl.addEventListener("ended", onEnded);
+    if (!audioEl.paused) onPlay();
+    return () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
+      audioEl.removeEventListener("play", onPlay);
+      audioEl.removeEventListener("pause", onPauseOrSeek);
+      audioEl.removeEventListener("seeking", onPauseOrSeek);
+      audioEl.removeEventListener("ended", onEnded);
+    };
+    // barsRef.current thay đổi không kích hoạt re-render tự nhiên — forceRedraw ở effect trên đứng vai trò dependency thay thế.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioEl, barsRef.current.length]);
+
+  if (failed) return null;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="w-full cursor-pointer"
+      height={110}
+      onClick={(e) => {
+        if (!audioEl || !audioEl.duration) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+        audioEl.currentTime = fraction * audioEl.duration;
+      }}
+    />
+  );
+}
+
+/**
  * Ghi âm trực tiếp qua microphone (MediaRecorder API) — 1 instance dùng chung cho cả trang, vì chỉ 1
  * câu được ghi âm tại 1 thời điểm (câu đang mở khoá — video tạm dừng chờ trong lúc ghi/chấm).
  *
@@ -185,10 +487,17 @@ function renderHighlightedErrors(text: string, unclearTooltip: string): React.Re
  * không đủ: 1 lượt ghi âm sau đó vẫn bị AI (kể cả Whisper, độc lập hoàn toàn với Gemini) nghe sai hẳn
  * nội dung — đo được mean volume -30.2dB (nhỏ hơn hẳn các lượt trước). Nguyên nhân gốc là học sinh nói
  * quá nhỏ, KHÔNG phải do encode/model — không có xử lý code nào "phục hồi" được giọng nói chưa từng đủ
- * to. Ngưỡng RMS dưới đây ước lượng từ chính 2 mẫu lỗi thật đã đo (không phải số liệu chuẩn hoá y khoa/
- * audio-engineering), có thể cần tinh chỉnh lại sau khi thu thập thêm dữ liệu thật.
+ * to.
+ *
+ * Tinh chỉnh lại 2026-10-22 (đã xác nhận với người dùng, phát hiện qua test thật) — ngưỡng 0.035 ban đầu
+ * tính TRƯỚC khi tắt hẳn autoGainControl (V183 cùng ngày), nên lạc hậu: baseline RMS của MỌI bản ghi sau
+ * khi tắt auto-gain thấp hơn hẳn, khiến ngưỡng cũ báo "hơi nhỏ" dù nói bình thường — xác nhận bằng log
+ * thật (avgRms trung bình ~0.026, dao động 0.012–0.040) trên 1 lượt người dùng khẳng định KHÔNG nói nhỏ.
+ * Hạ xuống 0.012 — thấp hơn cả mức sàn quan sát được ở lượt "nói bình thường" đó, chỉ còn bắt đúng
+ * trường hợp thật sự rất nhỏ (gần với sự cố -30.2dB gốc của V184). Vẫn là ước lượng từ ít dữ liệu — có
+ * thể cần tinh chỉnh tiếp.
  */
-const QUIET_RMS_THRESHOLD = 0.035;
+const QUIET_RMS_THRESHOLD = 0.012;
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — fix bug thật: mỗi mẫu RMS lấy mỗi 500ms
  * (xem `timerRef` interval trong `start()`), nên 1 lượt ghi RẤT NGẮN (VD 1 giây) chỉ có 1-2 mẫu — trung
@@ -575,6 +884,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   /** `exhausted` (2026-10-07) — true khi popup này hiện ra do HẾT LƯỢT nộp (3 lần) mà vẫn chưa đạt, chứ không phải đạt thật — đổi icon/tiêu đề cho đúng. */
   const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null; exhausted: boolean } | null>(null);
   const [writingPassedPopup, setWritingPassedPopup] = useState<{ scorePercent: number | null; exhausted: boolean } | null>(null);
+  /** Bổ sung 2026-10-22 (đã xác nhận với người dùng) — ref tới thẻ `<audio>` nghe lại bài nói, để AudioWaveform đồng bộ tiến độ phát. */
+  const [speakingPlaybackEl, setSpeakingPlaybackEl] = useState<HTMLAudioElement | null>(null);
   const recorder = useAudioRecorder();
   // Ngưỡng % đạt viết/nói mỗi câu do giáo viên cấu hình theo từng video REFLEX (BE: ReflexSequentialGradingService
   // #passThresholdPercent đọc cùng field này) — trước đây FE hiện cứng 70 nên lệch khi giáo viên đổi ngưỡng.
@@ -1157,6 +1468,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
             <p className="text-xs font-bold text-muted max-w-xs">
               {writingSubmitting ? t("reflexVideoTask.gradingOverlay.writingDescription") : t("reflexVideoTask.gradingOverlay.speakingDescription")}
             </p>
+            <GradingProgress active={writingSubmitting || speakingSubmitting} kind={writingSubmitting ? "writing" : "speaking"} />
           </div>
         </div>
       )}
@@ -1718,7 +2030,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                           {t("reflexVideoTask.speakingStage.listenBackLabel")}
                         </p>
                         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                        <audio controls src={displayProgress.audioUrl} className="w-full" />
+                        <audio controls src={displayProgress.audioUrl} className="w-full" ref={setSpeakingPlaybackEl} />
+                        {assignmentId != null && (
+                          <AudioWaveform questionId={displayProgress.questionId} assignmentId={assignmentId} audioEl={speakingPlaybackEl} />
+                        )}
                       </div>
                     )}
 
@@ -1771,6 +2086,23 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       </div>
                     )}
 
+                    {/* Bổ sung 2026-10-22 (đã xác nhận với người dùng) — nhặt từ trang spike test Speaking:
+                        bảng phát âm từng từ do Azure Pronunciation Assessment chấm, chạm vào từ để xem điểm
+                        + phiên âm IPA từng âm vị. Chỉ có khi lượt nói đi qua pipeline trực tiếp Groq+Claude+
+                        Azure (xem speakingPronunciationWords ở api.ts) — null thì ẩn khối này, không lỗi. */}
+                    {displayProgress.speakingPronunciationWords && displayProgress.speakingPronunciationWords.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide text-muted normal-case">
+                          {t("reflexVideoTask.speakingStage.pronunciationWordsLabel")}
+                        </p>
+                        <div className="rounded-xl border border-line bg-white p-3 flex flex-wrap gap-x-2.5 gap-y-2 normal-case">
+                          {displayProgress.speakingPronunciationWords.map((w, idx) => (
+                            <PronunciationWord key={idx} word={w} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, đổi giao diện
                         2026-09-18 — transcript bọc trong khung trắng riêng, lỗi hiện dạng chip viền đỏ
                         (xem renderHighlightedErrors) thay vì chỉ gạch chân. */}
@@ -1799,9 +2131,14 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                     {/*
                      * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" TÁCH khỏi
                      * speakingFeedback, icon riêng (Dumbbell, khác Lightbulb của feedback) để không nhầm 2
-                     * ô. Chỉ hiện từ lần ghi âm thứ 2 trở đi, như writingHint.
+                     * ô.
+                     *
+                     * Sửa 2026-10-22 (đã xác nhận với người dùng) — BỎ điều kiện "chỉ hiện từ lần ghi âm
+                     * thứ 2 trở đi" cho Speaking — hiện ngay từ lượt 1, không chờ nộp lại mới thấy cách
+                     * luyện. (writingHint giữ nguyên ngưỡng cũ, không đổi — người dùng chỉ yêu cầu phần
+                     * Speaking.)
                      */}
-                    {!displayProgress.speakingPassed && (displayProgress?.speakingAttemptCount ?? 0) >= 2 && displayProgress.speakingHint && (
+                    {!displayProgress.speakingPassed && displayProgress.speakingHint && (
                       <div className="flex items-start gap-2 rounded-xl border border-teal/20 bg-sky-2 p-3">
                         <Dumbbell size={16} className="text-teal-deep shrink-0 mt-0.5" />
                         <div>

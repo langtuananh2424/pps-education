@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<title>SPIKE — Test chấm AI Writing→Speaking</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 18px; }
+  h2 { font-size: 15px; margin-top: 0; }
+  .warn { background: #fff3cd; border: 1px solid #ffe69c; padding: 10px 12px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; }
+  .step { border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+  .step.locked { opacity: 0.45; pointer-events: none; background: #fafafa; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 8px; vertical-align: middle; }
+  .badge.pass { background: #d1f7d6; color: #166534; }
+  .badge.fail { background: #fde2e2; color: #991b1b; }
+  .badge.wait { background: #e5e7eb; color: #4b5563; }
+  fieldset { margin-bottom: 12px; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  textarea, input[type=text], input[type=number] { width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 13px; }
+  textarea { min-height: 60px; }
+  select { padding: 6px; font-size: 13px; }
+  button { padding: 8px 16px; font-size: 14px; cursor: pointer; margin-right: 8px; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
+  .status { font-size: 13px; margin: 8px 0; min-height: 18px; }
+  .result { white-space: pre-wrap; background: #f6f6f6; border: 1px solid #ddd; border-radius: 6px; padding: 12px; font-size: 13px; font-family: ui-monospace, monospace; }
+  audio { width: 100%; margin-top: 8px; }
+  .readable { display: none; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin: 10px 0; font-size: 14px; line-height: 1.5; }
+  .scoreRow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .scoreChip { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+  .scoreChip b { font-size: 16px; }
+  .readable h3 { font-size: 13px; color: #555; margin: 14px 0 4px; }
+  .readable .markedText { background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; padding: 10px; }
+  .readable .markedText mark { background: #fde2e2; color: #991b1b; border-radius: 3px; padding: 0 2px; }
+  .gate { background: #fff3cd; border: 1px solid #ffe69c; border-radius: 6px; padding: 8px 10px; font-size: 13px; margin-bottom: 10px; }
+  .costBox { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 10px; font-size: 13px; margin-top: 10px; }
+  details summary { cursor: pointer; font-size: 12px; color: #555; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1>SPIKE — Test luồng Writing (đạt) → Speaking</h1>
+  <div class="warn">
+    Trang nội bộ — chỉ tài khoản có quyền <code>system.settings.manage</code> gọi được. Rubric chấm
+    là PLACEHOLDER, kết quả chỉ để đánh giá khả thi kỹ thuật/chi phí, KHÔNG dùng quyết định band thật.
+    Mỗi lần bấm "Chấm" đều tốn tiền API thật (Groq/Anthropic/Azure/Gemini tuỳ lựa chọn).
+    Mirror luồng thật UC-23b: phải ĐẠT bước Viết (≥ ngưỡng %) mới mở khoá bước Nói.
+  </div>
+
+  <fieldset>
+    <label for="token">Bearer token (JWT) — lấy từ localStorage sau khi đăng nhập trang quản trị</label>
+    <input type="text" id="token" placeholder="eyJhbGciOi..." />
+  </fieldset>
+
+  <!-- ===================== BƯỚC 1 — WRITING ===================== -->
+  <div class="step" id="stepWriting">
+    <h2>Bước 1 — Writing <span class="badge wait" id="writingBadge">CHƯA CHẤM</span></h2>
+
+    <fieldset>
+      <label for="writingModel">Model chấm nội dung</label>
+      <select id="writingModel">
+        <option value="">AUTO (ưu tiên Claude 5.5, fallback Gemini)</option>
+        <option value="CLAUDE_5_5">CLAUDE_5_5 (Claude Haiku 5.5)</option>
+        <option value="CLAUDE_4_5">CLAUDE_4_5 (Claude Haiku 4.5)</option>
+        <option value="GEMINI">GEMINI (Gemini Flash)</option>
+      </select>
+    </fieldset>
+    <fieldset>
+      <label for="passThreshold">Ngưỡng đạt (%) — mặc định như luồng thật (70)</label>
+      <input type="number" id="passThreshold" value="70" min="0" max="100" />
+    </fieldset>
+    <fieldset>
+      <label><input type="checkbox" id="useRealRubric" style="width:auto;display:inline;margin-right:6px" />Dùng RUBRIC THẬT checkpoint UC-23b (ĐÚNG luồng Viết câu ngắn → Nói, rubrics-v3) thay vì placeholder — cần chọn đúng Khối (+ Track nếu không phải Khối 6)</label>
+    </fieldset>
+    <fieldset>
+      <label for="gradeTrack">Khối (placeholder: chỉ truyền ngữ cảnh cho model; rubric thật: BẮT BUỘC, chọn đúng rubric)</label>
+      <select id="gradeTrack">
+        <option value="">Không rõ khối</option>
+        <option value="6">Khối 6</option>
+        <option value="7">Khối 7</option>
+        <option value="8">Khối 8</option>
+        <option value="9">Khối 9</option>
+      </select>
+    </fieldset>
+    <fieldset id="trackField" style="display:none">
+      <label for="track">Track (chỉ dùng khi bật rubric thật, Khối 6 có thể để trống — dùng chung 1 rubric)</label>
+      <select id="track">
+        <option value="">(để trống — chỉ hợp lệ với Khối 6)</option>
+        <option value="IELTS">IELTS</option>
+        <option value="CAMBRIDGE">CAMBRIDGE</option>
+      </select>
+    </fieldset>
+    <fieldset id="recordingSecondsField" style="display:none">
+      <label for="maxRecordingSeconds">Dạng đề (chỉ ảnh hưởng Khối 8-9 IELTS, khối khác bỏ qua)</label>
+      <select id="maxRecordingSeconds">
+        <option value="30">SHORT (ghi âm tối đa 30 giây)</option>
+        <option value="90">PART2 (ghi âm tối đa 90-120 giây)</option>
+      </select>
+    </fieldset>
+    <fieldset>
+      <label for="essayPrompt">Câu hỏi / đề bài (tuỳ chọn — để trống thì bỏ qua tiêu chí Task Achievement)</label>
+      <textarea id="essayPrompt" placeholder="VD: What did you do last weekend?"></textarea>
+    </fieldset>
+    <fieldset>
+      <label for="writingText">Câu trả lời viết của học sinh (bắt buộc)</label>
+      <textarea id="writingText" style="min-height: 100px" placeholder="Dán câu trả lời viết vào đây"></textarea>
+    </fieldset>
+
+    <button id="btnSubmitWriting" type="button">Chấm Writing</button>
+    <div class="status" id="statusWriting"></div>
+    <div class="readable" id="readableWriting"></div>
+    <details>
+      <summary>Xem JSON gốc</summary>
+      <pre class="result" id="resultWriting"></pre>
+    </details>
+  </div>
+
+  <!-- ===================== BƯỚC 2 — SPEAKING (khoá cho tới khi Writing đạt) ===================== -->
+  <div class="step locked" id="stepSpeaking">
+    <h2>Bước 2 — Speaking <span class="badge wait" id="speakingBadge">ĐANG KHOÁ — chấm Writing đạt ngưỡng trước</span></h2>
+
+    <fieldset>
+      <label for="provider">Provider</label>
+      <select id="provider">
+        <option value="">AUTO (ưu tiên OPENAI_CLAUDE, fallback GEMINI)</option>
+        <option value="OPENAI_CLAUDE">OPENAI_CLAUDE (OpenAI STT + Claude Haiku 4.5)</option>
+        <option value="GEMINI">GEMINI (Gemini Flash nghe audio trực tiếp)</option>
+        <option value="AZURE_STACK">AZURE_STACK (Groq Whisper + Claude Haiku 5.5 + Azure Pronunciation)</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <label>Ghi âm trực tiếp (đọc lại/trả lời cùng câu hỏi ở Bước 1)</label>
+      <button id="btnRecord" type="button">Bắt đầu ghi âm</button>
+      <button id="btnStop" type="button" disabled>Dừng</button>
+      <audio id="preview" controls style="display:none"></audio>
+      <canvas id="waveform" width="800" height="80" style="display:none; width:100%; height:80px; background:#f6f6f6; border:1px solid #ddd; border-radius:6px; margin-top:8px"></canvas>
+    </fieldset>
+
+    <fieldset>
+      <label>Bài viết Bước 1 sẽ tự động gửi kèm để so khớp ngữ pháp (chỉ xem, không sửa ở đây)</label>
+      <textarea id="writingTextMirror" readonly style="background:#f3f3f3"></textarea>
+    </fieldset>
+
+    <button id="btnSubmit" type="button" disabled>Chấm Speaking</button>
+    <div class="status" id="status"></div>
+    <div class="readable" id="readableSpeaking"></div>
+    <details>
+      <summary>Xem JSON gốc</summary>
+      <pre class="result" id="result"></pre>
+    </details>
+  </div>
+
+<script>
+const tokenEl = document.getElementById('token');
+function getToken() { return tokenEl.value.trim(); }
+
+function escapeHtml(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function fmtVnd(n) {
+  return (n === null || n === undefined) ? '—' : n.toLocaleString('vi-VN') + ' đ';
+}
+function scoreChip(label, value) {
+  if (value === null || value === undefined) return '';
+  return '<div class="scoreChip">' + escapeHtml(label) + ': <b>' + value + '%</b></div>';
+}
+/** Chuyển markup {{err}}...{{/err}} (bài đã đánh dấu lỗi của ReflexV2Scoring) sang <mark> tô đỏ. */
+function renderMarkedText(text) {
+  if (!text) return '';
+  return escapeHtml(text).replace(/\{\{err\}\}/g, '<mark>').replace(/\{\{\/err\}\}/g, '</mark>');
+}
+
+/** Ký hiệu âm vị Azure (gần ARPAbet, chữ thường) -> IPA chuẩn, dùng để hiển thị dạng bảng phiên âm từ điển. Không có trong bảng thì giữ nguyên ký hiệu gốc (không chặn hiển thị). */
+const ARPABET_TO_IPA = {
+  aa: 'ɑ', ae: 'æ', ah: 'ʌ', ao: 'ɔ', aw: 'aʊ', ax: 'ə', ay: 'aɪ',
+  b: 'b', ch: 'tʃ', d: 'd', dh: 'ð', eh: 'ɛ', er: 'ɝ', ey: 'eɪ',
+  f: 'f', g: 'ɡ', hh: 'h', ih: 'ɪ', iy: 'i', jh: 'dʒ', k: 'k',
+  l: 'l', m: 'm', n: 'n', ng: 'ŋ', ow: 'oʊ', oy: 'ɔɪ', p: 'p',
+  r: 'r', s: 's', sh: 'ʃ', t: 't', th: 'θ', uh: 'ʊ', uw: 'u',
+  v: 'v', w: 'w', y: 'j', z: 'z', zh: 'ʒ'
+};
+function toIpa(phoneme) {
+  if (!phoneme) return '';
+  return ARPABET_TO_IPA[phoneme.toLowerCase()] || phoneme;
+}
+function scoreColor(score) {
+  if (score === null || score === undefined) return '#6b7280';
+  return score >= 80 ? '#166534' : (score >= 60 ? '#92400e' : '#991b1b');
+}
+function scoreBg(score) {
+  if (score === null || score === undefined) return '#eee';
+  return score >= 80 ? '#d1f7d6' : (score >= 60 ? '#fef3c7' : '#fde2e2');
+}
+
+/** Mỗi từ 1 cột: chữ ở trên (tô theo AccuracyScore cả từ), phiên âm IPA ở dưới — TỪNG ÂM VỊ tô riêng theo điểm của chính nó, giống bảng phiên âm từ điển nhưng có màu chỉ đúng chỗ phát âm sai. */
+function renderPronunciationWords(words) {
+  return '<div style="display:flex;flex-wrap:wrap;gap:10px 14px">' + words.map(w => {
+    const wordColor = scoreColor(w.accuracyScore);
+    const wordBg = scoreBg(w.accuracyScore);
+    const errorLabel = w.errorType && w.errorType !== 'None' ? ' [' + w.errorType + ']' : '';
+    const ipaSpans = (w.phonemes || []).map(p => {
+      const c = scoreColor(p.accuracyScore);
+      const b = scoreBg(p.accuracyScore);
+      const title = (p.phoneme || '') + ' (Azure) = /' + toIpa(p.phoneme) + '/ (IPA) — điểm ' + (p.accuracyScore ?? '?');
+      return '<span title="' + escapeHtml(title) + '" style="background:' + b + ';color:' + c + ';padding:0 2px;border-radius:2px;cursor:help">' + escapeHtml(toIpa(p.phoneme)) + '</span>';
+    }).join('');
+    return '<div style="text-align:center">'
+      + '<div title="Điểm từ: ' + (w.accuracyScore ?? '?') + errorLabel + '" style="background:' + wordBg + ';color:' + wordColor
+        + ';padding:2px 8px;border-radius:4px 4px 0 0;font-weight:600;cursor:help">' + escapeHtml(w.word) + '</div>'
+      + '<div style="font-family:ui-monospace,monospace;font-size:13px;border:1px solid #ddd;border-top:none;border-radius:0 0 4px 4px;padding:2px 6px;background:#fff">/' + ipaSpans + '/</div>'
+      + '</div>';
+  }).join('') + '</div>';
+}
+
+/** Render kết quả Writing dạng dễ đọc. mode: 'placeholder' | 'reflex'. */
+function renderWritingReadable(data, mode) {
+  let html = '';
+  if (mode === 'reflex') {
+    if (!data.gradedSuccessfully) {
+      html += '<p><b style="color:#991b1b">Không chấm được</b> — chưa có rubric cho khối/track/dạng đề này, hoặc AI chấm/parse lỗi.</p>';
+      return html;
+    }
+    html += '<div class="scoreRow">';
+    html += scoreChip('Bước 1 (tổng)', data.step1Percent);
+    html += scoreChip('Ngữ pháp', data.grammarPercent);
+    (data.criteria || []).forEach(c => { html += scoreChip(c.criterion, c.percent); });
+    html += '</div>';
+    if (data.gateNote) html += '<div class="gate">⚠ ' + escapeHtml(data.gateNote) + '</div>';
+    if (data.markedText) html += '<h3>Bài viết (lỗi tô đỏ)</h3><div class="markedText">' + renderMarkedText(data.markedText) + '</div>';
+    if (data.feedback) html += '<h3>Nhận xét</h3><p>' + escapeHtml(data.feedback) + '</p>';
+    if (data.hint) html += '<h3>Gợi ý luyện tập</h3><p>' + escapeHtml(data.hint) + '</p>';
+    if (data.costVnd !== undefined) html += '<div class="costBox">💰 Chi phí ước tính: <b>' + fmtVnd(data.costVnd) + '</b> (model ' + escapeHtml(data.modelUsed) + ', ' + (data.promptTokens||0) + ' token vào / ' + (data.cacheReadTokens||0) + ' từ cache / ' + (data.completionTokens||0) + ' token ra)</div>';
+  } else {
+    html += '<div class="scoreRow">';
+    html += scoreChip('Task Achievement', data.taskAchievementScorePercent);
+    html += scoreChip('Coherence & Cohesion', data.coherenceCohesionScorePercent);
+    html += scoreChip('Lexical Resource', data.lexicalResourceScorePercent);
+    html += scoreChip('Grammatical Range', data.grammaticalRangeScorePercent);
+    html += '</div>';
+    if (data.feedback) html += '<h3>Nhận xét</h3><p>' + escapeHtml(data.feedback) + '</p>';
+    if (data.costVnd !== undefined) html += '<div class="costBox">💰 Chi phí ước tính: <b>' + fmtVnd(data.costVnd) + '</b> (model ' + escapeHtml(data.modelUsed) + ')</div>';
+  }
+  return html;
+}
+
+function renderSpeakingReadable(data) {
+  let html = '';
+  if (data.groqLowConfidenceWarning) {
+    html += '<div class="gate">🔊 ' + escapeHtml(data.groqLowConfidenceWarning) + '</div>';
+  }
+  if (data.reflexErrorMessage) {
+    html += '<p><b style="color:#991b1b">Rubric thật lỗi:</b> ' + escapeHtml(data.reflexErrorMessage) + ' (điểm placeholder bên dưới vẫn hiển thị để tham khảo)</p>';
+  }
+  if (data.reflexFabricationWarning) {
+    html += '<div class="gate">⚠ ' + escapeHtml(data.reflexFabricationWarning) + '</div>';
+  }
+  if (data.reflexCriteria) {
+    html += '<h3>Điểm rubric THẬT (checkpoint UC-23b)</h3><div class="scoreRow">';
+    html += scoreChip('Mở khoá (không gồm Phát âm)', data.reflexUnlockPercent);
+    html += scoreChip('Tổng (gồm Phát âm AI)', data.reflexFinalPercent);
+    data.reflexCriteria.forEach(c => { html += scoreChip(c.criterion, c.percent); });
+    html += '</div>';
+    if (data.reflexGateNote) html += '<div class="gate">⚠ ' + escapeHtml(data.reflexGateNote) + '</div>';
+    if (data.reflexMarkedTranscript) html += '<h3>Transcript (lỗi tô đỏ)</h3><div class="markedText">' + renderMarkedText(data.reflexMarkedTranscript) + '</div>';
+    if (data.reflexFeedback) html += '<h3>Nhận xét (rubric thật)</h3><p>' + escapeHtml(data.reflexFeedback) + '</p>';
+    if (data.reflexHint) html += '<h3>Gợi ý luyện tập</h3><p>' + escapeHtml(data.reflexHint) + '</p>';
+    html += '<h3 style="margin-top:18px">Điểm placeholder (nhánh test cũ, để đối chiếu)</h3>';
+  }
+  html += '<div class="scoreRow">';
+  html += scoreChip('Nội dung (placeholder)', data.contentScorePercent);
+  html += scoreChip('Ngữ pháp (so bài viết, placeholder)', data.grammarScorePercent);
+  html += scoreChip('Phát âm - Accuracy', data.pronunciationAccuracyScore);
+  html += scoreChip('Phát âm - Fluency', data.pronunciationFluencyScore);
+  html += scoreChip('Phát âm - Completeness', data.pronunciationCompletenessScore);
+  html += scoreChip('Phát âm - Prosody', data.pronunciationProsodyScore);
+  html += scoreChip('Phát âm - Tổng', data.pronunciationOverallScore);
+  html += '</div>';
+  if (data.pronunciationWords && data.pronunciationWords.length) {
+    html += '<h3>Phát âm từng từ (Azure) — di chuột vào từ để xem điểm từng âm vị</h3>';
+    html += '<div class="markedText">' + renderPronunciationWords(data.pronunciationWords) + '</div>';
+  }
+  if (data.transcript) html += '<h3>Transcript (STT)</h3><p>' + escapeHtml(data.transcript) + '</p>';
+  if (data.contentFeedback) html += '<h3>Nhận xét nội dung (placeholder)</h3><p>' + escapeHtml(data.contentFeedback) + '</p>';
+  if (data.grammarFeedback) html += '<h3>Nhận xét ngữ pháp (placeholder)</h3><p>' + escapeHtml(data.grammarFeedback) + '</p>';
+  if (data.costTotalVnd !== undefined && data.costTotalVnd !== null) {
+    html += '<div class="costBox">💰 Chi phí ước tính: <b>' + fmtVnd(data.costTotalVnd) + '</b>'
+      + ' (Groq ' + fmtVnd(data.costGroqVnd) + ' · Claude ' + fmtVnd(data.costClaudeVnd) + ' · Azure ' + fmtVnd(data.costAzureVnd)
+      + (data.audioSeconds !== undefined ? ' · audio ' + data.audioSeconds + 's' : '') + ')</div>';
+  }
+  return html;
+}
+
+// ---------- Bước 1: Writing ----------
+const btnSubmitWriting = document.getElementById('btnSubmitWriting');
+const statusWritingEl = document.getElementById('statusWriting');
+const resultWritingEl = document.getElementById('resultWriting');
+const readableWritingEl = document.getElementById('readableWriting');
+const writingBadge = document.getElementById('writingBadge');
+const stepSpeaking = document.getElementById('stepSpeaking');
+const speakingBadge = document.getElementById('speakingBadge');
+const writingTextMirror = document.getElementById('writingTextMirror');
+
+function setWritingBadge(kind, text) {
+  writingBadge.className = 'badge ' + kind;
+  writingBadge.textContent = text;
+}
+
+/** Ngữ cảnh rubric thật mang từ Bước 1 sang Bước 2 (chỉ có giá trị khi useRealRubric được tick) — null = Bước 2 chỉ chấm placeholder như cũ. */
+let reflexContext = null;
+
+function unlockSpeaking(writingText, ctx) {
+  stepSpeaking.classList.remove('locked');
+  speakingBadge.className = 'badge pass';
+  speakingBadge.textContent = 'ĐÃ MỞ KHOÁ';
+  writingTextMirror.value = writingText;
+  reflexContext = ctx || null;
+}
+
+function lockSpeaking() {
+  stepSpeaking.classList.add('locked');
+  speakingBadge.className = 'badge wait';
+  speakingBadge.textContent = 'ĐANG KHOÁ — chấm Writing đạt ngưỡng trước';
+}
+
+const useRealRubricEl = document.getElementById('useRealRubric');
+const trackField = document.getElementById('trackField');
+const recordingSecondsField = document.getElementById('recordingSecondsField');
+useRealRubricEl.onchange = () => {
+  trackField.style.display = useRealRubricEl.checked ? 'block' : 'none';
+  recordingSecondsField.style.display = useRealRubricEl.checked ? 'block' : 'none';
+};
+
+btnSubmitWriting.onclick = async () => {
+  const token = getToken();
+  if (!token) {
+    statusWritingEl.textContent = 'Cần nhập Bearer token.';
+    return;
+  }
+  const writingText = document.getElementById('writingText').value.trim();
+  if (!writingText) {
+    statusWritingEl.textContent = 'Chưa nhập câu trả lời viết.';
+    return;
+  }
+  const essayPrompt = document.getElementById('essayPrompt').value;
+  const model = document.getElementById('writingModel').value;
+  const gradeTrack = document.getElementById('gradeTrack').value;
+  const track = document.getElementById('track').value;
+  const threshold = Number(document.getElementById('passThreshold').value) || 70;
+  const useRealRubric = useRealRubricEl.checked;
+
+  if (useRealRubric && !gradeTrack) {
+    statusWritingEl.textContent = 'Rubric thật bắt buộc phải chọn Khối.';
+    return;
+  }
+
+  const form = new FormData();
+  if (model) form.append('model', model);
+  if (useRealRubric) {
+    form.append('writingText', writingText);
+    form.append('gradeLevel', gradeTrack);
+    if (track) form.append('track', track);
+    if (essayPrompt) form.append('question', essayPrompt);
+    form.append('maxRecordingSeconds', document.getElementById('maxRecordingSeconds').value);
+  } else {
+    form.append('writingText', writingText);
+    if (essayPrompt) form.append('essayPrompt', essayPrompt);
+    if (gradeTrack) form.append('gradeTrack', gradeTrack);
+  }
+
+  btnSubmitWriting.disabled = true;
+  lockSpeaking();
+  setWritingBadge('wait', 'ĐANG CHẤM...');
+  statusWritingEl.textContent = 'Đang gửi và chờ AI chấm...';
+  readableWritingEl.style.display = 'none';
+
+  const endpoint = useRealRubric ? '/api/dev-tools/writing-grading-test-reflex-rubric' : '/api/dev-tools/writing-grading-test';
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: form
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      setWritingBadge('fail', 'LỖI');
+      statusWritingEl.textContent = 'Lỗi HTTP ' + res.status;
+      resultWritingEl.textContent = text;
+      return;
+    }
+    const data = JSON.parse(text);
+    resultWritingEl.textContent = JSON.stringify(data, null, 2);
+    readableWritingEl.innerHTML = renderWritingReadable(data, useRealRubric ? 'reflex' : 'placeholder');
+    readableWritingEl.style.display = 'block';
+
+    if (useRealRubric && !data.gradedSuccessfully) {
+      setWritingBadge('fail', 'KHÔNG CHẤM ĐƯỢC');
+      statusWritingEl.textContent = 'Rubric thật không chấm được (chưa có task cho khối/track/dạng đề này, hoặc AI chấm/parse lỗi) — xem log backend.';
+      lockSpeaking();
+      return;
+    }
+
+    let avg;
+    if (useRealRubric) {
+      avg = data.step1Percent;
+    } else {
+      const scores = [data.coherenceCohesionScorePercent, data.lexicalResourceScorePercent, data.grammaticalRangeScorePercent];
+      if (data.taskAchievementScorePercent !== null && data.taskAchievementScorePercent !== undefined) {
+        scores.push(data.taskAchievementScorePercent);
+      }
+      const valid = scores.filter(s => s !== null && s !== undefined);
+      avg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+    }
+
+    if (avg >= threshold) {
+      setWritingBadge('pass', 'ĐẠT (TB ' + avg.toFixed(1) + '%)');
+      statusWritingEl.textContent = 'Đạt ngưỡng ' + threshold + '% — đã mở khoá Bước 2 Speaking.';
+      const ctx = useRealRubric ? {
+        gradeLevel: gradeTrack, track: track,
+        maxRecordingSeconds: document.getElementById('maxRecordingSeconds').value,
+        question: essayPrompt, step1GrammarPercent: data.grammarPercent
+      } : null;
+      unlockSpeaking(writingText, ctx);
+    } else {
+      setWritingBadge('fail', 'CHƯA ĐẠT (TB ' + avg.toFixed(1) + '%)');
+      statusWritingEl.textContent = 'Chưa đạt ngưỡng ' + threshold + '% — sửa bài rồi chấm lại (giống luồng thật: hết lượt mới tự mở khoá).';
+      lockSpeaking();
+    }
+  } catch (e) {
+    setWritingBadge('fail', 'LỖI');
+    statusWritingEl.textContent = 'Lỗi khi gọi API: ' + e.message;
+  } finally {
+    btnSubmitWriting.disabled = false;
+  }
+};
+
+// ---------- Bước 2: Speaking ----------
+let mediaRecorder, chunks = [], recordedBlob = null;
+
+const btnRecord = document.getElementById('btnRecord');
+const btnStop = document.getElementById('btnStop');
+const btnSubmit = document.getElementById('btnSubmit');
+const preview = document.getElementById('preview');
+const statusEl = document.getElementById('status');
+const resultEl = document.getElementById('result');
+const readableSpeakingEl = document.getElementById('readableSpeaking');
+const waveformCanvas = document.getElementById('waveform');
+
+/** Vẽ dạng sóng (biên độ trung bình từng đoạn nhỏ) từ blob audio vừa ghi — giúp nhìn đoạn nào có tiếng/im lặng để đối chiếu bằng mắt với transcript, không thay thế việc nghe lại. */
+async function drawWaveform(blob) {
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const channelData = audioBuffer.getChannelData(0);
+    const ctx = waveformCanvas.getContext('2d');
+    const width = waveformCanvas.width = waveformCanvas.clientWidth || 800;
+    const height = waveformCanvas.height;
+    const barCount = Math.min(400, width);
+    const samplesPerBar = Math.floor(channelData.length / barCount);
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#f6f6f6';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#6366f1';
+    const barWidth = width / barCount;
+    for (let i = 0; i < barCount; i++) {
+      let sum = 0;
+      const start = i * samplesPerBar;
+      for (let j = 0; j < samplesPerBar; j++) {
+        sum += Math.abs(channelData[start + j] || 0);
+      }
+      const amplitude = samplesPerBar > 0 ? sum / samplesPerBar : 0;
+      const barHeight = Math.max(1, amplitude * height * 4);
+      ctx.fillRect(i * barWidth, (height - barHeight) / 2, Math.max(1, barWidth - 1), barHeight);
+    }
+    waveformCanvas.style.display = 'block';
+    audioCtx.close();
+  } catch (e) {
+    console.warn('Không vẽ được waveform:', e);
+  }
+}
+
+btnRecord.onclick = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      recordedBlob = new Blob(chunks, { type: 'audio/webm' });
+      preview.src = URL.createObjectURL(recordedBlob);
+      preview.style.display = 'block';
+      btnSubmit.disabled = false;
+      stream.getTracks().forEach(t => t.stop());
+      drawWaveform(recordedBlob);
+    };
+    mediaRecorder.start();
+    btnRecord.disabled = true;
+    btnStop.disabled = false;
+    statusEl.textContent = 'Đang ghi âm...';
+  } catch (e) {
+    statusEl.textContent = 'Không truy cập được micro: ' + e.message;
+  }
+};
+
+btnStop.onclick = () => {
+  mediaRecorder.stop();
+  btnRecord.disabled = false;
+  btnStop.disabled = true;
+  statusEl.textContent = 'Đã ghi âm xong, bấm "Chấm Speaking" để gửi.';
+};
+
+btnSubmit.onclick = async () => {
+  if (!recordedBlob) {
+    statusEl.textContent = 'Chưa có bản ghi âm nào.';
+    return;
+  }
+  const token = getToken();
+  if (!token) {
+    statusEl.textContent = 'Cần nhập Bearer token.';
+    return;
+  }
+  const provider = document.getElementById('provider').value;
+  const writingText = writingTextMirror.value;
+
+  const form = new FormData();
+  form.append('audio', recordedBlob, 'recording.webm');
+  if (writingText) form.append('writingText', writingText);
+  if (provider) form.append('provider', provider);
+  if (reflexContext && reflexContext.gradeLevel) {
+    form.append('gradeLevel', reflexContext.gradeLevel);
+    if (reflexContext.track) form.append('track', reflexContext.track);
+    form.append('maxRecordingSeconds', reflexContext.maxRecordingSeconds);
+    if (reflexContext.question) form.append('question', reflexContext.question);
+    if (reflexContext.step1GrammarPercent !== null && reflexContext.step1GrammarPercent !== undefined) {
+      form.append('step1GrammarPercent', reflexContext.step1GrammarPercent);
+    }
+  }
+
+  btnSubmit.disabled = true;
+  statusEl.textContent = 'Đang gửi và chờ AI chấm (có thể mất 10-60 giây tuỳ provider)...';
+  readableSpeakingEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/dev-tools/speaking-grading-test', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: form
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      statusEl.textContent = 'Lỗi HTTP ' + res.status;
+      resultEl.textContent = text;
+      return;
+    }
+    const data = JSON.parse(text);
+    statusEl.textContent = 'Xong.';
+    resultEl.textContent = JSON.stringify(data, null, 2);
+    readableSpeakingEl.innerHTML = renderSpeakingReadable(data);
+    readableSpeakingEl.style.display = 'block';
+  } catch (e) {
+    statusEl.textContent = 'Lỗi khi gọi API: ' + e.message;
+  } finally {
+    btnSubmit.disabled = false;
+  }
+};
+</script>
+</body>
+</html>

@@ -268,6 +268,25 @@ app:
     # Bổ sung 2026-08-22 - dùng thay Claude khi chưa cấu hình ANTHROPIC_API_KEY (Anthropic yêu cầu
     # nạp tiền trước) - Gemini free tier không cần thẻ thanh toán.
     gemini-api-key: ${GEMINI_API_KEY:}
+    # Nhánh spike provider="AZURE_STACK" của SpeakingAiGradingTestService (2026-10-21, đã xác nhận với
+    # người dùng) - đánh giá khả thi gọi thẳng API thay 9Router: Groq Whisper (STT) trực tiếp + Azure
+    # Speech Pronunciation Assessment (chấm phát âm riêng) - xem .env.example để biết cách lấy key.
+    groq-api-key: ${GROQ_API_KEY:}
+    azure-speech-key: ${AZURE_SPEECH_KEY:}
+    azure-speech-region: ${AZURE_SPEECH_REGION:}
+    # Bổ sung 2026-10-22 (đã xác nhận với người dùng) - AiGradingFallbackService: thử gọi AI trực tiếp
+    # (Claude/Groq/Azure, KHÔNG qua 9Router) cho Essay (UC-40/41) + Writing câu ngắn/Speaking (UC-23b)
+    # TRƯỚC, lỗi thì tự rơi về 9Router/Gemini như cũ. MẶC ĐỊNH TẮT (false) - hành vi y hệt trước khi có
+    # class này cho tới khi người dùng chủ động bật từng môi trường (staging trước, production sau khi đã
+    # hiệu chuẩn - xem .claude/rules/business-fidelity.md) bằng CLAUDE_DIRECT_ENABLED=true.
+    claude-direct:
+      enabled: ${CLAUDE_DIRECT_ENABLED:false}
+      model: ${CLAUDE_DIRECT_MODEL:claude-haiku-5-5}
+      timeout-seconds: ${CLAUDE_DIRECT_TIMEOUT_SECONDS:150}
+    groq-direct:
+      timeout-seconds: ${GROQ_DIRECT_TIMEOUT_SECONDS:60}
+    azure-direct:
+      timeout-seconds: ${AZURE_DIRECT_TIMEOUT_SECONDS:60}
     # SPIKE (2026-08-24, nhánh spike/openrouter-ai-rotation) - NineRouterAiClient, kênh điều hướng
     # request AI qua 9Router (https://github.com/decolua/9router), thay các lệnh gọi thẳng
     # Gemini/Claude/Groq trước đây trong WritingAiGradingService (UC-40/41) và ReflexWritingGrammarAi-
