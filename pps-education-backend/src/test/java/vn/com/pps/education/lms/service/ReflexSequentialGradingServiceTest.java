@@ -72,10 +72,28 @@ class ReflexSequentialGradingServiceTest {
     private final ReflexWritingGrammarAiGradingService writingGradingService = mock(ReflexWritingGrammarAiGradingService.class);
     private final ReflexSpeakingContentAiGradingService speakingGradingService = mock(ReflexSpeakingContentAiGradingService.class);
 
+    /**
+     * Bổ sung 2026-10-22 — AiGradingFallbackService thật (không mock), nhưng {@code directPipelineEnabled}
+     * là field {@code @Value} KHÔNG được Spring nạp khi dựng bằng {@code new} thuần trong unit test, nên
+     * giữ giá trị mặc định Java của {@code boolean} là {@code false} — đúng ý "tắt mặc định", khiến mọi
+     * lệnh gọi rơi thẳng qua {@code reflexV2GradingService} mock như test đã viết từ trước, KHÔNG cần sửa
+     * lại các stub/verify hiện có. 5 dependency còn lại chỉ mock cho đủ constructor, không bao giờ được gọi
+     * tới khi cờ tắt.
+     */
+    private final WritingAiGradingService writingAiGradingServiceForFallback = mock(WritingAiGradingService.class);
+    private final ReflexV2Prompts reflexV2PromptsForFallback = mock(ReflexV2Prompts.class);
+    private final ClaudeAiClient claudeAiClient = mock(ClaudeAiClient.class);
+    private final GroqSpeechClient groqSpeechClient = mock(GroqSpeechClient.class);
+    private final AzurePronunciationClient azurePronunciationClient = mock(AzurePronunciationClient.class);
+    private final AudioTranscoder audioTranscoderForFallback = mock(AudioTranscoder.class);
+    private final AiGradingFallbackService aiGradingFallbackService = new AiGradingFallbackService(
+            writingAiGradingServiceForFallback, reflexV2GradingService, reflexV2PromptsForFallback, claudeAiClient,
+            groqSpeechClient, azurePronunciationClient, audioTranscoderForFallback);
+
     private final ReflexSequentialGradingService service = new ReflexSequentialGradingService(
             questionRepository, assignmentRepository, progressRepository, historyRepository, enrollmentRepository,
             studentRepository, mediaStorageService, writingGradingService,
-            speakingGradingService, reflexV2GradingService, tokenUsageRecorder,
+            speakingGradingService, reflexV2GradingService, aiGradingFallbackService, tokenUsageRecorder,
             mock(org.springframework.transaction.PlatformTransactionManager.class));
 
     private final AiTokenUsage transcriptionUsage =

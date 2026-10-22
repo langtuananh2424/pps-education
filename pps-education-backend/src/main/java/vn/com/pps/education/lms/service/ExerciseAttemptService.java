@@ -101,7 +101,7 @@ public class ExerciseAttemptService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final StudentAnswerGradingRepository studentAnswerGradingRepository;
-    private final WritingAiGradingService writingAiGradingService;
+    private final AiGradingFallbackService aiGradingFallbackService;
     private final AiGradingTokenUsageRecorder tokenUsageRecorder;
     private final TransactionTemplate tx;
 
@@ -126,7 +126,7 @@ public class ExerciseAttemptService {
                                    StudentRepository studentRepository,
                                    UserRepository userRepository,
                                    StudentAnswerGradingRepository studentAnswerGradingRepository,
-                                   WritingAiGradingService writingAiGradingService,
+                                   AiGradingFallbackService aiGradingFallbackService,
                                    AiGradingTokenUsageRecorder tokenUsageRecorder,
                                    PlatformTransactionManager transactionManager) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
@@ -140,7 +140,7 @@ public class ExerciseAttemptService {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.studentAnswerGradingRepository = studentAnswerGradingRepository;
-        this.writingAiGradingService = writingAiGradingService;
+        this.aiGradingFallbackService = aiGradingFallbackService;
         this.tokenUsageRecorder = tokenUsageRecorder;
         this.tx = new TransactionTemplate(transactionManager);
     }
@@ -351,7 +351,9 @@ public class ExerciseAttemptService {
             List<EssayAiJob> jobs = tx.execute(status -> prepareSubmit(attemptId, actorUserId, now));
             Map<Long, WritingAiGradingService.GradeResult> aiResults = new LinkedHashMap<>();
             for (EssayAiJob job : jobs) {
-                aiResults.put(job.answerId(), writingAiGradingService.grade(job.essayText(), job.taskPrompt(),
+                // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — qua AiGradingFallbackService, đồng nhất
+                // với gradeEssayWithAi (nhánh không precompute) — xem Javadoc AiGradingFallbackService.
+                aiResults.put(job.answerId(), aiGradingFallbackService.gradeEssayWithFallback(job.essayText(), job.taskPrompt(),
                         job.curriculum(), job.keyGrammar()));
             }
             return tx.execute(status -> {
@@ -548,9 +550,12 @@ public class ExerciseAttemptService {
         // câu hỏi (Question.keyGrammar), không phải Bài — xem Javadoc Question#keyGrammar lý do đổi so
         // với thiết kế trước đó (gắn Bài): người dùng muốn Key Grammar đi cùng đúng đề bài tự luận cụ thể,
         // sửa ở modal "Sửa câu hỏi" thay vì "Sửa Bài".
+        // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — nhánh gọi AI mới (không có trong precomputedAiResults)
+        // qua AiGradingFallbackService: thử Claude trực tiếp trước (chỉ khi app.ai-grading.claude-direct.enabled=true),
+        // lỗi thì tự rơi về 9Router — KHÔNG đổi hành vi khi cờ tắt (mặc định).
         WritingAiGradingService.GradeResult result = precomputedAiResults != null && precomputedAiResults.containsKey(answer.getId())
                 ? precomputedAiResults.get(answer.getId())
-                : writingAiGradingService.grade(answer.getAnswerText(),
+                : aiGradingFallbackService.gradeEssayWithFallback(answer.getAnswerText(),
                         answer.getQuestion().getContent(), exercise.getExam().getCurriculum(), answer.getQuestion().getKeyGrammar());
         tokenUsageRecorder.record(AiGradingTokenUsage.Step.ESSAY, "chat", null, result == null ? null : result.usage(),
                 answer.getExerciseAttempt().getStudent(), null, null);
