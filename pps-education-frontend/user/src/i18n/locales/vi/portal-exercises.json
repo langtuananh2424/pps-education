@@ -1,6 +1,8 @@
 {
   "monitoring": {
     "violationToast": "Đã ghi nhận: bạn vừa thoát ra ngoài khi đang làm bài!",
+    "violationToastBatch": "Đã ghi nhận lần {{count}}/{{max}}: bạn vừa thoát ra ngoài khi đang làm bài. Đủ {{max}} lần bài sẽ tự động nộp!",
+    "tooltipAutoSubmitSuffix": " Đủ {{max}} lần rời trang, bài sẽ tự động nộp và báo giáo viên.",
     "badgeAriaLabel": "Trạng thái giám sát chống gian lận",
     "tooltip": "Đang giám sát quá trình làm bài — thoát ra ngoài ({{exitNote}}) sẽ được ghi nhận.",
     "tooltipViolationSuffix": " Đã ghi nhận {{count}} lần.",

@@ -63,6 +63,9 @@ const DEFAULT_MIN_VIOLATION_DURATION_MS = 1000;
 const JUST_VIOLATED_MS = 3500;
 /** Đủ thời gian học sinh duyệt thư mục chọn file audio đã ghi âm sẵn, không quá dài để tránh bị lợi dụng làm "vé thoát tab" miễn phí. */
 const FILE_PICKER_GRACE_MS = 90_000;
+/** Thoát fullscreen xảy ra ngay sau 1 lần rời trang (đổi app → trình duyệt tự thoát fullscreen) là CÙNG 1 hành động,
+ *  không đếm thêm lần nữa — trước đây 1 lần rời trang bị đếm 2 (blur + fullscreen), nên chỉ 2 popup đã đủ ngưỡng tự nộp. */
+const SAME_ACTION_WINDOW_MS = 4000;
 
 export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseIntegrityMonitorResult {
   const { enabled, minViolationDurationMs = DEFAULT_MIN_VIOLATION_DURATION_MS, autoFlushIntervalMs, onFlush, onFullscreenExit } = options;
@@ -74,6 +77,7 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
   const outOfFocusSinceRef = useRef<number | null>(null);
   const filePickerGraceUntilRef = useRef<number | null>(null);
   const everEnteredFullscreenRef = useRef(false);
+  const lastViolationRef = useRef<{ at: number; type: IntegrityEventType } | null>(null);
   const justViolatedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onFlushRef = useRef(onFlush);
   onFlushRef.current = onFlush;
@@ -97,6 +101,12 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
     if (endedAtMs - startedAtMs < minViolationDurationMs) {
       return;
     }
+    const now = Date.now();
+    const last = lastViolationRef.current;
+    if (eventType === "FULLSCREEN_EXITED" && last != null && now - last.at < SAME_ACTION_WINDOW_MS) {
+      return; // thoát fullscreen ngay sau 1 lần rời trang: cùng 1 hành động
+    }
+    lastViolationRef.current = { at: now, type: eventType };
     pendingEventsRef.current = [
       ...pendingEventsRef.current,
       {
@@ -136,7 +146,9 @@ export function useIntegrityMonitor(options: UseIntegrityMonitorOptions): UseInt
       if (outOfFocusSinceRef.current != null && document.visibilityState === "visible" && document.hasFocus()) {
         const withinFilePickerGrace = filePickerGraceUntilRef.current != null && Date.now() <= filePickerGraceUntilRef.current;
         filePickerGraceUntilRef.current = null; // dùng 1 lần — không rò rỉ sang lần blur không liên quan sau đó
-        if (!withinFilePickerGrace) {
+        const last = lastViolationRef.current;
+        const justCountedFullscreenExit = last != null && last.type === "FULLSCREEN_EXITED" && Date.now() - last.at < SAME_ACTION_WINDOW_MS;
+        if (!withinFilePickerGrace && !justCountedFullscreenExit) {
           queueEvent("OUT_OF_FOCUS", outOfFocusSinceRef.current, Date.now());
         }
         outOfFocusSinceRef.current = null;
