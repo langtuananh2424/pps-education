@@ -9,6 +9,7 @@ import vn.com.pps.education.academic.domain.SchoolClass;
 import vn.com.pps.education.academic.repository.ClassTeacherRepository;
 import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.auth.repository.UserRepository;
+import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.exception.AnswerNotManuallyGradableException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgress;
@@ -114,7 +115,7 @@ class AiSecondGradingServiceTest {
         givenAssignedTeacher();
 
         service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
-                new ReviewReflexStepRequest(BigDecimal.valueOf(85), "Bài đúng ngữ pháp"), TEACHER_ID);
+                new ReviewReflexStepRequest(BigDecimal.valueOf(85), "Bài đúng ngữ pháp", null), TEACHER_ID);
 
         assertThat(progress.getWritingScore()).isEqualByComparingTo("85");
         assertThat(progress.getWritingFeedback()).isEqualTo("Bài đúng ngữ pháp");
@@ -130,10 +131,10 @@ class AiSecondGradingServiceTest {
     void reviewReflexStep_reviewingTwiceKeepsFirstAiScore() {
         givenAssignedTeacher();
         service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.SPEAKING,
-                new ReviewReflexStepRequest(BigDecimal.valueOf(70), null), TEACHER_ID);
+                new ReviewReflexStepRequest(BigDecimal.valueOf(70), null, null), TEACHER_ID);
 
         service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.SPEAKING,
-                new ReviewReflexStepRequest(BigDecimal.valueOf(90), null), TEACHER_ID);
+                new ReviewReflexStepRequest(BigDecimal.valueOf(90), null, null), TEACHER_ID);
 
         assertThat(progress.getSpeakingScore()).isEqualByComparingTo("90");
         assertThat(progress.getSpeakingAiScore()).isEqualByComparingTo("55");
@@ -146,7 +147,7 @@ class AiSecondGradingServiceTest {
         progress.setSpeakingGradedAt(null);
 
         assertThatThrownBy(() -> service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.SPEAKING,
-                new ReviewReflexStepRequest(BigDecimal.TEN, null), TEACHER_ID))
+                new ReviewReflexStepRequest(BigDecimal.TEN, null, null), TEACHER_ID))
                 .isInstanceOf(AnswerNotManuallyGradableException.class);
         verify(reflexQuestionProgressRepository, never()).save(any());
     }
@@ -157,7 +158,7 @@ class AiSecondGradingServiceTest {
         when(classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(CLASS_ID, TEACHER_ID)).thenReturn(false);
 
         assertThatThrownBy(() -> service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
-                new ReviewReflexStepRequest(BigDecimal.TEN, null), TEACHER_ID))
+                new ReviewReflexStepRequest(BigDecimal.TEN, null, null), TEACHER_ID))
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
         verify(reflexQuestionProgressRepository, never()).save(any());
     }
@@ -166,7 +167,7 @@ class AiSecondGradingServiceTest {
     void clearReview_whenStudentResubmits_dropsReviewMarkers() {
         givenAssignedTeacher();
         service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
-                new ReviewReflexStepRequest(BigDecimal.valueOf(85), null), TEACHER_ID);
+                new ReviewReflexStepRequest(BigDecimal.valueOf(85), null, null), TEACHER_ID);
 
         progress.clearWritingReview();
 
@@ -183,7 +184,7 @@ class AiSecondGradingServiceTest {
         when(reflexQuestionProgressRepository.save(any(ReflexQuestionProgress.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
-                new ReviewReflexStepRequest(BigDecimal.valueOf(90), null), TEACHER_ID);
+                new ReviewReflexStepRequest(BigDecimal.valueOf(90), null, null), TEACHER_ID);
 
         assertThat(progress.getWritingScore()).isEqualByComparingTo("90");
         verify(classTeacherRepository, never()).existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(any(), any());
@@ -288,7 +289,7 @@ class AiSecondGradingServiceTest {
         givenWritingAttempts(first, second);
 
         service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
-                new ReviewReflexStepRequest(BigDecimal.valueOf(90), "Cô chỉnh"), TEACHER_ID);
+                new ReviewReflexStepRequest(BigDecimal.valueOf(90), "Cô chỉnh", null), TEACHER_ID);
 
         assertThat(first.getTeacherScore()).isEqualByComparingTo("90");
         assertThat(first.getTeacherFeedback()).isEqualTo("Cô chỉnh");
@@ -304,9 +305,139 @@ class AiSecondGradingServiceTest {
         givenWritingAttempts(first, second);
 
         service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
-                new ReviewReflexStepRequest(BigDecimal.valueOf(60), null), TEACHER_ID);
+                new ReviewReflexStepRequest(BigDecimal.valueOf(60), null, null), TEACHER_ID);
 
         assertThat(second.getTeacherScore()).isEqualByComparingTo("60");
         assertThat(first.getTeacherScore()).isNull();
+    }
+
+    private static List<ReviewReflexStepRequest.BandScore> bands(Object... nameAndPercent) {
+        java.util.ArrayList<ReviewReflexStepRequest.BandScore> out = new java.util.ArrayList<>();
+        for (int i = 0; i < nameAndPercent.length; i += 2) {
+            out.add(new ReviewReflexStepRequest.BandScore((String) nameAndPercent[i], (Integer) nameAndPercent[i + 1]));
+        }
+        return out;
+    }
+
+    private ReflexQuestionProgressHistory writingAttemptWithBands(String score) {
+        ReflexQuestionProgressHistory h = writingAttempt(1, score, "AI", "x");
+        h.setCriteriaScores(List.of(new CriteriaScoreItem("Grammar and Vocabulary", 40), new CriteriaScoreItem("Discourse Management", 60)));
+        return h;
+    }
+
+    @Test
+    void reviewReflexStep_bands_v2RecomputesTotalFloorTo5AndStoresTeacherBands() {
+        givenAssignedTeacher();
+        progress.setRubricVersion("v2");
+        ReflexQuestionProgressHistory attempt = writingAttemptWithBands("50");
+        givenWritingAttempts(attempt);
+
+        // (70 + 85) / 2 = 77,5 → làm tròn XUỐNG bội 5 = 75; điểm tổng client gửi kèm (10) bị bỏ qua.
+        service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(BigDecimal.TEN, "GV sửa band",
+                        bands("Discourse Management", 85, "Grammar and Vocabulary", 70)), TEACHER_ID);
+
+        assertThat(progress.getWritingScore()).isEqualByComparingTo("75");
+        // Thứ tự + nhãn giữ theo bản AI gốc, bất kể thứ tự client gửi.
+        assertThat(progress.getWritingCriteriaScores()).extracting(CriteriaScoreItem::criterion, CriteriaScoreItem::percent)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Grammar and Vocabulary", 70),
+                        org.assertj.core.groups.Tuple.tuple("Discourse Management", 85));
+        assertThat(attempt.getTeacherScore()).isEqualByComparingTo("75");
+        assertThat(attempt.getTeacherCriteriaScores()).hasSize(2);
+        assertThat(attempt.getCriteriaScores()).extracting(CriteriaScoreItem::percent).containsExactly(40, 60); // AI gốc không đổi
+    }
+
+    @Test
+    void reviewReflexStep_bands_v2SpeakingExcludesReferenceOnlyPronunciation() {
+        givenAssignedTeacher();
+        progress.setRubricVersion("v2");
+        ReflexQuestionProgressHistory attempt = new ReflexQuestionProgressHistory();
+        attempt.setAttemptType(ReflexQuestionProgressHistory.AttemptType.SPEAKING);
+        attempt.setAttemptNumber(1);
+        attempt.setScore(BigDecimal.valueOf(55));
+        attempt.setCriteriaScores(List.of(new CriteriaScoreItem("Grammar and Vocabulary", 50),
+                new CriteriaScoreItem("Pronunciation (tham khảo)", 90)));
+        when(reflexQuestionProgressHistoryRepository.findByReflexQuestionProgressIdAndAttemptTypeOrderByAttemptNumberAsc(
+                PROGRESS_ID, ReflexQuestionProgressHistory.AttemptType.SPEAKING)).thenReturn(List.of(attempt));
+
+        service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.SPEAKING,
+                new ReviewReflexStepRequest(null, null,
+                        bands("Grammar and Vocabulary", 80, "Pronunciation (tham khảo)", 10)), TEACHER_ID);
+
+        assertThat(progress.getSpeakingScore()).isEqualByComparingTo("80"); // Phát âm tham khảo không vào điểm mở khoá
+        assertThat(progress.getSpeakingCriteriaScores()).extracting(CriteriaScoreItem::percent).containsExactly(80, 10);
+    }
+
+    @Test
+    void reviewReflexStep_bands_v1UsesRoundedAverage() {
+        givenAssignedTeacher();
+        givenWritingAttempts(writingAttemptWithBands("50"));
+
+        service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(null, null,
+                        bands("Grammar and Vocabulary", 71, "Discourse Management", 70)), TEACHER_ID);
+
+        assertThat(progress.getWritingScore()).isEqualByComparingTo("71"); // 70,5 → 71
+    }
+
+    @Test
+    void reviewReflexStep_bands_rejectsMismatchedOrMissingBands() {
+        givenAssignedTeacher();
+        givenWritingAttempts(writingAttemptWithBands("50"));
+
+        assertThatThrownBy(() -> service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(null, null, bands("Grammar and Vocabulary", 70)), TEACHER_ID))
+                .isInstanceOf(AnswerNotManuallyGradableException.class);
+        assertThatThrownBy(() -> service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(null, null, bands("Grammar and Vocabulary", 70, "Other", 60)), TEACHER_ID))
+                .isInstanceOf(AnswerNotManuallyGradableException.class);
+        verify(reflexQuestionProgressRepository, never()).save(any());
+    }
+
+    @Test
+    void reviewReflexStep_bands_rejectsAttemptWithoutBands() {
+        givenAssignedTeacher();
+        givenWritingAttempts(writingAttempt(1, "50", "AI", "x"));
+
+        assertThatThrownBy(() -> service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(null, null, bands("Grammar and Vocabulary", 70)), TEACHER_ID))
+                .isInstanceOf(AnswerNotManuallyGradableException.class);
+    }
+
+    @Test
+    void reviewReflexStep_requiresTotalOrBands() {
+        givenAssignedTeacher();
+
+        assertThatThrownBy(() -> service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(null, null, null), TEACHER_ID))
+                .isInstanceOf(AnswerNotManuallyGradableException.class);
+    }
+
+    @Test
+    void reviewReflexStep_totalOnlyAfterBandEdit_dropsTeacherBands() {
+        givenAssignedTeacher();
+        ReflexQuestionProgressHistory attempt = writingAttemptWithBands("50");
+        attempt.setTeacherCriteriaScores(List.of(new CriteriaScoreItem("Grammar and Vocabulary", 70), new CriteriaScoreItem("Discourse Management", 85)));
+        givenWritingAttempts(attempt);
+
+        service.reviewReflexStep(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING,
+                new ReviewReflexStepRequest(BigDecimal.valueOf(90), null, null), TEACHER_ID);
+
+        assertThat(attempt.getTeacherCriteriaScores()).isNull();
+        assertThat(progress.getWritingCriteriaScores()).extracting(CriteriaScoreItem::percent).containsExactly(40, 60);
+    }
+
+    @Test
+    void selectReflexAttempt_mirrorsTeacherBandsOfChosenAttempt() {
+        givenAssignedTeacher();
+        ReflexQuestionProgressHistory first = writingAttemptWithBands("50");
+        first.setTeacherScore(BigDecimal.valueOf(75));
+        first.setTeacherCriteriaScores(List.of(new CriteriaScoreItem("Grammar and Vocabulary", 70), new CriteriaScoreItem("Discourse Management", 85)));
+        givenWritingAttempts(first, writingAttempt(2, "40", "b", "y"));
+
+        service.selectReflexAttempt(PROGRESS_ID, AiSecondGradingService.ReflexStep.WRITING, 1, TEACHER_ID);
+
+        assertThat(progress.getWritingCriteriaScores()).extracting(CriteriaScoreItem::percent).containsExactly(70, 85);
+        assertThat(progress.getWritingReviewedAt()).isNotNull();
     }
 }
