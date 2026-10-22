@@ -44,6 +44,8 @@ import vn.com.pps.education.security.JwtService;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.UUID;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -273,10 +275,12 @@ public class AuthService {
         User user = token.getUser();
         token.setRevokedAt(OffsetDateTime.now());
         token.setLastUsedAt(OffsetDateTime.now());
+        String familyId = familyOf(token);
+        token.setFamilyId(familyId);
         refreshTokenRepository.save(token);
 
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), rolesOf(user));
-        String newRefreshToken = issueRefreshToken(user, httpRequest);
+        String newRefreshToken = issueRefreshToken(user, httpRequest, familyId);
         return new RefreshTokenResponse(accessToken, newRefreshToken, jwtService.getAccessTokenTtlSeconds());
     }
 
@@ -291,8 +295,13 @@ public class AuthService {
      */
     private RefreshTokenResponse reissueAfterLostRotation(RefreshToken oldToken, HttpServletRequest httpRequest) {
         User user = oldToken.getUser();
+        String familyId = familyOf(oldToken);
+        if (oldToken.getFamilyId() == null) {
+            oldToken.setFamilyId(familyId);
+            refreshTokenRepository.save(oldToken);
+        }
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), rolesOf(user));
-        String newRefreshToken = issueRefreshToken(user, httpRequest);
+        String newRefreshToken = issueRefreshToken(user, httpRequest, familyId);
         return new RefreshTokenResponse(accessToken, newRefreshToken, jwtService.getAccessTokenTtlSeconds());
     }
 
@@ -300,9 +309,19 @@ public class AuthService {
     @Transactional
     public void logout(LogoutRequest request) {
         refreshTokenRepository.findByTokenHash(sha256(request.refreshToken())).ifPresent(token -> {
+            OffsetDateTime now = OffsetDateTime.now();
             if (token.getRevokedAt() == null) {
-                token.setRevokedAt(OffsetDateTime.now());
+                token.setRevokedAt(now);
                 refreshTokenRepository.save(token);
+            }
+            // V220 — đăng xuất thu hồi luôn token cùng họ (token mồ côi sau lần mất phản hồi refresh), nếu không lần đăng
+            // nhập kế tiếp của học sinh vẫn bị popup "đang đăng nhập ở thiết bị khác" dù thiết bị đó đã đăng xuất.
+            if (token.getFamilyId() != null) {
+                List<RefreshToken> sameFamily = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(token.getUser().getId()).stream()
+                        .filter(t -> token.getFamilyId().equals(t.getFamilyId()))
+                        .toList();
+                sameFamily.forEach(t -> t.setRevokedAt(now));
+                refreshTokenRepository.saveAll(sameFamily);
             }
         });
     }
@@ -402,9 +421,18 @@ public class AuthService {
         OffsetDateTime now = OffsetDateTime.now();
         List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId()).stream()
                 .filter(token -> token.getExpiresAt().isAfter(now))
-                .sorted(Comparator.comparing(RefreshToken::getIssuedAt).thenComparing(RefreshToken::getId))
                 .toList();
-        int excess = activeTokens.size() - limit + 1;
+        // Đếm theo HỌ token (V220), không theo từng token: token mồ côi sau lần mất phản hồi refresh cùng họ với token
+        // đang dùng nên không bị tính thành "thiết bị khác". Họ cũ nhất (theo hoạt động gần nhất) bị đẩy ra trước.
+        Map<String, List<RefreshToken>> families = new LinkedHashMap<>();
+        for (RefreshToken t : activeTokens) {
+            families.computeIfAbsent(t.getFamilyId() != null ? t.getFamilyId() : "token-" + t.getId(), k -> new ArrayList<>()).add(t);
+        }
+        List<List<RefreshToken>> orderedFamilies = families.values().stream()
+                .sorted(Comparator.comparing((List<RefreshToken> f) -> f.stream().map(RefreshToken::getIssuedAt).max(Comparator.naturalOrder()).orElse(now))
+                        .thenComparing(f -> f.get(0).getId()))
+                .toList();
+        int excess = orderedFamilies.size() - limit + 1;
         if (excess <= 0) {
             return;
         }
@@ -412,7 +440,7 @@ public class AuthService {
             throw new ActiveSessionExistsException("error.activeSessionExists.default", new Object[]{limit},
                     "Tài khoản của bạn đang đăng nhập ở thiết bị khác. Bạn có muốn đăng xuất?");
         }
-        List<RefreshToken> evicted = activeTokens.subList(0, excess);
+        List<RefreshToken> evicted = orderedFamilies.subList(0, excess).stream().flatMap(List::stream).toList();
         evicted.forEach(token -> token.setRevokedAt(now));
         refreshTokenRepository.saveAll(evicted);
     }
@@ -478,7 +506,16 @@ public class AuthService {
         loginAttemptRepository.save(attempt);
     }
 
+    /** Họ của token: kế thừa khi refresh; token cũ chưa có họ thì mở họ mới (UUID) cho chuỗi từ đây về sau. */
+    private String familyOf(RefreshToken token) {
+        return token.getFamilyId() != null ? token.getFamilyId() : UUID.randomUUID().toString();
+    }
+
     private String issueRefreshToken(User user, HttpServletRequest httpRequest) {
+        return issueRefreshToken(user, httpRequest, UUID.randomUUID().toString());
+    }
+
+    private String issueRefreshToken(User user, HttpServletRequest httpRequest, String familyId) {
         String rawToken = generateSecureRandomToken();
         RefreshToken token = new RefreshToken();
         token.setUser(user);
@@ -486,6 +523,7 @@ public class AuthService {
         token.setIpAddress(clientIpResolver.resolve(httpRequest));
         token.setDeviceInfo(httpRequest.getHeader("User-Agent"));
         token.setExpiresAt(OffsetDateTime.now().plusDays(refreshTokenTtlDays));
+        token.setFamilyId(familyId);
         refreshTokenRepository.save(token);
         return rawToken;
     }
