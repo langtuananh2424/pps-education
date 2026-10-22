@@ -43,6 +43,53 @@ public final class ReflexV2Scoring {
      */
     public static final int NO_EVIDENCE_P_CAP = 80;
 
+    /** Trần khi cổng "Lạc đề / vô nghĩa" kích hoạt — đồng nhất 20% ở mọi file rubric (6 bài viết + 5 bài nói đã kiểm tra). */
+    private static final int OFF_TOPIC_CAP = 20;
+
+    /** Mã cổng "lạc đề" theo {@link ReflexV2Task.GateScheme} — mirror {@link #buildGateNote}. */
+    private static String offTopicGateCode(ReflexV2Task task) {
+        return task.gateScheme() == ReflexV2Task.GateScheme.V3 ? "C2" : "C1";
+    }
+
+    /**
+     * Bổ sung 2026-10-22 (đã xác nhận với người dùng, phát hiện qua test thật — rubric mô tả cổng "Lạc đề"
+     * nhưng KHÔNG CÓ chỗ nào áp trần % thật, chỉ ghi vào {@code gates}/{@code buildGateNote} để hiện thông
+     * báo — nghĩa là điểm số hoàn toàn phụ thuộc AI có tự giác chấm thấp hay không, không có trần tất định
+     * như các cổng khác). Bài VIẾT: rubric quy định trần {@value #OFF_TOPIC_CAP}% cho TẤT CẢ tiêu chí kể cả
+     * Ngữ pháp (khác bài NÓI, xem {@link #applySpeakingOffTopicCap}) — kiểm tra đồng nhất ở cả 6 file rubric
+     * viết (`rubrics-v3/rubric-grade*-writing.md`).
+     */
+    public static List<CriterionScore> applyWritingOffTopicCap(ReflexV2Task task, List<CriterionScore> criteria, List<String> gates) {
+        if (!gates.contains(offTopicGateCode(task))) {
+            return criteria;
+        }
+        List<CriterionScore> out = new ArrayList<>();
+        for (CriterionScore c : criteria) {
+            out.add(c.cappedTo(OFF_TOPIC_CAP, "lạc đề (cổng " + offTopicGateCode(task) + ")"));
+        }
+        return out;
+    }
+
+    /**
+     * Như {@link #applyWritingOffTopicCap} nhưng cho bài NÓI — rubric CHỈ trần tiêu chí nội dung/mạch ý
+     * (DM cho Cambridge, FC+LR cho IELTS; Khối 6 không có tiêu chí nào ngoài GV/P nên cổng này không áp
+     * được — đúng với việc file rubric Khối 6 không có dòng C1 "lạc đề"), KHÔNG trần Ngữ pháp (vẫn chấm
+     * đúng cấu trúc câu dù lạc đề) và KHÔNG trần Phát âm (không liên quan nội dung) — kiểm tra đồng nhất ở
+     * 5 file rubric nói (grade7 Cambridge/IELTS, grade8 Cambridge/IELTS, grade9 IELTS).
+     */
+    public static List<CriterionScore> applySpeakingOffTopicCap(ReflexV2Task task, List<CriterionScore> criteria, List<String> gates) {
+        if (!gates.contains(offTopicGateCode(task))) {
+            return criteria;
+        }
+        String grammarCode = task.grammarCode();
+        List<CriterionScore> out = new ArrayList<>();
+        for (CriterionScore c : criteria) {
+            boolean exempt = c.code().equals(grammarCode) || c.code().equals(ReflexV2Task.PRONUNCIATION_CODE);
+            out.add(exempt ? c : c.cappedTo(OFF_TOPIC_CAP, "lạc đề (cổng " + offTopicGateCode(task) + ")"));
+        }
+        return out;
+    }
+
     public record CriterionScore(String code, int percent, boolean cappedByRedErrors, Integer floorPercent, List<String> caps) {
 
         public CriterionScore(String code, int percent, boolean cappedByRedErrors) {

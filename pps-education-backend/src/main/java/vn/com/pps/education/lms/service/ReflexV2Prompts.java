@@ -206,6 +206,19 @@ public class ReflexV2Prompts {
                 + "- \"quote\" phải trích y hệt từng ký tự trong văn bản gốc, không thêm, không bớt, không sửa.";
     }
 
+    /**
+     * Bổ sung 2026-10-22 (đã xác nhận với người dùng, phát hiện qua test thật) — rubric §2 đã định nghĩa
+     * cổng C1 "Lạc đề" (không trả lời câu hỏi), nhưng test thật cho thấy AI dễ bỏ sót khi bài viết TRÔI
+     * CHẢY/ĐÚNG NGỮ PHÁP nhưng trả lời SAI CHỦ ĐỀ (VD hỏi "Is it important to eat healthy food?" nhưng bài
+     * viết nói về giấc ngủ) — AI có xu hướng chỉ đánh giá độ trôi chảy mà quên đối chiếu nghiêm với đúng
+     * câu hỏi. Thêm bước BẮT BUỘC riêng (không sửa file rubric gốc của người training — chỉ tăng cường chỉ
+     * dẫn ở tầng code) nhắc đối chiếu từng câu với ĐÚNG đề bài trước khi quyết định gate.
+     */
+    private static final String OFF_TOPIC_CHECK_REMINDER = "## KIỂM TRA LẠC ĐỀ (BẮT BUỘC làm TRƯỚC khi chấm checkpoint, trước khi quyết định gate C1/C2)\n"
+            + "- Đọc lại ĐÚNG câu hỏi ở \"ĐỀ BÀI\" trong tin nhắn người dùng, rồi tự hỏi: bài làm có thực sự trả lời đúng ý được hỏi, hay đang nói về chủ đề/câu hỏi KHÁC?\n"
+            + "- Câu văn trôi chảy, đúng ngữ pháp, nghe hợp lý KHÔNG đồng nghĩa với đúng đề — một bài viết/nói hay nhưng lạc đề vẫn PHẢI gắn gate lạc đề theo đúng rubric §2, dù không có lỗi ngữ pháp nào.\n"
+            + "- Chỉ MIỄN gate khi câu trả lời thực sự giải quyết đúng câu hỏi (kể cả trả lời ngắn gọn/gián tiếp nhưng đúng trọng tâm) — không miễn chỉ vì câu văn nghe tự nhiên.";
+
     private static final String OUTPUT_OVERRIDE = "## ĐỊNH DẠNG ĐẦU RA\n"
             + "- Trả về JSON đúng schema. Không có trường nào được chứa dạng đúng, cách sửa hay đáp án mẫu.\n"
             + "- Làm đủ các bước của rubric theo thứ tự: đếm (ghi vào counting_notes) → cổng chặn → checkpoint → đối chiếu bài neo → nhận xét.\n"
@@ -237,6 +250,7 @@ public class ReflexV2Prompts {
                 + "Checkpoint chỉ đo được bằng âm thanh (chỗ ngắt, im lặng) → 1 nếu phần còn lại của tiêu chí đạt, không thì 0,5.\n"
                 + "- Từ sai chính tả: giữ nguyên, tô tag \"chinh_ta\"; tính lỗi dùng từ nếu biến thành từ khác hoặc không nhận ra.\n"
                 + "- \"highlights\" trích từ bài viết của học sinh.\n\n"
+                + OFF_TOPIC_CHECK_REMINDER + "\n\n"
                 + OUTPUT_OVERRIDE + "\n\n" + highlightRules(task) + "\n\n"
                 + "## JSON SCHEMA\n" + gradingSchema(codes).toString();
     }
@@ -285,6 +299,7 @@ public class ReflexV2Prompts {
                 + "- **KHÔNG tự áp cổng độ dài (C3).** Số từ và thời gian nói đã được hệ thống đo chính xác và áp trần ở khâu tính điểm. "
                 + "Bạn chấm checkpoint theo đúng nội dung nghe được; đừng tự hạ điểm vì cho rằng bài ngắn.\n"
                 + "- \"highlights\" trích từ transcript. Từ phát âm sai tô bằng tag phát âm (phat_am, am_cuoi, trong_am, khong_ro); lỗi ngôn ngữ tô bằng tag ngữ pháp/từ vựng.\n\n"
+                + OFF_TOPIC_CHECK_REMINDER + "\n\n"
                 + OUTPUT_OVERRIDE + "\n\n" + highlightRules(task) + "\n\n"
                 + "## JSON SCHEMA\n" + gradingSchema(codes).toString();
     }

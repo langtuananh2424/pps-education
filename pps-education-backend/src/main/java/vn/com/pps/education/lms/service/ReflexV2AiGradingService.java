@@ -134,12 +134,26 @@ public class ReflexV2AiGradingService {
     // ===================== Bước 1: chấm bài viết =====================
 
     public WritingResult gradeWriting(ReflexV2Task task, String question, String text) {
+        return gradeWriting(task, question, text, null);
+    }
+
+    /**
+     * Overload CHỈ dùng cho spike (2026-10-22, đã xác nhận với người dùng — {@code SpeakingAiGradingTestService},
+     * đánh giá khả thi chuyển khỏi 9Router cho ĐÚNG luồng Viết câu ngắn → Nói, KHÔNG phải Essay UC-40/41) —
+     * cho phép thay nguồn gọi AI bằng 1 hàm tự truyền vào, để so sánh model khác (VD Claude gọi thẳng)
+     * TRÊN CÙNG prompt/rubric v2-v3 thật ({@link ReflexV2Prompts}) và CÙNG logic hậu kiểm checkpoint thật
+     * ({@link ReflexV2Scoring}). {@code aiCallerOverride == null} (mọi caller nghiệp vụ thật, qua overload
+     * 3-tham-số ở trên) giữ NGUYÊN hành vi cũ — gọi {@link NineRouterAiClient} như trước.
+     */
+    public WritingResult gradeWriting(ReflexV2Task task, String question, String text,
+                                       java.util.function.BiFunction<String, String, NineRouterAiClient.AiJsonResponse> aiCallerOverride) {
         if (text == null || text.isBlank()) {
             return null;
         }
-        NineRouterAiClient.AiJsonResponse response = nineRouterAiClient.chatJson(
-                prompts.writingSystem(task), prompts.writingUser(question, text), model,
-                prompts.gradingSchema(task.writingCriteria()));
+        NineRouterAiClient.AiJsonResponse response = aiCallerOverride != null
+                ? aiCallerOverride.apply(prompts.writingSystem(task), prompts.writingUser(question, text))
+                : nineRouterAiClient.chatJson(prompts.writingSystem(task), prompts.writingUser(question, text), model,
+                        prompts.gradingSchema(task.writingCriteria()));
         if (response == null) {
             log.warn("ReflexV2AiGradingService: 9Router chấm bài viết thất bại.");
             return null;
@@ -152,6 +166,10 @@ public class ReflexV2AiGradingService {
                     ReflexV2Scoring.computeScores(task, task.writingCriteria(), data), redCount);
             List<ReflexV2Scoring.CriterionScore> capped = ReflexV2Scoring.applyErrorCaps(
                     task, scored.criteria(), highlights, ReflexV2Scoring.ErrorEvidence.NONE);
+            // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — cổng "Lạc đề" trước đây chỉ hiện thông báo
+            // (buildGateNote), KHÔNG có trần % thật — điểm phụ thuộc hoàn toàn AI tự giác. Giờ ép trần tất
+            // định theo đúng rubric (xem Javadoc ReflexV2Scoring#applyWritingOffTopicCap).
+            capped = ReflexV2Scoring.applyWritingOffTopicCap(task, capped, scored.gates());
             int grammarPercent = capped.stream()
                     .filter(c -> c.code().equals(task.grammarCode())).mapToInt(ReflexV2Scoring.CriterionScore::percent)
                     .findFirst().orElse(0);
@@ -310,6 +328,9 @@ public class ReflexV2AiGradingService {
                 // Trần theo lỗi đã tô trên transcript không được đụng tới điểm đã giữ từ Bước 1.
                 capped = ReflexV2Scoring.keepGrammarFromStep1(grammar, capped, anchor.grammarPercent());
             }
+            // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — cổng "Lạc đề" trước đây chỉ hiện thông báo,
+            // không có trần % thật — xem Javadoc ReflexV2Scoring#applySpeakingOffTopicCap.
+            capped = ReflexV2Scoring.applySpeakingOffTopicCap(task, capped, scored.gates());
             // Bản 1/10 — ép lưới 10 là BƯỚC CUỐI, sau mọi trần/sàn khác (xem Javadoc snapToGrid10).
             capped = ReflexV2Scoring.snapToGrid10(capped);
             // Quy trình phòng đào tạo 29/9: chỉ MỘT lượt phiên âm nên vài từ nghe nhầm có thể thành lỗi đỏ ngữ pháp

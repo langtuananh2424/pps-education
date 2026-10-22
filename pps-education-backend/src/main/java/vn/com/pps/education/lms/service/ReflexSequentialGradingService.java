@@ -21,6 +21,7 @@ import vn.com.pps.education.lms.domain.ReviewVideoAssignment;
 import vn.com.pps.education.lms.domain.ReviewVideoQuestion;
 import vn.com.pps.education.lms.domain.ReviewVideoSet;
 import vn.com.pps.education.student.domain.Student;
+import vn.com.pps.education.lms.dto.PronunciationWordDetail;
 import vn.com.pps.education.lms.dto.ReflexQuestionProgressResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
@@ -31,6 +32,8 @@ import vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.lms.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.lms.repository.ReviewVideoQuestionRepository;
 import vn.com.pps.education.student.repository.StudentRepository;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -73,6 +76,8 @@ public class ReflexSequentialGradingService {
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
     private static final String AI_GRADING_FAILED_FEEDBACK = "Không chấm được tự động — vui lòng thử nộp lại.";
+    /** Chỉ dùng để đọc lại {@code pronunciationWords} từ {@code speakingAudit} (jsonb) — xem {@link #extractPronunciationWords}. */
+    private static final ObjectMapper AUDIT_OBJECT_MAPPER = new ObjectMapper();
 
     /** (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07) — số lần nộp tối đa mỗi BƯỚC (viết/nói), xem Javadoc lớp. */
     static final int MAX_STEP_ATTEMPTS = 3;
@@ -87,6 +92,7 @@ public class ReflexSequentialGradingService {
     private final ReflexWritingGrammarAiGradingService writingGradingService;
     private final ReflexSpeakingContentAiGradingService speakingGradingService;
     private final ReflexV2AiGradingService reflexV2GradingService;
+    private final AiGradingFallbackService aiGradingFallbackService;
     private final AiGradingTokenUsageRecorder tokenUsageRecorder;
     private final TransactionTemplate tx;
 
@@ -109,6 +115,7 @@ public class ReflexSequentialGradingService {
                                            ReflexWritingGrammarAiGradingService writingGradingService,
                                            ReflexSpeakingContentAiGradingService speakingGradingService,
                                            ReflexV2AiGradingService reflexV2GradingService,
+                                           AiGradingFallbackService aiGradingFallbackService,
                                            AiGradingTokenUsageRecorder tokenUsageRecorder,
                                            PlatformTransactionManager transactionManager) {
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
@@ -121,6 +128,7 @@ public class ReflexSequentialGradingService {
         this.writingGradingService = writingGradingService;
         this.speakingGradingService = speakingGradingService;
         this.reflexV2GradingService = reflexV2GradingService;
+        this.aiGradingFallbackService = aiGradingFallbackService;
         this.tokenUsageRecorder = tokenUsageRecorder;
         this.tx = new TransactionTemplate(transactionManager);
     }
@@ -146,7 +154,10 @@ public class ReflexSequentialGradingService {
         ReflexWritingGrammarAiGradingService.GradeResult v1Result = null;
         if (prep.v2Task().isPresent()) {
             ReflexV2Task task = prep.v2Task().get();
-            v2Result = reflexV2GradingService.gradeWriting(task, gradingQuestionText(question, task), answerText);
+            // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — qua AiGradingFallbackService: thử Claude
+            // trực tiếp trước (chỉ khi app.ai-grading.claude-direct.enabled=true), lỗi thì tự rơi về
+            // 9Router — KHÔNG đổi hành vi khi cờ tắt (mặc định).
+            v2Result = aiGradingFallbackService.gradeReflexWritingWithFallback(task, gradingQuestionText(question, task), answerText);
             recordUsage(AiGradingTokenUsage.Step.WRITING, "chatJson", v2Result == null ? null : v2Result.usage(), progress);
             // Câu đã sửa (V141) sinh ở lệnh gọi AI RIÊNG, chỉ khi nộp từ lần thứ 3 mà vẫn chưa đạt.
             if (v2Result != null && v2Result.step1Percent() < passThresholdPercent(progress) && progress.getWritingAttemptCount() >= 3) {
@@ -273,8 +284,13 @@ public class ReflexSequentialGradingService {
             // Chi phí từng lượt AI được ghi qua sink ngay khi AI trả về — kể cả khi sau đó bị từ chối / parse
             // lỗi (recorder chạy REQUIRES_NEW nên không bị rollback theo, cùng lý do với lượt nộp ở trên).
             ReflexQuestionProgress usageContext = progress;
+            // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — qua AiGradingFallbackService: thử pipeline
+            // trực tiếp Groq+Claude+Azure trước (chỉ khi app.ai-grading.claude-direct.enabled=true), lỗi
+            // BẤT KỲ bước nào thì rơi về TOÀN BỘ luồng 9Router/Gemini gốc (fallback cả cụm, không trộn giữa
+            // chừng — xem Javadoc AiGradingFallbackService). ReflexAudioRejectedException vẫn ném thẳng y
+            // hệt trước (không đổi hành vi 422), KHÔNG đổi hành vi khi cờ tắt (mặc định).
             ReflexV2AiGradingService.SpeakingResult result = audioFile == null ? null
-                    : reflexV2GradingService.gradeSpeaking(v2Task.get(), gradingQuestionText(question, v2Task.get()), audioFile.bytes(), audioFile.contentType(), locked,
+                    : aiGradingFallbackService.gradeReflexSpeakingWithFallback(v2Task.get(), gradingQuestionText(question, v2Task.get()), audioFile.bytes(), audioFile.contentType(), locked,
                             (step, usage) -> recordUsage(step, "chatWithAudioJson", usage, usageContext));
             v2Speaking = result;
         } else {
@@ -356,6 +372,27 @@ public class ReflexSequentialGradingService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{assignmentId}, "Không tìm thấy lần giao id=" + assignmentId));
         return reflexQuestionProgressRepository.findByReviewVideoAssignmentIdAndStudentId(assignmentId, student.getId())
                 .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — proxy tải lại CHÍNH audio đã ghi âm của học
+     * sinh qua backend, phục vụ vẽ dạng sóng âm (Web Audio API cần đọc được byte audio, nhưng bucket R2
+     * public-base-url KHÔNG bật CORS cho fetch() — chỉ ổn cho {@code <audio src>} phát trực tiếp, không
+     * đọc được byte qua JS). Audio phát qua thẻ {@code <audio>} vẫn trỏ thẳng audioUrl như cũ, KHÔNG đổi
+     * — chỉ FE gọi thêm endpoint này riêng cho việc vẽ waveform. Dùng lại đúng {@link #resolveStudentAccessForAssignment}
+     * để đảm bảo chỉ xem được audio của CHÍNH học sinh đang đăng nhập, không phải audio bất kỳ.
+     */
+    @Transactional(readOnly = true)
+    public MediaStorageService.DownloadedFile downloadSpeakingAudio(Long questionId, Long assignmentId, Long actorUserId) {
+        ReviewVideoQuestion question = getQuestionOrThrow(questionId);
+        StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
+        ReflexQuestionProgress progress = reflexQuestionProgressRepository
+                .findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(questionId, access.student().getId(), assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.questionNotFound", new Object[]{questionId}, "Không tìm thấy tiến trình câu hỏi id=" + questionId));
+        if (progress.getAudioUrl() == null) {
+            throw new ResourceNotFoundException("error.reviewVideo.questionNotFound", new Object[]{questionId}, "Câu hỏi id=" + questionId + " chưa có bản ghi âm.");
+        }
+        return mediaStorageService.downloadWithContentType(progress.getAudioUrl());
     }
 
     // ===================== Helpers =====================
@@ -714,6 +751,7 @@ public class ReflexSequentialGradingService {
                 p.getSpeakingTranscript(),
                 p.getSpeakingHint(),
                 p.getSpeakingCriteriaScores(),
+                extractPronunciationWords(p.getSpeakingAudit()),
                 speakingPassed,
                 p.getSpeakingAttemptCount(),
                 questionPassed,
@@ -724,6 +762,29 @@ public class ReflexSequentialGradingService {
                 MAX_STEP_ATTEMPTS,
                 questionFinalized,
                 p.getUpdatedAt());
+    }
+
+    /**
+     * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — đọc lại {@code pronunciationWords} (Azure, từng từ/
+     * âm vị) đã ghi vào {@code speaking_audit} ở {@link AiGradingFallbackService#gradeSpeakingDirectPipeline}.
+     * Hibernate đọc jsonb thành {@code List<LinkedHashMap>} (không giữ kiểu record gốc) nên phải convert lại
+     * bằng Jackson — null an toàn khi chưa chấm/chấm bằng luồng cũ (không có key này)/parse lỗi.
+     */
+    private List<PronunciationWordDetail> extractPronunciationWords(Map<String, Object> speakingAudit) {
+        if (speakingAudit == null) {
+            return null;
+        }
+        Object raw = speakingAudit.get("pronunciationWords");
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return AUDIT_OBJECT_MAPPER.convertValue(raw,
+                    AUDIT_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, PronunciationWordDetail.class));
+        } catch (Exception e) {
+            log.warn("ReflexSequentialGradingService: parse pronunciationWords từ speakingAudit thất bại. {}", e.getMessage());
+            return null;
+        }
     }
 
     // ---- Mirror ReviewVideoService (private ở đó, không expose được) — xem Javadoc lớp. ----
