@@ -27,6 +27,7 @@
   },
   "errors": {
     "requestTimeout": "The network is slow or offline and the request timed out. Please try again.",
+    "sessionRefreshUnavailable": "Cannot reach the server to keep you signed in. Your work is kept — please try again in a few seconds.",
     "imageTooLarge": "The image is too large (max {{maxMb}}MB). Please choose another one."
   }
 }

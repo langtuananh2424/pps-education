@@ -50,6 +50,8 @@ public record ReflexQuestionProgressHistoryResponse(
         String reviewerName,
         OffsetDateTime reviewedAt,
         /** V217 — giáo viên đã chọn lần này làm kết quả chính thức (khác mặc định "lần mới nhất"). */
-        boolean selectedByTeacher
+        boolean selectedByTeacher,
+        /** Điểm từng band AI gốc khi giáo viên đã sửa band của lần này (khi đó {@link #criteriaScores} là bản của giáo viên); null = chưa sửa band. */
+        List<CriteriaScoreItem> aiCriteriaScores
 ) {
 }
