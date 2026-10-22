@@ -65,11 +65,15 @@ public class ReviewVideo extends BaseAuditEntity {
     /**
      * Chỉ có ý nghĩa với videoType=CONNECTION — % (số lượt đạt / tổng lượt yêu
      * cầu) để phía học viên hiện popup nhắc "đã đạt tiêu chí, muốn dừng hay làm
-     * tiếp" (V167, mặc định 70). Độc lập với completionThresholdPercent (ngưỡng
-     * % pass điểm trắc nghiệm) và requiredViewCount (số lượt tối thiểu hoàn thành).
+     * tiếp" (V167, mặc định 100 từ V218 — trước đó 70). Độc lập với
+     * completionThresholdPercent (ngưỡng % pass điểm trắc nghiệm) và
+     * requiredViewCount (số lượt tối thiểu hoàn thành). V218 (bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng 2026-10-21) — PM chốt CONNECTION phải xem
+     * HẾT đủ requiredViewCount lượt mới tính hoàn thành; 100% tắt hẳn nhánh dừng
+     * sớm theo mặc định (xem ReviewVideoService#createVideo).
      */
     @Column(name = "session_pass_ratio_threshold_percent", nullable = false)
-    private int sessionPassRatioThresholdPercent = 70;
+    private int sessionPassRatioThresholdPercent = 100;
 
     /**
      * Chỉ có ý nghĩa với videoType=REFLEX (bổ sung ngoài SDD gốc, đã xác nhận với người dùng

@@ -26,3 +26,25 @@ export function clearTokens(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
+
+const SESSION_ENDED_KEY = "pps_session_ended";
+
+/** Đánh dấu "bị đăng xuất vì phiên hết hiệu lực" để trang đăng nhập giải thích lý do (thay vì đá ra im lặng). */
+export function markSessionEnded(): void {
+  try {
+    localStorage.setItem(SESSION_ENDED_KEY, "1");
+  } catch {
+    /* localStorage bị chặn (chế độ riêng tư) — bỏ qua, chỉ mất dòng giải thích */
+  }
+}
+
+/** Đọc rồi xoá cờ — chỉ hiện giải thích đúng 1 lần. */
+export function consumeSessionEnded(): boolean {
+  try {
+    const ended = localStorage.getItem(SESSION_ENDED_KEY) === "1";
+    if (ended) localStorage.removeItem(SESSION_ENDED_KEY);
+    return ended;
+  } catch {
+    return false;
+  }
+}
