@@ -469,7 +469,7 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
       return;
     }
     const ratio = progressSummary.requiredViewCount > 0 ? (progressSummary.viewCount / progressSummary.requiredViewCount) * 100 : 0;
-    const threshold = video.sessionPassRatioThresholdPercent ?? 70;
+    const threshold = video.sessionPassRatioThresholdPercent ?? 100;
     if (ratio >= threshold && !thresholdPopupShownRef.current) {
       thresholdPopupShownRef.current = true;
       setThresholdPopupOpen(true);
@@ -739,7 +739,7 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
               {t("reviewVideoTask.thresholdPopup.description", {
                 achieved: progressSummary.viewCount,
                 required: progressSummary.requiredViewCount,
-                threshold: video.sessionPassRatioThresholdPercent ?? 70
+                threshold: video.sessionPassRatioThresholdPercent ?? 100
               })}
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
