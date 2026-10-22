@@ -83,6 +83,10 @@ public record ReflexQuestionProgressResponse(
          * vì hết lượt bước nói cũng phải cho qua câu, dù câu đó coi là KHÔNG đạt ({@code questionPassed=false}).
          */
         boolean questionFinalized,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        /** V222 — trạng thái chấm AI bước viết: NONE/PENDING/GRADED/FAILED/REJECTED. PENDING = đang chờ hàng đợi, FE hỏi lại đến khi khác PENDING. */
+        String writingGradingStatus,
+        /** V222 — như {@code writingGradingStatus}, cho bước nói. */
+        String speakingGradingStatus
 ) {
 }

@@ -215,6 +215,8 @@
     "micAccessError": "Không truy cập được microphone — kiểm tra quyền trình duyệt rồi thử lại.",
     "questionsLoadError": "Không tải được danh sách câu hỏi.",
     "submitError": "Chấm bài thất bại — thử lại.",
+    "gradingStillPending": "Bài đang được chấm nhưng chưa xong — vui lòng đợi một lát rồi tải lại trang để xem kết quả.",
+    "gradingFailedTeacher": "Hệ thống chưa chấm tự động được bài này. Lượt nộp của bạn không bị trừ, giáo viên sẽ chấm giúp — bạn cứ làm tiếp phần sau.",
     "notAssignedError": "Video này chưa được giao thành BTVN cho bạn — không thể nộp bài.",
     "micPermissionError": "Cần cấp quyền micro để làm bài — vui lòng cho phép truy cập microphone (biểu tượng khóa trên thanh địa chỉ) rồi bấm lại.",
     "loadingQuestions": "Đang tải câu hỏi...",

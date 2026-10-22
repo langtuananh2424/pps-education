@@ -333,6 +333,20 @@ app:
       # ffmpeg chuyển webm/mp4 -> WAV để đo tiếng nói (bộ chặn transcript bịa). Không có ffmpeg thì bộ chặn không chạy.
       ffmpeg-path: ${REFLEX_V2_FFMPEG_PATH:ffmpeg}
       ffmpeg-timeout-seconds: ${REFLEX_V2_FFMPEG_TIMEOUT_SECONDS:20}
+  # UC-23b — hàng đợi chấm AI Clip phản xạ (V222). MẶC ĐỊNH TẮT = chấm đồng bộ trong request như cũ.
+  reflex-queue:
+    enabled: ${REFLEX_QUEUE_ENABLED:false}
+    # Số luồng worker MỖI LÀN (cấu hình được để scale/cân bằng tải khi đổi nhà cung cấp AI).
+    writing-concurrency: ${REFLEX_QUEUE_WRITING_CONCURRENCY:3}
+    speaking-concurrency: ${REFLEX_QUEUE_SPEAKING_CONCURRENCY:2}
+    poll-interval-ms: ${REFLEX_QUEUE_POLL_INTERVAL_MS:1000}
+    # Tối đa số lần thử AI cho 1 job; hết số lần mà vẫn lỗi -> FAILED, hoàn lượt, chuyển giáo viên chấm tay.
+    max-tries: ${REFLEX_QUEUE_MAX_TRIES:5}
+    # Chờ trước lần thử kế tiếp (giây), phần tử thứ i dùng cho lần thử lại thứ i+1; mỗi khoảng <= 60s.
+    writing-backoff-seconds: ${REFLEX_QUEUE_WRITING_BACKOFF_SECONDS:5,10,20,40,60}
+    speaking-backoff-seconds: ${REFLEX_QUEUE_SPEAKING_BACKOFF_SECONDS:10,30,60,60,60}
+    # Job RUNNING quá lâu (worker chết giữa chừng) được đưa về QUEUED.
+    stale-after-seconds: ${REFLEX_QUEUE_STALE_AFTER_SECONDS:300}
   ai-comment-draft:
     # UC-74 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-28) - trợ lý AI soạn nháp nhận xét
     # hàng ngày từ audio, xem CommentAiDraftService. STT dùng lại nine-router-stt-model ở trên.

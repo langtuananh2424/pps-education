@@ -10,6 +10,7 @@ import vn.com.pps.education.common.ReflexV2Scoring;
 import vn.com.pps.education.exception.AnswerNotManuallyGradableException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.lms.domain.ReflexGradingStatus;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgress;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgressHistory;
 import vn.com.pps.education.lms.dto.ReviewReflexStepRequest;
@@ -86,8 +87,12 @@ public class AiSecondGradingService {
         String feedback = request.feedback() == null || request.feedback().isBlank() ? null : request.feedback().trim();
         OffsetDateTime now = OffsetDateTime.now();
         boolean writing = step == ReflexStep.WRITING;
-        if (writing ? progress.getWritingScore() == null || progress.getWritingGradedAt() == null
-                : progress.getSpeakingScore() == null || progress.getSpeakingGradedAt() == null) {
+        // V222 — bước FAILED (AI lỗi hết số lần thử, hàng đợi hoàn lượt và chuyển giáo viên chấm tay) chưa có điểm AI
+        // nhưng vẫn phải chấm được; chấm xong coi như đã có kết quả (GRADED).
+        ReflexGradingStatus stepStatus = writing ? progress.getWritingGradingStatus() : progress.getSpeakingGradingStatus();
+        boolean manualFallback = stepStatus == ReflexGradingStatus.FAILED;
+        if (!manualFallback && (writing ? progress.getWritingScore() == null || progress.getWritingGradedAt() == null
+                : progress.getSpeakingScore() == null || progress.getSpeakingGradedAt() == null)) {
             throw notAiGraded();
         }
         Optional<ReflexQuestionProgressHistory> official = officialAttempt(attemptsOf(progress, step));
@@ -117,6 +122,10 @@ public class AiSecondGradingService {
             progress.setWritingCorrectedAnswer(null);
             progress.setWritingReviewedBy(actor);
             progress.setWritingReviewedAt(now);
+            if (manualFallback) {
+                progress.setWritingGradedAt(now);
+                progress.setWritingGradingStatus(ReflexGradingStatus.GRADED);
+            }
         } else {
             if (progress.getSpeakingReviewedAt() == null) {
                 progress.setSpeakingAiScore(progress.getSpeakingScore());
@@ -128,6 +137,10 @@ public class AiSecondGradingService {
             progress.setSpeakingCriteriaScores(shownBands);
             progress.setSpeakingReviewedBy(actor);
             progress.setSpeakingReviewedAt(now);
+            if (manualFallback) {
+                progress.setSpeakingGradedAt(now);
+                progress.setSpeakingGradingStatus(ReflexGradingStatus.GRADED);
+            }
         }
         reflexQuestionProgressRepository.save(progress);
 

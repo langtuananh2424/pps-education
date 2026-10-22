@@ -15,6 +15,8 @@ import vn.com.pps.education.common.ReflexV2Task;
 import vn.com.pps.education.lms.domain.AiGradingTokenUsage;
 import vn.com.pps.education.academic.domain.ClassEnrollment;
 import vn.com.pps.education.academic.domain.Curriculum;
+import vn.com.pps.education.lms.domain.ReflexGradingJob;
+import vn.com.pps.education.lms.domain.ReflexGradingStatus;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgress;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgressHistory;
 import vn.com.pps.education.lms.domain.ReviewVideoAssignment;
@@ -22,6 +24,7 @@ import vn.com.pps.education.lms.domain.ReviewVideoQuestion;
 import vn.com.pps.education.lms.domain.ReviewVideoSet;
 import vn.com.pps.education.student.domain.Student;
 import vn.com.pps.education.lms.dto.ReflexQuestionProgressResponse;
+import vn.com.pps.education.exception.ReflexAudioRejectedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
 import vn.com.pps.education.exception.SubmissionPastDeadlineException;
@@ -77,6 +80,8 @@ public class ReflexSequentialGradingService {
     /** (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07) — số lần nộp tối đa mỗi BƯỚC (viết/nói), xem Javadoc lớp. */
     static final int MAX_STEP_ATTEMPTS = 3;
 
+    private static final String GRADING_IN_PROGRESS_MESSAGE = "Bài của con đang được chấm — vui lòng đợi kết quả rồi hãy nộp lại.";
+
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
     private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
@@ -88,6 +93,8 @@ public class ReflexSequentialGradingService {
     private final ReflexSpeakingContentAiGradingService speakingGradingService;
     private final ReflexV2AiGradingService reflexV2GradingService;
     private final AiGradingTokenUsageRecorder tokenUsageRecorder;
+    private final ReflexQueueSettings queueSettings;
+    private final GradingJobQueue jobQueue;
     private final TransactionTemplate tx;
 
     /**
@@ -110,6 +117,8 @@ public class ReflexSequentialGradingService {
                                            ReflexSpeakingContentAiGradingService speakingGradingService,
                                            ReflexV2AiGradingService reflexV2GradingService,
                                            AiGradingTokenUsageRecorder tokenUsageRecorder,
+                                           ReflexQueueSettings queueSettings,
+                                           GradingJobQueue jobQueue,
                                            PlatformTransactionManager transactionManager) {
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
@@ -122,6 +131,8 @@ public class ReflexSequentialGradingService {
         this.speakingGradingService = speakingGradingService;
         this.reflexV2GradingService = reflexV2GradingService;
         this.tokenUsageRecorder = tokenUsageRecorder;
+        this.queueSettings = queueSettings;
+        this.jobQueue = jobQueue;
         this.tx = new TransactionTemplate(transactionManager);
     }
 
@@ -135,52 +146,80 @@ public class ReflexSequentialGradingService {
      * bất ngờ thì lượt vẫn tính, không rollback.
      */
     public ReflexQuestionProgressResponse submitWrittenAnswer(Long questionId, Long assignmentId, String answerText, Long actorUserId) {
+        if (queueSettings.isEnabled()) {
+            return enqueueWrittenAnswer(questionId, assignmentId, answerText, actorUserId);
+        }
         WritingPrep prep = tx.execute(status -> prepareWrittenAnswer(questionId, assignmentId, answerText, actorUserId));
         ReflexQuestionProgress progress = prep.progress();
-        ReviewVideoQuestion question = prep.question();
-        Curriculum curriculum = prep.curriculum();
 
         // ---- Pha 2: gọi AI, không giữ connection DB ----
-        ReflexV2AiGradingService.WritingResult v2Result = null;
-        ReflexV2AiGradingService.CorrectedAnswer corrected = null;
-        ReflexWritingGrammarAiGradingService.GradeResult v1Result = null;
+        WritingAiOutput output = callWritingAi(prep);
+
+        // ---- Pha 3: ghi kết quả ----
+        return tx.execute(status -> {
+            applyWritingOutput(progress, prep, output);
+            ReflexQuestionProgress saved = saveProgressOrReject(progress);
+            recordWritingHistory(saved);
+            return toResponse(saved);
+        });
+    }
+
+    /**
+     * Lưu dòng tiến trình; 2 lần nộp gần như đồng thời cho CÙNG câu chưa có dòng tiến trình vi phạm unique
+     * (review_video_question_id, student_id, assignment) → báo rõ thay vì 500 (hotfix 2026-10-21).
+     */
+    private ReflexQuestionProgress saveProgressOrReject(ReflexQuestionProgress progress) {
+        try {
+            return reflexQuestionProgressRepository.save(progress);
+        } catch (DataIntegrityViolationException e) {
+            // Hotfix 2026-10-21 — 2 lần nộp gần như đồng thời cho CÙNG câu chưa có dòng tiến trình (VD nộp lại khi
+            // lượt đầu đang chấm 40-90 giây): lượt đến sau vi phạm unique (review_video_question_id, student_id,
+            // assignment) và trước đây trả 500. Báo rõ để học sinh tải lại xem kết quả của lượt đầu.
+            throw new RetakeNotAllowedException("Câu trả lời của con đang được chấm ở một lần nộp khác — vui lòng đợi rồi tải lại trang để xem kết quả.");
+        }
+    }
+
+    /** Kết quả gọi AI chấm viết; {@code v2}/{@code corrected} khi dùng bộ v2, {@code v1} khi dùng luồng cũ. */
+    private record WritingAiOutput(ReflexV2AiGradingService.WritingResult v2,
+                                   ReflexV2AiGradingService.CorrectedAnswer corrected,
+                                   ReflexWritingGrammarAiGradingService.GradeResult v1) {
+        boolean failed(boolean v2Used) {
+            return v2Used ? v2 == null : v1 == null;
+        }
+    }
+
+    /**
+     * ĐIỂM GỌI AI DUY NHẤT của bước viết (cả luồng đồng bộ lẫn hàng đợi) — đổi nhà cung cấp AI chỉ sửa quanh đây
+     * và các service chấm được gọi ở đây. Không giữ transaction/connection DB.
+     */
+    private WritingAiOutput callWritingAi(WritingPrep prep) {
+        ReflexQuestionProgress progress = prep.progress();
+        ReviewVideoQuestion question = prep.question();
+        String answerText = progress.getAnswerText();
         if (prep.v2Task().isPresent()) {
             ReflexV2Task task = prep.v2Task().get();
-            v2Result = reflexV2GradingService.gradeWriting(task, gradingQuestionText(question, task), answerText);
+            ReflexV2AiGradingService.WritingResult v2Result = reflexV2GradingService.gradeWriting(task, gradingQuestionText(question, task), answerText);
             recordUsage(AiGradingTokenUsage.Step.WRITING, "chatJson", v2Result == null ? null : v2Result.usage(), progress);
             // Câu đã sửa (V141) sinh ở lệnh gọi AI RIÊNG, chỉ khi nộp từ lần thứ 3 mà vẫn chưa đạt.
+            ReflexV2AiGradingService.CorrectedAnswer corrected = null;
             if (v2Result != null && v2Result.step1Percent() < passThresholdPercent(progress) && progress.getWritingAttemptCount() >= 3) {
                 corrected = reflexV2GradingService.generateCorrectedAnswer(question.getPrompt(), answerText);
                 recordUsage(AiGradingTokenUsage.Step.CORRECTED_ANSWER, "chat", corrected == null ? null : corrected.usage(), progress);
             }
-        } else {
-            v1Result = writingGradingService.grade(answerText, question.getPrompt(), curriculum);
-            recordUsage(AiGradingTokenUsage.Step.WRITING, "chat", v1Result == null ? null : v1Result.usage(), progress);
+            return new WritingAiOutput(v2Result, corrected, null);
         }
+        ReflexWritingGrammarAiGradingService.GradeResult v1Result = writingGradingService.grade(answerText, question.getPrompt(), prep.curriculum());
+        recordUsage(AiGradingTokenUsage.Step.WRITING, "chat", v1Result == null ? null : v1Result.usage(), progress);
+        return new WritingAiOutput(null, null, v1Result);
+    }
 
-        // ---- Pha 3: ghi kết quả ----
-        ReflexV2AiGradingService.WritingResult finalV2 = v2Result;
-        ReflexV2AiGradingService.CorrectedAnswer finalCorrected = corrected;
-        ReflexWritingGrammarAiGradingService.GradeResult finalV1 = v1Result;
-        return tx.execute(status -> {
-            if (prep.v2Task().isPresent()) {
-                applyWritingResultV2(progress, finalV2, prep.v2Task().get(), finalCorrected);
-            } else {
-                progress.setRubricVersion(null);
-                applyWritingResult(progress, finalV1);
-            }
-            ReflexQuestionProgress saved;
-            try {
-                saved = reflexQuestionProgressRepository.save(progress);
-            } catch (DataIntegrityViolationException e) {
-                // Hotfix 2026-10-21 — 2 lần nộp gần như đồng thời cho CÙNG câu chưa có dòng tiến trình (VD nộp lại khi
-                // lượt đầu đang chấm 40-90 giây): lượt đến sau vi phạm unique (review_video_question_id, student_id,
-                // assignment) và trước đây trả 500. Báo rõ để học sinh tải lại xem kết quả của lượt đầu.
-                throw new RetakeNotAllowedException("Câu trả lời của con đang được chấm ở một lần nộp khác — vui lòng đợi rồi tải lại trang để xem kết quả.");
-            }
-            recordWritingHistory(saved);
-            return toResponse(saved);
-        });
+    private void applyWritingOutput(ReflexQuestionProgress progress, WritingPrep prep, WritingAiOutput output) {
+        if (prep.v2Task().isPresent()) {
+            applyWritingResultV2(progress, output.v2(), prep.v2Task().get(), output.corrected());
+        } else {
+            progress.setRubricVersion(null);
+            applyWritingResult(progress, output.v1());
+        }
     }
 
     /** Dữ liệu pha 1 → pha 2/3 của bước viết; mọi quan hệ lazy cần dùng đã được nạp sẵn (không còn session mở). */
@@ -195,6 +234,9 @@ public class ReflexSequentialGradingService {
         requireReflexVideo(question);
 
         ReflexQuestionProgress progress = findOrCreate(question, access.student(), access.assignment());
+        if (progress.getWritingGradingStatus() == ReflexGradingStatus.PENDING) {
+            throw new RetakeNotAllowedException(GRADING_IN_PROGRESS_MESSAGE);
+        }
         if (isWritingUnlocked(progress)) {
             throw new RetakeNotAllowedException("error.retakeNotAllowed.reflexWriting", new Object[]{MAX_STEP_ATTEMPTS},
                     "Bước viết của câu hỏi này đã hết lượt nộp (tối đa " + MAX_STEP_ATTEMPTS + ").");
@@ -239,7 +281,41 @@ public class ReflexSequentialGradingService {
         // Chống SSRF: audioUrl do học sinh gửi lên, server sẽ tự tải file này để chấm AI -> chỉ nhận URL
         // do chính hệ thống sinh ra lúc upload (xem MediaStorageService#requireStoredUrl).
         mediaStorageService.requireStoredUrl(audioUrl);
+        if (queueSettings.isEnabled()) {
+            return enqueueSpokenAnswer(questionId, assignmentId, audioUrl, recordingFilter, actorUserId);
+        }
         SpeakingPrep prep = tx.execute(status -> prepareSpokenAnswer(questionId, assignmentId, audioUrl, actorUserId));
+        ReflexQuestionProgress progress = prep.progress();
+
+        // ReflexAudioRejectedException (bản ghi không đọc được / nói khác bài viết) ném thẳng ra → HTTP 422,
+        // KHÔNG ghi điểm/feedback của lượt này. Lượt vẫn ĐƯỢC TÍNH vào giới hạn MAX_STEP_ATTEMPTS (xem
+        // incrementSpeakingAttemptCountInNewTransactionIfBelowLimit, đổi từ 2026-10-07 — trước đó KHÔNG tính,
+        // nhưng học sinh có thể né giới hạn bằng cách gửi bản ghi im lặng liên tục).
+        // ---- Pha 2: tải audio + gọi AI, không giữ connection DB ----
+        SpeakingAiOutput output = callSpeakingAi(prep, questionId, audioUrl);
+
+        // ---- Pha 3: ghi kết quả ----
+        return tx.execute(status -> {
+            applySpeakingOutput(progress, output, recordingFilter);
+            ReflexQuestionProgress saved = reflexQuestionProgressRepository.save(progress);
+            recordSpeakingHistory(saved, recordingFilter);
+            return toResponse(saved);
+        });
+    }
+
+    /** Kết quả gọi AI chấm nói; {@code v2Used} cho biết dùng bộ v2 (định tuyến theo rubricVersion của dòng) hay luồng cũ. */
+    private record SpeakingAiOutput(ReflexV2AiGradingService.SpeakingResult v2,
+                                    ReflexSpeakingContentAiGradingService.GradeResult v1, boolean v2Used) {
+        boolean failed() {
+            return v2Used ? v2 == null : v1 == null;
+        }
+    }
+
+    /**
+     * ĐIỂM GỌI AI DUY NHẤT của bước nói (cả luồng đồng bộ lẫn hàng đợi) — xem {@link #callWritingAi}. Không giữ
+     * transaction/connection DB. {@link ReflexAudioRejectedException} ném thẳng ra cho caller xử lý.
+     */
+    private SpeakingAiOutput callSpeakingAi(SpeakingPrep prep, Long questionId, String audioUrl) {
         ReflexQuestionProgress progress = prep.progress();
         ReviewVideoQuestion question = prep.question();
         Curriculum curriculum = prep.curriculum();
@@ -260,46 +336,32 @@ public class ReflexSequentialGradingService {
         // Định tuyến theo CHÍNH rubricVersion của dòng (không theo cờ hiện tại): câu đã chấm viết bằng v2/v3 thì
         // bước nói cũng dùng đúng bộ đó (cần điểm Ngữ pháp Bước 1 + bài viết làm mốc so đọc lệch) dù cờ hay
         // version hiện hành có bị đổi giữa chừng — câu chấm viết bằng v2 trước khi lên v3 vẫn chấm nói bằng v2.
-        ReflexV2AiGradingService.SpeakingResult v2Speaking = null;
-        ReflexSpeakingContentAiGradingService.GradeResult v1Speaking = null;
         Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, true, progress.getRubricVersion());
         if (v2Task.isPresent() && progress.getWritingLockedGrammarPercent() != null) {
             ReflexV2AiGradingService.Step1Anchor locked = new ReflexV2AiGradingService.Step1Anchor(
                     progress.getWritingLockedGrammarPercent().intValue(), progress.getAnswerText());
-            // ReflexAudioRejectedException (bản ghi không đọc được / nói khác bài viết) ném thẳng ra → HTTP 422,
-            // giao dịch rollback nên KHÔNG ghi điểm/feedback của lượt này. Lượt vẫn ĐƯỢC TÍNH vào giới hạn
-            // MAX_STEP_ATTEMPTS (xem incrementSpeakingAttemptCountInNewTransactionIfBelowLimit ở trên, đổi từ 2026-10-07 —
-            // trước đó KHÔNG tính, nhưng học sinh có thể né giới hạn bằng cách gửi bản ghi im lặng liên tục).
             // Chi phí từng lượt AI được ghi qua sink ngay khi AI trả về — kể cả khi sau đó bị từ chối / parse
             // lỗi (recorder chạy REQUIRES_NEW nên không bị rollback theo, cùng lý do với lượt nộp ở trên).
-            ReflexQuestionProgress usageContext = progress;
             ReflexV2AiGradingService.SpeakingResult result = audioFile == null ? null
                     : reflexV2GradingService.gradeSpeaking(v2Task.get(), gradingQuestionText(question, v2Task.get()), audioFile.bytes(), audioFile.contentType(), locked,
-                            (step, usage) -> recordUsage(step, "chatWithAudioJson", usage, usageContext));
-            v2Speaking = result;
-        } else {
-            ReflexSpeakingContentAiGradingService.GradeResult result =
-                    audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), curriculum);
-            recordUsage(AiGradingTokenUsage.Step.SPEAKING, "chatWithAudio", result == null ? null : result.usage(), progress);
-            v1Speaking = result;
+                            (step, usage) -> recordUsage(step, "chatWithAudioJson", usage, progress));
+            return new SpeakingAiOutput(result, null, true);
         }
-        // ---- Pha 3: ghi kết quả ----
-        ReflexV2AiGradingService.SpeakingResult finalV2 = v2Speaking;
-        ReflexSpeakingContentAiGradingService.GradeResult finalV1 = v1Speaking;
-        boolean v2Used = v2Task.isPresent() && progress.getWritingLockedGrammarPercent() != null;
-        return tx.execute(status -> {
-            if (v2Used) {
-                applySpeakingResultV2(progress, finalV2);
-                if (progress.getSpeakingAudit() != null && recordingFilter != null) {
-                    progress.getSpeakingAudit().put("recordingFilter", recordingFilter);
-                }
-            } else {
-                applySpeakingResult(progress, finalV1);
+        ReflexSpeakingContentAiGradingService.GradeResult result =
+                audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), curriculum);
+        recordUsage(AiGradingTokenUsage.Step.SPEAKING, "chatWithAudio", result == null ? null : result.usage(), progress);
+        return new SpeakingAiOutput(null, result, false);
+    }
+
+    private void applySpeakingOutput(ReflexQuestionProgress progress, SpeakingAiOutput output, Boolean recordingFilter) {
+        if (output.v2Used()) {
+            applySpeakingResultV2(progress, output.v2());
+            if (progress.getSpeakingAudit() != null && recordingFilter != null) {
+                progress.getSpeakingAudit().put("recordingFilter", recordingFilter);
             }
-            ReflexQuestionProgress saved = reflexQuestionProgressRepository.save(progress);
-            recordSpeakingHistory(saved, recordingFilter);
-            return toResponse(saved);
-        });
+        } else {
+            applySpeakingResult(progress, output.v1());
+        }
     }
 
     /** Dữ liệu pha 1 → pha 2/3 của bước nói; mọi quan hệ lazy cần dùng đã được nạp sẵn (không còn session mở). */
@@ -315,6 +377,9 @@ public class ReflexSequentialGradingService {
         ReflexQuestionProgress progress = findOrCreate(question, access.student(), access.assignment());
         if (!isWritingUnlocked(progress)) {
             throw new IllegalArgumentException("Phải đạt phần viết trước khi ghi âm câu hỏi này.");
+        }
+        if (progress.getSpeakingGradingStatus() == ReflexGradingStatus.PENDING) {
+            throw new RetakeNotAllowedException(GRADING_IN_PROGRESS_MESSAGE);
         }
         if (isSpeakingFinalized(progress)) {
             throw new RetakeNotAllowedException("error.retakeNotAllowed.reflexSpeaking", new Object[]{MAX_STEP_ATTEMPTS},
@@ -345,6 +410,177 @@ public class ReflexSequentialGradingService {
         Curriculum curriculum = question.getReviewVideo().getReviewVideoSet().getCurriculum();
         Hibernate.initialize(curriculum); // pha 2 chạy ngoài session — graders đọc gradeLevel/track
         return new SpeakingPrep(progress, question, curriculum);
+    }
+
+    // ===================== Hàng đợi chấm AI (V222, app.reflex-queue.enabled) =====================
+
+    /**
+     * Bật hàng đợi: bước viết KHÔNG gọi AI trong request — chỉ ghi câu trả lời, đánh dấu PENDING và xếp job vào làn
+     * WRITING (1 giao dịch ngắn, xong là trả về). Worker chấm sau; FE hỏi lại tiến trình đến khi hết PENDING.
+     */
+    private ReflexQuestionProgressResponse enqueueWrittenAnswer(Long questionId, Long assignmentId, String answerText, Long actorUserId) {
+        return tx.execute(status -> {
+            WritingPrep prep = prepareWrittenAnswer(questionId, assignmentId, answerText, actorUserId);
+            ReflexQuestionProgress progress = prep.progress();
+            progress.setWritingGradingStatus(ReflexGradingStatus.PENDING);
+            ReflexQuestionProgress saved = saveProgressOrReject(progress);
+            jobQueue.enqueue(saved.getId(), ReflexGradingJob.Lane.WRITING, saved.getWritingAttemptCount(), null);
+            return toResponse(saved);
+        });
+    }
+
+    /** Như {@link #enqueueWrittenAnswer}, cho bước nói (làn SPEAKING). */
+    private ReflexQuestionProgressResponse enqueueSpokenAnswer(Long questionId, Long assignmentId, String audioUrl,
+                                                               Boolean recordingFilter, Long actorUserId) {
+        return tx.execute(status -> {
+            SpeakingPrep prep = prepareSpokenAnswer(questionId, assignmentId, audioUrl, actorUserId);
+            ReflexQuestionProgress progress = prep.progress();
+            progress.setSpeakingGradingStatus(ReflexGradingStatus.PENDING);
+            ReflexQuestionProgress saved = reflexQuestionProgressRepository.save(progress);
+            jobQueue.enqueue(saved.getId(), ReflexGradingJob.Lane.SPEAKING, saved.getSpeakingAttemptCount(), recordingFilter);
+            return toResponse(saved);
+        });
+    }
+
+    /** Ngữ cảnh pha 1 của job: chỉ 1 trong {@code writing}/{@code speaking} khác null theo làn. */
+    private record JobContext(Long jobId, Long progressId, ReflexGradingJob.Lane lane, int attemptNumber, int tryCount,
+                              Boolean recordingFilter, WritingPrep writing, SpeakingPrep speaking) {
+    }
+
+    /**
+     * Worker gọi cho 1 job đã nhận (RUNNING). Cùng mẫu 3 pha như luồng đồng bộ: (1) giao dịch ngắn đọc bài,
+     * (2) gọi AI KHÔNG giữ connection, (3) giao dịch ngắn ghi điểm + lịch sử + đóng job.
+     *
+     * AI lỗi/null/ném ngoại lệ: thử lại tối đa {@code max-tries} lần (lượt nộp của học sinh KHÔNG bị tính trong lúc
+     * thử lại); hết số lần → job FAILED, HOÀN lượt, bước đánh dấu FAILED để giáo viên chấm tay. Bản ghi bị từ chối
+     * (im lặng/lạc đề) → REJECTED, không thử lại, vẫn tính lượt.
+     */
+    public void processQueuedJob(Long jobId) {
+        JobContext ctx = tx.execute(status -> loadJobContext(jobId));
+        if (ctx == null) {
+            return;
+        }
+        if (ctx.lane() == ReflexGradingJob.Lane.WRITING) {
+            WritingAiOutput output;
+            String error = null;
+            try {
+                output = callWritingAi(ctx.writing());
+            } catch (RuntimeException e) {
+                log.warn("ReflexSequentialGradingService: job {} (viết) lỗi khi gọi AI: {}", jobId, e.toString());
+                output = new WritingAiOutput(null, null, null);
+                error = e.toString();
+            }
+            WritingAiOutput finalOutput = output;
+            String finalError = error;
+            tx.executeWithoutResult(status -> finishWritingJob(ctx, finalOutput, finalError));
+        } else {
+            SpeakingAiOutput output;
+            String error = null;
+            String rejected = null;
+            try {
+                output = callSpeakingAi(ctx.speaking(), ctx.speaking().question().getId(), ctx.speaking().progress().getAudioUrl());
+            } catch (ReflexAudioRejectedException e) {
+                output = null;
+                rejected = e.getMessage();
+            } catch (RuntimeException e) {
+                log.warn("ReflexSequentialGradingService: job {} (nói) lỗi khi gọi AI: {}", jobId, e.toString());
+                output = new SpeakingAiOutput(null, null, false);
+                error = e.toString();
+            }
+            SpeakingAiOutput finalOutput = output;
+            String finalError = error;
+            String finalRejected = rejected;
+            tx.executeWithoutResult(status -> finishSpeakingJob(ctx, finalOutput, finalError, finalRejected));
+        }
+    }
+
+    /** Pha 1 của job. Trả {@code null} (và đóng job) nếu job không còn hợp lệ — bản ghi đã sang lượt nộp khác. */
+    private JobContext loadJobContext(Long jobId) {
+        ReflexGradingJob job = jobQueue.find(jobId).orElse(null);
+        if (job == null || job.getStatus() != ReflexGradingJob.Status.RUNNING) {
+            return null;
+        }
+        ReflexQuestionProgress progress = reflexQuestionProgressRepository.findById(job.getProgressId()).orElse(null);
+        if (progress == null || isStale(progress, job.getLane(), job.getAttemptNumber())) {
+            jobQueue.close(jobId, ReflexGradingJob.Status.DONE, "bỏ qua: bản ghi tiến trình đã sang lượt nộp khác");
+            return null;
+        }
+        ReviewVideoQuestion question = progress.getReviewVideoQuestion();
+        Hibernate.initialize(question);
+        Hibernate.initialize(question.getReviewVideo()); // passThresholdPercent đọc ở pha 2
+        Curriculum curriculum = question.getReviewVideo().getReviewVideoSet().getCurriculum();
+        Hibernate.initialize(curriculum); // pha 2 chạy ngoài session — graders đọc gradeLevel/track
+        if (job.getLane() == ReflexGradingJob.Lane.WRITING) {
+            Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, reflexV2Enabled, ReflexV2Task.CURRENT_RUBRIC_VERSION);
+            return new JobContext(jobId, progress.getId(), job.getLane(), job.getAttemptNumber(), job.getTryCount(), null,
+                    new WritingPrep(progress, question, curriculum, v2Task), null);
+        }
+        return new JobContext(jobId, progress.getId(), job.getLane(), job.getAttemptNumber(), job.getTryCount(),
+                job.getRecordingFilter(), null, new SpeakingPrep(progress, question, curriculum));
+    }
+
+    /** Bước còn PENDING và đúng lượt nộp mà job được xếp cho — nếu không, job là của lượt cũ. */
+    private static boolean isStale(ReflexQuestionProgress progress, ReflexGradingJob.Lane lane, int attemptNumber) {
+        return lane == ReflexGradingJob.Lane.WRITING
+                ? progress.getWritingGradingStatus() != ReflexGradingStatus.PENDING || progress.getWritingAttemptCount() != attemptNumber
+                : progress.getSpeakingGradingStatus() != ReflexGradingStatus.PENDING || progress.getSpeakingAttemptCount() != attemptNumber;
+    }
+
+    /** Pha 3 của job viết. Ghi lên bản ghi MỚI đọc trong giao dịch này (không merge bản detached của pha 1). */
+    private void finishWritingJob(JobContext ctx, WritingAiOutput output, String error) {
+        ReflexQuestionProgress fresh = reflexQuestionProgressRepository.findById(ctx.progressId()).orElse(null);
+        if (fresh == null || isStale(fresh, ReflexGradingJob.Lane.WRITING, ctx.attemptNumber())) {
+            jobQueue.close(ctx.jobId(), ReflexGradingJob.Status.DONE, "bỏ qua: bản ghi tiến trình đã sang lượt nộp khác");
+            return;
+        }
+        boolean v2Used = ctx.writing().v2Task().isPresent();
+        if (!output.failed(v2Used)) {
+            applyWritingOutput(fresh, ctx.writing(), output);
+            fresh.setWritingGradingStatus(ReflexGradingStatus.GRADED);
+            recordWritingHistory(reflexQuestionProgressRepository.save(fresh));
+            jobQueue.close(ctx.jobId(), ReflexGradingJob.Status.DONE, null);
+        } else if (ctx.tryCount() < queueSettings.maxTries()) {
+            jobQueue.scheduleRetry(ctx.jobId(), error != null ? error : "AI không trả kết quả chấm");
+        } else {
+            applyWritingOutput(fresh, ctx.writing(), output); // đặt điểm/nhận xét về trạng thái "không chấm được"
+            fresh.setWritingGradingStatus(ReflexGradingStatus.FAILED);
+            fresh.setWritingAttemptCount(Math.max(0, fresh.getWritingAttemptCount() - 1)); // hoàn lượt
+            reflexQuestionProgressRepository.save(fresh);
+            jobQueue.close(ctx.jobId(), ReflexGradingJob.Status.FAILED, error != null ? error : "AI không trả kết quả chấm");
+            log.warn("ReflexSequentialGradingService: job {} (viết) hết {} lần thử — đã hoàn lượt, chờ giáo viên chấm tay (tiến trình {})",
+                    ctx.jobId(), queueSettings.maxTries(), ctx.progressId());
+        }
+    }
+
+    /** Pha 3 của job nói; {@code rejectedMessage} khác null = bản ghi bị từ chối (không thử lại, vẫn tính lượt). */
+    private void finishSpeakingJob(JobContext ctx, SpeakingAiOutput output, String error, String rejectedMessage) {
+        ReflexQuestionProgress fresh = reflexQuestionProgressRepository.findById(ctx.progressId()).orElse(null);
+        if (fresh == null || isStale(fresh, ReflexGradingJob.Lane.SPEAKING, ctx.attemptNumber())) {
+            jobQueue.close(ctx.jobId(), ReflexGradingJob.Status.DONE, "bỏ qua: bản ghi tiến trình đã sang lượt nộp khác");
+            return;
+        }
+        if (rejectedMessage != null) {
+            applySpeakingResult(fresh, null);
+            fresh.setSpeakingFeedback(rejectedMessage);
+            fresh.setSpeakingGradingStatus(ReflexGradingStatus.REJECTED);
+            reflexQuestionProgressRepository.save(fresh);
+            jobQueue.close(ctx.jobId(), ReflexGradingJob.Status.REJECTED, rejectedMessage);
+        } else if (!output.failed()) {
+            applySpeakingOutput(fresh, output, ctx.recordingFilter());
+            fresh.setSpeakingGradingStatus(ReflexGradingStatus.GRADED);
+            recordSpeakingHistory(reflexQuestionProgressRepository.save(fresh), ctx.recordingFilter());
+            jobQueue.close(ctx.jobId(), ReflexGradingJob.Status.DONE, null);
+        } else if (ctx.tryCount() < queueSettings.maxTries()) {
+            jobQueue.scheduleRetry(ctx.jobId(), error != null ? error : "AI không trả kết quả chấm");
+        } else {
+            applySpeakingOutput(fresh, output, ctx.recordingFilter()); // đặt điểm/nhận xét về trạng thái "không chấm được"
+            fresh.setSpeakingGradingStatus(ReflexGradingStatus.FAILED);
+            fresh.setSpeakingAttemptCount(Math.max(0, fresh.getSpeakingAttemptCount() - 1)); // hoàn lượt
+            reflexQuestionProgressRepository.save(fresh);
+            jobQueue.close(ctx.jobId(), ReflexGradingJob.Status.FAILED, error != null ? error : "AI không trả kết quả chấm");
+            log.warn("ReflexSequentialGradingService: job {} (nói) hết {} lần thử — đã hoàn lượt, chờ giáo viên chấm tay (tiến trình {})",
+                    ctx.jobId(), queueSettings.maxTries(), ctx.progressId());
+        }
     }
 
     /** Học sinh xem tiến trình mọi câu hỏi của video này (để dựng đúng trạng thái khoá/mở khi tải lại trang). */
@@ -624,17 +860,26 @@ public class ReflexSequentialGradingService {
                 progress.getReviewVideoAssignment(), progress.getReviewVideoQuestion());
     }
 
+    /** V222 — bước đang chờ hàng đợi chấm: chưa có kết quả nào hợp lệ (điểm cũ của lượt trước không được tính). */
+    private static boolean isWritingPending(ReflexQuestionProgress progress) {
+        return progress.getWritingGradingStatus() == ReflexGradingStatus.PENDING;
+    }
+
+    private static boolean isSpeakingPending(ReflexQuestionProgress progress) {
+        return progress.getSpeakingGradingStatus() == ReflexGradingStatus.PENDING;
+    }
+
     private boolean isWritingPassed(ReflexQuestionProgress progress) {
-        return progress.getWritingScore() != null && progress.getWritingScore().compareTo(BigDecimal.valueOf(passThresholdPercent(progress))) >= 0;
+        return !isWritingPending(progress) && progress.getWritingScore() != null && progress.getWritingScore().compareTo(BigDecimal.valueOf(passThresholdPercent(progress))) >= 0;
     }
 
     private boolean isSpeakingPassed(ReflexQuestionProgress progress) {
-        return progress.getSpeakingScore() != null && progress.getSpeakingScore().compareTo(BigDecimal.valueOf(passThresholdPercent(progress))) >= 0;
+        return !isSpeakingPending(progress) && progress.getSpeakingScore() != null && progress.getSpeakingScore().compareTo(BigDecimal.valueOf(passThresholdPercent(progress))) >= 0;
     }
 
     /** (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07) — đã dùng hết {@link #MAX_STEP_ATTEMPTS} lần nộp bước viết mà vẫn chưa đạt. */
     private boolean isWritingExhausted(ReflexQuestionProgress progress) {
-        return !isWritingPassed(progress) && progress.getWritingAttemptCount() >= MAX_STEP_ATTEMPTS;
+        return !isWritingPending(progress) && !isWritingPassed(progress) && progress.getWritingAttemptCount() >= MAX_STEP_ATTEMPTS;
     }
 
     /**
@@ -643,17 +888,18 @@ public class ReflexSequentialGradingService {
      * lớp).
      */
     private boolean isWritingUnlocked(ReflexQuestionProgress progress) {
-        return isWritingPassed(progress) || isWritingExhausted(progress);
+        // V222 — AI lỗi hết số lần thử (FAILED, đã hoàn lượt): không chặn học sinh, mở khoá bước nói, giáo viên chấm tay sau.
+        return progress.getWritingGradingStatus() == ReflexGradingStatus.FAILED || isWritingPassed(progress) || isWritingExhausted(progress);
     }
 
     /** (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07) — đã dùng hết {@link #MAX_STEP_ATTEMPTS} lần nộp bước nói mà vẫn chưa đạt. */
     private boolean isSpeakingExhausted(ReflexQuestionProgress progress) {
-        return !isSpeakingPassed(progress) && progress.getSpeakingAttemptCount() >= MAX_STEP_ATTEMPTS;
+        return !isSpeakingPending(progress) && !isSpeakingPassed(progress) && progress.getSpeakingAttemptCount() >= MAX_STEP_ATTEMPTS;
     }
 
     /** (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07) — bước nói đã "xong" (đạt thật HOẶC hết lượt) — chặn nộp lại bước nói. */
     private boolean isSpeakingFinalized(ReflexQuestionProgress progress) {
-        return isSpeakingPassed(progress) || isSpeakingExhausted(progress);
+        return progress.getSpeakingGradingStatus() == ReflexGradingStatus.FAILED || isSpeakingPassed(progress) || isSpeakingExhausted(progress);
     }
 
     /**
@@ -697,7 +943,7 @@ public class ReflexSequentialGradingService {
         // sinh ở câu đó vĩnh viễn, đúng điều fix 2026-10-07 muốn tránh. submitSpokenAnswer đã chặn không
         // cho nói trước khi writingUnlocked, nên speakingPassed=true LUÔN kéo theo writing đã unlock (đạt
         // thật hoặc hết lượt) — không cần xét lại writingPassed ở đây, mirror đúng isSpeakingFinalized.
-        boolean questionFinalized = speakingPassed || speakingExhausted;
+        boolean questionFinalized = isSpeakingFinalized(p);
         return new ReflexQuestionProgressResponse(
                 p.getReviewVideoQuestion().getId(),
                 p.getAnswerText(),
@@ -719,11 +965,13 @@ public class ReflexSequentialGradingService {
                 questionPassed,
                 writingExhausted,
                 MAX_STEP_ATTEMPTS,
-                writingPassed || writingExhausted,
+                isWritingUnlocked(p),
                 speakingExhausted,
                 MAX_STEP_ATTEMPTS,
                 questionFinalized,
-                p.getUpdatedAt());
+                p.getUpdatedAt(),
+                p.getWritingGradingStatus().name(),
+                p.getSpeakingGradingStatus().name());
     }
 
     // ---- Mirror ReviewVideoService (private ở đó, không expose được) — xem Javadoc lớp. ----

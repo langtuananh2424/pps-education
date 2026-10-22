@@ -11,6 +11,7 @@ import {
   listReviewVideoQuestions,
   submitReflexSpokenAnswer,
   submitReflexWrittenAnswer,
+  waitForReflexGrading,
   uploadMedia
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
@@ -953,8 +954,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     setWritingSubmitting(true);
     setWritingError(null);
     try {
-      const response = await submitReflexWrittenAnswer(activeQuestion.id, assignmentId, answerDraft.trim());
+      let response = await submitReflexWrittenAnswer(activeQuestion.id, assignmentId, answerDraft.trim());
+      if (response.writingGradingStatus === "PENDING") {
+        // V222 — server chấm qua hàng đợi: giữ trạng thái "đang chấm" (writingSubmitting) đến khi có kết quả.
+        setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
+        response = await waitForReflexGrading(assignmentId, response, "writing");
+        if (response.writingGradingStatus === "PENDING") {
+          setWritingError(t("reflexVideoTask.gradingStillPending"));
+          return;
+        }
+      }
       setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
+      if (response.writingGradingStatus === "FAILED") {
+        setWritingError(t("reflexVideoTask.gradingFailedTeacher"));
+      }
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây đạt bước viết là tự
       // động bật ghi âm ngay, học sinh không kịp chuẩn bị. Nay hiện popup báo đạt + điểm/nhận xét, học
       // sinh tự bấm "Tiếp tục" khi sẵn sàng (xem handleContinueAfterWritingPass) — video chạy tiếp cho
@@ -1016,8 +1029,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         }
       }
       const { url } = await uploadMedia(file, "REVIEW_VIDEO_SUBMISSION");
-      const response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url, filtered);
+      let response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url, filtered);
+      if (response.speakingGradingStatus === "PENDING") {
+        // V222 — server chấm qua hàng đợi: giữ trạng thái "đang chấm" (speakingSubmitting) đến khi có kết quả.
+        setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
+        response = await waitForReflexGrading(assignmentId, response, "speaking");
+        if (response.speakingGradingStatus === "PENDING") {
+          setSpeakingError(t("reflexVideoTask.gradingStillPending"));
+          return;
+        }
+      }
       setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
+      if (response.speakingGradingStatus === "REJECTED") {
+        setSpeakingError(response.speakingFeedback || t("reflexVideoTask.submitError"));
+      }
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây pass thì
       // đóng câu ngay + video chạy tiếp lập tức, học sinh không kịp thấy điểm/nhận xét bước nói (khác
       // bước viết vốn hiện nhận xét ngay trong khung). Nay hiện popup "Đạt" kèm điểm + nhận xét, chỉ
