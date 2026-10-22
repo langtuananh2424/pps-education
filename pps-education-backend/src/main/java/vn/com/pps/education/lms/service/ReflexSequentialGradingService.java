@@ -375,6 +375,7 @@ public class ReflexSequentialGradingService {
      */
     private void applyWritingResult(ReflexQuestionProgress progress, ReflexWritingGrammarAiGradingService.GradeResult result) {
         progress.clearWritingReview();
+        progress.setWritingCriteriaScores(null);
         if (result != null) {
             progress.setWritingScore(BigDecimal.valueOf(result.scorePercent()));
             progress.setWritingMaxScore(HUNDRED);
@@ -460,6 +461,7 @@ public class ReflexSequentialGradingService {
             progress.setWritingLockedGrammarPercent(null);
             progress.setWritingRedErrorCount(null);
             progress.setWritingAudit(null);
+            progress.setWritingCriteriaScores(null);
             progress.setWritingHint(null);
             return;
         }
@@ -479,6 +481,7 @@ public class ReflexSequentialGradingService {
         progress.setWritingLockedGrammarPercent(BigDecimal.valueOf(result.grammarPercent()));
         progress.setWritingRedErrorCount(result.redCount());
         progress.setWritingAudit(result.audit());
+        progress.setWritingCriteriaScores(result.criteria());
         boolean passed = result.step1Percent() >= passThresholdPercent(progress);
         if (passed || progress.getWritingAttemptCount() < 3) {
             progress.setWritingCorrectedAnswer(null);
@@ -554,6 +557,7 @@ public class ReflexSequentialGradingService {
         h.setFeedback(progress.getWritingFeedback());
         h.setMarkedAnswer(progress.getWritingMarkedAnswer());
         h.setHint(progress.getWritingHint());
+        h.setCriteriaScores(progress.getWritingCriteriaScores());
         h.setGradedAt(progress.getWritingGradedAt());
         reflexQuestionProgressHistoryRepository.save(h);
     }

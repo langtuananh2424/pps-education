@@ -90,6 +90,11 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     @Column(name = "writing_graded_at")
     private OffsetDateTime writingGradedAt;
 
+    /** V219 — % từng band của bước Viết (luồng v2); giáo viên sửa band thì ghi bản của GV, như {@link #writingScore}. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "writing_criteria_scores", columnDefinition = "jsonb")
+    private List<CriteriaScoreItem> writingCriteriaScores;
+
     /**
      * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5 quy tắc chung) — "cách luyện" cho học sinh tự
      * luyện, TÁCH khỏi {@link #writingFeedback} (vẫn cấm gợi ý sửa, dành cho giáo viên). Rỗng/null khi bài

@@ -283,7 +283,12 @@
         "save": "Save score",
         "saving": "Saving...",
         "cancel": "Cancel",
-        "saveFailed": "Failed to save the score — please try again."
+        "saveFailed": "Failed to save the score — please try again.",
+        "aiBand": "(AI: {{percent}}%)",
+        "bandsLabel": "Per-band scores (%)",
+        "totalAutoHint": "The total is recalculated from the bands using the rubric formula when you save.",
+        "totalOnly": "Edit total only",
+        "editBands": "Edit per-band scores"
       }
     },
     "connectionHistoryModal": {
