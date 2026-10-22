@@ -208,6 +208,25 @@ class AuthServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * Sửa lỗi 2026-10-22 — thiết bị mất phản hồi refresh để lại 1 token mồ côi cùng họ với token đang dùng. Học sinh đăng
+     * xuất rồi đăng nhập lại KHÔNG được bị popup "đang đăng nhập ở thiết bị khác" (token mồ côi bị thu hồi cùng họ).
+     */
+    @Test
+    void login_boSung_orphanTokenFromLostRefreshDoesNotBlockLoginAfterLogout() {
+        makeStudent(activeUser);
+        LoginResponse first = authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
+        authService.refresh(new vn.com.pps.education.auth.dto.RefreshTokenRequest(first.refreshToken()), request()); // phản hồi bị mất
+        var live = authService.refresh(new vn.com.pps.education.auth.dto.RefreshTokenRequest(first.refreshToken()), request()); // thử lại
+
+        authService.logout(new LogoutRequest(live.refreshToken()));
+
+        LoginResponse relogin = authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
+        assertThat(relogin.accessToken()).isNotBlank();
+    }
+
+    /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — thay vì bị chặn hẳn như test
      * trên, học sinh có thể xác nhận (confirm=true, tương ứng bấm "Có" ở popup FE "Tài khoản đang
      * đăng nhập ở một nơi khác. Bạn có muốn đăng xuất?") để chủ động thu hồi phiên cũ rồi đăng nhập

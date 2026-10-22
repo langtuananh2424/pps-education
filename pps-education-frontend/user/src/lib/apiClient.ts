@@ -1,4 +1,4 @@
-import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./tokenStorage";
+import { clearTokens, getAccessToken, getRefreshToken, markSessionEnded, setTokens } from "./tokenStorage";
 import i18n, { LANGUAGE_STORAGE_KEY } from "@/i18n";
 
 /** Header Accept-Language theo ngôn ngữ đang chọn ở LanguageSwitcher — backend dùng để trả message lỗi
@@ -54,34 +54,64 @@ interface RequestOptions extends RequestInit {
   timeoutMs?: number;
 }
 
-let refreshPromise: Promise<string | null> | null = null;
+/** Kết quả làm mới token: "ok" (có access token mới), "rejected" (server từ chối refresh token — phiên thật sự
+ *  hết hiệu lực) hoặc "transient" (5xx/429/mạng chập chờn — KHÔNG biết phiên còn hay mất). */
+type RefreshOutcome = { kind: "ok"; accessToken: string } | { kind: "rejected" } | { kind: "transient" };
 
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
+let refreshPromise: Promise<RefreshOutcome> | null = null;
 
-  if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
+/** Số lần thử lại + khoảng chờ khi refresh gặp lỗi tạm thời (server đang deploy/quá tải, mạng yếu). */
+const REFRESH_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
+
+const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+async function refreshOnce(refreshToken: string): Promise<RefreshOutcome> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken })
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          // Tab khác (dùng chung token trong localStorage) vừa xoay vòng refresh token trước tab này —
-          // backend chỉ từ chối token cũ (ân hạn nhiều-tab, xem AuthService#refresh), dùng luôn token
-          // mới tab kia đã ghi thay vì đăng xuất tab này.
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setTokens(data.accessToken, data.refreshToken);
+      return { kind: "ok", accessToken: data.accessToken as string };
+    }
+    // Chỉ 400/401/403 mới là "server từ chối token"; 5xx/429/408... là lỗi tạm thời, không được coi là hết phiên.
+    if (res.status === 400 || res.status === 401 || res.status === 403) return { kind: "rejected" };
+    return { kind: "transient" };
+  } catch {
+    return { kind: "transient" };
+  }
+}
+
+async function refreshAccessToken(): Promise<RefreshOutcome> {
+  if (!getRefreshToken()) return { kind: "rejected" };
+
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      for (let attempt = 0; ; attempt++) {
+        // Đọc lại token mỗi vòng: tab khác (dùng chung localStorage) có thể đã xoay vòng token trong lúc chờ.
+        const refreshToken = getRefreshToken();
+        if (!refreshToken) return { kind: "rejected" } as RefreshOutcome;
+        const startedWith = refreshToken;
+        const outcome = await refreshOnce(refreshToken);
+        if (outcome.kind === "ok") return outcome;
+        if (outcome.kind === "rejected") {
+          // Tab khác vừa xoay vòng refresh token trước tab này — backend chỉ từ chối token cũ (ân hạn
+          // nhiều-tab, xem AuthService#refresh), dùng luôn token mới tab kia đã ghi thay vì đăng xuất.
           const latestRefreshToken = getRefreshToken();
-          return latestRefreshToken && latestRefreshToken !== refreshToken ? getAccessToken() : null;
+          const latestAccessToken = getAccessToken();
+          return latestRefreshToken && latestRefreshToken !== startedWith && latestAccessToken
+            ? ({ kind: "ok", accessToken: latestAccessToken } as RefreshOutcome)
+            : outcome;
         }
-        const data = await res.json();
-        setTokens(data.accessToken, data.refreshToken);
-        return data.accessToken as string;
-      })
-      .catch(() => null)
-      .finally(() => {
-        refreshPromise = null;
-      });
+        if (attempt >= REFRESH_RETRY_DELAYS_MS.length) return outcome;
+        await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+      }
+    })().finally(() => {
+      refreshPromise = null;
+    });
   }
 
   return refreshPromise;
@@ -135,11 +165,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const res = await fetchWithTimeout(`${API_BASE}${path}`, { ...init, headers }, timeoutMs);
 
   if (res.status === 401 && !skipAuth && !isRetry) {
-    const newAccessToken = await refreshAccessToken();
-    if (newAccessToken) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed.kind === "ok") {
       return apiRequest<T>(path, { ...options, isRetry: true });
     }
+    if (refreshed.kind === "transient") {
+      // Server/mạng đang lỗi tạm thời: giữ nguyên phiên + màn hình làm bài (không xoá token, không về /login),
+      // để học sinh bấm lại sau vài giây thay vì mất bài đang làm.
+      throw new ApiError(503, i18n.t("common:errors.sessionRefreshUnavailable"));
+    }
     clearTokens();
+    markSessionEnded();
     window.location.href = "/login";
     throw new ApiError(401, "Phiên đăng nhập đã hết hạn.");
   }

@@ -122,6 +122,11 @@ public class ReflexQuestionProgressHistory extends BaseAuditEntity {
     @Column(name = "teacher_feedback", columnDefinition = "TEXT")
     private String teacherFeedback;
 
+    /** V219 — % từng band giáo viên chốt cho lần này (cạnh bản AI gốc {@link #criteriaScores}); null = chưa sửa band. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "teacher_criteria_scores", columnDefinition = "jsonb")
+    private List<CriteriaScoreItem> teacherCriteriaScores;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_by")
     private vn.com.pps.education.auth.domain.User teacherBy;

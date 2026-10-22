@@ -5,6 +5,8 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.academic.repository.ClassTeacherRepository;
 import vn.com.pps.education.auth.domain.User;
 import vn.com.pps.education.auth.repository.UserRepository;
+import vn.com.pps.education.common.CriteriaScoreItem;
+import vn.com.pps.education.common.ReflexV2Scoring;
 import vn.com.pps.education.exception.AnswerNotManuallyGradableException;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -16,10 +18,14 @@ import vn.com.pps.education.lms.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.permission.service.PermissionEvaluationService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -43,6 +49,8 @@ public class AiSecondGradingService {
 
     static final String PERM_ADMIN_SCOPE = "lms.review-video.manage";
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
+    /** Hậu tố nhãn band chỉ để tham khảo, không vào điểm mở khoá (xem ReflexV2AiGradingService). */
+    private static final String REFERENCE_ONLY_SUFFIX = " (tham khảo)";
 
     /** Bước của Video phản xạ mà giáo viên chấm lại. */
     public enum ReflexStep { WRITING, SPEAKING }
@@ -77,45 +85,112 @@ public class AiSecondGradingService {
 
         String feedback = request.feedback() == null || request.feedback().isBlank() ? null : request.feedback().trim();
         OffsetDateTime now = OffsetDateTime.now();
-        if (step == ReflexStep.WRITING) {
-            if (progress.getWritingScore() == null || progress.getWritingGradedAt() == null) {
-                throw notAiGraded();
-            }
+        boolean writing = step == ReflexStep.WRITING;
+        if (writing ? progress.getWritingScore() == null || progress.getWritingGradedAt() == null
+                : progress.getSpeakingScore() == null || progress.getSpeakingGradedAt() == null) {
+            throw notAiGraded();
+        }
+        Optional<ReflexQuestionProgressHistory> official = officialAttempt(attemptsOf(progress, step));
+        // Điểm từng band (2026-10-22): điểm tổng do server tính lại từ band, không tin điểm tổng client gửi kèm.
+        List<CriteriaScoreItem> bands = null;
+        BigDecimal score = request.score();
+        if (request.criteriaScores() != null && !request.criteriaScores().isEmpty()) {
+            List<CriteriaScoreItem> aiBands = official.map(ReflexQuestionProgressHistory::getCriteriaScores).orElse(null);
+            bands = resolveBands(aiBands, request.criteriaScores());
+            score = BigDecimal.valueOf(totalFromBands(progress.getRubricVersion(), bands));
+        } else if (score == null) {
+            throw new AnswerNotManuallyGradableException("error.aiSecondGrading.scoreRequired", new Object[]{},
+                    "Cần nhập điểm tổng hoặc điểm từng band.");
+        }
+        // Sửa lại chỉ điểm tổng thì band hiển thị quay về bản AI gốc (band không còn khớp điểm tổng giáo viên chốt).
+        List<CriteriaScoreItem> shownBands = bands != null ? bands : official.map(ReflexQuestionProgressHistory::getCriteriaScores).orElse(null);
+        if (writing) {
             if (progress.getWritingReviewedAt() == null) {
                 progress.setWritingAiScore(progress.getWritingScore());
                 progress.setWritingAiFeedback(progress.getWritingFeedback());
             }
-            progress.setWritingScore(request.score());
+            progress.setWritingScore(score);
             progress.setWritingMaxScore(HUNDRED);
             progress.setWritingFeedback(feedback);
+            progress.setWritingCriteriaScores(shownBands);
             // Câu sửa gợi ý do AI sinh theo điểm AI cũ — điểm GV đổi thì không còn khớp, bỏ để khỏi hiện sai.
             progress.setWritingCorrectedAnswer(null);
             progress.setWritingReviewedBy(actor);
             progress.setWritingReviewedAt(now);
         } else {
-            if (progress.getSpeakingScore() == null || progress.getSpeakingGradedAt() == null) {
-                throw notAiGraded();
-            }
             if (progress.getSpeakingReviewedAt() == null) {
                 progress.setSpeakingAiScore(progress.getSpeakingScore());
                 progress.setSpeakingAiFeedback(progress.getSpeakingFeedback());
             }
-            progress.setSpeakingScore(request.score());
+            progress.setSpeakingScore(score);
             progress.setSpeakingMaxScore(HUNDRED);
             progress.setSpeakingFeedback(feedback);
+            progress.setSpeakingCriteriaScores(shownBands);
             progress.setSpeakingReviewedBy(actor);
             progress.setSpeakingReviewedAt(now);
         }
         reflexQuestionProgressRepository.save(progress);
 
         // V217 — lưu điểm/nhận xét giáo viên lên đúng lần đang là kết quả chính thức (lần được chọn, hoặc lần mới nhất).
-        officialAttempt(attemptsOf(progress, step)).ifPresent(official -> {
-            official.setTeacherScore(request.score());
-            official.setTeacherFeedback(feedback);
-            official.setTeacherBy(actor);
-            official.setTeacherAt(now);
-            reflexQuestionProgressHistoryRepository.save(official);
+        BigDecimal savedScore = score;
+        List<CriteriaScoreItem> savedBands = bands;
+        official.ifPresent(attempt -> {
+            attempt.setTeacherScore(savedScore);
+            attempt.setTeacherFeedback(feedback);
+            attempt.setTeacherCriteriaScores(savedBands);
+            attempt.setTeacherBy(actor);
+            attempt.setTeacherAt(now);
+            reflexQuestionProgressHistoryRepository.save(attempt);
         });
+    }
+
+    /**
+     * Ghép band giáo viên sửa lên danh sách band AI gốc của lần chính thức: phải đủ và khớp tên từng band (giữ nguyên
+     * thứ tự + nhãn của AI, kể cả hậu tố "(tham khảo)"), thiếu/thừa/trùng band là lỗi — không cho lưu một nửa.
+     */
+    static List<CriteriaScoreItem> resolveBands(List<CriteriaScoreItem> aiBands, List<ReviewReflexStepRequest.BandScore> edited) {
+        if (aiBands == null || aiBands.isEmpty()) {
+            throw new AnswerNotManuallyGradableException("error.aiSecondGrading.noBands", new Object[]{},
+                    "Lần làm này không có điểm từng band — chỉ chỉnh được điểm tổng.");
+        }
+        Map<String, Integer> byName = new HashMap<>();
+        for (ReviewReflexStepRequest.BandScore band : edited) {
+            if (byName.put(band.criterion(), band.percent()) != null) {
+                throw bandsMismatch();
+            }
+        }
+        if (byName.size() != aiBands.size()) {
+            throw bandsMismatch();
+        }
+        List<CriteriaScoreItem> out = new ArrayList<>();
+        for (CriteriaScoreItem ai : aiBands) {
+            Integer percent = byName.get(ai.criterion());
+            if (percent == null) {
+                throw bandsMismatch();
+            }
+            out.add(new CriteriaScoreItem(ai.criterion(), percent));
+        }
+        return out;
+    }
+
+    /**
+     * Điểm tổng từ band, cùng công thức lúc AI chấm: rubric v2 = trung bình các band (bỏ band chỉ "tham khảo", tức Phát
+     * âm khi không tính vào mở khoá) làm tròn XUỐNG bội 5 ({@link ReflexV2Scoring#average}); luồng cũ (v1) AI tự cho điểm
+     * tổng nên dùng trung bình cộng làm tròn gần nhất.
+     */
+    static int totalFromBands(String rubricVersion, List<CriteriaScoreItem> bands) {
+        if (rubricVersion == null) {
+            double avg = bands.stream().mapToInt(CriteriaScoreItem::percent).average().orElse(0);
+            return BigDecimal.valueOf(avg).setScale(0, RoundingMode.HALF_UP).intValue();
+        }
+        double avg = bands.stream().filter(b -> !b.criterion().endsWith(REFERENCE_ONLY_SUFFIX))
+                .mapToInt(CriteriaScoreItem::percent).average().orElse(0);
+        return ReflexV2Scoring.floorTo5(avg);
+    }
+
+    private static AnswerNotManuallyGradableException bandsMismatch() {
+        return new AnswerNotManuallyGradableException("error.aiSecondGrading.bandsMismatch", new Object[]{},
+                "Danh sách band không khớp với các band AI đã chấm — vui lòng tải lại rồi sửa.");
     }
 
     /**
@@ -157,7 +232,8 @@ public class AiSecondGradingService {
         boolean latest = chosen.getAttemptNumber()
                 == attempts.stream().mapToInt(ReflexQuestionProgressHistory::getAttemptNumber).max().orElse(0);
         boolean edited = chosen.getTeacherScore().compareTo(chosen.getScore()) != 0
-                || !Objects.equals(chosen.getTeacherFeedback(), chosen.getFeedback());
+                || !Objects.equals(chosen.getTeacherFeedback(), chosen.getFeedback())
+                || chosen.getTeacherCriteriaScores() != null;
         mirrorToProgress(progress, step, chosen, actor, now, !latest || edited);
         reflexQuestionProgressRepository.save(progress);
     }
@@ -173,6 +249,7 @@ public class AiSecondGradingService {
             progress.setWritingFeedback(chosen.getTeacherFeedback());
             progress.setWritingMarkedAnswer(chosen.getMarkedAnswer());
             progress.setWritingHint(chosen.getHint());
+            progress.setWritingCriteriaScores(shownBands(chosen));
             progress.setWritingCorrectedAnswer(null);
             if (markReviewed) {
                 progress.setWritingAiScore(chosen.getScore());
@@ -188,7 +265,7 @@ public class AiSecondGradingService {
             progress.setSpeakingMaxScore(maxScore);
             progress.setSpeakingFeedback(chosen.getTeacherFeedback());
             progress.setSpeakingTranscript(chosen.getTranscript());
-            progress.setSpeakingCriteriaScores(chosen.getCriteriaScores());
+            progress.setSpeakingCriteriaScores(shownBands(chosen));
             progress.setSpeakingHint(chosen.getHint());
             if (markReviewed) {
                 progress.setSpeakingAiScore(chosen.getScore());
@@ -199,6 +276,11 @@ public class AiSecondGradingService {
                 progress.clearSpeakingReview();
             }
         }
+    }
+
+    /** Band hiển thị của một lần: bản giáo viên đã sửa nếu có, không thì bản AI gốc. */
+    private static List<CriteriaScoreItem> shownBands(ReflexQuestionProgressHistory attempt) {
+        return attempt.getTeacherCriteriaScores() != null ? attempt.getTeacherCriteriaScores() : attempt.getCriteriaScores();
     }
 
     private List<ReflexQuestionProgressHistory> attemptsOf(ReflexQuestionProgress progress, ReflexStep step) {

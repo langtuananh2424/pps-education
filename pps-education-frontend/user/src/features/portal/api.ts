@@ -602,7 +602,7 @@ export interface ReviewVideoResponse {
   completionThresholdPercent: number;
   /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 1. */
   requiredViewCount: number;
-  /** V167 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 70 — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để hiện popup nhắc giữa chừng. */
+  /** V167 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 100 từ V218 (trước đó 70) — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để hiện popup nhắc giữa chừng. */
   sessionPassRatioThresholdPercent: number;
 }
 
@@ -1084,6 +1084,8 @@ export interface ExerciseQuestionResponse {
   structuredContent: {
     blanks?: string[];
     chunks?: string[];
+    /** Bổ sung 2026-10-21, đã xác nhận với người dùng — SAP_XEP_CAU: thứ tự xáo trộn CỐ ĐỊNH do GV soạn sẵn trong cột "Nội dung" (khớp tập từ với `chunks`, khác thứ tự) — có thì SentenceBuildingBlock hiện đúng thứ tự này thay vì tự xáo trộn ngẫu nhiên. */
+    chunkOrder?: string[];
     wordBankOptions?: string[];
     wordBox?: string[];
     /** Bổ sung 2026-09-17, đã xác nhận với người dùng — chỉ có ở WORD_BANK: "text" = mỗi chỗ trống hiện ô nhập chữ tự do (học sinh gõ tay) thay vì <select> chọn sẵn (mirror ExerciseStudentPreviewModal#WordBankPreview). Thiếu field này (undefined) = hành vi cũ (dropdown). */

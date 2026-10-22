@@ -313,7 +313,7 @@ public class ReviewVideoReportService {
                 h.getMarkedAnswer(),
                 h.getHint(),
                 h.getTranscript(),
-                h.getCriteriaScores(),
+                official && h.getTeacherCriteriaScores() != null ? h.getTeacherCriteriaScores() : h.getCriteriaScores(),
                 h.getGradedAt(),
                 h.isGrammarReviewRequired(),
                 h.getGrammarReviewQuotes() == null ? List.of() : h.getGrammarReviewQuotes(),
@@ -325,7 +325,8 @@ public class ReviewVideoReportService {
                 reviewed ? h.getFeedback() : null,
                 reviewer == null ? null : reviewer.getFullName(),
                 reviewed ? (writing ? progress.getWritingReviewedAt() : progress.getSpeakingReviewedAt()) : null,
-                h.isTeacherSelected());
+                h.isTeacherSelected(),
+                official && h.getTeacherCriteriaScores() != null ? h.getCriteriaScores() : null);
     }
 
     /**

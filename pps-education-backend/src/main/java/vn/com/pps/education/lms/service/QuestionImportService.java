@@ -982,7 +982,33 @@ public class QuestionImportService {
             if (chunks.size() < 2) {
                 throw new IllegalArgumentException("Sắp xếp câu/chữ cái cần tối thiểu 2 khối theo đúng thứ tự, phân tách bằng dấu | (VD: This is|a|pen).");
             }
-            structuredContent = Map.of("chunks", chunks);
+            Map<String, Object> sc = new LinkedHashMap<>();
+            sc.put("chunks", chunks);
+            // Bổ sung 2026-10-21 (đã xác nhận với người dùng — fix bug thật: khối cho học sinh chọn hiện
+            // gộp cụm khác hẳn danh sách từ GV liệt kê trong "Nội dung") — SAP_XEP_CAU cho phép GV liệt kê
+            // sẵn các khối theo thứ tự xáo trộn CỐ ĐỊNH ngay trong "Nội dung", cách nhau dấu "/" (VD
+            // "capital / is / Paris / ..."). Khi dùng quy ước này, TẬP khối liệt kê ở "Nội dung" phải khớp
+            // CHÍNH XÁC (không thiếu/thừa/lệch từ) với TẬP khối ở "Đáp án đúng" — khác thứ tự thì được (cột
+            // "Đáp án đúng" giữ đúng THỨ TỰ CÂU ĐÚNG để chấm, "Nội dung" giữ thứ tự XÁO TRỘN hiện cho học
+            // sinh). Lệch tập hợp → lỗi ngay lúc import, bắt GV sửa lại thay vì âm thầm hiện sai (xem bug
+            // gốc: "Nội dung" liệt kê 11 từ riêng lẻ nhưng "Đáp án đúng" gộp còn 4 cụm). Nội dung không theo
+            // quy ước này (câu hướng dẫn thường, VD "Put the words in order.") thì bỏ qua — vẫn xáo trộn
+            // ngẫu nhiên như cũ (xem ExerciseService#shuffledStructuredContent + SentenceBuildingBlock FE).
+            if (kind.equals("SAP_XEP_CAU") && row.content() != null) {
+                List<String> contentTokens = Arrays.stream(row.content().split("/")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+                if (contentTokens.size() >= 2) {
+                    List<String> sortedContent = contentTokens.stream().map(String::toLowerCase).sorted().toList();
+                    List<String> sortedChunks = chunks.stream().map(String::toLowerCase).sorted().toList();
+                    if (!sortedContent.equals(sortedChunks)) {
+                        throw new IllegalArgumentException("Sắp xếp câu: \"Nội dung\" liệt kê " + contentTokens.size()
+                                + " khối cách nhau dấu \"/\" nhưng \"Đáp án đúng\" có " + chunks.size()
+                                + " khối không khớp từng khối với \"Nội dung\" (chỉ khác thứ tự là được) — sửa \"Đáp án đúng\" "
+                                + "tách đúng theo TỪNG KHỐI đã liệt kê trong \"Nội dung\" (nối bằng dấu |).");
+                    }
+                    sc.put("chunkOrder", contentTokens);
+                }
+            }
+            structuredContent = sc;
             if (kind.equals("SAP_XEP_CHU_CAI")) {
                 imageUrl = blankToNull(row.imageUrl());
             }

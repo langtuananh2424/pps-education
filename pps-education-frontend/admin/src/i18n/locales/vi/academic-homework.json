@@ -283,7 +283,12 @@
         "save": "Lưu điểm",
         "saving": "Đang lưu...",
         "cancel": "Hủy",
-        "saveFailed": "Lưu điểm thất bại — thử lại."
+        "saveFailed": "Lưu điểm thất bại — thử lại.",
+        "aiBand": "(AI: {{percent}}%)",
+        "bandsLabel": "Điểm từng band (%)",
+        "totalAutoHint": "Điểm tổng sẽ được tính lại từ các band theo công thức của rubric khi lưu.",
+        "totalOnly": "Chỉ sửa điểm tổng",
+        "editBands": "Sửa điểm từng band"
       }
     },
     "connectionHistoryModal": {

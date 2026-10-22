@@ -75,7 +75,8 @@ class ReflexSequentialGradingServiceTest {
     private final ReflexSequentialGradingService service = new ReflexSequentialGradingService(
             questionRepository, assignmentRepository, progressRepository, historyRepository, enrollmentRepository,
             studentRepository, mediaStorageService, writingGradingService,
-            speakingGradingService, reflexV2GradingService, tokenUsageRecorder);
+            speakingGradingService, reflexV2GradingService, tokenUsageRecorder,
+            mock(org.springframework.transaction.PlatformTransactionManager.class));
 
     private final AiTokenUsage transcriptionUsage =
             new AiTokenUsage("gemini-3.6-flash-medium", true, 5200, 0, 310, 900, 6100);

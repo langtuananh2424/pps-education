@@ -1148,6 +1148,15 @@ lần gọi (`ExerciseService#shuffledStructuredContent`), chỉ endpoint Ngân
 hàng câu hỏi dành riêng GV (`GET /api/questions/{id}`, quyền
 `lms.question-bank.view`) mới trả nguyên thứ tự thật.
 
+**Bổ sung 2026-10-21 (đã xác nhận với người dùng) --- key `chunkOrder`
+(chỉ SAP_XEP_CAU khi GV liệt kê sẵn khối trong cột "Nội dung" lúc import,
+xem `QuestionImportService`, mục 2.8 `docs/huong-dan-tao-file-excel-cau-
+hoi.md`):** KHÔNG bị xáo trộn bởi `shuffledStructuredContent` như các key
+khác --- đây là thứ tự xáo trộn CỐ ĐỊNH do GV tự soạn (không phải thứ tự
+đáp án đúng, không có gì để lộ), học sinh phải thấy ĐÚNG thứ tự này mỗi
+lần làm bài thay vì bị xáo trộn thêm. `chunks` (đáp án đúng, dùng để chấm)
+vẫn bị xáo trộn như cũ.
+
 **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
 2026-07-22):** `audio_url`/`image_url` trước đây quy ước "đã upload sẵn
 lên CDN ngoài" (không có hạ tầng lưu file trong phạm vi backend). Đã bổ

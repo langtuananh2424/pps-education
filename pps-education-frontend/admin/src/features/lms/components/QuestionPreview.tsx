@@ -301,10 +301,24 @@ function WordBankPreview({
 }
 
 /** Mirror TakeExerciseModal#SentenceBuildingBlock (chạm từng khối theo thứ tự, không lưu lại). */
-function SentenceBuildingPreview({ chunkPool }: { chunkPool: string[] }) {
+function SentenceBuildingPreview({ chunkPool, chunkOrder }: { chunkPool: string[]; chunkOrder?: string[] }) {
   const { t } = useTranslation("lms-question-authoring");
   const shuffled = React.useMemo(() => {
     const arr = chunkPool.map((text, idx) => ({ text, idx }));
+    // Bổ sung 2026-10-21, đã xác nhận với người dùng — mirror TakeExerciseModal#SentenceBuildingBlock:
+    // chunkOrder (thứ tự GV soạn sẵn trong "Nội dung") có thì hiện ĐÚNG thứ tự này để GV xem trước khớp
+    // với những gì học sinh sẽ thấy, không xáo trộn ngẫu nhiên riêng ở màn xem trước.
+    if (chunkOrder && chunkOrder.length === arr.length) {
+      const remaining = [...arr];
+      const ordered: typeof arr = [];
+      for (const word of chunkOrder) {
+        const idx = remaining.findIndex((s) => s.text.trim().toLowerCase() === word.trim().toLowerCase());
+        if (idx === -1) break;
+        ordered.push(remaining[idx]);
+        remaining.splice(idx, 1);
+      }
+      if (ordered.length === arr.length) return ordered;
+    }
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -420,7 +434,7 @@ export function QuestionPreview({
           prefillAnswers={revealAnswers ? question.structuredContent.blanks : undefined}
         />
       ) : question.questionType === "SENTENCE_BUILDING" && question.structuredContent?.chunks ? (
-        <SentenceBuildingPreview chunkPool={question.structuredContent.chunks} />
+        <SentenceBuildingPreview chunkPool={question.structuredContent.chunks} chunkOrder={question.structuredContent.chunkOrder} />
       ) : (
         <textarea
           rows={question.questionType === "FILL_IN_BLANK" ? 1 : 3}

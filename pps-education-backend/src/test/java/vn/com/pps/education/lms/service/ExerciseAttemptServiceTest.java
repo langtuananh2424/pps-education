@@ -367,6 +367,50 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), mc2.id())).isEmpty();
     }
 
+    /**
+     * Bổ sung 2026-10-21 (đã xác nhận với người dùng — fix bug thật: bài WORD_BANK nhiều ô trong 1 đoạn
+     * văn bị dừng giữa chừng rồi làm lại thì MẤT HẾT kể cả ô đã điền đúng, vì V177 carry-forward ở trên
+     * chỉ áp dụng khi CẢ CÂU đúng 100%). Câu WORD_BANK CHƯA đúng hết (1/2 ô đúng) phải mang ô ĐÃ ĐÚNG
+     * sang lượt mới làm bản nháp — KHÔNG khoá (sửa lại được), khác hẳn carry-forward toàn câu (khoá).
+     */
+    @Test
+    void startAttempt_UC24_boSung_carriesForwardPartiallyCorrectWordBankBlanksOnRetake() {
+        QuestionResponse wordBank = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("WORD_BANK", "GRAMMAR", "EASY",
+                        "She ___ ___ school every day.", null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("blanks", List.of("goes", "to")), null),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(wordBank.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        // Đúng ô 1 ("goes"), SAI ô 2 (gõ "walks" thay vì "to") — mirror tình huống bị dừng bài giữa
+        // chừng: câu không đúng hết nên KHÔNG carry-forward toàn câu theo cơ chế cũ.
+        exerciseAttemptService.saveAnswer(first.id(),
+                new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("goes", "walks")), studentUser.getId());
+        ExerciseAttemptResponse submittedFirst = exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
+        assertThat(submittedFirst.passed()).isFalse();
+
+        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+
+        StudentAnswer draft = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), wordBank.id()).orElseThrow();
+        assertThat(draft.isCarriedOverFromPreviousAttempt()).isFalse(); // KHÔNG khoá — vẫn sửa được
+        assertThat(draft.getStructuredAnswer()).containsExactly("goes", "");
+
+        // Sửa nốt ô sai — saveAnswer phải cho sửa bình thường (không bị chặn AttemptNotEditableException).
+        exerciseAttemptService.saveAnswer(second.id(),
+                new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("goes", "to")), studentUser.getId());
+        ExerciseAttemptResponse submittedSecond = exerciseAttemptService.submitAttempt(second.id(), studentUser.getId());
+        assertThat(submittedSecond.totalScore()).isEqualByComparingTo("1.0");
+        assertThat(submittedSecond.passed()).isTrue();
+    }
+
     /** V177 — chặn ở Backend, không chỉ ẩn nút ở FE. */
     @Test
     void saveAnswer_UC24_A2_rejectsEditingCarriedOverAnswer() {

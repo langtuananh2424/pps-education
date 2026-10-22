@@ -718,12 +718,18 @@ function ReflexHistoryEntryRow({
   const [editing, setEditing] = useState(false);
   const [score, setScore] = useState("");
   const [feedback, setFeedback] = useState("");
+  // Điểm từng band (2026-10-22): lần có band thì mặc định sửa theo band, điểm tổng do server tính lại.
+  const hasBands = (entry.criteriaScores?.length ?? 0) > 0;
+  const [bandMode, setBandMode] = useState(hasBands);
+  const [bandInputs, setBandInputs] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const startEditing = () => {
     setScore(entry.score != null ? String(entry.score) : "");
     setFeedback(entry.feedback ?? "");
+    setBandMode(hasBands);
+    setBandInputs((entry.criteriaScores ?? []).map((c) => String(c.percent)));
     setSaveError(null);
     setEditing(true);
   };
@@ -734,8 +740,11 @@ function ReflexHistoryEntryRow({
     setSaving(true);
     setSaveError(null);
     try {
+      const bands = bandMode
+        ? (entry.criteriaScores ?? []).map((c, i) => ({ criterion: c.criterion, percent: Math.round(parseFloat(bandInputs[i])) }))
+        : undefined;
       await reviewReflexStep(entry.progressId, entry.attemptType, {
-        score: parseFloat(score),
+        ...(bands ? { criteriaScores: bands } : { score: parseFloat(score) }),
         feedback: feedback.trim() ? feedback.trim() : undefined
       });
       setEditing(false);
@@ -882,15 +891,23 @@ function ReflexHistoryEntryRow({
         </p>
       )}
 
-      {isSpeaking && entry.criteriaScores && entry.criteriaScores.length > 0 && (
+      {hasBands && entry.criteriaScores && (
         <div className="text-[13px] text-slate-600">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.criteriaLabel")}: </span>
           <ul className="list-disc list-inside">
-            {entry.criteriaScores.map((c) => (
-              <li key={c.criterion}>
-                {c.criterion}: {c.percent}%
-              </li>
-            ))}
+            {entry.criteriaScores.map((c) => {
+              const aiPercent = entry.aiCriteriaScores?.find((a) => a.criterion === c.criterion)?.percent;
+              return (
+                <li key={c.criterion}>
+                  {c.criterion}: {c.percent}%
+                  {aiPercent != null && aiPercent !== c.percent && (
+                    <span className="ml-1.5 text-slate-400">
+                      {t("reviewVideoDetail.reflexHistoryModal.review.aiBand", { percent: aiPercent })}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -912,21 +929,62 @@ function ReflexHistoryEntryRow({
       {canEdit &&
         (editing ? (
           <form onSubmit={handleSave} className="space-y-2 pt-2 border-t border-emerald-100">
-            <div className="flex items-center gap-2">
-              <label className="text-[12px] font-bold uppercase text-slate-500 shrink-0">
-                {t("reviewVideoDetail.reflexHistoryModal.review.scoreLabel", { max: entry.maxScore ?? 100 })}
-              </label>
-              <input
-                type="number"
-                required
-                min={0}
-                max={entry.maxScore ?? 100}
-                step={0.1}
-                value={score}
-                onChange={(ev) => setScore(ev.target.value)}
-                className="w-24 bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none"
-              />
-            </div>
+            {bandMode ? (
+              <div className="space-y-1.5" data-testid="reflex-band-editor">
+                <p className="text-[12px] font-bold uppercase text-slate-500">{t("reviewVideoDetail.reflexHistoryModal.review.bandsLabel")}</p>
+                {(entry.criteriaScores ?? []).map((c, i) => (
+                  <div key={c.criterion} className="flex items-center gap-2">
+                    <label className="text-sm text-slate-600 flex-1 min-w-0">{c.criterion}</label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={bandInputs[i] ?? ""}
+                      onChange={(ev) => setBandInputs((prev) => prev.map((v, k) => (k === i ? ev.target.value : v)))}
+                      className="w-20 bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none"
+                    />
+                    <span className="text-sm text-slate-400">%</span>
+                  </div>
+                ))}
+                <p className="text-[12px] text-slate-400">{t("reviewVideoDetail.reflexHistoryModal.review.totalAutoHint")}</p>
+                <button
+                  type="button"
+                  onClick={() => setBandMode(false)}
+                  className="text-[12px] font-semibold text-slate-500 hover:underline cursor-pointer"
+                >
+                  {t("reviewVideoDetail.reflexHistoryModal.review.totalOnly")}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <label className="text-[12px] font-bold uppercase text-slate-500 shrink-0">
+                    {t("reviewVideoDetail.reflexHistoryModal.review.scoreLabel", { max: entry.maxScore ?? 100 })}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    max={entry.maxScore ?? 100}
+                    step={0.1}
+                    value={score}
+                    onChange={(ev) => setScore(ev.target.value)}
+                    className="w-24 bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none"
+                  />
+                </div>
+                {hasBands && (
+                  <button
+                    type="button"
+                    onClick={() => setBandMode(true)}
+                    className="text-[12px] font-semibold text-slate-500 hover:underline cursor-pointer"
+                  >
+                    {t("reviewVideoDetail.reflexHistoryModal.review.editBands")}
+                  </button>
+                )}
+              </div>
+            )}
             <textarea
               rows={2}
               value={feedback}
