@@ -249,8 +249,14 @@ public class AuthService {
             OffsetDateTime now = OffsetDateTime.now();
             boolean rotated = token.getLastUsedAt() != null;
             boolean withinGrace = token.getRevokedAt().isAfter(now.minusSeconds(refreshReuseGraceSeconds));
-            if (rotated && !withinGrace) {
-                // Token đã rotate từ lâu nhưng vẫn bị dùng lại -- khả năng bị đánh cắp, thu hồi toàn bộ session đang hoạt động
+            if (rotated && withinGrace && token.getExpiresAt().isAfter(now)) {
+                return reissueAfterLostRotation(token, httpRequest);
+            }
+            if (rotated && !withinGrace && studentRepository.findByUserId(token.getUser().getId()).isEmpty()) {
+                // Token đã rotate từ lâu nhưng vẫn bị dùng lại -- khả năng bị đánh cắp, thu hồi toàn bộ session đang hoạt động.
+                // Bỏ qua với Học sinh (2026-10-22, đã xác nhận với người dùng): thiết bị học sinh hay bị đóng băng/mất mạng
+                // đúng lúc nhận phản hồi refresh, dùng lại token cũ là lỗi mạng chứ không phải đánh cắp — thu hồi hết phiên
+                // chỉ làm học sinh bị văng thêm; token cũ vẫn bị từ chối.
                 List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(token.getUser().getId());
                 activeTokens.forEach(t -> t.setRevokedAt(now));
                 refreshTokenRepository.saveAll(activeTokens);
@@ -269,6 +275,22 @@ public class AuthService {
         token.setLastUsedAt(OffsetDateTime.now());
         refreshTokenRepository.save(token);
 
+        String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), rolesOf(user));
+        String newRefreshToken = issueRefreshToken(user, httpRequest);
+        return new RefreshTokenResponse(accessToken, newRefreshToken, jwtService.getAccessTokenTtlSeconds());
+    }
+
+    /**
+     * Sửa lỗi 2026-10-22 — "mất phản hồi refresh": server đã xoay vòng token nhưng thiết bị không nhận được token
+     * mới (mất sóng, iOS đóng băng trang khi chuyển app, WebView bị tắt) nên gửi lại token cũ. Trước đây bị từ chối
+     * rồi (sau ân hạn) thu hồi hết phiên → học sinh bị đưa ra trang đăng nhập giữa bài. Nay trong ân hạn cấp lại cặp
+     * token mới. Cố tình KHÔNG thu hồi token "con" đã cấp lần trước: 2 tab refresh cùng lúc có thể đang giữ token con
+     * đó (tab ghi sau cùng thắng ở localStorage), thu hồi sẽ làm tab kia mất phiên. Token con mồ côi (nếu có) chỉ
+     * nằm tới hết hạn và không ai giữ — hệ quả duy nhất là lần đăng nhập mới của học sinh có thể hiện thêm 1 popup
+     * "thiết bị khác" (xem enforceActiveSessionLimit).
+     */
+    private RefreshTokenResponse reissueAfterLostRotation(RefreshToken oldToken, HttpServletRequest httpRequest) {
+        User user = oldToken.getUser();
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), rolesOf(user));
         String newRefreshToken = issueRefreshToken(user, httpRequest);
         return new RefreshTokenResponse(accessToken, newRefreshToken, jwtService.getAccessTokenTtlSeconds());
