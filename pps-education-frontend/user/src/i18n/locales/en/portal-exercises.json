@@ -249,7 +249,10 @@
       "passed": "Passed",
       "notPassedExhausted": "Not passed — out of attempts",
       "locked": "Locked",
-      "waitingForYou": "Waiting for you — tap to continue"
+      "waitingForYou": "Waiting for you — tap to continue",
+      "speakingRedo": "Speaking not passed — tap to redo",
+      "speakingNotPassed": "Speaking not passed — redo after the video ends",
+      "speakingGrading": "Grading your speaking…"
     },
     "writingStage": {
       "title": "Step 1 · Write your answer",
