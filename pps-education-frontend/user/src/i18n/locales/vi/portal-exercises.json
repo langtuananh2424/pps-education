@@ -210,7 +210,9 @@
     "gradingOverlay": {
       "title": "Đang chấm bài...",
       "writingDescription": "AI đang chấm ngữ pháp câu trả lời của bạn, vui lòng đợi trong giây lát.",
-      "speakingDescription": "AI đang nghe và chấm câu trả lời của bạn (có thể mất khoảng 10-20 giây), vui lòng đợi trong giây lát."
+      "speakingDescription": "AI đang nghe và chấm câu trả lời của bạn (có thể mất khoảng 10-20 giây), vui lòng đợi trong giây lát.",
+      "stageTranscribing": "Đang nhận diện giọng nói...",
+      "stageGrading": "Đang chấm nội dung & phát âm..."
     },
     "micAccessError": "Không truy cập được microphone — kiểm tra quyền trình duyệt rồi thử lại.",
     "questionsLoadError": "Không tải được danh sách câu hỏi.",
@@ -287,6 +289,7 @@
       "quietWarning": "Bản ghi hơi nhỏ — hãy thử nói to và rõ hơn để AI chấm chính xác hơn. Bạn có thể bấm \"Ghi âm lại\" hoặc vẫn nộp bài này.",
       "unclearWordTooltip": "Không rõ từ",
       "criteriaScoresLabel": "Điểm theo từng tiêu chí",
+      "pronunciationWordsLabel": "Phát âm từng từ (chạm vào từ để xem chi tiết)",
       "transcriptLabel": "Bài nói đã chuyển thành chữ (phần lỗi được đóng khung đỏ)",
       "retryButton": "Ghi âm lại",
       "attemptCount": "Đã ghi âm {{count}}/{{max}} lần",

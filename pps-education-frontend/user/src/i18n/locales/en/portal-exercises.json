@@ -210,7 +210,9 @@
     "gradingOverlay": {
       "title": "Grading your answer...",
       "writingDescription": "AI is grading the grammar of your answer — please wait a moment.",
-      "speakingDescription": "AI is listening to and grading your answer (this can take about 10-20 seconds) — please wait a moment."
+      "speakingDescription": "AI is listening to and grading your answer (this can take about 10-20 seconds) — please wait a moment.",
+      "stageTranscribing": "Transcribing your voice...",
+      "stageGrading": "Grading content & pronunciation..."
     },
     "micAccessError": "Couldn't access the microphone — check your browser permissions and try again.",
     "questionsLoadError": "Couldn't load the question list.",
@@ -287,6 +289,7 @@
       "quietWarning": "Your recording sounds quiet — try speaking louder and clearer for a more accurate AI grade. You can tap \"Re-record\" or still submit this one.",
       "unclearWordTooltip": "Unclear word",
       "criteriaScoresLabel": "Score by criteria",
+      "pronunciationWordsLabel": "Pronunciation by word (tap a word for detail)",
       "transcriptLabel": "Transcript (errors boxed in red)",
       "retryButton": "Record again",
       "attemptCount": "Recorded {{count}}/{{max}} time(s)",

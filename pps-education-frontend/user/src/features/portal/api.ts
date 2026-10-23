@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
 import { compressImageForUpload } from "@/lib/imageCompression";
 import { ApiError, apiRequest } from "@/lib/apiClient";
+import { getAccessToken } from "@/lib/tokenStorage";
 import type { Page } from "@/types";
 
 /**
@@ -802,6 +803,15 @@ export interface ReflexQuestionProgressResponse {
   speakingHint: string | null;
   /** V178 — % từng tiêu chí rubric, tách riêng khỏi speakingFeedback (trước đây nhúng trong feedback). */
   speakingCriteriaScores: { criterion: string; percent: number }[] | null;
+  /**
+   * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — chi tiết phát âm TỪNG TỪ/ÂM VỊ do Azure Pronunciation
+   * Assessment chấm. Chỉ có khi lượt nói đi qua pipeline trực tiếp Groq+Claude+Azure — NULL khi chấm bằng
+   * luồng cũ (9Router/Gemini) hoặc Azure lỗi. accuracyScore/errorType ở mức từ, phonemes ở mức âm vị
+   * (ký hiệu gần ARPAbet, FE tự chuyển sang IPA để hiển thị — xem ARPABET_TO_IPA trong ReflexVideoTaskPage.tsx).
+   */
+  speakingPronunciationWords:
+    | { word: string; accuracyScore: number | null; errorType: string | null; phonemes: { phoneme: string; accuracyScore: number | null }[] }[]
+    | null;
   speakingPassed: boolean;
   speakingAttemptCount: number;
   /** true khi CẢ 2 bước đã đạt THẬT (điểm >= ngưỡng) — KHÁC questionFinalized (xem field đó). */
@@ -899,6 +909,22 @@ export function getReflexRecordingConfig(): Promise<ReflexRecordingConfig> {
 /** Tiến trình đã lưu của MỌI câu hỏi thuộc video này trong lần giao đang mở — dùng để dựng lại đúng trạng thái khoá/mở khi vào/tải lại trang. */
 export function listMyReflexProgress(assignmentId: number): Promise<ReflexQuestionProgressResponse[]> {
   return apiRequest<ReflexQuestionProgressResponse[]>(`/review-video-assignments/${assignmentId}/reflex-progress`);
+}
+
+/**
+ * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — tải lại byte audio ĐÃ GHI ÂM qua backend (không
+ * qua apiRequest vì hàm đó luôn parse JSON) để vẽ dạng sóng âm. KHÔNG dùng để phát audio (vẫn phát qua
+ * audioUrl trực tiếp như cũ) — chỉ vì Web Audio API cần fetch() đọc được byte, mà bucket lưu audio
+ * (R2 public-base-url) không bật CORS cho việc đó, trong khi gọi API backend của chính hệ thống thì
+ * không bị chặn CORS (cùng origin qua proxy dev/production).
+ */
+export async function fetchSpeakingAudioArrayBuffer(questionId: number, assignmentId: number): Promise<ArrayBuffer> {
+  const token = getAccessToken();
+  const res = await fetch(`/api/review-video-questions/${questionId}/reflex-progress/speaking-audio?assignmentId=${assignmentId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return res.arrayBuffer();
 }
 
 /**
