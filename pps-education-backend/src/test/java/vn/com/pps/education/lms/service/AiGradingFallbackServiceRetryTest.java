@@ -59,4 +59,21 @@ class AiGradingFallbackServiceRetryTest {
         })).isInstanceOf(ReflexAudioRejectedException.class);
         assertThat(calls.get()).isEqualTo(1);
     }
+
+    @Test
+    void stopsRetryingWhenTimeBudgetIsSpent() {
+        ReflectionTestUtils.setField(service, "totalBudgetSeconds", 1);
+        AtomicInteger calls = new AtomicInteger();
+        String r = service.withRetries("t", () -> {
+            calls.incrementAndGet();
+            try {
+                Thread.sleep(1100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        });
+        assertThat(r).isNull();
+        assertThat(calls.get()).isEqualTo(1);
+    }
 }

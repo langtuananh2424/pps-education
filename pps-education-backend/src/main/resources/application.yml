@@ -289,6 +289,8 @@ app:
     # DirectAiRetry), timeout và 4xx khác không thử lại.
     direct-max-attempts: ${DIRECT_AI_MAX_ATTEMPTS:3}
     direct-retry-delay-ms: ${DIRECT_AI_RETRY_DELAY_MS:1000}
+    # Tổng thời gian tối đa cho các lần thử lại của 1 bước (giây, 0 = không giới hạn) - tránh 3 lần timeout nối nhau vượt hạn nginx 180s.
+    direct-total-budget-seconds: ${DIRECT_AI_TOTAL_BUDGET_SECONDS:60}
     groq-direct:
       timeout-seconds: ${GROQ_DIRECT_TIMEOUT_SECONDS:60}
     azure-direct:

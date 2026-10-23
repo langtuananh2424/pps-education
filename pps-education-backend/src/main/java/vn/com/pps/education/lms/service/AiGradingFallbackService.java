@@ -21,6 +21,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 
 /**
@@ -75,6 +77,30 @@ public class AiGradingFallbackService {
     /** Nghỉ giữa các lần (lần k nghỉ k×delay). Test tạo thẳng bằng constructor nên giá trị mặc định 0 = không nghỉ. */
     @Value("${app.ai-grading.direct-retry-delay-ms:1000}")
     private long retryDelayMillis;
+
+    /**
+     * Tổng thời gian tối đa (giây) cho các lần thử lại của MỘT bước gọi thẳng — quá mốc này thì thôi, rơi về 9Router.
+     * Cần vì timeout 1 lần gọi có thể lên tới claude-direct.timeout-seconds (150s): 3 lần timeout liên tiếp sẽ vượt hạn
+     * nginx 180s của đường đồng bộ và còn chưa kể thời gian 9Router dự phòng. 0 = không giới hạn.
+     */
+    @Value("${app.ai-grading.direct-total-budget-seconds:60}")
+    private int totalBudgetSeconds;
+
+    /**
+     * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — pool RIÊNG cho 2 lệnh gọi Claude+Azure chạy song
+     * song (xem {@link #gradeSpeakingDirectPipeline}). TRƯỚC ĐÂY {@code CompletableFuture.supplyAsync}
+     * không chỉ định Executor → mặc định dùng {@code ForkJoinPool.commonPool()}, 1 pool DÙNG CHUNG CHO CẢ
+     * JVM với kích thước mặc định = số core CPU - 1 — nhiều học sinh nộp bài nói cùng lúc trên server vật
+     * lý ít core sẽ làm các lệnh gọi Azure xếp hàng chờ thay vì chạy song song thật, mất hẳn lợi ích tối
+     * ưu độ trễ. Đây là tác vụ CHỜ MẠNG (I/O-bound, thread rảnh phần lớn thời gian chờ response, không tốn
+     * CPU thật) nên kích thước pool nên LỚN HƠN HẲN số core CPU — cố định 64 thread, đủ cho nhiều lớp làm
+     * bài đồng thời; daemon thread để không chặn JVM tắt.
+     */
+    private static final ExecutorService AI_PARALLEL_EXECUTOR = Executors.newFixedThreadPool(64, runnable -> {
+        Thread t = new Thread(runnable, "ai-grading-parallel");
+        t.setDaemon(true);
+        return t;
+    });
 
     public AiGradingFallbackService(WritingAiGradingService writingAiGradingService,
                                      ReflexV2AiGradingService reflexV2AiGradingService,
@@ -216,9 +242,9 @@ public class AiGradingFallbackService {
                         log.warn("AiGradingFallbackService: parse kết quả Claude (Speaking) thất bại. {}", e.getMessage());
                         return null;
                     }
-                }));
+                }), AI_PARALLEL_EXECUTOR);
         java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture =
-                java.util.concurrent.CompletableFuture.supplyAsync(() -> azurePronunciationClient.assess(audioBytes, mimeType, transcript));
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> azurePronunciationClient.assess(audioBytes, mimeType, transcript), AI_PARALLEL_EXECUTOR);
         ClaudeSpeakingJson claudeResult = claudeFuture.join();
         AzurePronunciationClient.Result pronunciation = azureFuture.join();
         log.info("AiGradingFallbackService: Claude+Azure chạy song song xong sau {}ms.", System.currentTimeMillis() - parallelStartedAt);
@@ -334,6 +360,7 @@ public class AiGradingFallbackService {
      */
     <T> T withRetries(String label, java.util.function.Supplier<T> attempt) {
         int attempts = Math.max(1, maxAttempts);
+        long deadline = totalBudgetSeconds > 0 ? System.currentTimeMillis() + totalBudgetSeconds * 1000L : Long.MAX_VALUE;
         RuntimeException lastError = null;
         for (int i = 1; i <= attempts; i++) {
             try {
@@ -348,6 +375,10 @@ public class AiGradingFallbackService {
             } catch (RuntimeException e) {
                 lastError = e;
                 log.warn("AiGradingFallbackService: {} — Claude trực tiếp lỗi (lần {}/{}): {}", label, i, attempts, e.getMessage());
+            }
+            if (System.currentTimeMillis() >= deadline) {
+                log.warn("AiGradingFallbackService: {} — quá ngân sách thời gian thử lại ({}s), bỏ qua các lần còn lại.", label, totalBudgetSeconds);
+                break;
             }
             if (i < attempts && retryDelayMillis > 0) {
                 try {
