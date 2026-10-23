@@ -50,8 +50,19 @@ public class AzurePronunciationClient {
     @Value("${app.ai-grading.direct-max-attempts:3}")
     private int maxAttempts;
 
+    /** Azure short-audio chỉ nhận audio ngắn (~60s): bài dài hơn mức này được cắt theo câu, xem {@link AzureAudioChunker}. */
+    @Value("${app.ai-grading.azure-direct.max-chunk-seconds:50}")
+    private double maxChunkSeconds;
+
+    /** {@code chunkCount}: số đoạn audio đã gửi Azure (1 = bài ngắn gửi nguyên). */
     public record Result(Integer accuracyScore, Integer fluencyScore, Integer completenessScore,
-                          Integer prosodyScore, Integer overallScore, List<PronunciationWordDetail> words, String rawJson) {
+                          Integer prosodyScore, Integer overallScore, List<PronunciationWordDetail> words, String rawJson,
+                          int chunkCount) {
+        Result(Integer accuracyScore, Integer fluencyScore, Integer completenessScore, Integer prosodyScore,
+               Integer overallScore, List<PronunciationWordDetail> words, String rawJson) {
+            this(accuracyScore, fluencyScore, completenessScore, prosodyScore, overallScore, words, rawJson, 1);
+        }
+
         static Result error(String message) {
             return new Result(null, null, null, null, null, null, message);
         }
@@ -83,15 +94,79 @@ public class AzurePronunciationClient {
      * phiên bản API) — đọc phẳng trực tiếp.
      */
     public Result assess(byte[] audioBytes, String mimeType, String referenceText) {
+        return assessSegmented(audioBytes, mimeType, referenceText, List.of());
+    }
+
+    /**
+     * Bài ≤ {@code max-chunk-seconds} gửi nguyên như {@link #assess}. Bài dài hơn được cắt theo câu (mốc thời gian
+     * {@code segments} của Groq), chấm từng đoạn với ReferenceText riêng rồi ghép: điểm trung bình theo thời lượng
+     * đoạn, danh sách từ nối theo thứ tự. KHÔNG chia được (thiếu segments, hoặc 1 câu quá dài) hoặc BẤT KỲ đoạn nào
+     * lỗi thì trả lỗi — caller rơi về điểm Phát âm của 9Router, không ghép điểm một phần.
+     */
+    public Result assessSegmented(byte[] audioBytes, String mimeType, String referenceText,
+                                  List<GroqSpeechClient.Segment> segments) {
         if (!isConfigured()) {
             return Result.error("Chưa cấu hình AZURE_SPEECH_KEY/AZURE_SPEECH_REGION.");
         }
-        try {
-            java.util.Optional<byte[]> wav = audioTranscoder.toWav(audioBytes, mimeType);
-            if (wav.isEmpty()) {
-                return Result.error("Không convert được audio sang WAV 16kHz (ffmpeg lỗi/thiếu).");
+        java.util.Optional<byte[]> wav = audioTranscoder.toWav(audioBytes, mimeType);
+        if (wav.isEmpty()) {
+            return Result.error("Không convert được audio sang WAV 16kHz (ffmpeg lỗi/thiếu).");
+        }
+        java.util.Optional<AzureAudioChunker.Pcm> pcm = AzureAudioChunker.parse(wav.get());
+        if (pcm.isEmpty() || pcm.get().durationSec() <= maxChunkSeconds) {
+            return assessWav(wav.get(), referenceText);
+        }
+        List<AzureAudioChunker.Segment> segs = segments == null ? List.of() : segments.stream()
+                .map(g -> new AzureAudioChunker.Segment(g.startSec(), g.endSec(), g.text())).toList();
+        java.util.Optional<List<AzureAudioChunker.Chunk>> plan =
+                AzureAudioChunker.plan(segs, pcm.get().durationSec(), maxChunkSeconds);
+        if (plan.isEmpty()) {
+            return Result.error("Bài nói dài " + Math.round(pcm.get().durationSec()) + "s nhưng không chia được theo câu (thiếu mốc thời gian Groq).");
+        }
+        List<Result> results = new java.util.ArrayList<>();
+        for (AzureAudioChunker.Chunk chunk : plan.get()) {
+            byte[] part = AzureAudioChunker.slice(wav.get(), pcm.get(), chunk.startSec(), chunk.endSec());
+            Result r = assessWav(part, chunk.text());
+            if (!r.hasScores()) {
+                return Result.error("Đoạn " + (results.size() + 1) + "/" + plan.get().size() + " lỗi: " + r.rawJson());
             }
+            results.add(r);
+        }
+        return merge(results, plan.get());
+    }
 
+    /** Ghép điểm các đoạn, trọng số = thời lượng đoạn. */
+    static Result merge(List<Result> results, List<AzureAudioChunker.Chunk> chunks) {
+        double total = chunks.stream().mapToDouble(AzureAudioChunker.Chunk::durationSec).sum();
+        List<PronunciationWordDetail> words = new ArrayList<>();
+        StringBuilder raw = new StringBuilder("[");
+        for (int i = 0; i < results.size(); i++) {
+            words.addAll(results.get(i).words());
+            raw.append(i == 0 ? "" : ",").append(results.get(i).rawJson());
+        }
+        raw.append("]");
+        return new Result(weighted(results, chunks, total, Result::accuracyScore), weighted(results, chunks, total, Result::fluencyScore),
+                weighted(results, chunks, total, Result::completenessScore), weighted(results, chunks, total, Result::prosodyScore),
+                weighted(results, chunks, total, Result::overallScore), words, raw.toString(), results.size());
+    }
+
+    private static Integer weighted(List<Result> results, List<AzureAudioChunker.Chunk> chunks, double total,
+                                    java.util.function.Function<Result, Integer> field) {
+        double sum = 0;
+        double weight = 0;
+        for (int i = 0; i < results.size(); i++) {
+            Integer v = field.apply(results.get(i));
+            if (v != null) {
+                sum += v * chunks.get(i).durationSec();
+                weight += chunks.get(i).durationSec();
+            }
+        }
+        return weight == 0 || total == 0 ? null : (int) Math.round(sum / weight);
+    }
+
+    /** Gọi Azure cho 1 WAV 16kHz mono (đã đủ ngắn). */
+    private Result assessWav(byte[] wavBytes, String referenceText) {
+        try {
             ObjectNode config = objectMapper.createObjectNode();
             config.put("ReferenceText", referenceText == null ? "" : referenceText);
             config.put("GradingSystem", "HundredMark");
@@ -111,7 +186,7 @@ public class AzurePronunciationClient {
                     .header("Accept", "application/json")
                     .header("Pronunciation-Assessment", pronunciationHeader)
                     .timeout(Duration.ofSeconds(requestTimeoutSeconds))
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(wav.get()))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(wavBytes))
                     .build();
             HttpResponse<String> response = DirectAiRetry.send("AzurePronunciationClient", maxAttempts, () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
             if (response.statusCode() >= 300) {
