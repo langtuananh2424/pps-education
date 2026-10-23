@@ -981,23 +981,27 @@ public class ReflexSequentialGradingService {
         // cho nói trước khi writingUnlocked, nên speakingPassed=true LUÔN kéo theo writing đã unlock (đạt
         // thật hoặc hết lượt) — không cần xét lại writingPassed ở đây, mirror đúng isSpeakingFinalized.
         boolean questionFinalized = isSpeakingFinalized(p);
+        // V222 — bước đang chờ hàng đợi: kết quả còn trong dòng tiến trình là của LẦN NỘP TRƯỚC, không trả ra (FE sẽ hiện
+        // điểm/transcript cũ như thể là kết quả của bài vừa nộp). Lịch sử các lần vẫn nằm ở reflex_question_progress_history.
+        boolean wPending = isWritingPending(p);
+        boolean sPending = isSpeakingPending(p);
         return new ReflexQuestionProgressResponse(
                 p.getReviewVideoQuestion().getId(),
                 p.getAnswerText(),
-                p.getWritingScore() == null ? null : p.getWritingScore().intValue(),
-                p.getWritingFeedback(),
-                p.getWritingMarkedAnswer(),
-                p.getWritingHint(),
+                wPending || p.getWritingScore() == null ? null : p.getWritingScore().intValue(),
+                wPending ? null : p.getWritingFeedback(),
+                wPending ? null : p.getWritingMarkedAnswer(),
+                wPending ? null : p.getWritingHint(),
                 writingPassed,
                 p.getWritingAttemptCount(),
-                p.getWritingCorrectedAnswer(),
+                wPending ? null : p.getWritingCorrectedAnswer(),
                 p.getAudioUrl(),
-                p.getSpeakingScore() == null ? null : p.getSpeakingScore().intValue(),
-                p.getSpeakingFeedback(),
-                p.getSpeakingTranscript(),
-                p.getSpeakingHint(),
-                p.getSpeakingCriteriaScores(),
-                extractPronunciationWords(p.getSpeakingAudit()),
+                sPending || p.getSpeakingScore() == null ? null : p.getSpeakingScore().intValue(),
+                sPending ? null : p.getSpeakingFeedback(),
+                sPending ? null : p.getSpeakingTranscript(),
+                sPending ? null : p.getSpeakingHint(),
+                sPending ? null : p.getSpeakingCriteriaScores(),
+                sPending ? null : extractPronunciationWords(p.getSpeakingAudit()),
                 speakingPassed,
                 p.getSpeakingAttemptCount(),
                 questionPassed,
