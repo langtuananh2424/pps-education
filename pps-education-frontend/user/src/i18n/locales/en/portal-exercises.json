@@ -252,7 +252,8 @@
       "waitingForYou": "Waiting for you — tap to continue",
       "speakingRedo": "Speaking not passed — tap to redo",
       "speakingNotPassed": "Speaking not passed — redo after the video ends",
-      "speakingGrading": "Grading your speaking…"
+      "speakingGrading": "Grading your speaking…",
+      "speakingSubmitted": "Speaking submitted"
     },
     "writingStage": {
       "title": "Step 1 · Write your answer",
@@ -305,6 +306,10 @@
       },
       "exhaustedPopup": {
         "heading": "Out of attempts for recording — this question was not passed, moving on"
+      },
+      "queuedPopup": {
+        "heading": "Speaking submitted",
+        "body": "Speaking submitted. Your speaking scores will show after you finish all the questions."
       }
     },
     "submittedSuccess": "You've completed every question!",

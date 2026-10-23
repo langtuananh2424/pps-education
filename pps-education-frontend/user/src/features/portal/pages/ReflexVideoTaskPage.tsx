@@ -885,7 +885,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const [speakingSubmitting, setSpeakingSubmitting] = useState(false);
   const [speakingError, setSpeakingError] = useState<string | null>(null);
   /** `exhausted` (2026-10-07) — true khi popup này hiện ra do HẾT LƯỢT nộp (3 lần) mà vẫn chưa đạt, chứ không phải đạt thật — đổi icon/tiêu đề cho đúng. */
-  const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null; exhausted: boolean } | null>(null);
+  const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null; exhausted: boolean; queued?: boolean } | null>(null);
   const [writingPassedPopup, setWritingPassedPopup] = useState<{ scorePercent: number | null; exhausted: boolean } | null>(null);
   /** Bổ sung 2026-10-22 (đã xác nhận với người dùng) — ref tới thẻ `<audio>` nghe lại bài nói, để AudioWaveform đồng bộ tiến độ phát. */
   const [speakingPlaybackEl, setSpeakingPlaybackEl] = useState<HTMLAudioElement | null>(null);
@@ -1416,14 +1416,15 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     }
   };
 
-  /** V222 — bài nói vào hàng đợi chấm nền: ghi nhận, đóng câu, chạy tiếp video tới câu kế (như khi đạt bước nói, không popup). */
+  /**
+   * V222 — bài nói vào hàng đợi chấm nền: ghi nhận và hiện popup "Đã nộp, điểm hiện sau khi làm hết các câu". Video chạy
+   * tiếp khi học sinh bấm "Tiếp tục" (handleContinueAfterSpeakingPass) — phải là cú bấm thật: trình duyệt chặn tự phát
+   * video có tiếng sau khi chờ upload/mạng (không còn thao tác của người dùng), nên không tự resume ở đây.
+   */
   const advanceAfterBackgroundSpeaking = (pending: ReflexQuestionProgressResponse) => {
     setProgress((prev) => ({ ...prev, [pending.questionId]: pending }));
     markAdvanced(pending.questionId);
-    setActiveQuestionId(null);
-    setUserPaused(false);
-    suppressManualToggleUntilRef.current = Date.now() + 600;
-    if (!videoEnded) resumeVideo();
+    setSpeakingPassedPopup({ scorePercent: null, feedback: null, exhausted: false, queued: true });
   };
 
   // V222 — vào lại câu (tải lại trang/mở lại video) khi bài VIẾT đang nằm trong hàng đợi: tự vào trạng thái chờ (overlay
@@ -1476,7 +1477,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     // SPIKE (2026-08-25) — video đứng yên xuyên suốt cả bước viết lẫn nói (xem activateQuestion), nên
     // tới đây video vẫn đang đứng ĐÚNG tại mốc câu vừa đạt xong — chạy tiếp từ đây tới mốc câu KẾ TIẾP.
     // activeQuestionId=null nên handleTimeUpdate sẽ tự mở bảng VIẾT câu kế tiếp ngay khi chạm đúng mốc.
-    resumeVideo();
+    if (!videoEndedRef.current) resumeVideo();
   };
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — TRƯỚC ĐÂY ghi âm dừng (hết giờ hoặc
@@ -1652,18 +1653,25 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       {speakingPassedPopup && (
         <div className="fixed inset-0 bg-ink/60 z-[130] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-6 space-y-4 text-center">
-            {speakingPassedPopup.exhausted ? (
+            {speakingPassedPopup.queued ? (
+              <CheckCircle2 size={36} className="text-teal mx-auto" />
+            ) : speakingPassedPopup.exhausted ? (
               <AlertTriangle size={36} className="text-amber-600 mx-auto" />
             ) : (
               <CheckCircle2 size={36} className="text-emerald-600 mx-auto" />
             )}
             <h3 className="text-base font-extrabold text-ink">
-              {speakingPassedPopup.exhausted
+              {speakingPassedPopup.queued
+                ? t("reflexVideoTask.speakingStage.queuedPopup.heading")
+                : speakingPassedPopup.exhausted
                 ? t("reflexVideoTask.speakingStage.exhaustedPopup.heading")
                 : t("reflexVideoTask.speakingStage.passedPopup.heading")}
               {speakingPassedPopup.scorePercent != null &&
                 ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: speakingPassedPopup.scorePercent })}`}
             </h3>
+            {speakingPassedPopup.queued && (
+              <p className="text-xs font-medium text-muted normal-case">{t("reflexVideoTask.speakingStage.queuedPopup.body")}</p>
+            )}
             {speakingPassedPopup.feedback && (
               <p className="text-xs font-medium text-muted text-left normal-case whitespace-pre-line max-h-48 overflow-y-auto">
                 {speakingPassedPopup.feedback}
@@ -1791,7 +1799,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   const percent = Math.min(100, Math.max(0, (q.timestampSeconds / video.durationSeconds) * 100));
                   // 2026-10-07 — "passed" nay gồm cả trường hợp hết lượt mà chưa đạt (xem stageForProgress),
                   // chấm màu hổ phách riêng để không lẫn với đạt thật (xanh lá).
-                  const notPassedButFinalized = stage === "passed" && !progress[q.id]?.questionPassed;
+                  const hideResult = (progress[q.id]?.speakingGradingStatus ?? "NONE") !== "NONE" && !allQuestionsDone;
+                  const notPassedButFinalized = !hideResult && stage === "passed" && !progress[q.id]?.questionPassed;
                   return (
                     <button
                       key={q.id}
@@ -1802,9 +1811,11 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       style={{ left: `${percent}%` }}
                       className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow transition-transform ${
                         stage === "passed"
-                          ? notPassedButFinalized
-                            ? "bg-amber-500"
-                            : "bg-emerald-500"
+                          ? hideResult
+                            ? "bg-teal"
+                            : notPassedButFinalized
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
                           : q.id === activeQuestionId
                             ? "bg-teal"
                             : "bg-slate-300"
@@ -2313,16 +2324,21 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               // sinh tưởng bị khoá, bấm không được. Nhận diện riêng case này: hiện nổi bật + bấm được để
               // đóng xem lại và quay về đúng câu đang chờ.
               const isRealActiveHiddenByReview = q.id === activeQuestionId && !isDisplayed;
-              const clickable = (stage === "passed" && !isDisplayed) || isRealActiveHiddenByReview;
+              const clickable = (stage === "passed" && !isDisplayed && !((progress[q.id]?.speakingGradingStatus ?? "NONE") !== "NONE" && !allQuestionsDone)) || isRealActiveHiddenByReview;
               // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07 — stage "passed" nay gồm 2
               // trường hợp (xem stageForProgress): đạt THẬT (questionPassed) hoặc hết lượt bước nói mà
               // vẫn chưa đạt (questionFinalized nhưng KHÔNG questionPassed) — phải hiện khác nhau, không
               // gộp chung badge xanh "Đã đạt" cho cả 2 (học sinh dễ hiểu lầm là đã làm đúng).
               // V222 — bước nói chấm nền: đang chờ điểm / điểm về mà chưa đạt (làm lại ở phần Rà soát sau khi hết video).
-              const speakingPending = progress[q.id]?.speakingGradingStatus === "PENDING";
-              const needsSpeakingRedo = advancedIds.includes(q.id) && stage === "speaking" && !speakingPending;
-              const redoable = needsSpeakingRedo && (videoEnded || allQuestionsDone) && !activeQuestion;
-              const notPassedButFinalized = stage === "passed" && !speakingPending && !progress[q.id]?.questionPassed;
+              // Kết quả bài nói chấm nền CHỈ hiện sau khi học sinh làm hết các câu (allQuestionsDone) — giữa bài chỉ báo
+              // "đã nộp", để không mất tập trung vì điểm từng câu.
+              const queuedSpeaking = (progress[q.id]?.speakingGradingStatus ?? "NONE") !== "NONE";
+              const hideSpeakingResult = queuedSpeaking && !allQuestionsDone;
+              const speakingPending = !hideSpeakingResult && progress[q.id]?.speakingGradingStatus === "PENDING";
+              const speakingSubmittedHidden = hideSpeakingResult && stage === "passed";
+              const needsSpeakingRedo = !hideSpeakingResult && advancedIds.includes(q.id) && stage === "speaking" && progress[q.id]?.speakingGradingStatus !== "PENDING";
+              const redoable = needsSpeakingRedo && !activeQuestion;
+              const notPassedButFinalized = !hideSpeakingResult && stage === "passed" && !speakingPending && !progress[q.id]?.questionPassed;
               return (
                 <div
                   key={q.id}
@@ -2332,6 +2348,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       ? "opacity-0 h-0 p-0 border-0 overflow-hidden"
                       : isRealActiveHiddenByReview
                         ? "bg-teal/10 border-teal/40 text-teal-deep cursor-pointer hover:bg-teal/20"
+                        : speakingSubmittedHidden
+                          ? "bg-sky-2 border-teal/20 text-teal-deep"
                         : needsSpeakingRedo
                           ? `bg-amber-50 border-amber-200 text-amber-700${redoable ? " cursor-pointer hover:bg-amber-100" : ""}`
                           : speakingPending
@@ -2349,6 +2367,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   </span>
                   {isRealActiveHiddenByReview ? (
                     <span>{t("reflexVideoTask.question.waitingForYou")}</span>
+                  ) : speakingSubmittedHidden ? (
+                    <span className="flex items-center gap-1"><CheckCircle2 size={13} /> {t("reflexVideoTask.question.speakingSubmitted")}</span>
                   ) : needsSpeakingRedo ? (
                     <span className="flex items-center gap-1">
                       <AlertTriangle size={13} /> {redoable ? t("reflexVideoTask.question.speakingRedo") : t("reflexVideoTask.question.speakingNotPassed")}
