@@ -68,6 +68,14 @@ public class AiGradingFallbackService {
     @Value("${app.ai-grading.reflex-v2.unlock-includes-pronunciation:false}")
     private boolean unlockIncludesPronunciation;
 
+    /** Số lần gọi tối đa cho MỖI bước gọi thẳng Claude (HTTP lỗi, nội dung rỗng, JSON hỏng/thiếu mục đều tính) — hết lần mới rơi về 9Router. */
+    @Value("${app.ai-grading.direct-max-attempts:3}")
+    private int maxAttempts;
+
+    /** Nghỉ giữa các lần (lần k nghỉ k×delay). Test tạo thẳng bằng constructor nên giá trị mặc định 0 = không nghỉ. */
+    @Value("${app.ai-grading.direct-retry-delay-ms:1000}")
+    private long retryDelayMillis;
+
     public AiGradingFallbackService(WritingAiGradingService writingAiGradingService,
                                      ReflexV2AiGradingService reflexV2AiGradingService,
                                      ReflexV2Prompts reflexV2Prompts, ClaudeAiClient claudeAiClient,
@@ -90,7 +98,8 @@ public class AiGradingFallbackService {
             try {
                 BiFunction<String, String, NineRouterAiClient.ChatResult> caller =
                         (system, user) -> claudeAiClient.chatWithFinishReason(system, user, claudeModel);
-                WritingAiGradingService.GradeResult result = writingAiGradingService.grade(essayText, taskPrompt, curriculum, keyGrammarIds, caller);
+                WritingAiGradingService.GradeResult result = withRetries("Essay",
+                        () -> writingAiGradingService.grade(essayText, taskPrompt, curriculum, keyGrammarIds, caller));
                 if (result != null) {
                     return result;
                 }
@@ -109,7 +118,8 @@ public class AiGradingFallbackService {
             try {
                 BiFunction<String, String, NineRouterAiClient.AiJsonResponse> caller =
                         (system, user) -> claudeAiClient.chatJson(system, user, claudeModel, ClaudeAiClient.MAX_TOKENS_SHORT);
-                ReflexV2AiGradingService.WritingResult result = reflexV2AiGradingService.gradeWriting(task, question, text, caller);
+                ReflexV2AiGradingService.WritingResult result = withRetries("Writing câu ngắn",
+                        () -> reflexV2AiGradingService.gradeWriting(task, question, text, caller));
                 if (result != null) {
                     return result;
                 }
@@ -194,29 +204,34 @@ public class AiGradingFallbackService {
         String userPrompt = reflexV2Prompts.speakingUser(task, question, anchor.text() == null ? "" : anchor.text(),
                 transcript, List.of(), List.of(), durationSec, speechSec, longestPause);
         long parallelStartedAt = System.currentTimeMillis();
-        java.util.concurrent.CompletableFuture<NineRouterAiClient.AiJsonResponse> claudeFuture =
-                java.util.concurrent.CompletableFuture.supplyAsync(() ->
-                        claudeAiClient.chatJson(systemPrompt, userPrompt, claudeModel, ClaudeAiClient.MAX_TOKENS_LONG_RUBRIC));
+        java.util.concurrent.CompletableFuture<ClaudeSpeakingJson> claudeFuture =
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> withRetries("Speaking (Claude)", () -> {
+                    NineRouterAiClient.AiJsonResponse response = claudeAiClient.chatJson(systemPrompt, userPrompt, claudeModel, ClaudeAiClient.MAX_TOKENS_LONG_RUBRIC);
+                    if (response == null) {
+                        return null;
+                    }
+                    try {
+                        return new ClaudeSpeakingJson(response, new com.fasterxml.jackson.databind.ObjectMapper().readTree(extractJson(response.content())));
+                    } catch (Exception e) {
+                        log.warn("AiGradingFallbackService: parse kết quả Claude (Speaking) thất bại. {}", e.getMessage());
+                        return null;
+                    }
+                }));
         java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture =
                 java.util.concurrent.CompletableFuture.supplyAsync(() -> azurePronunciationClient.assess(audioBytes, mimeType, transcript));
-        NineRouterAiClient.AiJsonResponse claudeResponse = claudeFuture.join();
+        ClaudeSpeakingJson claudeResult = claudeFuture.join();
         AzurePronunciationClient.Result pronunciation = azureFuture.join();
         log.info("AiGradingFallbackService: Claude+Azure chạy song song xong sau {}ms.", System.currentTimeMillis() - parallelStartedAt);
-        if (claudeResponse == null) {
+        if (claudeResult == null) {
             return null;
         }
+        NineRouterAiClient.AiJsonResponse claudeResponse = claudeResult.response();
         usageSink.record(AiGradingTokenUsage.Step.SPEAKING, claudeResponse.usage());
         if (!pronunciation.hasScores()) {
             return null;
         }
 
-        JsonNode data;
-        try {
-            data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(extractJson(claudeResponse.content()));
-        } catch (Exception e) {
-            log.warn("AiGradingFallbackService: parse kết quả Claude (Speaking) thất bại. {}", e.getMessage());
-            return null;
-        }
+        JsonNode data = claudeResult.data();
 
         List<String> gradedCodes = task.criteria();
         ReflexV2Scoring.ScoreSet scored = ReflexV2Scoring.computeScores(task, gradedCodes, data);
@@ -305,5 +320,47 @@ public class AiGradingFallbackService {
             throw new IllegalArgumentException("Claude không trả về JSON hợp lệ: " + rawText);
         }
         return rawText.substring(start, end + 1);
+    }
+
+    private record ClaudeSpeakingJson(NineRouterAiClient.AiJsonResponse response, JsonNode data) {
+    }
+
+    /**
+     * Gọi {@code attempt} tối đa {@link #maxAttempts} lần cho tới khi trả kết quả khác null (null = HTTP lỗi, nội dung
+     * rỗng, JSON hỏng hoặc thiếu mục bắt buộc — các service chấm đều trả null cho mọi trường hợp đó). Ngoại lệ
+     * runtime cũng tính là 1 lần lỗi, riêng {@link ReflexAudioRejectedException} (vấn đề audio, không phải nhà cung
+     * cấp AI) ném thẳng, không thử lại. Vòng lặp có chặn cứng bởi {@code maxAttempts} (tối thiểu 1) nên không thể
+     * lặp vô hạn; hết lần thì trả null (hoặc ném ngoại lệ cuối) để caller rơi về 9Router.
+     */
+    <T> T withRetries(String label, java.util.function.Supplier<T> attempt) {
+        int attempts = Math.max(1, maxAttempts);
+        RuntimeException lastError = null;
+        for (int i = 1; i <= attempts; i++) {
+            try {
+                T result = attempt.get();
+                if (result != null) {
+                    return result;
+                }
+                lastError = null;
+                log.warn("AiGradingFallbackService: {} — Claude trực tiếp trả kết quả không dùng được (lần {}/{}).", label, i, attempts);
+            } catch (ReflexAudioRejectedException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                lastError = e;
+                log.warn("AiGradingFallbackService: {} — Claude trực tiếp lỗi (lần {}/{}): {}", label, i, attempts, e.getMessage());
+            }
+            if (i < attempts && retryDelayMillis > 0) {
+                try {
+                    Thread.sleep(retryDelayMillis * i);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        return null;
     }
 }

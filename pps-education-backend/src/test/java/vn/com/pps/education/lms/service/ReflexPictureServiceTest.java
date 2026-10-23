@@ -99,4 +99,19 @@ class ReflexPictureServiceTest {
 
         assertThat(service.draftBrief(IMAGE_URL).brief()).isEqualTo("Một con chó.");
     }
+
+    @Test
+    void draftBrief_claudeDirectRetriesUpToThreeTimesBeforeNineRouter() {
+        imageStored("image/jpeg");
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "claudeDirectEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "directMaxAttempts", 3);
+        when(claude.isConfigured()).thenReturn(true);
+        when(claude.supportsImage(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        when(claude.chatWithImage(any(), any(), any(), any(), any())).thenReturn(null);
+        when(ai.chatWithImage(any(), any(), any(), any(), any()))
+                .thenReturn(new NineRouterAiClient.AiTextResponse("Một con mèo.", USAGE));
+
+        assertThat(service.draftBrief(IMAGE_URL).brief()).isEqualTo("Một con mèo.");
+        org.mockito.Mockito.verify(claude, org.mockito.Mockito.times(3)).chatWithImage(any(), any(), any(), any(), any());
+    }
 }

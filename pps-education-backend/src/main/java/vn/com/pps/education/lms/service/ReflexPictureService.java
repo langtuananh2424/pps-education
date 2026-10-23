@@ -66,6 +66,12 @@ public class ReflexPictureService {
     @Value("${app.ai-grading.claude-direct.model:claude-haiku-5-5}")
     private String claudeModel;
 
+    @Value("${app.ai-grading.direct-max-attempts:3}")
+    private int directMaxAttempts;
+
+    @Value("${app.ai-grading.direct-retry-delay-ms:1000}")
+    private long directRetryDelayMillis;
+
     public ReflexPictureService(MediaStorageService mediaStorageService, NineRouterAiClient nineRouterAiClient,
                                 ClaudeAiClient claudeAiClient) {
         this.mediaStorageService = mediaStorageService;
@@ -140,7 +146,18 @@ public class ReflexPictureService {
         // Bổ sung 2026-10-23 (đã xác nhận với người dùng) — thử Claude Haiku trực tiếp trước (chỉ khi
         // app.ai-grading.claude-direct.enabled=true), null/lỗi thì rơi về 9Router như cũ.
         if (claudeDirectEnabled && claudeAiClient.isConfigured() && claudeAiClient.supportsImage(mime, image.bytes().length)) {
-            response = claudeAiClient.chatWithImage(BRIEF_SYSTEM_PROMPT, userText, image.bytes(), mime, claudeModel);
+            int attempts = Math.max(1, directMaxAttempts);
+            for (int i = 1; i <= attempts && response == null; i++) {
+                response = claudeAiClient.chatWithImage(BRIEF_SYSTEM_PROMPT, userText, image.bytes(), mime, claudeModel);
+                if (response == null && i < attempts && directRetryDelayMillis > 0) {
+                    try {
+                        Thread.sleep(directRetryDelayMillis * i);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
             if (response == null) {
                 log.warn("ReflexPictureService: Claude trực tiếp mô tả tranh thất bại, rơi về 9Router.");
             }
