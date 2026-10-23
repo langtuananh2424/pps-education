@@ -71,14 +71,23 @@ public class ReflexV2Prompts {
         ObjectNode suspect = props.putObject("suspect_words");
         suspect.put("type", "array");
         suspect.putObject("items").put("type", "string");
-        suspect.put("description", "Từ phát âm LỆCH NHƯNG VẪN NHẬN RA, đã được ghi chính tả chuẩn trong transcript. "
-                + "Ghi dạng \"nghe→đã ghi\": \"scoo→school\", \"tink→think\", \"pan→pants\" (mất -s danh từ số nhiều). "
-                + "Từ lệch đến mức không nhận ra thì đã ghi theo âm trong transcript, không lặp lại ở đây. "
+        // Sửa 23/10/2026 (bản bàn giao Gemini 3.8, v5.1) — LƯỚI AN TOÀN, KHÔNG PHẢI LỐI THOÁT. Việc chính vẫn
+        // là ghi theo âm trong transcript (word_audit lo phần đó); suspect_words giờ CHỈ còn 2 trường hợp hẹp,
+        // KHÔNG còn bao gồm mất âm cuối/thay âm (những từ đó phải ghi theo âm NGAY trong transcript, không
+        // khai ở đây nữa) — ví dụ cũ "scoo→school"/"tink→think" nay SAI, phải ghi "scoo"/"tink" thẳng vào
+        // transcript. Danh sách này giờ rất ngắn, thường rỗng.
+        suspect.put("description", "LƯỚI AN TOÀN, KHÔNG PHẢI LỐI THOÁT — chỉ dành cho 2 trường hợp: "
+                + "(a) từ đủ phụ âm nhưng nguyên âm/trọng âm lệch kiểu Việt (\"phút-bôn→football\", \"fam-mee-lee→family\"); "
+                + "(b) từ mà bạn ĐÃ LỠ ghi chính tả chuẩn trong transcript dù nghe thấy âm lệch — khai bổ sung ở đây dạng \"nghe→đã ghi\". "
+                + "TUYỆT ĐỐI KHÔNG đưa vào đây từ mất âm cuối hoặc bị thay âm (\"fren\", \"scoo\", \"tink\") — những từ đó PHẢI ghi "
+                + "theo âm NGAY trong transcript, không khai ở suspect_words. "
                 + "TUYỆT ĐỐI KHÔNG có mục đuôi chia ĐỘNG TỪ (\"make→makes\", \"help→helped\"): đuôi động từ không nghe thấy "
                 + "thì transcript phải ghi đúng như nói (\"he make\"), không bao giờ chuẩn hoá. "
                 + "Người nói rõ ràng → rỗng.");
-        // word_audit KHÔNG còn nối vào điểm (26/9) nhưng quy tắc phiên âm bắt buộc điền: ép model nghe lại từng từ
-        // nên khó "làm mượt" transcript hơn nhiều so với chỉ viết một câu đẹp.
+        // Sửa 23/10/2026 — word_audit từ 26/9 không nối vào điểm, nay NỐI LẠI: cấp trần mềm Phát âm theo số từ
+        // ghi theo âm (xem ReflexV2Scoring#parseWordAudit/#applyErrorCaps), thay mốc cứng cũ mà rubric từng bắt
+        // AI tự áp. Quy tắc phiên âm vẫn bắt buộc điền: ép model nghe lại từng từ nên khó "làm mượt" transcript
+        // hơn nhiều so với chỉ viết một câu đẹp.
         ObjectNode audit = props.putObject("word_audit");
         audit.put("type", "array");
         audit.putObject("items").put("type", "string");

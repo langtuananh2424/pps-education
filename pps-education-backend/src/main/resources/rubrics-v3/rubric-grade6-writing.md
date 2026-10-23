@@ -28,11 +28,11 @@
 
 |#|Checkpoint|1|0,5|0|
 |-|-|-|-|-|
-|G1|**Tổng số từ** nằm trong các câu hoàn chỉnh **không có lỗi nào** (đếm từ, không đếm câu; một câu dài không lỗi cũng đủ). **Câu có lỗi chính tả / gõ nhầm** (`I'"m`, `becuase`) **không** tính là câu không lỗi. **"Câu" = đoạn từ đầu bài hoặc sau dấu chấm / dấu hỏi / dấu than tới dấu kế tiếp**: hai mệnh đề nối bằng dấu phẩy là **MỘT câu** — lỗi ở vế trước làm cả câu không đạt, không được tách vế sau ra đếm riêng|≥10 từ|3–9 từ|<3 từ|
-|G2|Tỷ lệ động từ chia đúng thì và dạng theo ngữ cảnh (kể cả hoà hợp chủ–vị). **Mẫu số** = động từ chính có chủ ngữ **cộng** động từ đi sau chúng hoặc dùng chung chủ ngữ với chúng: *would like **to stay**, **sleep** and **play*** = 4 động từ; *want **to buy*** = 2; *help her **cook*** = 2|≥90% (**1 động từ duy nhất mà đúng → vẫn 1**, không áp §B.8)|60–89%|<60%, hoặc không có động từ nào|
+|G1|**Tổng số từ** nằm trong các câu hoàn chỉnh **không có lỗi nào** (đếm từ, không đếm câu; một câu dài không lỗi cũng đủ). **Câu chỉ có lỗi VÀNG vẫn tính là câu không lỗi ở G1 — cả bài viết lẫn bài nói.** Lỗi vàng đã trừ ở G2/G5, không trừ lần ba. Chỉ lỗi ĐỎ (và lỗi chính tả / gõ nhầm ở bài viết) mới làm câu mất G1 (phòng đào tạo 23/10: "sai 1 lỗi chia động từ mà trừ 30–50% là quá nặng"; "He have… He are…" → 70%; "it help" → 80–90%). **Câu có lỗi chính tả / gõ nhầm** (`I'"m`, `becuase`) **không** tính là câu không lỗi. **"Câu" = đoạn từ đầu bài hoặc sau dấu chấm / dấu hỏi / dấu than tới dấu kế tiếp**: hai mệnh đề nối bằng dấu phẩy là **MỘT câu** — lỗi ở vế trước làm cả câu không đạt, không được tách vế sau ra đếm riêng|≥10 từ|3–9 từ|<3 từ|
+|G2|Tỷ lệ động từ chia đúng thì và dạng theo ngữ cảnh (kể cả hoà hợp chủ–vị). **Bài NÓI: thêm/bớt đuôi -s/-es/-ed ở ĐỘNG TỪ (`I keeps`, `it help`) là lỗi chia động từ, KHÔNG phải lỗi phát âm** — dù cả bài có thói quen thêm -s (khác với -s danh từ số nhiều, §B.6). **Mẫu số** = động từ chính có chủ ngữ **cộng** động từ đi sau chúng hoặc dùng chung chủ ngữ với chúng: *would like **to stay**, **sleep** and **play*** = 4 động từ; *want **to buy*** = 2; *help her **cook*** = 2|≥90% (**1 động từ duy nhất mà đúng → vẫn 1**, không áp §B.8)|60–89%|<60%, hoặc không có động từ nào|
 |G3|Số **cấu trúc vượt câu đơn tối thiểu** (đếm từng lần xuất hiện, hai lần nối mệnh đề = 2): (a) nối hai mệnh đề bằng bất kỳ từ nối nào hoặc dấu phẩy; (b) mệnh đề sau *think / know / hope / say* hoặc mệnh đề quan hệ; (c) động từ + *to V* / *would like to* / *can* + V; (d) vị ngữ ghép ≥2 động từ chung chủ ngữ ("stay at home, sleep and play"); (e) **cụm giới từ / trạng ngữ mở rộng câu** ("with my friends", "in the afternoon", "at the weekend", "every day"). **Câu đơn đúng không bị phạt**: chỉ đo độ đa dạng, không đòi câu phức. Vế thiếu động từ không tính|≥2|1|0|
 |G4|Số từ nội dung tiếng Anh khác nhau, đúng chủ đề (không tính từ lặp, từ không nhận ra). Từ lấy lại từ câu hỏi **VẪN tính** khi nằm trong câu trả lời của học sinh — dùng lại chủ đề/khung thời gian của đề ("with my family", "at the weekend") là cách trả lời tự nhiên, không phải nghèo từ. Chỉ không tính khi học sinh **chép nguyên câu hỏi** thay cho câu trả lời. Khối 6 nói 20 giây nên ngưỡng thấp: 4 từ nội dung trong một câu đúng là đủ|≥4|2–3|≤1|
-|G5|Tổng số lỗi ngữ pháp + dùng từ + cụm tiếng Việt chêm vào (lỗi đỏ tính 3, lỗi vàng tính 1). **Chỉ đếm lỗi chắc chắn sai** — xem ghi chú đầu bảng|0–1|2–3|≥4|
+|G5|Tổng số lỗi ngữ pháp + dùng từ + cụm tiếng Việt chêm vào (lỗi đỏ tính 3, lỗi vàng tính 1). **Chỉ đếm lỗi chắc chắn sai** — xem ghi chú đầu bảng. **Khối 6: sai dạng động từ đứng sau động từ khác (`like to drawing`, `want buy`, `can plays`) tính lỗi VÀNG, không đỏ** — học sinh mới vào lớp 6, câu vẫn trọn ý (phòng đào tạo 23/10: "sai 1 lỗi mà Grammar cho 40%"). **Bài NÓI: từ bị nói thành một từ tiếng Anh KHÁC làm sai nghĩa câu (`tree` cho *there*) là lỗi dùng từ (vàng), tính ở đây** (phòng đào tạo 23/10: "nói sai dẫn đến từ vựng sai")|0–1|2–3|≥4|
 
 ## §4. Bài neo — đề mẫu "What do you like doing at the weekend?"
 
@@ -74,11 +74,11 @@ Chỉ dùng để kiểm tra chéo, **không chép vào đầu ra**. Vector = G1
 * G3: "and she very happy" vế sau không có động từ → 0. G4: go, park, play, badminton, fun, sister, happy → 1.
 * G5: "sister go" (vàng, 1) + "she very happy" (đỏ — thiếu *to be*, 3) = 4 → 0.
 
-**Neo 40% — GV \[0.5, 0.5, 0, 1, 0]**
+**Neo 50% (b) — GV \[1, 0.5, 0, 1, 0]**
 
 > Um I pờ-lay game. Game are fun. My bra-dơ play (...3s) wis me. Um vui lắm.
 
-* G1: "I play games", "Games are fun" không lỗi GV = 6 từ → 0,5. G2: play ✓, are ✓, "brother play" ✗ → 67% → 0,5. G3: 0. G4: play, games, fun, brother = 4 → 1.
+* G1: "I play games", "Games are fun" + "My brother play with me" (chỉ lỗi vàng → vẫn tính, 23/10) = 10 từ → 1. G2: play ✓, are ✓, "brother play" ✗ → 67% → 0,5. G3: 0. G4: play, games, fun, brother = 4 → 1.
 * G5: "brother play" (vàng, 1) + "vui lắm" (đỏ — chêm tiếng Việt, 3) = 4 → 0.
 
 **Neo 10% (C3) — GV \[0, 0, 0, 0.5, 0]**

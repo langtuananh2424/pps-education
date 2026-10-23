@@ -164,8 +164,10 @@ public class ReflexV2AiGradingService {
             int redCount = ReflexV2Scoring.countRed(highlights);
             ReflexV2Scoring.ScoreSet scored = ReflexV2Scoring.applyRedCap(task.grammarCode(),
                     ReflexV2Scoring.computeScores(task, task.writingCriteria(), data), redCount);
-            List<ReflexV2Scoring.CriterionScore> capped = ReflexV2Scoring.applyErrorCaps(
-                    task, scored.criteria(), highlights, ReflexV2Scoring.ErrorEvidence.NONE);
+            // 20/10/2026 (bản bàn giao Gemini 3.8) — BỎ applyErrorCaps ở bài viết: trần theo lỗi đã tô phạt
+            // HAI LẦN (checkpoint đã đếm đúng lỗi đó, trần lại trừ thêm không theo độ dài bài) — xem Javadoc
+            // ReflexV2Scoring#applyErrorCaps. Trần ≥2 lỗi đỏ (applyRedCap, quy tắc chung §C) vẫn giữ.
+            List<ReflexV2Scoring.CriterionScore> capped = scored.criteria();
             // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — cổng "Lạc đề" trước đây chỉ hiện thông báo
             // (buildGateNote), KHÔNG có trần % thật — điểm phụ thuộc hoàn toàn AI tự giác. Giờ ép trần tất
             // định theo đúng rubric (xem Javadoc ReflexV2Scoring#applyWritingOffTopicCap).
@@ -229,6 +231,7 @@ public class ReflexV2AiGradingService {
         double aiLongestPause;
         boolean audioQualityInsufficient;
         int wordAuditRows;
+        List<String> wordAudit = new ArrayList<>();
         List<String> suspectWords = new ArrayList<>();
         try {
             JsonNode t = parseJson(transcription.content());
@@ -237,6 +240,11 @@ public class ReflexV2AiGradingService {
             aiLongestPause = t.path("longest_pause_seconds").asDouble(0);
             audioQualityInsufficient = t.path("audio_quality_insufficient").asBoolean(false);
             wordAuditRows = t.path("word_audit").size();
+            for (JsonNode w : t.path("word_audit")) {
+                if (!w.asText("").isBlank()) {
+                    wordAudit.add(w.asText());
+                }
+            }
             for (JsonNode w : t.path("suspect_words")) {
                 if (suspectWords.size() < MAX_SUSPECT_WORDS && !w.asText("").isBlank()) {
                     suspectWords.add(w.asText().trim());
@@ -278,6 +286,15 @@ public class ReflexV2AiGradingService {
         ReflexV2Scoring.Readback readbackRaw = ReflexV2Scoring.writtenVsSpoken(anchor.text(), transcript);
         List<String> deviantWords = readbackRaw == null ? List.of() : readbackRaw.words();
 
+        // Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) — bằng chứng Phát âm theo từng từ, cấp trần mềm thay
+        // mốc cứng cũ (xem Javadoc ReflexV2Scoring#parseWordAudit). Tính trên transcript ĐÃ lọc bịa/không có
+        // tiếng nói, KHÔNG gate theo noSpeech (giống readback/lexical) — bài không nói gì tự ra spelledCount=0.
+        ReflexV2Scoring.WordAudit wordAuditEvidence = ReflexV2Scoring.parseWordAudit(wordAudit, transcript);
+        if (!wordAuditEvidence.usable() && !transcript.isBlank()) {
+            log.warn("ReflexV2AiGradingService: word_audit phủ {}% số từ — không đủ để áp trần mềm Phát âm.",
+                    Math.round(wordAuditEvidence.coverage() * 100));
+        }
+
         // ---- Lượt B: chấm bài nói trên transcript cố định (chấm lại CẢ Ngữ pháp, xem Javadoc lớp) ----
         String grammar = task.grammarCode();
         List<String> gradedCodes = task.criteria();
@@ -317,13 +334,14 @@ public class ReflexV2AiGradingService {
                 }
             }
             double spokenSec = measured.map(m -> m.spanSec() > 0 ? m.spanSec() : m.speechSec()).orElse(0.0);
-            ReflexV2Scoring.LexicalEvidence lexical = noSpeech ? null : ReflexV2Scoring.lexicalCeiling(transcript, task.lexicalSeconds());
+            ReflexV2Scoring.LexicalEvidence lexical = noSpeech ? null
+                    : ReflexV2Scoring.lexicalCeiling(transcript, task.lexicalSeconds(), task.lexicalLowRung());
             ReflexV2Scoring.FluencyEvidence fluency = noSpeech ? null : ReflexV2Scoring.fluencyCeiling(transcript, longestPause);
             ReflexV2Scoring.LengthEvidence length = ReflexV2Scoring.lengthGate(task, transcript, spokenSec);
             ReflexV2Scoring.Readback readback = noSpeech ? null : readbackRaw;
             List<ReflexV2Scoring.CriterionScore> capped = ReflexV2Scoring.applyGrammarFloor(grammar,
                     ReflexV2Scoring.applyErrorCaps(task, raw, highlights,
-                            new ReflexV2Scoring.ErrorEvidence(lexical, fluency, length, readback)));
+                            new ReflexV2Scoring.ErrorEvidence(lexical, fluency, length, readback, wordAuditEvidence)));
             if (keepStep1Grammar) {
                 // Trần theo lỗi đã tô trên transcript không được đụng tới điểm đã giữ từ Bước 1.
                 capped = ReflexV2Scoring.keepGrammarFromStep1(grammar, capped, anchor.grammarPercent());

@@ -344,9 +344,13 @@ app:
     # bật (REFLEX_V2_ENABLED=true) sau khi kiểm chứng 9Router + ffmpeg. Khối 9 CAMBRIDGE chưa có bộ v2 nên luôn dùng luồng cũ.
     reflex-v2:
       enabled: ${REFLEX_V2_ENABLED:false}
-      # Model BẮT BUỘC theo người training: gemini-3.6-flash, thinking medium (chọn qua hậu tố tên model
-      # của 9Router), temperature 0 (NineRouterAiClient luôn gửi). KHÔNG dùng model dự phòng khác.
-      model: ${REFLEX_V2_MODEL:ag/gemini-3.6-flash-medium}
+      # Sửa 23/10/2026 (bản bàn giao Gemini 3.8) — 9Router đã GỠ tuyến gemini-3.6, nên request xin "3.6-flash"
+      # trước đây ÂM THẦM chạy 3.8 (không lỗi, không cảnh báo — chỉ phát hiện qua model trả về, xem comment
+      # expected-model-contains dưới). Khoá tên model đúng theo người training bàn giao 23/10
+      # (ROUTER_MODEL=ag/gemini-3.8-flash-medium) thay vì tiếp tục xin tuyến đã gỡ, để hành vi không phụ
+      # thuộc vào việc 9Router còn giữ alias ngầm hay không. Thinking medium (hậu tố tên model của 9Router),
+      # temperature 0 (NineRouterAiClient luôn gửi). KHÔNG dùng model dự phòng khác.
+      model: ${REFLEX_V2_MODEL:ag/gemini-3.8-flash-medium}
       # Chuỗi phải có trong trường "model" 9Router trả về (VD "gemini-3.6-flash"); khác thì bỏ kết quả thay vì
       # chấm bằng model khác. MẶC ĐỊNH TRỐNG = tắt kiểm tra: model thật đã đổi sang gemini-3.8 (9Router trả
       # "gemini-3.8-flash-n") nên giá trị cũ "gemini-3.6-flash" làm mọi lượt chấm bị bỏ (staging 2026-10-21).
