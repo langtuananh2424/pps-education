@@ -203,30 +203,41 @@ class ReflexV2ScoringTest {
     private static final ReflexV2Task G7_IELTS = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS, 25).orElseThrow();
     private static final ReflexV2Task G8_PART2 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.IELTS, 90).orElseThrow();
 
+    /**
+     * 20/10/2026 (bản bàn giao Gemini 3.8) — trần theo lỗi đã tô KHÔNG còn áp cho Ngữ pháp ({@code g}):
+     * checkpoint của tiêu chí đó đã đếm đúng các lỗi này rồi, trần lại là phạt hai lần (đo trên 83 lượt
+     * nói: ô Ngữ pháp trong 10 điểm 65/83 → 77/83 đúng thầy cô). LR vẫn bị trần vì không có lỗi từ vựng
+     * nào trong test này (trần đó không liên quan tới nhánh vừa đổi).
+     */
     @Test
     void applyErrorCaps_criterionCannotBe100WhileItOwnsErrors_yellowMinus10_redMinus20() {
         List<ReflexV2Scoring.Highlight> hs = List.of(
                 hl(0, 1, "yellow", "thi_dong_tu"), hl(2, 3, "yellow", "mao_tu"), hl(4, 5, "red", "cau_truc_cau"));
         List<ReflexV2Scoring.CriterionScore> out = ReflexV2Scoring.applyErrorCaps(G7_IELTS,
                 List.of(cs("FC", 60), cs("LR", 100), cs("GRA", 100), cs("P", 60)), hs, ReflexV2Scoring.ErrorEvidence.NONE);
-        assertThat(percentOf(out, "GRA")).isEqualTo(60);   // 100 - 2*10 - 1*20
+        assertThat(percentOf(out, "GRA")).isEqualTo(100);  // Ngữ pháp được miễn trần theo lỗi đã tô (20/10/2026)
         assertThat(percentOf(out, "LR")).isEqualTo(90);    // chỉ bị trần 90%, không có lỗi từ vựng
     }
 
+    /**
+     * 22/10/2026 (bản bàn giao Gemini 3.8) — trần theo lỗi đã tô KHÔNG còn áp cho Phát âm ({@code "P"}) nữa,
+     * cùng lý do với Ngữ pháp ở trên: P1-P4 đã đếm đúng các lỗi phát âm này rồi.
+     */
     @Test
-    void applyErrorCaps_vocabErrorsGoToLr_pronunciationTagsGoToP() {
+    void applyErrorCaps_vocabErrorsGoToLr_pronunciationTagsAreExemptFromOwnErrorCap() {
         List<ReflexV2Scoring.Highlight> hs = List.of(hl(0, 1, "red", "dung_tu"),
                 hl(2, 3, "yellow", "am_cuoi"), hl(4, 5, "yellow", "am_cuoi"), hl(6, 7, "yellow", "phat_am"));
         List<ReflexV2Scoring.CriterionScore> out = ReflexV2Scoring.applyErrorCaps(G7_IELTS,
                 List.of(cs("FC", 50), cs("LR", 90), cs("GRA", 90), cs("P", 80)), hs, ReflexV2Scoring.ErrorEvidence.NONE);
-        assertThat(percentOf(out, "LR")).isEqualTo(80);    // 1 lỗi từ vựng nặng → −20
-        assertThat(percentOf(out, "P")).isEqualTo(70);     // 3 lỗi phát âm nhẹ → −30
+        assertThat(percentOf(out, "LR")).isEqualTo(80);    // 1 lỗi từ vựng nặng → −20 (LR không được miễn)
+        assertThat(percentOf(out, "P")).isEqualTo(80);     // Phát âm được miễn trần theo lỗi đã tô (22/10/2026)
         assertThat(percentOf(out, "GRA")).isEqualTo(90);   // không có lỗi ngữ pháp
-        // Khối 6 không có tiêu chí LR: lỗi từ vựng tính vào Ngữ pháp/Từ vựng (GV)
+        // Khối 6 không có tiêu chí LR: lỗi từ vựng tính vào Ngữ pháp/Từ vựng (GV) — GV = g cũng được miễn trần
+        // theo lỗi đã tô, nhưng Khối 6 có speakingGrammarCap90 (23/10/2026) nên vẫn chạm trần 90% riêng đó.
         ReflexV2Task g6 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_6, null, 20).orElseThrow();
         List<ReflexV2Scoring.CriterionScore> g6Out = ReflexV2Scoring.applyErrorCaps(g6, List.of(cs("GV", 100), cs("P", 60)),
                 List.of(hl(0, 1, "red", "dung_tu")), ReflexV2Scoring.ErrorEvidence.NONE);
-        assertThat(percentOf(g6Out, "GV")).isEqualTo(80);
+        assertThat(percentOf(g6Out, "GV")).isEqualTo(90);
     }
 
     @Test
@@ -273,32 +284,52 @@ class ReflexV2ScoringTest {
         assertThat(percentOf(out, "GRA")).isEqualTo(90);
     }
 
+    /**
+     * 22/10/2026 (bản bàn giao Gemini 3.8) — ĐÃ GỠ SÀN của dải đọc lệch, chỉ còn TRẦN: với Gemini 3.8 (phiên
+     * âm sạch hơn 3.6), tỷ lệ đọc lệch gần 0 mà sàn cũ vẫn kéo P lên dù chính model đã khai từ lệch — sàn làm
+     * NGƯỢC tác dụng. Đọc gần hoàn hảo (ratio < 0,12) giờ KHÔNG còn nâng P 40 lên 85 nữa — giữ nguyên 40.
+     */
     @Test
-    void applyErrorCaps_pronunciationBandFollowsReadbackRatio_capsAndFloors() {
+    void applyErrorCaps_pronunciationBandFollowsReadbackRatio_capsOnlyNoFloor() {
         List<String> none = List.of();
-        // 50% từ đọc lệch → dải [40,60]: kéo P 90 xuống 60 — TRẦN áp bất kể mẫu lớn/nhỏ (ở đây chỉ 20 từ).
+        // 50% từ đọc lệch → dải trần 60: kéo P 90 xuống 60 — TRẦN áp bất kể mẫu lớn/nhỏ (ở đây chỉ 20 từ).
         ReflexV2Scoring.ErrorEvidence bad = new ReflexV2Scoring.ErrorEvidence(null, null, null, new ReflexV2Scoring.Readback(20, 10, 0.5, none));
         assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS, List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 90)), List.of(), bad), "P")).isEqualTo(60);
-        // đọc gần như hoàn hảo (ratio < 0.12), đủ ≥30 từ so được → sàn 85: kéo P 40 LÊN 85.
-        // count=2 (không phải 0/1): tránh chạm luôn trần "không có bằng chứng" (weak = total≥30 && count≤1),
-        // vốn cũng đòi ≥30 từ nên dễ vô tình trùng điều kiện với sàn nếu chỉ đổi total mà không đổi count.
+        // đọc gần như hoàn hảo (ratio < 0.12) nhưng SÀN đã gỡ (22/10/2026) → P 40 KHÔNG còn bị nâng, giữ 40.
         ReflexV2Scoring.ErrorEvidence good = new ReflexV2Scoring.ErrorEvidence(null, null, null, new ReflexV2Scoring.Readback(35, 2, 0.06, none));
-        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS, List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 40)), List.of(), good), "P")).isEqualTo(85);
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS, List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 40)), List.of(), good), "P")).isEqualTo(40);
     }
 
     /**
-     * Bản 1/10 — SÀN dải đọc lệch chỉ áp khi so được ≥30 từ. Bài thật: chỉ so được 9 từ, lệch 2 ("lai",
-     * "fren") = 22% → rơi dải [75,90] → sàn CŨ kéo một bài rất yếu lên 75% dù chấm tay 20-40%. Mẫu quá nhỏ
-     * không đủ tin để NÂNG điểm ai; TRẦN (hạ điểm) thì vẫn áp ở mọi độ dài vì đọc lệch nhiều là bằng chứng thật.
+     * Mirror {@code readbackCapLift} (Khối 6, 23/10/2026) — nới thêm trần dải đọc lệch vì tỷ lệ đọc lệch đếm
+     * lại chính các từ mất âm cuối mà checkpoint P2 đã trừ rồi (phạt hai lần nếu không nới).
      */
     @Test
-    void applyErrorCaps_pronunciationFloor_requiresAtLeast30WordsReadback_ceilingStillAppliesOnSmallSample() {
+    void applyErrorCaps_readbackCapLift_grade6_extendsBandCeiling() {
+        ReflexV2Task g6 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_6, null, 20).orElseThrow();
+        // P xuất phát 85 (dưới trần 90% "không bản ngữ" luôn áp cho P, để trần đó không che mất phần đang test).
+        // ratio 0,30 → dải trần 80; Khối 6 nới +20 = 100 (ép về min(100, 80+20)) → P 85 không bị hạ.
+        ReflexV2Scoring.ErrorEvidence ev = new ReflexV2Scoring.ErrorEvidence(null, null, null,
+                new ReflexV2Scoring.Readback(10, 3, 0.30, List.of()));
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(g6, List.of(cs("GV", 90), cs("P", 85)), List.of(), ev), "P")).isEqualTo(85);
+        // Khối không có readbackCapLift (G7 IELTS): cùng ratio 0,30 → trần 80, P 85 bị hạ xuống 80.
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
+                List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 85)), List.of(), ev), "P")).isEqualTo(80);
+    }
+
+    /**
+     * Bản 1/10 — nguồn gốc test này (SÀN dải đọc lệch chỉ áp khi so được ≥30 từ) không còn áp dụng từ
+     * 22/10/2026 (đã gỡ sàn, xem {@link #applyErrorCaps_pronunciationBandFollowsReadbackRatio_capsOnlyNoFloor}) —
+     * giữ lại vì vẫn đúng tinh thần ban đầu: TRẦN (hạ điểm) áp ở MỌI độ dài mẫu, không cần ≥30 từ.
+     */
+    @Test
+    void applyErrorCaps_pronunciationCeiling_appliesRegardlessOfSampleSize() {
         ReflexV2Scoring.ErrorEvidence tinySample = new ReflexV2Scoring.ErrorEvidence(null, null, null,
                 new ReflexV2Scoring.Readback(9, 2, 2 / 9.0, List.of("lai→fren")));
-        // Checkpoint đã chấm P = 40%: dải [75,90] ứng với tỷ lệ 22% muốn NÂNG lên 75 nhưng mẫu <30 từ → giữ 40.
+        // Checkpoint đã chấm P = 40%, dưới mọi trần của dải (ratio 22% → trần 90) → không bị đụng, giữ 40.
         assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
                 List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 40)), List.of(), tinySample), "P")).isEqualTo(40);
-        // Cùng mẫu nhỏ nhưng checkpoint chấm CAO hơn trần của dải (90) thì vẫn bị hạ — trần không cần mẫu lớn.
+        // Checkpoint chấm CAO hơn trần của dải (90) thì vẫn bị hạ — trần không cần mẫu lớn.
         assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
                 List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 95)), List.of(), tinySample), "P")).isEqualTo(90);
     }
@@ -331,9 +362,15 @@ class ReflexV2ScoringTest {
                 .anyMatch(n -> n.contains("ép lưới 10"));
     }
 
+    /**
+     * Đo 26/9: Bước 1 = 60% → sàn 30%. TRƯỚC 20/10/2026, trần theo lỗi đã tô còn áp cho Ngữ pháp: 5 lỗi vàng +
+     * 2 lỗi đỏ cho trần 10% → điểm ra 0% (một lỗi bị phạt hai lần), và {@link ReflexV2Scoring#applyGrammarFloor}
+     * phải khôi phục lại sàn. TỪ 20/10/2026, Ngữ pháp được MIỄN trần theo lỗi đã tô hoàn toàn (xem Javadoc
+     * {@code applyErrorCaps}) nên {@code regradeGrammar} đã tự áp đúng sàn (30%) và không có gì để
+     * {@code applyGrammarFloor} phải sửa thêm — giữ test này để xác nhận không còn hồi quy về hành vi cũ.
+     */
     @Test
-    void applyGrammarFloor_restoresFloorWhenOwnErrorCapPushedBelowIt() {
-        // Đo 26/9: Bước 1 = 60% → sàn 30%, nhưng 5 lỗi vàng + 2 lỗi đỏ cho trần 10% → điểm ra 0%: một lỗi bị phạt hai lần
+    void applyGrammarFloor_grammarExemptFromOwnErrorCap_floorAlreadyCorrectFromRegrade() {
         ReflexV2Task g6 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_6, null, 20).orElseThrow();
         List<ReflexV2Scoring.Highlight> hs = new java.util.ArrayList<>();
         for (int i = 0; i < 5; i++) {
@@ -343,7 +380,7 @@ class ReflexV2ScoringTest {
         hs.add(hl(22, 23, "red", "trat_tu_tu"));
         ReflexV2Scoring.CriterionScore regraded = ReflexV2Scoring.regradeGrammar(cs("GV", 20), 2, 60, false);
         List<ReflexV2Scoring.CriterionScore> capped = ReflexV2Scoring.applyErrorCaps(g6, List.of(regraded, cs("P", 60)), hs, ReflexV2Scoring.ErrorEvidence.NONE);
-        assertThat(percentOf(capped, "GV")).isEqualTo(10);
+        assertThat(percentOf(capped, "GV")).isEqualTo(30);   // sàn Bước 1 do regradeGrammar áp, không bị đạp xuyên
         assertThat(percentOf(ReflexV2Scoring.applyGrammarFloor("GV", capped), "GV")).isEqualTo(30);
     }
 
@@ -685,5 +722,112 @@ class ReflexV2ScoringTest {
         assertThat(ReflexV2Scoring.lengthGate(g7Part2, "short answer", 29).enough()).isFalse();
         // Khối 8: 40 từ / 30 giây chưa đủ
         assertThat(ReflexV2Scoring.lengthGate(G8_PART2, fortyWords, 30).enough()).isFalse();
+    }
+
+    // ===================== Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) =====================
+
+    /**
+     * {@code parseWordAudit}: trần mềm Phát âm trừ theo số từ ghi theo âm, THAY mốc cứng cũ mà rubric từng
+     * bắt AI tự áp (xem Javadoc {@code PRON_SPELLED_STEP}).
+     */
+    @Test
+    void parseWordAudit_countsSpelledWordsPresentInTranscript_feedsSoftPronunciationCap() {
+        // "school" ghi theo âm "scoo" (có thật trong transcript) → tính là 1 từ ghi theo âm.
+        // "friends" ghi "fren" (cũng có trong transcript) → tính thêm 1. "think" ghi ĐÚNG "think" → không tính.
+        List<String> rows = List.of("school|scoo|0", "friends|fren|n", "think|think|k");
+        ReflexV2Scoring.WordAudit audit = ReflexV2Scoring.parseWordAudit(rows, "I like scoo and my fren think so");
+        assertThat(audit.spelledCount()).isEqualTo(2);
+        assertThat(audit.spelledWords()).containsExactly("school→scoo", "friends→fren");
+
+        // Readback "không yếu" (total<30) và ratio thấp (band trần 100) để không chạm trần 90% "không bản
+        // ngữ" nói chung, trần "không có bằng chứng phát âm" (80%), hay trần dải đọc lệch — chỉ còn trần mềm
+        // theo word_audit là ràng buộc. 2 từ ghi theo âm → trừ 5%/từ (mặc định) = 10% → trần 90%.
+        ReflexV2Scoring.Readback notWeak = new ReflexV2Scoring.Readback(5, 0, 0.0, List.of());
+        ReflexV2Scoring.ErrorEvidence ev = new ReflexV2Scoring.ErrorEvidence(null, null, null, notWeak, audit);
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
+                List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 100)), List.of(), ev), "P")).isEqualTo(90);
+    }
+
+    /**
+     * Khối 6 trừ 3%/từ (không phải 5%) — xem {@link ReflexV2Task#pronSpelledStep()}. Dùng 5 từ ghi theo âm
+     * (không phải 2) để trần mềm thấp hơn 90% "không bản ngữ" vốn luôn áp cho P — nếu không, trần đó sẽ che
+     * mất phần đang test (90% luôn nhỏ hơn 94%/75% nên sẽ thắng nếu spelledCount quá nhỏ).
+     */
+    @Test
+    void applyErrorCaps_pronSpelledStep_grade6Uses3PercentInsteadOfDefault5() {
+        ReflexV2Scoring.WordAudit audit = new ReflexV2Scoring.WordAudit(5, List.of(), 1.0, true);
+        ReflexV2Scoring.Readback notWeak = new ReflexV2Scoring.Readback(5, 0, 0.0, List.of());
+        ReflexV2Scoring.ErrorEvidence ev = new ReflexV2Scoring.ErrorEvidence(null, null, null, notWeak, audit);
+        // Khối 6: trần 90% "không bản ngữ" (speakingGrammarCap90 không liên quan P, P luôn chịu trần này) rồi
+        // mới tới trần mềm 5 từ × 3% = 15% → 100-15=85, nhưng đã bị 90% chặn trước nên so sánh với 90: 85<90 → 85.
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G6, List.of(cs("GV", 50), cs("P", 100)), List.of(), ev), "P")).isEqualTo(85);
+        // G7 IELTS (mặc định 5%): 5 từ × 5% = 25% → 100-25=75, cũng dưới trần 90% nên trần mềm thắng → 75.
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
+                List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 100)), List.of(), ev), "P")).isEqualTo(75);
+    }
+
+    /** Sàn của trần mềm là 40% dù số từ ghi theo âm rất lớn. */
+    @Test
+    void applyErrorCaps_pronSpelledStep_neverGoesBelowFloor40() {
+        ReflexV2Scoring.WordAudit audit = new ReflexV2Scoring.WordAudit(20, List.of(), 1.0, true);
+        ReflexV2Scoring.ErrorEvidence ev = new ReflexV2Scoring.ErrorEvidence(null, null, null, null, audit);
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
+                List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 50), cs("P", 100)), List.of(), ev), "P")).isEqualTo(40);
+    }
+
+    /**
+     * {@code speakingGrammarCap90} (Khối 6, 23/10/2026) — Ngữ pháp bài NÓI cũng bị trần 90% "không phải bản
+     * ngữ" giống các tiêu chí khác; khối không đặt cờ này (VD Khối 7 IELTS) thì Ngữ pháp KHÔNG bị trần đó.
+     */
+    @Test
+    void applyErrorCaps_speakingGrammarCap90_onlyAppliesWhereTaskFlagsIt() {
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G6, List.of(cs("GV", 100), cs("P", 50)), List.of(),
+                ReflexV2Scoring.ErrorEvidence.NONE), "GV")).isEqualTo(90);
+        assertThat(percentOf(ReflexV2Scoring.applyErrorCaps(G7_IELTS,
+                List.of(cs("FC", 50), cs("LR", 50), cs("GRA", 100), cs("P", 50)), List.of(),
+                ReflexV2Scoring.ErrorEvidence.NONE), "GRA")).isEqualTo(100);
+    }
+
+    /**
+     * {@code writtenVsSpoken} bỏ dấu tiếng Việt trước khi so (23/10/2026) — tên riêng viết không dấu trong
+     * bài viết ("cat linh") mà transcript phiên âm có dấu ("Cát Linh") không còn bị tính là đọc lệch.
+     */
+    @Test
+    void writtenVsSpoken_stripsVietnameseDiacriticsBeforeComparing_properNounsNotFlaggedAsDeviant() {
+        ReflexV2Scoring.Readback rb = ReflexV2Scoring.writtenVsSpoken(
+                "My school is cat linh school in Ha Noi city", "My school is Cát Linh school in Hà Nội city");
+        assertThat(rb.count()).isZero();
+    }
+
+    /**
+     * {@code selfRepairs} (22/10/2026) — lặp từ có chủ ý để nhấn ý (cách nhau bởi từ KHÔNG phải từ đệm)
+     * không còn tính là nói vấp; lặp liền nhau hoặc cách nhau đúng 1 từ đệm vẫn tính.
+     */
+    @Test
+    void fluencyCeiling_selfRepair_onlyCountsAdjacentOrFillerBetween_notEmphasisRepeat() {
+        // "shopping, especially shopping" — lặp cách nhau bởi "especially" (không phải từ đệm) → KHÔNG tính.
+        ReflexV2Scoring.FluencyEvidence emphasis = ReflexV2Scoring.fluencyCeiling(
+                "I like going shopping especially shopping with my friends after school", 0.5);
+        assertThat(emphasis.fillers()).isZero();
+        // "go go" liền nhau → tính là nói vấp.
+        ReflexV2Scoring.FluencyEvidence adjacent = ReflexV2Scoring.fluencyCeiling(
+                "I go go to school every day with my friends", 0.5);
+        assertThat(adjacent.fillers()).isGreaterThanOrEqualTo(1);
+        // "go um go" — cách nhau bởi từ đệm → vẫn tính là nói vấp.
+        ReflexV2Scoring.FluencyEvidence fillerBetween = ReflexV2Scoring.fluencyCeiling(
+                "I go um go to school every day with my friends", 0.5);
+        assertThat(fillerBetween.fillers()).isGreaterThanOrEqualTo(1);
+    }
+
+    /** {@code lexicalLowRung} (Khối 8 IELTS đề ngắn = 0,30) — mốc thấp hơn mặc định 0,40 nên dễ đạt trần cao hơn. */
+    @Test
+    void lexicalCeiling_lowRung_grade8ShortIelts_usesLowerDensityThreshold() {
+        // 9 từ nội dung khác nhau trong 23 giây → mật độ ~0,39, nằm GIỮA 0,30 và 0,40 để phân biệt rõ 2 mốc.
+        String words = "play football basketball swimming reading drawing cooking dancing singing";
+        ReflexV2Scoring.LexicalEvidence withDefault = ReflexV2Scoring.lexicalCeiling(words, 23);
+        ReflexV2Scoring.LexicalEvidence withLowRung = ReflexV2Scoring.lexicalCeiling(words, 23, 0.30);
+        assertThat(withDefault.density()).isBetween(0.30, 0.40);
+        assertThat(withDefault.ceil()).isEqualTo(60);   // mặc định 0,40: density < 0,40 → trần 60
+        assertThat(withLowRung.ceil()).isEqualTo(80);   // Khối 8 đề ngắn 0,30: density >= 0,30 → trần 80
     }
 }
