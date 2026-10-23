@@ -157,51 +157,80 @@ public class AiGradingFallbackService {
         return reflexV2AiGradingService.gradeWriting(task, question, text);
     }
 
-    // ===================== Speaking (UC-23b Bước 2) — fallback CẢ CỤM =====================
+    // ===================== Speaking (UC-23b Bước 2) — fallback TỪNG BƯỚC =====================
 
     public ReflexV2AiGradingService.SpeakingResult gradeReflexSpeakingWithFallback(
             ReflexV2Task task, String question, byte[] audioBytes, String mimeType,
             ReflexV2AiGradingService.Step1Anchor anchor, ReflexV2AiGradingService.SpeakingUsageSink usageSink) {
-        if (directPipelineEnabled && claudeAiClient.isConfigured() && groqSpeechClient.isConfigured() && azurePronunciationClient.isConfigured()) {
+        if (directPipelineEnabled && (claudeAiClient.isConfigured() || groqSpeechClient.isConfigured() || azurePronunciationClient.isConfigured())) {
             try {
-                ReflexV2AiGradingService.SpeakingResult direct = gradeSpeakingDirectPipeline(task, question, audioBytes, mimeType, anchor, usageSink);
-                if (direct != null) {
-                    return direct;
-                }
-                log.warn("AiGradingFallbackService: pipeline trực tiếp (Groq+Claude+Azure) chấm Speaking thất bại, rơi về 9Router (fallback cả cụm).");
+                return gradeSpeakingDirectPipeline(task, question, audioBytes, mimeType, anchor, usageSink);
             } catch (ReflexAudioRejectedException e) {
                 throw e; // vấn đề audio/nội dung, không phải vấn đề nhà cung cấp AI — không fallback, ném thẳng.
+            } catch (NineRouterStepFailedException e) {
+                // 9Router (dự phòng của 1 bước) cũng lỗi — chạy lại toàn bộ luồng 9Router chỉ lặp lại đúng lỗi đó.
+                log.warn("AiGradingFallbackService: {} — không chấm được tự động.", e.getMessage());
+                return null;
             } catch (RuntimeException e) {
-                log.warn("AiGradingFallbackService: pipeline trực tiếp chấm Speaking lỗi ({}), rơi về 9Router (fallback cả cụm).", e.getMessage());
+                log.warn("AiGradingFallbackService: pipeline trực tiếp chấm Speaking lỗi ngoài dự kiến ({}), rơi về 9Router (cả cụm).", e.getMessage());
             }
         }
         return reflexV2AiGradingService.gradeSpeaking(task, question, audioBytes, mimeType, anchor, usageSink);
     }
 
+    /** Dự phòng 9Router của 1 bước cũng lỗi — không còn đường nào để chấm tự động. */
+    private static final class NineRouterStepFailedException extends RuntimeException {
+        NineRouterStepFailedException(String message) {
+            super(message);
+        }
+    }
+
+    private static final String SOURCE_DIRECT = "direct";
+    private static final String SOURCE_NINE_ROUTER = "9router";
+
     /**
-     * Pipeline MỚI: Groq STT (độc lập, không qua 9Router) → 2 rào chắn nghiệp vụ (bịa theo tốc độ, nói
-     * khác bài viết — throw thẳng nếu trúng, KHÔNG fallback) → Claude chấm nội dung (FC/LR/GRA hoặc
-     * GV/DM từ transcript, không audio) → Azure chấm phát âm riêng (scripted mode, ReferenceText =
-     * transcript Groq) → GHÉP điểm Azure vào đúng vị trí tiêu chí Phát âm (P), thay vì để Claude tự đoán
-     * (Claude không nghe được audio nên không có cơ sở chấm P). Trả {@code null} nếu bất kỳ bước AI nào
-     * (Groq/Claude/Azure) lỗi — caller tự fallback cả cụm, xem {@link #gradeReflexSpeakingWithFallback}.
+     * Pipeline MỚI, mỗi bước có nhà cung cấp trực tiếp riêng và DỰ PHÒNG 9Router riêng (không kéo cả cụm):
+     * <ul>
+     *   <li>Phiên âm: Groq → lỗi/chưa cấu hình thì 9Router phiên âm mù.</li>
+     *   <li>2 rào chắn nghiệp vụ (bịa theo tốc độ, nói khác bài viết) — throw thẳng, KHÔNG fallback.</li>
+     *   <li>Chấm nội dung: Claude (transcript, không audio) → lỗi thì 9Router chấm trên audio.</li>
+     *   <li>Phát âm: Azure (scripted, ReferenceText = transcript) → lỗi thì lấy điểm Phát âm từ lượt 9Router chấm audio
+     *       (Claude không nghe được audio nên điểm P của Claude bị bỏ).</li>
+     * </ul>
+     * Claude và Azure chạy song song. Ném {@link NineRouterStepFailedException} khi dự phòng 9Router của một bước cũng
+     * lỗi. Điểm Phát âm của lượt có bước Azure dự phòng là điểm 9Router tự đoán (ghi trong audit.sources).
      */
     private ReflexV2AiGradingService.SpeakingResult gradeSpeakingDirectPipeline(
             ReflexV2Task task, String question, byte[] audioBytes, String mimeType,
             ReflexV2AiGradingService.Step1Anchor anchor, ReflexV2AiGradingService.SpeakingUsageSink usageSink) {
 
         long pipelineStartedAt = System.currentTimeMillis();
-        long groqStartedAt = pipelineStartedAt;
-        GroqSpeechClient.TranscriptionResult transcription = groqSpeechClient.transcribe(audioBytes, mimeType, "answer.webm", null);
-        log.info("AiGradingFallbackService: Groq STT xong sau {}ms.", System.currentTimeMillis() - groqStartedAt);
-        if (transcription == null) {
-            return null;
-        }
-        String transcript = transcription.text() == null ? "" : transcription.text().trim();
-
         Optional<byte[]> wav = audioTranscoder.toWav(audioBytes, mimeType);
         Optional<SpeechMeter.Measurement> measured = wav.flatMap(SpeechMeter::measure);
+        byte[] audioForModel = wav.orElse(audioBytes);
+        String mimeForModel = wav.isPresent() ? "audio/wav" : mimeType;
         double durationSec = measured.map(SpeechMeter.Measurement::durationSec).orElse((double) task.seconds());
+
+        long groqStartedAt = pipelineStartedAt;
+        GroqSpeechClient.TranscriptionResult transcription = groqSpeechClient.isConfigured()
+                ? groqSpeechClient.transcribe(audioBytes, mimeType, "answer.webm", null) : null;
+        String transcriptionSource = SOURCE_DIRECT;
+        String transcript;
+        String lowConfidenceWarning = null;
+        if (transcription != null) {
+            log.info("AiGradingFallbackService: Groq STT xong sau {}ms.", System.currentTimeMillis() - groqStartedAt);
+            transcript = transcription.text() == null ? "" : transcription.text().trim();
+            lowConfidenceWarning = transcription.lowConfidenceWarning();
+        } else {
+            log.warn("AiGradingFallbackService: Groq STT lỗi/chưa cấu hình, bước phiên âm rơi về 9Router.");
+            String viaNineRouter = reflexV2AiGradingService.transcribeBlind(audioForModel, mimeForModel, durationSec, usageSink);
+            if (viaNineRouter == null) {
+                throw new NineRouterStepFailedException("Phiên âm: Groq và 9Router đều lỗi");
+            }
+            transcript = viaNineRouter;
+            transcriptionSource = SOURCE_NINE_ROUTER;
+        }
+
         double speechSec = measured.map(SpeechMeter.Measurement::speechSec).orElse(durationSec);
         double longestPause = measured.map(SpeechMeter.Measurement::longestPauseSec).orElse(0.0);
 
@@ -230,8 +259,9 @@ public class AiGradingFallbackService {
         String userPrompt = reflexV2Prompts.speakingUser(task, question, anchor.text() == null ? "" : anchor.text(),
                 transcript, List.of(), List.of(), durationSec, speechSec, longestPause);
         long parallelStartedAt = System.currentTimeMillis();
-        java.util.concurrent.CompletableFuture<ClaudeSpeakingJson> claudeFuture =
-                java.util.concurrent.CompletableFuture.supplyAsync(() -> withRetries("Speaking (Claude)", () -> {
+        java.util.concurrent.CompletableFuture<ClaudeSpeakingJson> claudeFuture = !claudeAiClient.isConfigured()
+                ? java.util.concurrent.CompletableFuture.completedFuture(null)
+                : java.util.concurrent.CompletableFuture.supplyAsync(() -> withRetries("Speaking (Claude)", () -> {
                     NineRouterAiClient.AiJsonResponse response = claudeAiClient.chatJson(systemPrompt, userPrompt, claudeModel, ClaudeAiClient.MAX_TOKENS_LONG_RUBRIC);
                     if (response == null) {
                         return null;
@@ -243,21 +273,50 @@ public class AiGradingFallbackService {
                         return null;
                     }
                 }), AI_PARALLEL_EXECUTOR);
-        java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture =
-                java.util.concurrent.CompletableFuture.supplyAsync(() -> azurePronunciationClient.assess(audioBytes, mimeType, transcript), AI_PARALLEL_EXECUTOR);
+        java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture = !azurePronunciationClient.isConfigured()
+                ? java.util.concurrent.CompletableFuture.completedFuture(null)
+                : java.util.concurrent.CompletableFuture.supplyAsync(() -> azurePronunciationClient.assess(audioBytes, mimeType, transcript), AI_PARALLEL_EXECUTOR);
         ClaudeSpeakingJson claudeResult = claudeFuture.join();
         AzurePronunciationClient.Result pronunciation = azureFuture.join();
         log.info("AiGradingFallbackService: Claude+Azure chạy song song xong sau {}ms.", System.currentTimeMillis() - parallelStartedAt);
-        if (claudeResult == null) {
-            return null;
+        boolean azureOk = pronunciation != null && pronunciation.hasScores();
+        String contentSource = claudeResult != null ? SOURCE_DIRECT : SOURCE_NINE_ROUTER;
+        String pronunciationSource = azureOk ? SOURCE_DIRECT : SOURCE_NINE_ROUTER;
+
+        // Claude lỗi (chấm nội dung) và/hoặc Azure lỗi (phát âm): MỘT lượt 9Router chấm trên audio phục vụ cả hai —
+        // lấy điểm nội dung nếu Claude lỗi, lấy điểm Phát âm nếu Azure lỗi. Chỉ gọi khi thật sự cần.
+        JsonNode nineRouterData = null;
+        String nineRouterModel = null;
+        if (claudeResult == null || !azureOk) {
+            log.warn("AiGradingFallbackService: dự phòng 9Router cho Speaking — nội dung={}, phát âm={}.", contentSource, pronunciationSource);
+            NineRouterAiClient.AiJsonResponse via = reflexV2AiGradingService.gradeSpeakingOnAudio(task, systemPrompt, userPrompt,
+                    audioForModel, mimeForModel, usageSink);
+            if (via == null) {
+                throw new NineRouterStepFailedException("Chấm nói: dự phòng 9Router lỗi (nội dung=" + contentSource + ", phát âm=" + pronunciationSource + ")");
+            }
+            try {
+                nineRouterData = new com.fasterxml.jackson.databind.ObjectMapper().readTree(extractJson(via.content()));
+            } catch (Exception e) {
+                throw new NineRouterStepFailedException("Chấm nói: không đọc được kết quả 9Router dự phòng (" + e.getMessage() + ")");
+            }
+            nineRouterModel = via.model();
         }
-        NineRouterAiClient.AiJsonResponse claudeResponse = claudeResult.response();
-        usageSink.record(AiGradingTokenUsage.Step.SPEAKING, claudeResponse.usage());
-        if (!pronunciation.hasScores()) {
-            return null;
+        if (claudeResult != null) {
+            usageSink.record(AiGradingTokenUsage.Step.SPEAKING, claudeResult.response().usage());
         }
 
-        JsonNode data = claudeResult.data();
+        JsonNode data = claudeResult != null ? claudeResult.data() : nineRouterData;
+        String contentModel = claudeResult != null ? claudeResult.response().model() : nineRouterModel;
+
+        // Điểm Phát âm do 9Router chấm (khi Azure lỗi) — lấy từ chính kết quả 9Router, không phải điểm Claude đoán mù.
+        ReflexV2Scoring.CriterionScore nineRouterPronunciation = null;
+        if (!azureOk && claudeResult != null) {
+            nineRouterPronunciation = ReflexV2Scoring.computeScores(task, task.criteria(), nineRouterData).criteria().stream()
+                    .filter(c -> c.code().equals(ReflexV2Task.PRONUNCIATION_CODE)).findFirst().orElse(null);
+            if (nineRouterPronunciation == null) {
+                throw new NineRouterStepFailedException("Chấm nói: 9Router dự phòng không có điểm Phát âm");
+            }
+        }
 
         List<String> gradedCodes = task.criteria();
         ReflexV2Scoring.ScoreSet scored = ReflexV2Scoring.computeScores(task, gradedCodes, data);
@@ -271,9 +330,15 @@ public class AiGradingFallbackService {
         List<ReflexV2Scoring.CriterionScore> rawScores = new ArrayList<>();
         for (ReflexV2Scoring.CriterionScore c : scored.criteria()) {
             if (c.code().equals(ReflexV2Task.PRONUNCIATION_CODE)) {
-                // Claude không nghe audio nên không có cơ sở chấm P — thay thẳng bằng điểm Azure thật.
-                rawScores.add(new ReflexV2Scoring.CriterionScore(ReflexV2Task.PRONUNCIATION_CODE,
-                        pronunciation.overallScore(), false, null, List.of()));
+                if (azureOk) {
+                    // Claude không nghe audio nên không có cơ sở chấm P — thay thẳng bằng điểm Azure thật.
+                    rawScores.add(new ReflexV2Scoring.CriterionScore(ReflexV2Task.PRONUNCIATION_CODE,
+                            pronunciation.overallScore(), false, null, List.of()));
+                } else if (nineRouterPronunciation != null) {
+                    rawScores.add(nineRouterPronunciation);
+                } else {
+                    rawScores.add(c); // Claude lỗi: c đã là điểm 9Router chấm trên audio
+                }
             } else if (c.code().equals(grammarCode)) {
                 rawScores.add(keepStep1Grammar ? ReflexV2Scoring.keptFromStep1(grammarCode, anchor.grammarPercent())
                         : ReflexV2Scoring.regradeGrammar(c, spokenRed, anchor.grammarPercent(), noSpeech));
@@ -311,25 +376,27 @@ public class AiGradingFallbackService {
         int unlockPercent = ReflexV2Scoring.average(forUnlock);
         String feedback = ReflexV2Scoring.trimFeedback(data.path("feedback").asText(""), highlights);
         String gateNote = ReflexV2Scoring.buildGateNote(task, scored.gates(), ReflexV2Scoring.wordCount(transcript), true);
-        if (transcription.lowConfidenceWarning() != null) {
-            gateNote = gateNote.isEmpty() ? transcription.lowConfidenceWarning() : gateNote + " " + transcription.lowConfidenceWarning();
+        if (lowConfidenceWarning != null) {
+            gateNote = gateNote.isEmpty() ? lowConfidenceWarning : gateNote + " " + lowConfidenceWarning;
         }
 
         Map<String, Object> audit = new LinkedHashMap<>();
         audit.put("taskId", task.id());
         audit.put("rubricFormat", task.rubricFormat());
-        audit.put("gradedBy", "claude-direct+groq+azure");
-        audit.put("model", claudeResponse.model());
+        audit.put("gradedBy", SOURCE_DIRECT.equals(transcriptionSource) && claudeResult != null && azureOk
+                ? "claude-direct+groq+azure" : "mixed-direct-9router");
+        audit.put("sources", Map.of("transcription", transcriptionSource, "content", contentSource, "pronunciation", pronunciationSource));
+        audit.put("model", contentModel);
         audit.put("gates", scored.gates());
         audit.put("spokenRedCount", spokenRed);
         audit.put("grammarKeptFromStep1", keepStep1Grammar);
-        audit.put("pronunciationSource", "azure-direct");
-        audit.put("pronunciationRaw", pronunciation.rawJson());
+        audit.put("pronunciationSource", azureOk ? "azure-direct" : "9router-estimate");
+        audit.put("pronunciationRaw", azureOk ? pronunciation.rawJson() : null);
         // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — chi tiết từng từ/âm vị của Azure (y hệt dữ liệu
         // spike test), lưu vào audit để toResponse() lấy ra trả cho FE hiển thị bảng phiên âm IPA cho học
         // sinh (xem ReflexSequentialGradingService#toResponse + ReflexQuestionProgressResponse#speakingPronunciationWords).
-        audit.put("pronunciationWords", pronunciation.words());
-        audit.put("groqLowConfidenceWarning", transcription.lowConfidenceWarning());
+        audit.put("pronunciationWords", azureOk ? pronunciation.words() : List.of());
+        audit.put("groqLowConfidenceWarning", lowConfidenceWarning);
         long totalMs = System.currentTimeMillis() - pipelineStartedAt;
         audit.put("pipelineTotalMs", totalMs);
         log.info("AiGradingFallbackService: pipeline trực tiếp (Groq+Claude+Azure) chấm Speaking xong sau {}ms.", totalMs);
