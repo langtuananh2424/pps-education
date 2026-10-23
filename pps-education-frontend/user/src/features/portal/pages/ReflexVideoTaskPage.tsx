@@ -1256,6 +1256,33 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     }
   };
 
+  /** Kết quả cuối của bước viết (đã hết PENDING) — dùng chung cho nộp mới, lỗi 'đang chấm' và quay lại trang giữa lúc chờ. */
+  const applyWritingResult = (response: ReflexQuestionProgressResponse) => {
+    setProgress((prev) => ({ ...prev, [response.questionId]: response }));
+    if (response.writingGradingStatus === "FAILED") {
+      setWritingError(t("reflexVideoTask.gradingFailedTeacher"));
+    }
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây đạt bước viết là tự
+    // động bật ghi âm ngay, học sinh không kịp chuẩn bị. Nay hiện popup báo đạt + điểm/nhận xét, học
+    // sinh tự bấm "Tiếp tục" khi sẵn sàng (xem handleContinueAfterWritingPass) — video chạy tiếp cho
+    // nghe lại câu hỏi, còn GHI ÂM THẬT phải bấm riêng nút "Bắt đầu ghi âm" trong panel (handleStartRecording).
+    if (stageForProgress(response) === "speaking") {
+      setWritingPassedPopup({ scorePercent: response.writingScorePercent, exhausted: response.writingExhausted });
+    }
+  };
+
+  /** V222 — chờ bước viết hết PENDING (hàng đợi) rồi áp kết quả; overlay "AI đang chấm" do caller giữ (writingSubmitting). */
+  const awaitWritingGrading = async (pending: ReflexQuestionProgressResponse) => {
+    if (assignmentId == null) return;
+    setProgress((prev) => ({ ...prev, [pending.questionId]: pending }));
+    const settled = await waitForReflexGrading(assignmentId, pending, "writing");
+    if (settled.writingGradingStatus === "PENDING") {
+      setWritingError(t("reflexVideoTask.gradingStillPending"));
+      return;
+    }
+    applyWritingResult(settled);
+  };
+
   const handleSubmitWriting = async () => {
     if (!activeQuestion || !answerDraft.trim()) return;
     if (assignmentId == null) {
@@ -1265,32 +1292,22 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     setWritingSubmitting(true);
     setWritingError(null);
     try {
-      let response = await submitReflexWrittenAnswer(activeQuestion.id, assignmentId, answerDraft.trim());
+      const response = await submitReflexWrittenAnswer(activeQuestion.id, assignmentId, answerDraft.trim());
       if (response.writingGradingStatus === "PENDING") {
-        // V222 — server chấm qua hàng đợi: giữ trạng thái "đang chấm" (writingSubmitting) đến khi có kết quả.
-        setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
-        response = await waitForReflexGrading(assignmentId, response, "writing");
-        if (response.writingGradingStatus === "PENDING") {
-          setWritingError(t("reflexVideoTask.gradingStillPending"));
-          return;
-        }
-      }
-      setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
-      if (response.writingGradingStatus === "FAILED") {
-        setWritingError(t("reflexVideoTask.gradingFailedTeacher"));
-      }
-      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây đạt bước viết là tự
-      // động bật ghi âm ngay, học sinh không kịp chuẩn bị. Nay hiện popup báo đạt + điểm/nhận xét, học
-      // sinh tự bấm "Tiếp tục" khi sẵn sàng (xem handleContinueAfterWritingPass) — video chạy tiếp cho
-      // nghe lại câu hỏi, còn GHI ÂM THẬT phải bấm riêng nút "Bắt đầu ghi âm" trong panel (handleStartRecording).
-      if (stageForProgress(response) === "speaking") {
-        setWritingPassedPopup({ scorePercent: response.writingScorePercent, exhausted: response.writingExhausted });
+        await awaitWritingGrading(response);
+      } else {
+        applyWritingResult(response);
       }
     } catch (err) {
-      setWritingError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
       const refreshed = await refreshProgressFor(activeQuestion.id);
-      if (refreshed && stageForProgress(refreshed) === "speaking") {
-        setWritingPassedPopup({ scorePercent: refreshed.writingScorePercent, exhausted: refreshed.writingExhausted });
+      if (refreshed?.writingGradingStatus === "PENDING") {
+        // Bài đang nằm trong hàng đợi (VD nộp lần 2 lúc lần 1 chưa chấm xong): không báo lỗi, giữ overlay chờ kết quả.
+        await awaitWritingGrading(refreshed);
+      } else {
+        setWritingError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
+        if (refreshed && stageForProgress(refreshed) === "speaking") {
+          setWritingPassedPopup({ scorePercent: refreshed.writingScorePercent, exhausted: refreshed.writingExhausted });
+        }
       }
     } finally {
       setWritingSubmitting(false);
@@ -1340,39 +1357,73 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         }
       }
       const { url } = await uploadMedia(file, "REVIEW_VIDEO_SUBMISSION");
-      let response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url, filtered);
+      const response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url, filtered);
       if (response.speakingGradingStatus === "PENDING") {
-        // V222 — server chấm qua hàng đợi: giữ trạng thái "đang chấm" (speakingSubmitting) đến khi có kết quả.
-        setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
-        response = await waitForReflexGrading(assignmentId, response, "speaking");
-        if (response.speakingGradingStatus === "PENDING") {
-          setSpeakingError(t("reflexVideoTask.gradingStillPending"));
-          return;
-        }
-      }
-      setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
-      if (response.speakingGradingStatus === "REJECTED") {
-        setSpeakingError(response.speakingFeedback || t("reflexVideoTask.submitError"));
-      }
-      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây pass thì
-      // đóng câu ngay + video chạy tiếp lập tức, học sinh không kịp thấy điểm/nhận xét bước nói (khác
-      // bước viết vốn hiện nhận xét ngay trong khung). Nay hiện popup "Đạt" kèm điểm + nhận xét, chỉ
-      // đóng câu hỏi/chạy tiếp video khi học sinh bấm "Tiếp tục" (xem handleContinueAfterSpeakingPass).
-      if (response.questionFinalized) {
-        setSpeakingPassedPopup({ scorePercent: response.speakingScorePercent, feedback: response.speakingFeedback, exhausted: response.speakingExhausted });
+        await awaitSpeakingGrading(response);
+      } else {
+        applySpeakingResult(response);
       }
     } catch (err) {
-      setSpeakingError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
       // Xem Javadoc refreshProgressFor — lượt bị từ chối (hết lượt/AI từ chối bản ghi) vẫn được BE tính,
       // phải đồng bộ lại để hiện đúng số lượt + tự chuyển câu nếu vừa chạm giới hạn.
       const refreshed = await refreshProgressFor(activeQuestion.id);
-      if (refreshed?.questionFinalized) {
-        setSpeakingPassedPopup({ scorePercent: refreshed.speakingScorePercent, feedback: refreshed.speakingFeedback, exhausted: refreshed.speakingExhausted });
+      if (refreshed?.speakingGradingStatus === "PENDING") {
+        await awaitSpeakingGrading(refreshed);
+      } else {
+        setSpeakingError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
+        if (refreshed?.questionFinalized) {
+          setSpeakingPassedPopup({ scorePercent: refreshed.speakingScorePercent, feedback: refreshed.speakingFeedback, exhausted: refreshed.speakingExhausted });
+        }
       }
     } finally {
       setSpeakingSubmitting(false);
     }
   };
+
+  /** Kết quả cuối của bước nói (đã hết PENDING) — xem applyWritingResult. */
+  const applySpeakingResult = (response: ReflexQuestionProgressResponse) => {
+    setProgress((prev) => ({ ...prev, [response.questionId]: response }));
+    if (response.speakingGradingStatus === "REJECTED") {
+      setSpeakingError(response.speakingFeedback || t("reflexVideoTask.submitError"));
+    }
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây pass thì
+    // đóng câu ngay + video chạy tiếp lập tức, học sinh không kịp thấy điểm/nhận xét bước nói (khác
+    // bước viết vốn hiện nhận xét ngay trong khung). Nay hiện popup "Đạt" kèm điểm + nhận xét, chỉ
+    // đóng câu hỏi/chạy tiếp video khi học sinh bấm "Tiếp tục" (xem handleContinueAfterSpeakingPass).
+    if (response.questionFinalized) {
+      setSpeakingPassedPopup({ scorePercent: response.speakingScorePercent, feedback: response.speakingFeedback, exhausted: response.speakingExhausted });
+    }
+  };
+
+  /** V222 — như awaitWritingGrading, cho bước nói. */
+  const awaitSpeakingGrading = async (pending: ReflexQuestionProgressResponse) => {
+    if (assignmentId == null) return;
+    setProgress((prev) => ({ ...prev, [pending.questionId]: pending }));
+    const settled = await waitForReflexGrading(assignmentId, pending, "speaking");
+    if (settled.speakingGradingStatus === "PENDING") {
+      setSpeakingError(t("reflexVideoTask.gradingStillPending"));
+      return;
+    }
+    applySpeakingResult(settled);
+  };
+
+  // V222 — vào lại câu (tải lại trang/mở lại video) khi bài đang nằm trong hàng đợi: tự vào trạng thái chờ (overlay
+  // "AI đang chấm") thay vì hiện form nộp lại rồi báo lỗi "đang được chấm". Đang tự nộp thì handler đã giữ overlay.
+  const activePendingWriting = activeQuestion ? progress[activeQuestion.id]?.writingGradingStatus === "PENDING" : false;
+  const activePendingSpeaking = activeQuestion ? progress[activeQuestion.id]?.speakingGradingStatus === "PENDING" : false;
+  useEffect(() => {
+    if (!activeQuestion) return;
+    const pending = progressRef.current[activeQuestion.id];
+    if (!pending) return;
+    if (activePendingWriting && !writingSubmitting) {
+      setWritingSubmitting(true);
+      awaitWritingGrading(pending).finally(() => setWritingSubmitting(false));
+    } else if (activePendingSpeaking && !speakingSubmitting) {
+      setSpeakingSubmitting(true);
+      awaitSpeakingGrading(pending).finally(() => setSpeakingSubmitting(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeQuestion?.id, activePendingWriting, activePendingSpeaking]);
 
   const handleContinueAfterSpeakingPass = () => {
     setSpeakingPassedPopup(null);
