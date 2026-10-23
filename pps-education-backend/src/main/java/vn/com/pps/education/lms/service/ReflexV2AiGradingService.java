@@ -399,6 +399,45 @@ public class ReflexV2AiGradingService {
         }
     }
 
+    /**
+     * Bổ sung 2026-10-23 (đã xác nhận với người dùng) — dự phòng RIÊNG từng bước cho
+     * {@link AiGradingFallbackService}: Groq lỗi thì chỉ bước phiên âm rơi về 9Router (Lượt A "phiên âm mù" y hệt
+     * {@link #gradeSpeaking}). Trả {@code null} nếu 9Router/parse lỗi.
+     */
+    public String transcribeBlind(byte[] audioForModel, String mimeForModel, double durationSec, SpeakingUsageSink usageSink) {
+        NineRouterAiClient.AiJsonResponse transcription = nineRouterAiClient.chatWithAudioJson(
+                prompts.transcriptionSystem(), prompts.transcriptionUser(durationSec), audioForModel, mimeForModel, model,
+                prompts.transcriptionSchema());
+        if (transcription == null) {
+            log.warn("ReflexV2AiGradingService: 9Router phiên âm (dự phòng Groq) thất bại.");
+            return null;
+        }
+        usageSink.record(AiGradingTokenUsage.Step.TRANSCRIPTION, transcription.usage());
+        try {
+            return parseJson(transcription.content()).path("transcript").asText("").trim();
+        } catch (IOException e) {
+            log.warn("ReflexV2AiGradingService: parse phiên âm (dự phòng Groq) thất bại. {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Dự phòng RIÊNG cho bước chấm nội dung (Claude lỗi) và/hoặc điểm Phát âm (Azure lỗi): 9Router chấm trực tiếp trên
+     * audio với prompt/schema y hệt Lượt B của {@link #gradeSpeaking}. Trả JSON thô của AI, caller tự parse/ghép điểm.
+     * {@code null} nếu 9Router lỗi.
+     */
+    public NineRouterAiClient.AiJsonResponse gradeSpeakingOnAudio(ReflexV2Task task, String systemPrompt, String userPrompt,
+                                                                   byte[] audioForModel, String mimeForModel, SpeakingUsageSink usageSink) {
+        NineRouterAiClient.AiJsonResponse graded = nineRouterAiClient.chatWithAudioJson(systemPrompt, userPrompt,
+                audioForModel, mimeForModel, model, prompts.gradingSchema(task.criteria()));
+        if (graded == null) {
+            log.warn("ReflexV2AiGradingService: 9Router chấm nói (dự phòng) thất bại.");
+            return null;
+        }
+        usageSink.record(AiGradingTokenUsage.Step.SPEAKING, graded.usage());
+        return graded;
+    }
+
     // ===================== Câu đã sửa (V141) =====================
 
     /**
