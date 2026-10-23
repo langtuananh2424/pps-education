@@ -25,6 +25,11 @@ import java.util.regex.Pattern;
  * KHÁC bản tham chiếu 1 điểm có chủ đích: bản JS tự điền 0,5 khi AI trả THIẾU checkpoint (âm thầm nới
  * điểm); ở đây trả thiếu/sai là kết quả hỏng → {@link IllegalStateException}, caller coi như "AI chấm
  * lỗi" để học sinh nộp lại (đúng nguyên tắc "mặc định mức thấp" của quy tắc chung §B.1).
+ *
+ * Cập nhật 23/10/2026 (bản bàn giao Gemini 3.8, {@code ROUTER_MODEL=ag/gemini-3.8-flash-medium}) — thêm
+ * {@link #parseWordAudit} (trần mềm Phát âm), {@code applyErrorCaps} đổi phạm vi (bỏ hẳn ở bài viết, bỏ
+ * trần theo lỗi đã tô cho Ngữ pháp/Phát âm ở bài nói, gỡ sàn dải đọc lệch), {@link #writtenVsSpoken} bỏ dấu
+ * tiếng Việt trước khi so — xem Javadoc từng method.
  */
 public final class ReflexV2Scoring {
 
@@ -42,6 +47,22 @@ public final class ReflexV2Scoring {
      * biết: học sinh Part 2 phát âm thật sự tốt cũng bị chặn ở đây; muốn bỏ trần thì đặt = 100.
      */
     public static final int NO_EVIDENCE_P_CAP = 80;
+
+    /**
+     * Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) — trần MỀM Phát âm trừ theo số từ ghi theo âm trong
+     * {@code word_audit} (xem {@link #parseWordAudit}), THAY cho mốc cứng cũ ≥2/≥4/≥6 từ → 80/60/40% mà
+     * rubric từng bắt AI tự áp vào {@code cap_percent}. Lý do: mốc cứng làm điểm P nhảy 20–40 điểm giữa các
+     * lần chấm chỉ vì 1–2 từ "lấp lửng" đổi phe (lượt này AI ghi theo âm, lượt khác ghi chuẩn) — đo trên bộ
+     * hiệu chuẩn thật: lượt nằm trong ±10 điểm thầy cô từ 34/35 lên 35/35. Trừ {@link ReflexV2Task#pronSpelledStep()}
+     * %/từ (mặc định {@value}, Khối 6 = 3), sàn {@link #PRON_SPELLED_FLOOR}.
+     */
+    public static final int PRON_SPELLED_STEP = 5;
+
+    /** Sàn của trần mềm theo số từ ghi theo âm (xem {@link #PRON_SPELLED_STEP}). */
+    public static final int PRON_SPELLED_FLOOR = 40;
+
+    /** {@link #parseWordAudit}: bảng phủ dưới mức này thì coi như không có bằng chứng, không phải "sạch lỗi". */
+    private static final double AUDIT_MIN_COVERAGE = 0.6;
 
     /** Trần khi cổng "Lạc đề / vô nghĩa" kích hoạt — đồng nhất 20% ở mọi file rubric (6 bài viết + 5 bài nói đã kiểm tra). */
     private static final int OFF_TOPIC_CAP = 20;
@@ -129,9 +150,18 @@ public final class ReflexV2Scoring {
     public record Readback(int total, int count, double ratio, List<String> words) {
     }
 
-    /** Bằng chứng đo được từ transcript; bài VIẾT không có bằng chứng nào trong số này ({@link #NONE}). */
-    public record ErrorEvidence(LexicalEvidence lexical, FluencyEvidence fluency, LengthEvidence length, Readback readback) {
-        public static final ErrorEvidence NONE = new ErrorEvidence(null, null, null, null);
+    /**
+     * Bằng chứng đo được từ transcript; bài VIẾT không có bằng chứng nào trong số này ({@link #NONE}).
+     * {@code audit} ({@link WordAudit}, bổ sung 23/10/2026) chỉ có ở luồng 9Router/Gemini (lượt phiên âm mù
+     * điền {@code word_audit}) — luồng Claude trực tiếp dùng Groq STT nên không có dữ liệu này, truyền
+     * {@link WordAudit#NONE} qua constructor 4-tham-số.
+     */
+    public record ErrorEvidence(LexicalEvidence lexical, FluencyEvidence fluency, LengthEvidence length, Readback readback, WordAudit audit) {
+        public ErrorEvidence(LexicalEvidence lexical, FluencyEvidence fluency, LengthEvidence length, Readback readback) {
+            this(lexical, fluency, length, readback, WordAudit.NONE);
+        }
+
+        public static final ErrorEvidence NONE = new ErrorEvidence(null, null, null, null, WordAudit.NONE);
     }
 
     /** Trung bình cộng các % tiêu chí, làm tròn XUỐNG bội số 5 (+1e-9 chống sai số dấu phẩy động, như bản JS). */
@@ -259,10 +289,19 @@ public final class ReflexV2Scoring {
     /**
      * Mirror {@code applyErrorCaps} của {@code grading.js}: một tiêu chí KHÔNG thể đạt 100% khi chính nó còn
      * lỗi (mỗi lỗi nhẹ −10%, mỗi lỗi nặng −20%), cộng các trần đo được từ transcript. Là TRẦN chứ không phải
-     * trừ chồng lên checkpoint: điểm cuối = min(điểm checkpoint, trần). Riêng dải Phát âm theo bài viết có
-     * thể NÂNG điểm lên tới sàn của dải.
+     * trừ chồng lên checkpoint: điểm cuối = min(điểm checkpoint, trần).
      *
-     * Dùng cho cả bài VIẾT (bằng chứng = {@link ErrorEvidence#NONE}) lẫn bài NÓI.
+     * CHỈ dùng cho bài NÓI từ 23/10/2026 (bản bàn giao Gemini 3.8) — bài VIẾT KHÔNG còn gọi hàm này (xem
+     * {@code gradeWriting} ở {@code ReflexV2AiGradingService}): trần theo lỗi đã tô phạt HAI LẦN cho bài
+     * viết (checkpoint đã đếm đúng lỗi đó, trần lại trừ thêm 10%/lỗi không theo độ dài bài) — đo trên 48 ô
+     * điểm viết của bộ hiệu chuẩn: giữ trần đúng 39/48, bỏ trần đúng 47/48, trần không cứu được ô nào (các ô
+     * được cứu là nhờ cổng C1/C2, không phải trần này). Trần ≥2 lỗi đỏ ({@link #applyRedCap}) vẫn giữ cho cả
+     * hai loại bài.
+     *
+     * Trần theo lỗi đã tô (biến {@code counts} dưới đây) từ 20/10 và 22/10/2026 KHÔNG còn áp cho tiêu chí
+     * Ngữ pháp ({@code g}) và Phát âm ({@code "P"}) ở bài NÓI: checkpoint của 2 tiêu chí đó đã đếm đúng các
+     * lỗi này rồi (VD "6/20 động từ đúng" → 0), trần lại là phạt hai lần — đo trên 83 lượt nói: ô Ngữ pháp
+     * trong 10 điểm 65/83 → 77/83 đúng thầy cô.
      */
     public static List<CriterionScore> applyErrorCaps(ReflexV2Task task, List<CriterionScore> criteria,
                                                       List<Highlight> highlights, ErrorEvidence ev) {
@@ -289,7 +328,10 @@ public final class ReflexV2Scoring {
             if (discourse && gPercent != null) {
                 c = c.cappedTo(gPercent + 40, "Ngữ pháp + 40");
             }
-            if (code.equals("P") || code.equals("LR") || discourse) {
+            // Trần 90% "không phải bản ngữ": P/LR/DM/FC luôn áp; Ngữ pháp CHỈ áp khi task.speakingGrammarCap90()
+            // (Khối 6, 23/10/2026) — lớp 6C2 thật: 12/36 bài thầy cô cho 70-80 với câu đúng nhưng đơn giản mà
+            // hệ thống cho 100; thầy cô còn ghi rõ cho 80 với bài "không sai lỗi nào".
+            if (code.equals("P") || code.equals("LR") || discourse || (task.speakingGrammarCap90() && code.equals(g))) {
                 c = c.cappedTo(NON_NATIVE_CAP, "trần 90% (không bản ngữ)");
             }
             if (code.equals("LR") && ev.lexical() != null) {
@@ -303,15 +345,15 @@ public final class ReflexV2Scoring {
                 }
             }
             if (code.equals("P") && ev.readback() != null) {
+                // 22/10/2026 — ĐÃ GỠ SÀN của dải đọc lệch (chỉ giữ TRẦN). Sàn đặt 26/9 vì Gemini 3.6 chấm P
+                // dao động 40↔80 trên cùng một file; với 3.8 thì sàn làm NGƯỢC: 3.8 phiên âm sạch hơn nên tỷ
+                // lệ đọc lệch gần 0 → sàn kéo P lên dù chính model đã khai từ lệch ở word_audit và tự chấm
+                // thấp. `readbackCapLift` (Khối 6, 23/10/2026): tỷ lệ đọc lệch đếm lại chính các từ mất âm
+                // cuối mà checkpoint P2 đã trừ rồi, nên nới thêm trần để không phạt hai lần.
                 int[] band = pronBandFor(ev.readback().ratio());
-                if (c.percent() > band[1]) {
-                    c = c.with(band[1], "trần dải đọc lệch " + ev.readback().count() + "/" + ev.readback().total());
-                } else if (c.percent() < band[0] && ev.readback().total() >= READBACK_MIN_FOR_FLOOR) {
-                    // Bản 1/10 — SÀN chỉ áp khi so được đủ từ. Mẫu nhỏ (VD 9 từ, lệch 2 = 22%) rơi vào dải
-                    // cao mà sàn vẫn kéo điểm lên — một em ngọng 2/9 từ được sàn 75% là hỏng ý nghĩa của dải.
-                    // Trần vẫn áp ở MỌI độ dài (đọc lệch nhiều thì dù ít từ cũng là bằng chứng thật) — bất
-                    // đối xứng CÓ CHỦ ĐÍCH: ít bằng chứng chỉ được dè dặt ở chiều NÂNG, không phải chiều HẠ.
-                    c = c.with(band[0], "sàn dải đọc lệch " + ev.readback().count() + "/" + ev.readback().total());
+                int hi = Math.min(100, band[1] + task.readbackCapLift());
+                if (c.percent() > hi) {
+                    c = c.with(hi, "trần dải đọc lệch " + ev.readback().count() + "/" + ev.readback().total());
                 }
             }
             if (code.equals("P") && c.percent() > NO_EVIDENCE_P_CAP) {
@@ -321,11 +363,24 @@ public final class ReflexV2Scoring {
                     c = c.with(NO_EVIDENCE_P_CAP, "không có bằng chứng phát âm");
                 }
             }
+            // Trần MỀM theo số từ ghi theo âm (23/10/2026) — THAY mốc cứng cũ ≥2/≥4/≥6 từ → 80/60/40% mà
+            // rubric từng bắt AI tự áp vào cap_percent (xem Javadoc PRON_SPELLED_STEP). Trừ pronSpelledStep
+            // %/từ (Khối 6: 3, còn lại mặc định 5), sàn PRON_SPELLED_FLOOR (40).
+            if (code.equals("P") && ev.audit() != null && ev.audit().spelledCount() > 0) {
+                int step = task.pronSpelledStep() > 0 ? task.pronSpelledStep() : PRON_SPELLED_STEP;
+                int lim = Math.max(PRON_SPELLED_FLOOR, 100 - step * ev.audit().spelledCount());
+                if (c.percent() > lim) {
+                    c = c.with(lim, "trần theo số từ ghi theo âm (" + ev.audit().spelledCount() + " từ: "
+                            + String.join(", ", ev.audit().spelledWords()) + ")");
+                }
+            }
             if ((discourse || (code.equals("P") && fluencyAppliesToP)) && ev.fluency() != null) {
                 c = c.cappedTo(ev.fluency().ceil(), "từ đệm/khoảng dừng");
             }
+            // Trần theo lỗi đã tô — KHÔNG áp cho Ngữ pháp (g) và Phát âm (P): checkpoint của 2 tiêu chí đó đã
+            // đếm đúng các lỗi này rồi, trần lại là phạt hai lần (xem Javadoc method, 20/10 và 22/10/2026).
             int[] n = counts.get(code);
-            if (n != null) {
+            if (n != null && !code.equals(g) && !code.equals("P")) {
                 c = c.cappedTo(Math.max(0, 100 - 10 * n[0] - 20 * n[1]), "lỗi đã tô (" + n[0] + " nhẹ, " + n[1] + " nặng)");
             }
             out.add(c);
@@ -333,10 +388,11 @@ public final class ReflexV2Scoring {
         return out;
     }
 
-    /** Bản 1/10 — dưới ngần này từ so được thì KHÔNG dùng dải đọc lệch để NÂNG điểm (xem {@link #applyErrorCaps}). */
-    public static final int READBACK_MIN_FOR_FLOOR = 30;
-
-    /** Dải Phát âm theo TỶ LỆ từ đọc lệch (không theo số đếm tuyệt đối): [sàn, trần]. */
+    /**
+     * Dải Phát âm theo TỶ LỆ từ đọc lệch (không theo số đếm tuyệt đối): [sàn (không còn dùng), trần].
+     * 22/10/2026 (bản bàn giao Gemini 3.8) — chỉ còn dùng {@code band[1]} (trần); sàn ({@code band[0]}) đã gỡ,
+     * xem Javadoc {@link #applyErrorCaps}. Giữ nguyên dạng {@code int[2]} để khác biệt với bản JS tối thiểu.
+     */
     static int[] pronBandFor(double ratio) {
         if (ratio < 0.12) {
             return new int[]{85, 100};
@@ -372,32 +428,57 @@ public final class ReflexV2Scoring {
         return Arrays.stream(NON_CONTENT_SPLIT.split(lower)).filter(w -> w.length() >= 2 && !FUNCTION_WORDS.contains(w)).toList();
     }
 
+    /** Mốc mật độ từ vựng thấp nhất mặc định (xem {@link ReflexV2Task#lexicalLowRung()}). */
+    private static final double LEXICAL_LOW_RUNG_DEFAULT = 0.40;
+
     /** Bài quá ngắn (<8 từ nội dung) trả {@code null}: đã có cổng độ dài của rubric lo. */
     public static LexicalEvidence lexicalCeiling(String transcript, int seconds) {
+        return lexicalCeiling(transcript, seconds, 0);
+    }
+
+    /**
+     * @param lowRung Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) — mốc mật độ thấp nhất có thể đặt riêng
+     *                theo đề ({@link ReflexV2Task#lexicalLowRung()}; 0 = dùng mặc định {@value #LEXICAL_LOW_RUNG_DEFAULT}).
+     *                Khối 8 IELTS đề ngắn = 0,30 — học sinh khối 8 trước đây bị chấm sát chuẩn IELTS quá.
+     */
+    public static LexicalEvidence lexicalCeiling(String transcript, int seconds, double lowRung) {
         List<String> words = contentWords(transcript);
         if (seconds <= 0 || words.size() < 8) {
             return null;
         }
+        double rung = lowRung > 0 ? lowRung : LEXICAL_LOW_RUNG_DEFAULT;
         int distinct = (int) words.stream().distinct().count();
         double density = distinct / (double) seconds;
-        int ceil = density < 0.40 ? 60 : density < 0.60 ? 80 : density < 0.80 ? 90 : 100;
+        int ceil = density < rung ? 60 : density < 0.60 ? 80 : density < 0.80 ? 90 : 100;
         return new LexicalEvidence(distinct, words.size(), Math.round(density * 100) / 100.0, ceil);
     }
 
-    /** Cùng một từ lặp lại trong vòng 3 tiếng = nói vấp hoặc tự sửa ("I I go", "because I à because"). */
+    /**
+     * Cùng một từ lặp lại trong vòng 3 tiếng = nói vấp hoặc tự sửa ("I I go", "because I à because").
+     * 22/10/2026 (bản bàn giao Gemini 3.8) — chỉ tính khi lặp LIỀN NHAU hoặc có TỪ ĐỆM xen giữa. Lặp có chủ
+     * ý để nhấn ý ("going shopping, especially shopping") không phải nói vấp, nhưng trước đây vẫn bị đếm và
+     * kéo trần Trôi chảy 100% → 85% cho một bài khối 8 trôi chảy thật.
+     */
     private static int selfRepairs(List<String> tokens) {
         int n = 0;
         for (int i = 0; i < tokens.size(); i++) {
             for (int j = i + 1; j <= Math.min(i + 3, tokens.size() - 1); j++) {
                 if (!tokens.get(i).isEmpty() && tokens.get(i).equals(tokens.get(j))) {
-                    n++;
-                    i = j;
+                    List<String> between = tokens.subList(i + 1, j);
+                    if (between.isEmpty() || between.stream().anyMatch(w -> FILLER_WORD_WHOLE.matcher(w).matches())) {
+                        n++;
+                        i = j;
+                    }
                     break;
                 }
             }
         }
         return n;
     }
+
+    /** {@link #selfRepairs}: TOÀN BỘ token (không chỉ 1 phần) phải là từ đệm — khác {@link #FILLER} (dò giữa câu). */
+    private static final Pattern FILLER_WORD_WHOLE = Pattern.compile(
+            "^(u+m+|u+h+|e+r+|a+h+|hm+|ờ+|à+|ừ+|na+h?)$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     public static FluencyEvidence fluencyCeiling(String transcript, double longestPauseSec) {
         List<String> all = Arrays.stream(WHITESPACE.split(transcript == null ? "" : transcript)).filter(s -> !s.isEmpty()).toList();
@@ -467,12 +548,82 @@ public final class ReflexV2Scoring {
         return new LengthEvidence(words, Math.round(spokenSec * 10) / 10.0, enough, enough ? 100 : 60, enough ? 100 : 80);
     }
 
+    // ---------- Bằng chứng phát âm theo từng từ (word_audit) ----------
+
+    /**
+     * Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) — đọc {@code word_audit} mà lượt phiên âm BẮT BUỘC điền
+     * (xem {@code ReflexV2Prompts#transcriptionSchema}), mỗi dòng {@code "TỪ CHUẨN|nghe được|âm cuối"}.
+     * Cấp {@code spelledCount} cho trần mềm Phát âm ({@link #PRON_SPELLED_STEP}), THAY cho mốc cứng cũ mà
+     * rubric từng bắt AI tự áp — xem Javadoc hằng số.
+     *
+     * @param coverage tỷ lệ dòng {@code word_audit} có được so với số từ ≥3 chữ cái trong transcript —
+     *                 dưới {@link #AUDIT_MIN_COVERAGE} thì bảng không đủ để dùng.
+     * @param usable   bảng có đủ dữ liệu để áp trần hay không ({@code expected.size() >= 5 && coverage >= AUDIT_MIN_COVERAGE}).
+     */
+    public record WordAudit(int spelledCount, List<String> spelledWords, double coverage, boolean usable) {
+        public static final WordAudit NONE = new WordAudit(0, List.of(), 0, false);
+    }
+
+    private static final Pattern NON_LETTER_APOSTROPHE = Pattern.compile("[^A-Za-z']");
+    private static final Pattern UNKNOWN_TOKEN = Pattern.compile("\\[\\?\\]");
+
+    /**
+     * @param rawRows mỗi phần tử là 1 dòng {@code "TỪ CHUẨN|nghe được|âm cuối"} do lượt phiên âm trả về.
+     * @param transcript transcript CỐ ĐỊNH của lượt phiên âm (dùng để biết "nghe được" có thật trong bài không).
+     */
+    public static WordAudit parseWordAudit(List<String> rawRows, String transcript) {
+        record Row(String w, String heard) {
+        }
+        List<Row> rows = new ArrayList<>();
+        for (String line : rawRows == null ? List.<String>of() : rawRows) {
+            String[] cols = (line == null ? "" : line).split("\\|");
+            String w = cols.length > 0 ? cols[0].trim() : "";
+            if (w.isEmpty()) {
+                continue;
+            }
+            String heard = cols.length > 1 && !cols[1].trim().isEmpty() ? cols[1].trim() : w;
+            rows.add(new Row(w, heard));
+        }
+        String t = transcript == null ? "" : transcript;
+        List<String> expected = Arrays.stream(WHITESPACE.split(t))
+                .map(x -> NON_LETTER_APOSTROPHE.matcher(x).replaceAll("")).filter(x -> x.length() >= 3).toList();
+        double coverage = expected.isEmpty() ? 0 : Math.min(1, rows.size() / (double) expected.size());
+        Set<String> spokenTokens = Arrays.stream(WHITESPACE.split(t)).map(ReflexV2Scoring::normWord)
+                .filter(s -> !s.isEmpty()).collect(java.util.stream.Collectors.toSet());
+        List<Row> spelled = rows.stream()
+                .filter(r -> !normWord(r.heard()).equals(normWord(r.w())) && spokenTokens.contains(normWord(r.heard())))
+                .toList();
+        Matcher unknown = UNKNOWN_TOKEN.matcher(t);
+        int unknownCount = 0;
+        while (unknown.find()) {
+            unknownCount++;
+        }
+        boolean usable = expected.size() >= 5 && coverage >= AUDIT_MIN_COVERAGE;
+        return new WordAudit(spelled.size() + unknownCount,
+                spelled.stream().map(r -> r.w() + "→" + r.heard()).toList(), coverage, usable);
+    }
+
     // ---------- Bằng chứng phát âm: so transcript với bài viết Bước 1 ----------
 
     private static final Set<String> SPOKEN_FILLERS = Set.of("um", "uh", "ah", "er", "hm", "a", "o");
 
     private static String normWord(String w) {
         return w.toLowerCase(Locale.ROOT).replaceAll("[^a-z']", "");
+    }
+
+    private static final Pattern COMBINING_MARKS = Pattern.compile("[\\u0300-\\u036f]");
+
+    /**
+     * Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) — như {@link #normWord} nhưng BỎ DẤU TIẾNG VIỆT trước khi
+     * lọc (NFD rồi xoá dấu kết hợp, {@code đ}/{@code Đ} → {@code d}), dùng RIÊNG cho {@link #writtenVsSpoken}.
+     * Lý do: tên riêng bài viết ghi không dấu ("cat linh") mà lượt phiên âm ghi có dấu ("Cát Linh") từng bị
+     * tính là đọc lệch ("cat→ct" sau khi lọc ký tự non-ASCII) và kéo trần Phát âm xuống 60% — 5 bài lớp 6C2
+     * dính lỗi này. KHÔNG áp dụng cho {@link #normWord} dùng ở {@link #sameAsWritten} (chưa có yêu cầu đổi).
+     */
+    private static String normWithoutDiacritics(String w) {
+        String decomposed = java.text.Normalizer.normalize(w, java.text.Normalizer.Form.NFD);
+        String noMarks = COMBINING_MARKS.matcher(decomposed).replaceAll("");
+        return noMarks.replace("đ", "d").replace("Đ", "d").toLowerCase(Locale.ROOT).replaceAll("[^a-z']", "");
     }
 
     /** Bộ khung phụ âm: phát âm tiếng Việt làm rụng/đổi phụ âm cuối nên so theo khung, không so chính tả. */
@@ -503,9 +654,9 @@ public final class ReflexV2Scoring {
      */
     public static Readback writtenVsSpoken(String writtenText, String transcript) {
         List<String> written = Arrays.stream(WHITESPACE.split(writtenText == null ? "" : writtenText))
-                .map(ReflexV2Scoring::normWord).filter(w -> w.length() >= 2).toList();
+                .map(ReflexV2Scoring::normWithoutDiacritics).filter(w -> w.length() >= 2).toList();
         List<String> spoken = Arrays.stream(WHITESPACE.split(transcript == null ? "" : transcript))
-                .map(ReflexV2Scoring::normWord).filter(w -> w.length() >= 2 && !SPOKEN_FILLERS.contains(w)).toList();
+                .map(ReflexV2Scoring::normWithoutDiacritics).filter(w -> w.length() >= 2 && !SPOKEN_FILLERS.contains(w)).toList();
         if (written.size() < 4 || spoken.size() < 4) {
             return null;
         }

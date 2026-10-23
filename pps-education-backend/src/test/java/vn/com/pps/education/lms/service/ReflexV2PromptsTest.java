@@ -85,11 +85,18 @@ class ReflexV2PromptsTest {
         assertThat(prompts.transcriptionUser(12.34)).isEqualTo("File ghi âm dài 12.3 giây. Phiên âm theo đúng quy tắc.");
     }
 
+    /**
+     * 23/10/2026 (bản bàn giao Gemini 3.8, v5.1) — {@code suspect_words} đổi từ "lệch nhưng vẫn nhận ra" (mọi
+     * loại lệch) thành "lưới an toàn" CHỈ cho 2 trường hợp hẹp (nguyên âm/trọng âm lệch kiểu Việt, hoặc đã lỡ
+     * ghi chính tả chuẩn) — từ mất âm cuối/thay âm giờ PHẢI ghi theo âm ngay trong transcript, không còn khai
+     * ở đây (để {@code word_audit} đếm được, cấp trần mềm Phát âm — xem {@code ReflexV2Scoring#parseWordAudit}).
+     */
     @Test
-    void transcriptionSchema_requiresWordAudit_andSuspectWordsMeanDeviantButRecognisable() {
+    void transcriptionSchema_requiresWordAudit_andSuspectWordsAreASafetyNetNotAnEscapeHatch() {
         assertThat(prompts.transcriptionSchema().path("required").toString()).contains("word_audit").contains("suspect_words");
         assertThat(prompts.transcriptionSchema().path("properties").path("suspect_words").path("description").asText())
-                .contains("LỆCH NHƯNG VẪN NHẬN RA");
+                .contains("LƯỚI AN TOÀN, KHÔNG PHẢI LỐI THOÁT")
+                .contains("TUYỆT ĐỐI KHÔNG đưa vào đây từ mất âm cuối hoặc bị thay âm");
         assertThat(prompts.transcriptionSystem()).contains("word_audit");
     }
 

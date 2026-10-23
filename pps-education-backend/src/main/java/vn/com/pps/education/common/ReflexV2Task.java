@@ -31,11 +31,21 @@ import java.util.Optional;
  * @param rubricFormat    cột ngưỡng bắt buộc truyền vào prompt: {@code "SHORT"}/{@code "PART2"} (Khối 8-9 IELTS,
  *                        Khối 7 từ v3), {@code "PET4"} (Khối 8 Cambridge từ v3); null nếu rubric không có cột theo dạng đề.
  * @param rubricVersion   {@link #RUBRIC_V2}/{@link #RUBRIC_V3} — quyết định thư mục rubric ({@link #rubricDir()}).
+ * @param pronSpelledStep Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) — trần mềm Phát âm trừ bao nhiêu %/từ
+ *                        ghi theo âm trong {@code word_audit} (xem {@link ReflexV2Scoring#applyErrorCaps}).
+ *                        0 = dùng mặc định {@link ReflexV2Scoring#PRON_SPELLED_STEP} (5); Khối 6 = 3.
+ * @param readbackCapLift Bổ sung 23/10/2026 — nới thêm trần dải Phát âm theo tỷ lệ đọc lệch bài viết
+ *                        ({@link ReflexV2Scoring#pronBandFor}), 0 = không nới; Khối 6 = 20.
+ * @param speakingGrammarCap90 Bổ sung 23/10/2026 — true thì tiêu chí Ngữ pháp bài NÓI cũng bị trần 90%
+ *                        "không phải bản ngữ" giống các tiêu chí khác (chỉ Khối 6).
+ * @param lexicalLowRung  Bổ sung 23/10/2026 — mốc mật độ từ vựng thấp nhất của {@link ReflexV2Scoring#lexicalCeiling}
+ *                        (trần 60% khi dưới mốc này); 0 = dùng mặc định 0,40. Khối 8 IELTS đề ngắn = 0,30.
  */
 public record ReflexV2Task(String id, List<String> criteria, List<String> writingCriteria, String grammarCode,
                            int seconds, int minWords, GateScheme gateScheme, String rubricFormat,
                            String levelLabel, String formatLabel, String writingRubricFile, String speakingRubricFile,
-                           String rubricVersion) {
+                           String rubricVersion, int pronSpelledStep, int readbackCapLift,
+                           boolean speakingGrammarCap90, double lexicalLowRung) {
 
     /**
      * STANDARD (Khối 6, 7, 8 Cambridge): C1 = lạc đề, C2 = không nghe ra (chặn Phát âm), C3 = quá ngắn.
@@ -74,42 +84,42 @@ public record ReflexV2Task(String id, List<String> criteria, List<String> writin
     private static final ReflexV2Task GRADE_6 = new ReflexV2Task(
             "g6-short", List.of("GV", "P"), CAMBRIDGE_WRITING, "GV", 20, 8, GateScheme.STANDARD, null,
             "CEFR A1–A2, học sinh 11–12 tuổi", "Short question",
-            "rubric-grade6-writing.md", "rubric-grade6-speaking.md", RUBRIC_V3);
+            "rubric-grade6-writing.md", "rubric-grade6-speaking.md", RUBRIC_V3, 3, 20, true, 0);
 
     private static final ReflexV2Task GRADE_7_IELTS = new ReflexV2Task(
             "g7-ielts-short", IELTS_SPEAKING, IELTS_WRITING, "GRA", 25, 15, GateScheme.STANDARD, "SHORT",
             "CEFR A2–B1 (IELTS 3.5–4.0), học sinh 12–13 tuổi", "Short question",
-            "rubric-grade7-ielts-writing.md", "rubric-grade7-ielts-speaking.md", RUBRIC_V3);
+            "rubric-grade7-ielts-writing.md", "rubric-grade7-ielts-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     private static final ReflexV2Task GRADE_7_CAMBRIDGE = new ReflexV2Task(
             "g7-cam-short", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 25, 15, GateScheme.STANDARD, "SHORT",
             "CEFR A2–B1, học sinh 12–13 tuổi", "Short question",
-            "rubric-grade7-cambridge-writing.md", "rubric-grade7-cambridge-speaking.md", RUBRIC_V3);
+            "rubric-grade7-cambridge-writing.md", "rubric-grade7-cambridge-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     private static final ReflexV2Task GRADE_8_IELTS_SHORT = new ReflexV2Task(
             "g8-ielts-short", IELTS_SPEAKING, IELTS_WRITING, "GRA", 30, 15, GateScheme.V3, "SHORT",
             "IELTS 4.0 foundation, học sinh 13–14 tuổi", "Short question",
-            "rubric-grade8-ielts-writing.md", "rubric-grade8-ielts-speaking.md", RUBRIC_V3);
+            "rubric-grade8-ielts-writing.md", "rubric-grade8-ielts-speaking.md", RUBRIC_V3, 0, 0, false, 0.30);
 
     private static final ReflexV2Task GRADE_8_IELTS_PART2 = new ReflexV2Task(
             "g8-ielts-part2", IELTS_SPEAKING, IELTS_WRITING, "GRA", 90, 30, GateScheme.V3, "PART2",
             "IELTS 4.0 foundation, học sinh 13–14 tuổi", "IELTS Speaking Part 2",
-            "rubric-grade8-ielts-writing.md", "rubric-grade8-ielts-speaking.md", RUBRIC_V3);
+            "rubric-grade8-ielts-writing.md", "rubric-grade8-ielts-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     private static final ReflexV2Task GRADE_8_CAMBRIDGE = new ReflexV2Task(
             "g8-cam-pet4", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 60, 30, GateScheme.STANDARD, "PET4",
             "IELTS 4.0 (≈ CEFR A2+/B1), học sinh 13–14 tuổi", "PET Speaking Part 4",
-            "rubric-grade8-cambridge-writing.md", "rubric-grade8-cambridge-speaking.md", RUBRIC_V3);
+            "rubric-grade8-cambridge-writing.md", "rubric-grade8-cambridge-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     private static final ReflexV2Task GRADE_9_IELTS_SHORT = new ReflexV2Task(
             "g9-ielts-short", IELTS_SPEAKING, IELTS_WRITING, "GRA", 30, 18, GateScheme.V3, "SHORT",
             "IELTS 4.0–5.0 foundation, học sinh 14–15 tuổi", "Short question",
-            "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md", RUBRIC_V3);
+            "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     private static final ReflexV2Task GRADE_9_IELTS_PART2 = new ReflexV2Task(
             "g9-ielts-part2", IELTS_SPEAKING, IELTS_WRITING, "GRA", 120, 35, GateScheme.V3, "PART2",
             "IELTS 4.0–5.0 foundation, học sinh 14–15 tuổi", "IELTS Speaking Part 2",
-            "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md", RUBRIC_V3);
+            "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     // ---- V200: dạng đề chỉ có từ v3 (chọn tường minh qua ReflexQuestionFormat, không suy được từ thời lượng) ----
 
@@ -117,19 +127,19 @@ public record ReflexV2Task(String id, List<String> criteria, List<String> writin
     private static final ReflexV2Task GRADE_7_IELTS_PART2 = new ReflexV2Task(
             "g7-ielts-part2", IELTS_SPEAKING, IELTS_WRITING, "GRA", 60, 30, GateScheme.STANDARD, "PART2",
             "CEFR A2–B1 (IELTS 3.5–4.0), học sinh 12–13 tuổi", "IELTS Speaking Part 2",
-            "rubric-grade7-ielts-writing.md", "rubric-grade7-ielts-speaking.md", RUBRIC_V3);
+            "rubric-grade7-ielts-writing.md", "rubric-grade7-ielts-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     /** Tả tranh Khối 7 Cambridge (PET Speaking Task 2). C3 PICTURE: <18 từ. */
     private static final ReflexV2Task GRADE_7_CAMBRIDGE_PICTURE = new ReflexV2Task(
             "g7-cam-pet2", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 60, 18, GateScheme.STANDARD, "PICTURE",
             "CEFR A2–B1, học sinh 12–13 tuổi", "PET Speaking Task 2 (miêu tả ảnh)",
-            "rubric-grade7-cambridge-writing.md", "rubric-grade7-cambridge-speaking.md", RUBRIC_V3);
+            "rubric-grade7-cambridge-writing.md", "rubric-grade7-cambridge-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     /** Tả tranh Khối 8 Cambridge — cột PICTURE bằng đúng Khối 7 (cùng khung AREA/AEE, rubric v3 29/9). C3 PICTURE: <18 từ. */
     private static final ReflexV2Task GRADE_8_CAMBRIDGE_PICTURE = new ReflexV2Task(
             "g8-cam-pet2", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 60, 18, GateScheme.STANDARD, "PICTURE",
             "IELTS 4.0 (≈ CEFR A2+/B1), học sinh 13–14 tuổi", "PET Speaking Task 2 (miêu tả ảnh)",
-            "rubric-grade8-cambridge-writing.md", "rubric-grade8-cambridge-speaking.md", RUBRIC_V3);
+            "rubric-grade8-cambridge-writing.md", "rubric-grade8-cambridge-speaking.md", RUBRIC_V3, 0, 0, false, 0);
 
     /**
      * V200 — các dạng đề giáo viên được chọn cho khối/tuyến này, kèm dạng bài tương ứng (thứ tự = thứ tự hiện trên
@@ -241,7 +251,8 @@ public record ReflexV2Task(String id, List<String> criteria, List<String> writin
         String format = id.equals("g8-cam-pet4") || id.startsWith("g7-") ? null : rubricFormat;
         int maxSeconds = id.equals("g9-ielts-part2") ? 90 : seconds;
         return new ReflexV2Task(id, criteria, writingCriteria, grammarCode, maxSeconds, minWords, gateScheme, format,
-                levelLabel, formatLabel, writingRubricFile, speakingRubricFile, RUBRIC_V2);
+                levelLabel, formatLabel, writingRubricFile, speakingRubricFile, RUBRIC_V2,
+                pronSpelledStep, readbackCapLift, speakingGrammarCap90, lexicalLowRung);
     }
 
     private static Optional<ReflexV2Task> forGradeTrackV3(Curriculum.GradeLevel gradeLevel, Curriculum.Track track,

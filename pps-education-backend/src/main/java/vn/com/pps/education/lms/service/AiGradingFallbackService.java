@@ -348,7 +348,8 @@ public class AiGradingFallbackService {
             }
         }
         double spokenSec = measured.map(m -> m.spanSec() > 0 ? m.spanSec() : m.speechSec()).orElse(0.0);
-        ReflexV2Scoring.LexicalEvidence lexical = noSpeech ? null : ReflexV2Scoring.lexicalCeiling(transcript, task.lexicalSeconds());
+        ReflexV2Scoring.LexicalEvidence lexical = noSpeech ? null
+                : ReflexV2Scoring.lexicalCeiling(transcript, task.lexicalSeconds(), task.lexicalLowRung());
         ReflexV2Scoring.FluencyEvidence fluency = noSpeech ? null : ReflexV2Scoring.fluencyCeiling(transcript, longestPause);
         ReflexV2Scoring.LengthEvidence length = ReflexV2Scoring.lengthGate(task, transcript, spokenSec);
         ReflexV2Scoring.Readback readback = noSpeech ? null : ReflexV2Scoring.writtenVsSpoken(anchor.text(), transcript);

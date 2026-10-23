@@ -74,9 +74,7 @@ Tiếng Việt thay cho từ tiếng Anh bị thiếu → tính là LB (không t
 > 2. Tách thành **mất âm cuối** (`produc`, `fren`) và **thay âm** (`Zis` = /ð/→/z/, `wis` = /θ/→/s/).
 > 3. **Nghe audio**: chỗ nào người nghe phải căng tai hoặc đoán mới hiểu — dù transcript ghi đúng chính tả — cũng cộng vào danh sách.
 >
-> **Trần theo bằng chứng (áp cho tiêu chí Phát âm, sau khi tính checkpoint; ghi vào `cap_percent`):**
-> ≥2 từ lệch → **tối đa 80%**; ≥4 → **tối đa 60%**; ≥6 → **tối đa 40%**.
-> **Bài có từ ghi theo âm trong transcript thì không bao giờ được 100% Phát âm.**
+> **KHÔNG tự áp trần theo số từ lệch** (23/10/2026 — bỏ mốc ≥2/≥4/≥6 → 80/60/40%: chỉ 1–2 từ lấp lửng đổi phe là P nhảy 20–40 điểm giữa các lượt chấm). Hệ thống tự đếm từ ghi khác chính tả trong transcript và trừ **5% mỗi từ** sau khi tính checkpoint. Bạn vẫn liệt kê đủ danh sách vào `counting_notes` và chấm P1–P5 theo bảng; **không** hạ `cap_percent` của Phát âm vì số từ lệch.
 |ID|Checkpoint|SHORT: 1 / 0,5 / 0|PART2: 1 / 0,5 / 0|
 |-|-|-|-|
 |**P1**|Tỷ lệ **từ nội dung** nhận ra ngay. **Từ trong `suspect_words` (lệch nhưng nhận ra) TÍNH LÀ NHẬN RA.** **Mẫu số chỉ gồm từ nội dung** (danh từ, động từ chính, tính từ, trạng từ — §B.11): **không** tính từ chức năng (a, the, and, is, I, my, to, at, when, not, very…), tên riêng, con số. Từ ghi đúng chính tả nhưng lệch với bài viết (§A.4b) **cũng không tính là nhận ra**. **Mọi từ viết sai chính tả trong transcript (tink, fren, lai, ham…) KHÔNG tính là nhận ra**; `[?]` và chuỗi lằng nhằng cũng không tính; thiếu -s ở danh từ tính ở P2 **Mẫu số chỉ gồm từ tiếng Anh**: không tính từ tiếng Việt, từ đệm (um/uh/ờ) và `(...Ns)`.|≥85% / 70–84% / <70%|như SHORT|
