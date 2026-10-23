@@ -47,6 +47,9 @@ public class AzurePronunciationClient {
     @Value("${app.ai-grading.azure-direct.timeout-seconds:60}")
     private int requestTimeoutSeconds;
 
+    @Value("${app.ai-grading.direct-max-attempts:3}")
+    private int maxAttempts;
+
     public record Result(Integer accuracyScore, Integer fluencyScore, Integer completenessScore,
                           Integer prosodyScore, Integer overallScore, List<PronunciationWordDetail> words, String rawJson) {
         static Result error(String message) {
@@ -110,7 +113,7 @@ public class AzurePronunciationClient {
                     .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofByteArray(wav.get()))
                     .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = DirectAiRetry.send("AzurePronunciationClient", maxAttempts, () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
             if (response.statusCode() >= 300) {
                 return Result.error("Azure lỗi (HTTP " + response.statusCode() + "): " + response.body());
             }

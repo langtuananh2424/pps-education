@@ -283,6 +283,10 @@ app:
       enabled: ${CLAUDE_DIRECT_ENABLED:false}
       model: ${CLAUDE_DIRECT_MODEL:claude-haiku-5-5}
       timeout-seconds: ${CLAUDE_DIRECT_TIMEOUT_SECONDS:150}
+    # Bổ sung 2026-10-23 (đã xác nhận với người dùng) - số lần gọi tối đa cho MỖI lệnh gọi trực tiếp (Claude/Groq/
+    # Azure) khi gặp lỗi tạm thời (lỗi kết nối, HTTP 408/429/5xx), nghỉ 1s rồi 2s giữa các lần - hết lần vẫn lỗi thì
+    # rơi về 9Router. Timeout và 4xx khác KHÔNG thử lại. Xem DirectAiRetry.
+    direct-max-attempts: ${DIRECT_AI_MAX_ATTEMPTS:3}
     groq-direct:
       timeout-seconds: ${GROQ_DIRECT_TIMEOUT_SECONDS:60}
     azure-direct:

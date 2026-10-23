@@ -51,6 +51,9 @@ public class ClaudeAiClient {
     @Value("${app.ai-grading.claude-direct.timeout-seconds:150}")
     private int requestTimeoutSeconds;
 
+    @Value("${app.ai-grading.direct-max-attempts:3}")
+    private int maxAttempts;
+
     /** Ngân sách cho JSON ngắn (điểm + feedback 1-2 câu) — xem {@link #chatJson(String, String, String)}. */
     public static final int MAX_TOKENS_SHORT = 2048;
     /** Ngân sách cho output dài (markdown đánh dấu lỗi + bảng điểm + mục kiểm đếm của rubric v3) — xem Javadoc lớp. */
@@ -145,7 +148,7 @@ public class ClaudeAiClient {
                     .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = DirectAiRetry.send("ClaudeAiClient(ảnh)", maxAttempts, () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
             if (response.statusCode() >= 300) {
                 log.warn("ClaudeAiClient: HTTP {} (ảnh) — {}", response.statusCode(), response.body());
                 return null;
@@ -195,7 +198,7 @@ public class ClaudeAiClient {
                 .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                 .build();
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        return DirectAiRetry.send("ClaudeAiClient", maxAttempts, () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
     }
 
     /** Claude trả {@code content} dạng mảng block — tìm đúng block {@code type=="text"} (bỏ qua block "thinking" dù đã tắt, phòng model vẫn trả rỗng). */
