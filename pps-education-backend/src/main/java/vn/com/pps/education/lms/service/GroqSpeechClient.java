@@ -52,6 +52,9 @@ public class GroqSpeechClient {
     @Value("${app.ai-grading.groq-direct.timeout-seconds:60}")
     private int requestTimeoutSeconds;
 
+    @Value("${app.ai-grading.direct-max-attempts:3}")
+    private int maxAttempts;
+
     public record TranscriptionResult(String text, String lowConfidenceWarning) {
     }
 
@@ -79,7 +82,7 @@ public class GroqSpeechClient {
                     .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = DirectAiRetry.send("GroqSpeechClient", maxAttempts, () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
             if (response.statusCode() >= 300) {
                 log.warn("GroqSpeechClient: HTTP {} — {}", response.statusCode(), response.body());
                 return null;

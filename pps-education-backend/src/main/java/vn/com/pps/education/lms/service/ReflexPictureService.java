@@ -58,9 +58,25 @@ public class ReflexPictureService {
     @Value("${app.ai-grading.reflex-v2.model:ag/gemini-3.6-flash-medium}")
     private String model;
 
-    public ReflexPictureService(MediaStorageService mediaStorageService, NineRouterAiClient nineRouterAiClient) {
+    private final ClaudeAiClient claudeAiClient;
+
+    @Value("${app.ai-grading.claude-direct.enabled:false}")
+    private boolean claudeDirectEnabled;
+
+    @Value("${app.ai-grading.claude-direct.model:claude-haiku-5-5}")
+    private String claudeModel;
+
+    @Value("${app.ai-grading.direct-max-attempts:3}")
+    private int directMaxAttempts;
+
+    @Value("${app.ai-grading.direct-retry-delay-ms:1000}")
+    private long directRetryDelayMillis;
+
+    public ReflexPictureService(MediaStorageService mediaStorageService, NineRouterAiClient nineRouterAiClient,
+                                ClaudeAiClient claudeAiClient) {
         this.mediaStorageService = mediaStorageService;
         this.nineRouterAiClient = nineRouterAiClient;
+        this.claudeAiClient = claudeAiClient;
     }
 
     /**
@@ -125,8 +141,30 @@ public class ReflexPictureService {
         if (image.bytes().length > MAX_IMAGE_BYTES) {
             throw new IllegalArgumentException("Ảnh quá lớn (tối đa 10MB).");
         }
-        NineRouterAiClient.AiTextResponse response = nineRouterAiClient.chatWithImage(BRIEF_SYSTEM_PROMPT,
-                "Mô tả bức tranh trong ảnh này theo đúng quy tắc.", image.bytes(), mime, model);
+        String userText = "Mô tả bức tranh trong ảnh này theo đúng quy tắc.";
+        NineRouterAiClient.AiTextResponse response = null;
+        // Bổ sung 2026-10-23 (đã xác nhận với người dùng) — thử Claude Haiku trực tiếp trước (chỉ khi
+        // app.ai-grading.claude-direct.enabled=true), null/lỗi thì rơi về 9Router như cũ.
+        if (claudeDirectEnabled && claudeAiClient.isConfigured() && claudeAiClient.supportsImage(mime, image.bytes().length)) {
+            int attempts = Math.max(1, directMaxAttempts);
+            for (int i = 1; i <= attempts && response == null; i++) {
+                response = claudeAiClient.chatWithImage(BRIEF_SYSTEM_PROMPT, userText, image.bytes(), mime, claudeModel);
+                if (response == null && i < attempts && directRetryDelayMillis > 0) {
+                    try {
+                        Thread.sleep(directRetryDelayMillis * i);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+            if (response == null) {
+                log.warn("ReflexPictureService: Claude trực tiếp mô tả tranh thất bại, rơi về 9Router.");
+            }
+        }
+        if (response == null) {
+            response = nineRouterAiClient.chatWithImage(BRIEF_SYSTEM_PROMPT, userText, image.bytes(), mime, model);
+        }
         if (response == null) {
             log.warn("ReflexPictureService: AI không viết được mô tả tranh (imageUrl={}).", imageUrl);
             return new ReflexPictureBriefResponse("", false, false);
