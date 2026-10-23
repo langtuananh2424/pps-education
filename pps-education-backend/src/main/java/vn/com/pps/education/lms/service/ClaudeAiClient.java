@@ -98,6 +98,73 @@ public class ClaudeAiClient {
         }
     }
 
+    /** Anthropic chỉ nhận ảnh jpeg/png/gif/webp, tối đa 5MB mỗi ảnh (sau khi mã hoá base64 thì giới hạn là kích thước file gốc ~5MB). */
+    public static final int MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+    public boolean supportsImage(String mimeType, int sizeBytes) {
+        if (mimeType == null || sizeBytes <= 0 || sizeBytes > MAX_IMAGE_BYTES) {
+            return false;
+        }
+        return switch (mimeType.toLowerCase(java.util.Locale.ROOT)) {
+            case "image/jpeg", "image/png", "image/gif", "image/webp" -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Mô tả ảnh (Clip phản xạ dạng tả tranh, xem {@link ReflexPictureService#draftBrief}) — thay
+     * {@link NineRouterAiClient#chatWithImage}. Trả {@code null} khi chưa cấu hình / HTTP lỗi / content rỗng
+     * để caller rơi về 9Router.
+     */
+    public NineRouterAiClient.AiTextResponse chatWithImage(String systemPrompt, String userText, byte[] imageBytes,
+                                                           String mimeType, String model) {
+        if (!isConfigured() || imageBytes == null || imageBytes.length == 0) {
+            return null;
+        }
+        try {
+            long startedAt = System.currentTimeMillis();
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("model", model);
+            payload.put("max_tokens", MAX_TOKENS_SHORT);
+            payload.putObject("thinking").put("type", "disabled");
+            payload.put("system", systemPrompt);
+            ObjectNode userMsg = payload.putArray("messages").addObject();
+            userMsg.put("role", "user");
+            ArrayNode parts = userMsg.putArray("content");
+            ObjectNode source = parts.addObject().put("type", "image").putObject("source");
+            source.put("type", "base64");
+            source.put("media_type", mimeType.toLowerCase(java.util.Locale.ROOT));
+            source.put("data", java.util.Base64.getEncoder().encodeToString(imageBytes));
+            parts.addObject().put("type", "text").put("text", userText);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.anthropic.com/v1/messages"))
+                    .header("x-api-key", apiKey)
+                    .header("anthropic-version", "2023-06-01")
+                    .header("content-type", "application/json")
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 300) {
+                log.warn("ClaudeAiClient: HTTP {} (ảnh) — {}", response.statusCode(), response.body());
+                return null;
+            }
+            JsonNode json = objectMapper.readTree(response.body());
+            String content = extractTextBlock(json);
+            if (content == null || content.isBlank()) {
+                return null;
+            }
+            return new NineRouterAiClient.AiTextResponse(content, buildUsage(json, model, System.currentTimeMillis() - startedAt));
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.warn("ClaudeAiClient: gọi lỗi (ảnh). {}", e.getMessage());
+            return null;
+        }
+    }
+
     /** Dùng cho {@code WritingAiGradingService#grade} override — trả {@link NineRouterAiClient.ChatResult}. finishReason luôn "stop" (xem Javadoc {@code gradeWritingRealRubric} trong spike — hậu kiểm tự phát hiện dở dang qua nội dung thiếu mục, không bắt buộc finish_reason thật). */
     public NineRouterAiClient.ChatResult chatWithFinishReason(String systemPrompt, String userMessage, String model) {
         NineRouterAiClient.AiJsonResponse r = chatJson(systemPrompt, userMessage, model, MAX_TOKENS_LONG_RUBRIC);

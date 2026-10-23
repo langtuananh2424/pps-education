@@ -21,7 +21,8 @@ class ReflexPictureServiceTest {
 
     private final MediaStorageService storage = mock(MediaStorageService.class);
     private final NineRouterAiClient ai = mock(NineRouterAiClient.class);
-    private final ReflexPictureService service = new ReflexPictureService(storage, ai);
+    private final ClaudeAiClient claude = mock(ClaudeAiClient.class);
+    private final ReflexPictureService service = new ReflexPictureService(storage, ai, claude);
 
     private void imageStored(String contentType) {
         when(storage.downloadWithContentType(IMAGE_URL)).thenReturn(new MediaStorageService.DownloadedFile(new byte[]{1, 2, 3}, contentType));
@@ -68,5 +69,34 @@ class ReflexPictureServiceTest {
         imageStored("video/mp4");
 
         assertThatThrownBy(() -> service.draftBrief(IMAGE_URL)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void draftBrief_claudeDirectEnabled_usesHaikuAndSkipsNineRouter() {
+        imageStored("image/jpeg");
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "claudeDirectEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "claudeModel", "claude-haiku-5-5");
+        when(claude.isConfigured()).thenReturn(true);
+        when(claude.supportsImage(eq("image/jpeg"), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        when(claude.chatWithImage(any(), any(), any(), eq("image/jpeg"), eq("claude-haiku-5-5")))
+                .thenReturn(new NineRouterAiClient.AiTextResponse("Công viên có bãi cỏ.", USAGE));
+
+        ReflexPictureBriefResponse r = service.draftBrief(IMAGE_URL);
+
+        assertThat(r.brief()).isEqualTo("Công viên có bãi cỏ.");
+        org.mockito.Mockito.verifyNoInteractions(ai);
+    }
+
+    @Test
+    void draftBrief_claudeDirectFails_fallsBackToNineRouter() {
+        imageStored("image/jpeg");
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "claudeDirectEnabled", true);
+        when(claude.isConfigured()).thenReturn(true);
+        when(claude.supportsImage(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        when(claude.chatWithImage(any(), any(), any(), any(), any())).thenReturn(null);
+        when(ai.chatWithImage(any(), any(), any(), any(), any()))
+                .thenReturn(new NineRouterAiClient.AiTextResponse("Một con chó.", USAGE));
+
+        assertThat(service.draftBrief(IMAGE_URL).brief()).isEqualTo("Một con chó.");
     }
 }
