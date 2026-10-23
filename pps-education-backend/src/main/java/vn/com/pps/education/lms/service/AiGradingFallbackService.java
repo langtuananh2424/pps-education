@@ -275,7 +275,8 @@ public class AiGradingFallbackService {
                 }), AI_PARALLEL_EXECUTOR);
         java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture = !azurePronunciationClient.isConfigured()
                 ? java.util.concurrent.CompletableFuture.completedFuture(null)
-                : java.util.concurrent.CompletableFuture.supplyAsync(() -> azurePronunciationClient.assess(audioBytes, mimeType, transcript), AI_PARALLEL_EXECUTOR);
+                : java.util.concurrent.CompletableFuture.supplyAsync(() -> azurePronunciationClient.assessSegmented(audioBytes, mimeType, transcript,
+                        transcription != null ? transcription.segments() : List.of()), AI_PARALLEL_EXECUTOR);
         ClaudeSpeakingJson claudeResult = claudeFuture.join();
         AzurePronunciationClient.Result pronunciation = azureFuture.join();
         log.info("AiGradingFallbackService: Claude+Azure chạy song song xong sau {}ms.", System.currentTimeMillis() - parallelStartedAt);
@@ -392,6 +393,7 @@ public class AiGradingFallbackService {
         audit.put("grammarKeptFromStep1", keepStep1Grammar);
         audit.put("pronunciationSource", azureOk ? "azure-direct" : "9router-estimate");
         audit.put("pronunciationRaw", azureOk ? pronunciation.rawJson() : null);
+        audit.put("pronunciationChunks", azureOk ? pronunciation.chunkCount() : 0);
         // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — chi tiết từng từ/âm vị của Azure (y hệt dữ liệu
         // spike test), lưu vào audit để toResponse() lấy ra trả cho FE hiển thị bảng phiên âm IPA cho học
         // sinh (xem ReflexSequentialGradingService#toResponse + ReflexQuestionProgressResponse#speakingPronunciationWords).

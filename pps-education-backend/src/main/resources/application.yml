@@ -295,6 +295,8 @@ app:
       timeout-seconds: ${GROQ_DIRECT_TIMEOUT_SECONDS:60}
     azure-direct:
       timeout-seconds: ${AZURE_DIRECT_TIMEOUT_SECONDS:60}
+      # Azure short-audio chỉ nhận ~60s: bài dài hơn mức này được cắt theo câu (mốc Groq), chấm từng đoạn rồi ghép - xem AzureAudioChunker.
+      max-chunk-seconds: ${AZURE_DIRECT_MAX_CHUNK_SECONDS:50}
     # SPIKE (2026-08-24, nhánh spike/openrouter-ai-rotation) - NineRouterAiClient, kênh điều hướng
     # request AI qua 9Router (https://github.com/decolua/9router), thay các lệnh gọi thẳng
     # Gemini/Claude/Groq trước đây trong WritingAiGradingService (UC-40/41) và ReflexWritingGrammarAi-
