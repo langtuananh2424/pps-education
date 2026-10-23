@@ -217,6 +217,8 @@
     "micAccessError": "Couldn't access the microphone — check your browser permissions and try again.",
     "questionsLoadError": "Couldn't load the question list.",
     "submitError": "Grading failed — please try again.",
+    "gradingStillPending": "Your answer is still being graded — please wait a moment, then reload the page to see the result.",
+    "gradingFailedTeacher": "We couldn't grade this automatically. Your attempt was not used up and your teacher will grade it — please carry on with the next part.",
     "notAssignedError": "This video hasn't been assigned to you as homework — you can't submit.",
     "micPermissionError": "Microphone access is required — please allow microphone access (the lock icon in your address bar) and try again.",
     "loadingQuestions": "Loading questions...",

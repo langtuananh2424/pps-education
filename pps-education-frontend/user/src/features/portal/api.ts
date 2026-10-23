@@ -840,7 +840,17 @@ export interface ReflexQuestionProgressResponse {
    */
   questionFinalized: boolean;
   updatedAt: string;
+  /**
+   * V222 — trạng thái chấm AI của bước viết khi server bật hàng đợi: PENDING = đang chờ chấm (hỏi lại tiến trình đến
+   * khi hết PENDING, xem waitForReflexGrading), GRADED, FAILED = AI lỗi hết số lần thử (đã hoàn lượt, chờ giáo viên
+   * chấm tay), REJECTED = bản ghi bị từ chối. NONE khi server chấm đồng bộ.
+   */
+  writingGradingStatus: ReflexGradingStatus;
+  /** V222 — như writingGradingStatus, cho bước nói. */
+  speakingGradingStatus: ReflexGradingStatus;
 }
+
+export type ReflexGradingStatus = "NONE" | "PENDING" | "GRADED" | "FAILED" | "REJECTED";
 
 /** Bước 1: nộp câu trả lời viết, AI chấm ngữ pháp ngay (đạt ngưỡng % cấu hình theo video, mặc định 70). */
 export function submitReflexWrittenAnswer(questionId: number, assignmentId: number, answerText: string): Promise<ReflexQuestionProgressResponse> {
@@ -857,6 +867,34 @@ export function submitReflexSpokenAnswer(questionId: number, assignmentId: numbe
     method: "PUT",
     body: JSON.stringify({ audioUrl, recordingFilter })
   });
+}
+
+const REFLEX_GRADING_POLL_MS = 2000;
+/** Hàng đợi thử lại tối đa 5 lần, mỗi lần AI có thể mất tới ~90 giây — chờ tối đa 10 phút rồi trả bản đang PENDING cho caller báo "vẫn đang chấm". */
+const REFLEX_GRADING_MAX_WAIT_MS = 10 * 60 * 1000;
+
+/**
+ * V222 — server bật hàng đợi thì nộp bài trả về ngay với trạng thái PENDING; hàm này hỏi lại tiến trình đến khi bước
+ * `step` của câu hỏi hết PENDING. Lỗi mạng tạm thời khi hỏi lại thì bỏ qua và hỏi tiếp (kết quả vẫn nằm ở server).
+ */
+export async function waitForReflexGrading(
+  assignmentId: number,
+  initial: ReflexQuestionProgressResponse,
+  step: "writing" | "speaking"
+): Promise<ReflexQuestionProgressResponse> {
+  const statusOf = (p: ReflexQuestionProgressResponse) => (step === "writing" ? p.writingGradingStatus : p.speakingGradingStatus);
+  let latest = initial;
+  const deadline = Date.now() + REFLEX_GRADING_MAX_WAIT_MS;
+  while (statusOf(latest) === "PENDING" && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, REFLEX_GRADING_POLL_MS));
+    try {
+      const all = await listMyReflexProgress(assignmentId);
+      latest = all.find((p) => p.questionId === initial.questionId) ?? latest;
+    } catch {
+      // mạng chập chờn: hỏi lại ở vòng sau
+    }
+  }
+  return latest;
 }
 
 /** V199 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — công tắc bộ lọc thu âm ở Cài đặt hệ thống. */
