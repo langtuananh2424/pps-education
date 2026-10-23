@@ -2335,7 +2335,9 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               const queuedSpeaking = (progress[q.id]?.speakingGradingStatus ?? "NONE") !== "NONE";
               const hideSpeakingResult = queuedSpeaking && !allQuestionsDone;
               const speakingPending = !hideSpeakingResult && progress[q.id]?.speakingGradingStatus === "PENDING";
-              const speakingSubmittedHidden = hideSpeakingResult && stage === "passed";
+              // Câu đã nộp nói rồi qua câu kế (advancedIds) mà điểm về "chưa đạt" thì stage quay lại "speaking" — vẫn phải
+              // hiện "Đã nộp bài nói" (không lộ kết quả), không được rơi về "Chưa mở".
+              const speakingSubmittedHidden = hideSpeakingResult && (stage === "passed" || advancedIds.includes(q.id));
               const needsSpeakingRedo = !hideSpeakingResult && advancedIds.includes(q.id) && stage === "speaking" && progress[q.id]?.speakingGradingStatus !== "PENDING";
               const redoable = needsSpeakingRedo && !activeQuestion;
               const notPassedButFinalized = !hideSpeakingResult && stage === "passed" && !speakingPending && !progress[q.id]?.questionPassed;
