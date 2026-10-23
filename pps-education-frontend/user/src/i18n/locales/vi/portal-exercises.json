@@ -249,7 +249,10 @@
       "passed": "Đã đạt",
       "notPassedExhausted": "Chưa đạt — hết lượt",
       "locked": "Chưa mở",
-      "waitingForYou": "Đang chờ bạn — bấm để tiếp tục"
+      "waitingForYou": "Đang chờ bạn — bấm để tiếp tục",
+      "speakingRedo": "Điểm nói chưa đạt — bấm để làm lại",
+      "speakingNotPassed": "Điểm nói chưa đạt — làm lại sau khi hết video",
+      "speakingGrading": "Đang chấm bài nói…"
     },
     "writingStage": {
       "title": "Bước 1 · Viết câu trả lời",
