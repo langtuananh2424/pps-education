@@ -371,7 +371,7 @@ public class ExerciseReportService {
                         s.passed() == null ? "" : (s.passed() ? "Đạt" : "Chưa đạt"),
                         s.startedAt() != null ? s.startedAt().atZoneSameInstant(EXPORT_ZONE).format(EXPORT_TIME_FORMAT) : "",
                         s.submittedAt() != null ? s.submittedAt().atZoneSameInstant(EXPORT_ZONE).format(EXPORT_TIME_FORMAT) : "",
-                        s.activeSeconds() != null && s.startedAt() != null ? Math.round(s.activeSeconds() / 6.0) / 10.0 : ""))
+                        s.activeSeconds() != null && s.activeSeconds() > 0 ? Math.round(s.activeSeconds() / 6.0) / 10.0 : ""))
                 .toList();
 
         List<String> notes = List.of(
@@ -403,7 +403,7 @@ public class ExerciseReportService {
                         s.passed() == null ? "" : (s.passed() ? "Đạt" : "Chưa đạt"),
                         s.startedAt() != null ? s.startedAt().atZoneSameInstant(EXPORT_ZONE).format(EXPORT_TIME_FORMAT) : "",
                         s.submittedAt() != null ? s.submittedAt().atZoneSameInstant(EXPORT_ZONE).format(EXPORT_TIME_FORMAT) : "",
-                        s.activeSeconds() != null && s.startedAt() != null ? Math.round(s.activeSeconds() / 6.0) / 10.0 : ""))
+                        s.activeSeconds() != null && s.activeSeconds() > 0 ? Math.round(s.activeSeconds() / 6.0) / 10.0 : ""))
                 .toList();
 
         List<String> notes = List.of(

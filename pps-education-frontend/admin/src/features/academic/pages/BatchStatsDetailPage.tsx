@@ -332,7 +332,7 @@ export default function BatchStatsDetailPage() {
                       </Td>
                       <Td className="text-center">{s.numberOfAttempts ?? "—"}</Td>
                       <Td className="text-center whitespace-nowrap" title={s.startedAt ? `${formatDateTime(s.startedAt, i18n.language)}${s.submittedAt ? ` → ${formatDateTime(s.submittedAt, i18n.language)}` : ""}` : undefined}>
-                        {s.startedAt && s.activeSeconds != null ? formatActiveDuration(s.activeSeconds) : "—"}
+                        {s.startedAt && s.activeSeconds ? formatActiveDuration(s.activeSeconds) : "—"}
                       </Td>
                       <Td className="text-center">
                         {s.status !== "CHUA_LAM" && (
