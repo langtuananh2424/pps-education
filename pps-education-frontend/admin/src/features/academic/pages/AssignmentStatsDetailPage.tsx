@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Download, Eye, HelpCircle, ShieldAlert, X, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
-import { formatDateTime } from "@/lib/i18nFormat";
+import { formatActiveDuration, formatDateTime } from "@/lib/i18nFormat";
 import {
   ExerciseAssignmentQuestionRow,
   ExerciseAssignmentQuestionStatsResponse,
@@ -337,6 +337,7 @@ export default function AssignmentStatsDetailPage() {
                     <Th className="text-center">{t("exerciseDetail.table.percent")}</Th>
                     <Th className="text-center">{t("exerciseDetail.table.completed")}</Th>
                     <Th className="text-center">{t("exerciseDetail.table.attemptCount")}</Th>
+                    <Th className="text-center">{t("exerciseDetail.table.activeTime")}</Th>
                     <Th className="text-center">{t("exerciseDetail.table.violation")}</Th>
                     <Th />
                   </tr>
@@ -366,6 +367,9 @@ export default function AssignmentStatsDetailPage() {
                         )}
                       </Td>
                       <Td className="text-center">{s.numberOfAttempts ?? "—"}</Td>
+                      <Td className="text-center whitespace-nowrap" title={s.startedAt ? `${formatDateTime(s.startedAt, i18n.language)}${s.submittedAt ? ` → ${formatDateTime(s.submittedAt, i18n.language)}` : ""}` : undefined}>
+                        {s.startedAt && s.activeSeconds != null ? formatActiveDuration(s.activeSeconds) : "—"}
+                      </Td>
                       <Td className="text-center text-sm">
                         {s.selectedAttemptStoppedByViolation ? (
                           <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded">

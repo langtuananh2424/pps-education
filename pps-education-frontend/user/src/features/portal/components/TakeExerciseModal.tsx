@@ -18,6 +18,7 @@ import {
   getListeningHint,
   listExerciseQuestions,
   listAnswers,
+  recordActiveTime,
   recordIntegrityEvents,
   recordListeningPlay,
   revealAndCloseAttempt,
@@ -26,6 +27,7 @@ import {
   submitAttempt,
   uploadMedia
 } from "../api";
+import { useActiveTimeTracker } from "../hooks/useActiveTimeTracker";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
 import MonitoringBadge from "./MonitoringBadge";
@@ -644,6 +646,8 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc useIntegrityMonitor.
   const attemptId = attempt?.id;
+  // Bổ sung 2026-10-26 — đo ngầm thời gian làm bài thực, xem Javadoc useActiveTimeTracker.
+  useActiveTimeTracker(attemptId != null ? [attemptId] : [], recordActiveTime, !readOnly && attemptId != null && attempt?.status === "IN_PROGRESS");
   const { violationCount, isMonitoringActive, justViolated, suppressForFilePicker } = useIntegrityMonitor({
     enabled: !readOnly && attemptId != null && !stoppedByViolation,
     autoFlushIntervalMs: 20000,

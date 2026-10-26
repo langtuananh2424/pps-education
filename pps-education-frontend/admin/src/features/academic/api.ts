@@ -1890,6 +1890,10 @@ export interface ExerciseAssignmentStudentRow {
   attemptNumber: number | null;
   attemptId: number | null;
   numberOfAttempts: number;
+  /** Bổ sung 2026-10-26: lúc bắt đầu làm (Lô: sớm nhất các Bài). */
+  startedAt?: string | null;
+  /** Bổ sung 2026-10-26: số giây học sinh thực sự ở trên màn hình làm bài (Lô: cộng các Bài) — học sinh không thấy, chỉ để tham khảo. */
+  activeSeconds?: number | null;
   /** Bổ sung 2026-08-08: số lần thoát được ghi nhận của lượt làm mới nhất. */
   latestAttemptViolationCount?: number;
   /** Bổ sung 2026-08-08: lượt làm chính thức (mới nhất hoặc chọn bởi GV) có bị dừng do vi phạm không. */
