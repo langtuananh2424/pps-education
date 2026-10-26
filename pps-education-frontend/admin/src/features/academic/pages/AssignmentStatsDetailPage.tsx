@@ -14,6 +14,7 @@ import {
   ExerciseAttemptRow,
   IntegritySummaryRow,
   StudentAnswerRow,
+  exportEssayGrading,
   exportExerciseAssignmentStats,
   getAttemptAnswers,
   getEssayGradingHistory,
@@ -73,6 +74,7 @@ export default function AssignmentStatsDetailPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportingEssays, setExportingEssays] = useState(false);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [detailStudentId, setDetailStudentId] = useState<number | null>(null);
   const [togglingLateSubmission, setTogglingLateSubmission] = useState(false);
@@ -117,6 +119,19 @@ export default function AssignmentStatsDetailPage() {
       setError(err instanceof ApiError ? err.message : t("exerciseDetail.exportFailed"));
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportEssays = async () => {
+    if (!numAssignmentId) return;
+    setExportingEssays(true);
+    try {
+      const blob = await exportEssayGrading(numAssignmentId);
+      downloadBlob(blob, `bai-viet-nhan-xet-${numAssignmentId}.xlsx`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("exerciseDetail.exportFailed"));
+    } finally {
+      setExportingEssays(false);
     }
   };
 
@@ -407,7 +422,12 @@ export default function AssignmentStatsDetailPage() {
       </Card>
 
       {tab === "students" && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {canExport && (
+            <Button variant="secondary" size="sm" onClick={handleExportEssays} disabled={exportingEssays}>
+              <Download className="w-3.5 h-3.5" /> {exportingEssays ? t("exerciseDetail.exporting") : t("exerciseDetail.exportEssays")}
+            </Button>
+          )}
           {canExport && (
             <Button variant="primary" size="sm" onClick={handleExport} disabled={exporting}>
               <Download className="w-3.5 h-3.5" /> {exporting ? t("exerciseDetail.exporting") : t("exerciseDetail.exportExcel")}

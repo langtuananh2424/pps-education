@@ -1984,6 +1984,11 @@ export function exportExerciseAssignmentStats(assignmentId: number): Promise<Blo
   return apiRequestBlob(`/exercise-assignments/${assignmentId}/stats/export`);
 }
 
+/** Xuất Excel bài viết + nhận xét AI + điểm/nhận xét giáo viên chấm lại của các câu ESSAY trong bản giao. */
+export function exportEssayGrading(assignmentId: number): Promise<Blob> {
+  return apiRequestBlob(`/exercise-assignments/${assignmentId}/essay-grading/export`);
+}
+
 export interface StudentAnswerRow {
   id: number;
   exerciseAttemptId: number;
