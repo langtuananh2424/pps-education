@@ -48,6 +48,10 @@ import java.util.stream.Collectors;
 @Service
 public class ExerciseReportService {
 
+    private static final java.time.ZoneId EXPORT_ZONE = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final java.time.format.DateTimeFormatter EXPORT_TIME_FORMAT =
+            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
     private static final Set<ExerciseAssignment.Status> REPORTABLE_ASSIGNMENT_STATUSES =
             Set.of(ExerciseAssignment.Status.ACTIVE, ExerciseAssignment.Status.COMPLETED);
     private static final Set<ExerciseAttempt.Status> COMPLETED_ATTEMPT_STATUSES =
@@ -258,7 +262,7 @@ public class ExerciseReportService {
         if (presentAttempts.isEmpty()) {
             return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
-                    "CHUA_LAM", null, null, null, null, null, null, null, 0);
+                    "CHUA_LAM", null, null, null, null, null, null, null, 0, null, null);
         }
 
         boolean allPresent = presentAttempts.size() == memberCount;
@@ -292,7 +296,9 @@ public class ExerciseReportService {
 
         return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                 studentId, student.getStudentCode(), student.getUser().getFullName(),
-                status, totalScore, totalPointsOfBatch, percentage, passed, submittedAt, null, null, numberOfAttempts);
+                status, totalScore, totalPointsOfBatch, percentage, passed, submittedAt, null, null, numberOfAttempts,
+                presentAttempts.stream().map(ExerciseAttempt::getStartedAt).min(java.time.OffsetDateTime::compareTo).orElse(null),
+                presentAttempts.stream().mapToInt(ExerciseAttempt::getActiveSeconds).sum());
     }
 
     @Transactional(readOnly = true)
@@ -352,7 +358,8 @@ public class ExerciseReportService {
         ExerciseAssignmentStudentStatsResponse stats = getStudentStats(assignmentId, actorUserId);
         ExerciseAssignmentStatsResponse header = stats.assignment();
 
-        List<String> headers = List.of("Mã học sinh", "Họ tên", "Trạng thái", "Điểm", "Tổng điểm", "Phần trăm (%)", "Đạt");
+        List<String> headers = List.of("Mã học sinh", "Họ tên", "Trạng thái", "Điểm", "Tổng điểm", "Phần trăm (%)", "Đạt",
+                "Bắt đầu lúc", "Nộp lúc", "Thời gian làm thực (phút)");
         List<List<Object>> rows = stats.students().stream()
                 .map(s -> List.<Object>of(
                         s.studentCode(),
@@ -361,7 +368,10 @@ public class ExerciseReportService {
                         s.totalScore() != null ? s.totalScore() : "",
                         s.totalPoints() != null ? s.totalPoints() : "",
                         s.percentage() != null ? s.percentage() : "",
-                        s.passed() == null ? "" : (s.passed() ? "Đạt" : "Chưa đạt")))
+                        s.passed() == null ? "" : (s.passed() ? "Đạt" : "Chưa đạt"),
+                        s.startedAt() != null ? s.startedAt().atZoneSameInstant(EXPORT_ZONE).format(EXPORT_TIME_FORMAT) : "",
+                        s.submittedAt() != null ? s.submittedAt().atZoneSameInstant(EXPORT_ZONE).format(EXPORT_TIME_FORMAT) : "",
+                        s.activeSeconds() != null && s.activeSeconds() > 0 ? Math.round(s.activeSeconds() / 6.0) / 10.0 : ""))
                 .toList();
 
         List<String> notes = List.of(
@@ -380,7 +390,8 @@ public class ExerciseReportService {
         ExerciseAssignmentStudentStatsResponse stats = getBatchStudentStats(batchId, actorUserId);
         ExerciseAssignmentStatsResponse header = stats.assignment();
 
-        List<String> headers = List.of("Mã học sinh", "Họ tên", "Trạng thái", "Điểm", "Tổng điểm", "Phần trăm (%)", "Đạt");
+        List<String> headers = List.of("Mã học sinh", "Họ tên", "Trạng thái", "Điểm", "Tổng điểm", "Phần trăm (%)", "Đạt",
+                "Bắt đầu lúc", "Nộp lúc", "Thời gian làm thực (phút)");
         List<List<Object>> rows = stats.students().stream()
                 .map(s -> List.<Object>of(
                         s.studentCode(),
@@ -389,7 +400,10 @@ public class ExerciseReportService {
                         s.totalScore() != null ? s.totalScore() : "",
                         s.totalPoints() != null ? s.totalPoints() : "",
                         s.percentage() != null ? s.percentage() : "",
-                        s.passed() == null ? "" : (s.passed() ? "Đạt" : "Chưa đạt")))
+                        s.passed() == null ? "" : (s.passed() ? "Đạt" : "Chưa đạt"),
+                        s.startedAt() != null ? s.startedAt().atZoneSameInstant(EXPORT_ZONE).format(EXPORT_TIME_FORMAT) : "",
+                        s.submittedAt() != null ? s.submittedAt().atZoneSameInstant(EXPORT_ZONE).format(EXPORT_TIME_FORMAT) : "",
+                        s.activeSeconds() != null && s.activeSeconds() > 0 ? Math.round(s.activeSeconds() / 6.0) / 10.0 : ""))
                 .toList();
 
         List<String> notes = List.of(
@@ -429,7 +443,7 @@ public class ExerciseReportService {
         if (latest == null) {
             return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                     student.getId(), student.getStudentCode(), student.getUser().getFullName(),
-                    "CHUA_LAM", null, null, null, null, null, null, null, 0);
+                    "CHUA_LAM", null, null, null, null, null, null, null, 0, null, null);
         }
         String status;
         if (latest.getStatus() == ExerciseAttempt.Status.IN_PROGRESS) {
@@ -444,7 +458,8 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                 student.getId(), student.getStudentCode(), student.getUser().getFullName(),
                 status, latest.getTotalScore(), exercise.getTotalPoints(), percentage,
-                latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber(), latest.getId(), numberOfAttempts);
+                latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber(), latest.getId(), numberOfAttempts,
+                latest.getStartedAt(), latest.getActiveSeconds());
     }
 
     private ExerciseAssignmentQuestionStatsResponse.QuestionRow toQuestionRow(ExerciseQuestion eq, List<StudentAnswer> answers,
