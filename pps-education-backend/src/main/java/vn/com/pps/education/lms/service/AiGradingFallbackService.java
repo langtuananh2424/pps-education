@@ -143,7 +143,7 @@ public class AiGradingFallbackService {
         if (directPipelineEnabled && claudeAiClient.isConfigured()) {
             try {
                 BiFunction<String, String, NineRouterAiClient.AiJsonResponse> caller =
-                        (system, user) -> claudeAiClient.chatJson(system, user, claudeModel, ClaudeAiClient.MAX_TOKENS_SHORT);
+                        (system, user) -> claudeAiClient.chatJson(system, user, claudeModel, ClaudeAiClient.MAX_TOKENS_LONG_RUBRIC);
                 ReflexV2AiGradingService.WritingResult result = withRetries("Writing câu ngắn",
                         () -> reflexV2AiGradingService.gradeWriting(task, question, text, caller));
                 if (result != null) {
