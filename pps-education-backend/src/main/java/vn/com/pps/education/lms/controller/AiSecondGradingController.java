@@ -1,6 +1,7 @@
 package vn.com.pps.education.lms.controller;
 
 import jakarta.validation.Valid;
+import vn.com.pps.education.common.ExcelHttpResponses;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -37,6 +38,15 @@ public class AiSecondGradingController {
                                                                                     @PathVariable Long studentId,
                                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(essayGradingHistoryService.getStudentEssayHistory(assignmentId, studentId, actor.userId()));
+    }
+
+    /** Xuất Excel bài viết + nhận xét AI + điểm/nhận xét giáo viên chấm lại của các câu ESSAY trong 1 bản giao BTVN. */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.report.export')")
+    @GetMapping("/api/exercise-assignments/{assignmentId}/essay-grading/export")
+    public ResponseEntity<byte[]> exportEssayGrading(@PathVariable Long assignmentId,
+                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        byte[] content = essayGradingHistoryService.exportAssignmentEssays(assignmentId, actor.userId());
+        return ExcelHttpResponses.attachment(content, "bai-viet-nhan-xet-" + assignmentId + ".xlsx");
     }
 
     /** Chọn lần Viết/Nói tốt nhất làm kết quả chính thức của bước (V217). */

@@ -1000,10 +1000,13 @@ public class ReflexSequentialGradingService {
         boolean speakingPassed = isSpeakingPassed(p);
         boolean writingExhausted = isWritingExhausted(p);
         boolean speakingExhausted = isSpeakingExhausted(p);
-        // Bổ sung 2026-10-28 — câu PART2 không có bước Viết (xem isWritingSkipped): writingPassed luôn
-        // false (writingScore không bao giờ được chấm) nên phải bỏ qua điều kiện bước Viết khi tính đạt
-        // cả câu, chỉ xét bước Nói.
-        boolean questionPassed = (isWritingSkipped(p) || writingPassed) && speakingPassed;
+        // Đổi 2026-10-28 (người dùng quyết định, phản hồi học sinh Huyền): câu ĐẠT khi bước NÓI đạt ngưỡng. Bước viết vẫn
+        // là cổng mở khoá bước nói (đạt thật hoặc hết lượt) và điểm Ngữ pháp bước viết vẫn làm mốc/sàn khi chấm nói,
+        // nhưng viết chưa đạt (hết lượt) không còn kéo câu xuống "Chưa đạt" khi nói đã đạt. Trước đó: writingPassed && speakingPassed.
+        // Bổ sung cùng ngày (câu PART2 — xem isWritingSkipped) — rule này đã TỰ ĐỘNG đúng luôn cho câu
+        // PART2 (không có bước Viết, writingPassed luôn false) vì questionPassed giờ không còn phụ thuộc
+        // writingPassed nữa, không cần ngoại lệ riêng như bản trước merge.
+        boolean questionPassed = speakingPassed;
         // Fix bug thật (2026-10-08, phát hiện qua test thật trên staging, đã xác nhận với người dùng) —
         // công thức cũ "questionPassed || speakingExhausted" bỏ sót trường hợp bước VIẾT hết lượt (chưa
         // đạt thật) NHƯNG bước NÓI sau đó đạt THẬT (không hết lượt): questionPassed luôn false (viết
@@ -1012,23 +1015,27 @@ public class ReflexSequentialGradingService {
         // cho nói trước khi writingUnlocked, nên speakingPassed=true LUÔN kéo theo writing đã unlock (đạt
         // thật hoặc hết lượt) — không cần xét lại writingPassed ở đây, mirror đúng isSpeakingFinalized.
         boolean questionFinalized = isSpeakingFinalized(p);
+        // V222 — bước đang chờ hàng đợi: kết quả còn trong dòng tiến trình là của LẦN NỘP TRƯỚC, không trả ra (FE sẽ hiện
+        // điểm/transcript cũ như thể là kết quả của bài vừa nộp). Lịch sử các lần vẫn nằm ở reflex_question_progress_history.
+        boolean wPending = isWritingPending(p);
+        boolean sPending = isSpeakingPending(p);
         return new ReflexQuestionProgressResponse(
                 p.getReviewVideoQuestion().getId(),
                 p.getAnswerText(),
-                p.getWritingScore() == null ? null : p.getWritingScore().intValue(),
-                p.getWritingFeedback(),
-                p.getWritingMarkedAnswer(),
-                p.getWritingHint(),
+                wPending || p.getWritingScore() == null ? null : p.getWritingScore().intValue(),
+                wPending ? null : p.getWritingFeedback(),
+                wPending ? null : p.getWritingMarkedAnswer(),
+                wPending ? null : p.getWritingHint(),
                 writingPassed,
                 p.getWritingAttemptCount(),
-                p.getWritingCorrectedAnswer(),
+                wPending ? null : p.getWritingCorrectedAnswer(),
                 p.getAudioUrl(),
-                p.getSpeakingScore() == null ? null : p.getSpeakingScore().intValue(),
-                p.getSpeakingFeedback(),
-                p.getSpeakingTranscript(),
-                p.getSpeakingHint(),
-                p.getSpeakingCriteriaScores(),
-                extractPronunciationWords(p.getSpeakingAudit()),
+                sPending || p.getSpeakingScore() == null ? null : p.getSpeakingScore().intValue(),
+                sPending ? null : p.getSpeakingFeedback(),
+                sPending ? null : p.getSpeakingTranscript(),
+                sPending ? null : p.getSpeakingHint(),
+                sPending ? null : p.getSpeakingCriteriaScores(),
+                sPending ? null : extractPronunciationWords(p.getSpeakingAudit()),
                 speakingPassed,
                 p.getSpeakingAttemptCount(),
                 questionPassed,

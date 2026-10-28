@@ -377,7 +377,8 @@ class ReflexSequentialGradingServiceTest {
         assertThat(response.writingExhausted()).isTrue();
         assertThat(response.speakingPassed()).isTrue();
         assertThat(response.speakingExhausted()).isFalse();
-        assertThat(response.questionPassed()).isFalse();
+        // Đổi 2026-10-28 (người dùng quyết định): nói đạt thì câu đạt, dù viết hết lượt chưa đạt.
+        assertThat(response.questionPassed()).isTrue();
         assertThat(response.questionFinalized()).isTrue();
     }
 
@@ -518,6 +519,25 @@ class ReflexSequentialGradingServiceTest {
         assertThat(f.progress().getSpeakingFeedback()).isEqualTo("Bản ghi không đọc được");
         verify(jobQueue).close(7L, ReflexGradingJob.Status.REJECTED, "Bản ghi không đọc được");
         verify(jobQueue, never()).scheduleRetry(any(), any());
+    }
+
+    /** Bước nói đang PENDING không được trả điểm/transcript của lần nộp TRƯỚC (FE từng hiện nhầm như kết quả bài vừa nộp). */
+    @Test
+    void submitSpokenAnswer_UC23b_Queue_pendingResponseHidesPreviousAttemptResult() {
+        Fixture f = legacySpeakingFixture();
+        f.progress().setSpeakingScore(BigDecimal.valueOf(50));
+        f.progress().setSpeakingFeedback("old feedback");
+        f.progress().setSpeakingTranscript("old transcript");
+        f.progress().setSpeakingAttemptCount(1);
+
+        ReflexQuestionProgressResponse response = queueService.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, null, ACTOR_USER_ID);
+
+        assertThat(response.speakingGradingStatus()).isEqualTo("PENDING");
+        assertThat(response.speakingScorePercent()).isNull();
+        assertThat(response.speakingFeedback()).isNull();
+        assertThat(response.speakingTranscript()).isNull();
+        assertThat(response.speakingAttemptCount()).isEqualTo(2);
+        verify(jobQueue).enqueue(PROGRESS_ID, ReflexGradingJob.Lane.SPEAKING, 2, null);
     }
 
     private record Fixture(ReviewVideoQuestion question, ReviewVideoAssignment assignment, Student student,

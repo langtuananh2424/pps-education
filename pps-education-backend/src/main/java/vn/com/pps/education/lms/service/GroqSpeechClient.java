@@ -55,7 +55,14 @@ public class GroqSpeechClient {
     @Value("${app.ai-grading.direct-max-attempts:3}")
     private int maxAttempts;
 
-    public record TranscriptionResult(String text, String lowConfidenceWarning) {
+    /** Mốc thời gian từng câu theo Whisper (giây) — dùng để cắt bài nói dài trước khi gửi Azure, xem {@link AzureAudioChunker}. */
+    public record Segment(double startSec, double endSec, String text) {
+    }
+
+    public record TranscriptionResult(String text, String lowConfidenceWarning, List<Segment> segments) {
+        public TranscriptionResult(String text, String lowConfidenceWarning) {
+            this(text, lowConfidenceWarning, List.of());
+        }
     }
 
     public GroqSpeechClient(ObjectMapper objectMapper) {
@@ -90,7 +97,11 @@ public class GroqSpeechClient {
             JsonNode json = objectMapper.readTree(response.body());
             String text = json.path("text").asText("");
             List<String> warnings = new ArrayList<>();
+            List<Segment> segments = new ArrayList<>();
             for (JsonNode seg : json.path("segments")) {
+                if (seg.has("start") && seg.has("end")) {
+                    segments.add(new Segment(seg.path("start").asDouble(), seg.path("end").asDouble(), seg.path("text").asText("")));
+                }
                 double avgLogprob = seg.path("avg_logprob").asDouble(0);
                 double noSpeechProb = seg.path("no_speech_prob").asDouble(0);
                 double compressionRatio = seg.path("compression_ratio").asDouble(0);
@@ -102,7 +113,7 @@ public class GroqSpeechClient {
             }
             String warning = warnings.isEmpty() ? null
                     : "Groq không chắc chắn ở đoạn: " + String.join("; ", warnings) + " — nên nghe lại audio gốc để xác nhận.";
-            return new TranscriptionResult(text, warning);
+            return new TranscriptionResult(text, warning, segments);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();

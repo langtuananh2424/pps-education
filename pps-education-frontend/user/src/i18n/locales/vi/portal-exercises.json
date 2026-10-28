@@ -248,8 +248,15 @@
       "label": "Câu hỏi {{index}}",
       "passed": "Đã đạt",
       "notPassedExhausted": "Chưa đạt — hết lượt",
+      "speakingNotPassedExhausted": "Nói chưa đạt — hết lượt",
+      "writingSpeakingNotPassedExhausted": "Viết và nói chưa đạt — hết lượt",
+      "passedWritingNot": "Đã đạt (nói) · viết chưa đạt",
       "locked": "Chưa mở",
-      "waitingForYou": "Đang chờ bạn — bấm để tiếp tục"
+      "waitingForYou": "Đang chờ bạn — bấm để tiếp tục",
+      "speakingRedo": "Điểm nói chưa đạt — bấm để làm lại",
+      "speakingNotPassed": "Điểm nói chưa đạt — làm lại sau khi hết video",
+      "speakingGrading": "Đang chấm bài nói…",
+      "speakingSubmitted": "Đã nộp bài nói"
     },
     "writingStage": {
       "title": "Bước 1 · Viết câu trả lời",
@@ -302,6 +309,10 @@
       },
       "exhaustedPopup": {
         "heading": "Hết lượt ghi âm — câu này chưa đạt, chuyển câu tiếp theo"
+      },
+      "queuedPopup": {
+        "heading": "Đã nộp bài nói",
+        "body": "Đã nộp bài nói. Điểm bài nói sẽ hiện sau khi bạn làm hết các câu."
       }
     },
     "submittedSuccess": "Bạn đã hoàn thành tất cả câu hỏi!",

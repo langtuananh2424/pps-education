@@ -14,6 +14,7 @@ import {
   listAnswers,
   listExerciseQuestions,
   notifyBatchIntegrityViolation,
+  recordActiveTime,
   recordListeningPlay,
   revealAndCloseAttempt,
   saveAnswer,
@@ -24,6 +25,7 @@ import {
 import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
 import { GridQuestionGroup, QuestionBlock, canRetakeExercise, groupQuestionsByGroupKey, isLockedCarriedOver } from "./TakeExerciseModal";
 import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
+import { useActiveTimeTracker } from "../hooks/useActiveTimeTracker";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
 
@@ -140,6 +142,10 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
       if (document.fullscreenEnabled) document.documentElement.requestFullscreen().catch(() => undefined);
     }
   });
+
+  // Bổ sung 2026-10-26 — đo ngầm thời gian làm bài thực (chia đều cho các Bài đang làm dở), xem Javadoc useActiveTimeTracker.
+  const activeAttemptIds = (subs ?? []).filter((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s)).map((s) => s.attempt.id);
+  useActiveTimeTracker(activeAttemptIds, recordActiveTime, !stoppedByViolation && activeAttemptIds.length > 0);
 
   const groupTitle = batchGroupTitle(t, items);
 
