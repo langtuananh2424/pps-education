@@ -377,7 +377,8 @@ class ReflexSequentialGradingServiceTest {
         assertThat(response.writingExhausted()).isTrue();
         assertThat(response.speakingPassed()).isTrue();
         assertThat(response.speakingExhausted()).isFalse();
-        assertThat(response.questionPassed()).isFalse();
+        // Đổi 2026-10-28 (người dùng quyết định): nói đạt thì câu đạt, dù viết hết lượt chưa đạt.
+        assertThat(response.questionPassed()).isTrue();
         assertThat(response.questionFinalized()).isTrue();
     }
 
