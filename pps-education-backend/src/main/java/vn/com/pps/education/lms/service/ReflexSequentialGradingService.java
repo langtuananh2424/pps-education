@@ -11,6 +11,7 @@ import org.hibernate.Hibernate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import vn.com.pps.education.common.ReflexQuestionFormat;
 import vn.com.pps.education.common.ReflexV2Task;
 import vn.com.pps.education.lms.domain.AiGradingTokenUsage;
 import vn.com.pps.education.academic.domain.ClassEnrollment;
@@ -344,13 +345,28 @@ public class ReflexSequentialGradingService {
             log.warn("ReflexSequentialGradingService: không tải được bản ghi để chấm (câu {}, url={}): {}", questionId, audioUrl, e.toString());
             audioFile = null;
         }
+        // Bổ sung 2026-10-28, đã xác nhận với người dùng — câu PART2 không có bước Viết (xem isWritingSkipped)
+        // nên progress.getRubricVersion() KHÔNG BAO GIỜ được gán (chỉ applyWritingResultV2 gán) — tự dùng
+        // version hiện hành thay vì đọc từ dòng tiến trình, chỉ cho riêng trường hợp này.
+        boolean writingSkipped = isWritingSkipped(progress);
         // Định tuyến theo CHÍNH rubricVersion của dòng (không theo cờ hiện tại): câu đã chấm viết bằng v2/v3 thì
         // bước nói cũng dùng đúng bộ đó (cần điểm Ngữ pháp Bước 1 + bài viết làm mốc so đọc lệch) dù cờ hay
         // version hiện hành có bị đổi giữa chừng — câu chấm viết bằng v2 trước khi lên v3 vẫn chấm nói bằng v2.
-        Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, true, progress.getRubricVersion());
-        if (v2Task.isPresent() && progress.getWritingLockedGrammarPercent() != null) {
-            ReflexV2AiGradingService.Step1Anchor locked = new ReflexV2AiGradingService.Step1Anchor(
-                    progress.getWritingLockedGrammarPercent().intValue(), progress.getAnswerText());
+        Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, true,
+                writingSkipped ? ReflexV2Task.CURRENT_RUBRIC_VERSION : progress.getRubricVersion());
+        if (v2Task.isPresent() && (writingSkipped || progress.getWritingLockedGrammarPercent() != null)) {
+            // Bổ sung 2026-10-28 — PART2 không có bài viết Bước 1 để làm sàn/đối chiếu (xem Javadoc
+            // isWritingSkipped): Step1Anchor(0, null) là mốc "rỗng" — ReflexV2AiGradingService#gradeSpeaking
+            // VÀ ReflexV2Scoring (writtenVsSpoken/sameAsWritten/regradeGrammar) đã tự xử lý null/0 đúng ý
+            // nghĩa "không có Bước 1": bỏ qua cổng "nói khác bài viết", bỏ qua bằng chứng đọc lệch, LUÔN
+            // chấm lại Ngữ pháp từ transcript (keepStep1Grammar luôn false vì sameAsWritten(null,...)=null),
+            // không áp sàn (floor = nửa của 0 = 0, không bao giờ nâng điểm lên) — không cần sửa thêm gì ở đó.
+            ReflexV2AiGradingService.Step1Anchor locked = writingSkipped
+                    ? new ReflexV2AiGradingService.Step1Anchor(0, null)
+                    : new ReflexV2AiGradingService.Step1Anchor(progress.getWritingLockedGrammarPercent().intValue(), progress.getAnswerText());
+            if (writingSkipped) {
+                progress.setRubricVersion(v2Task.get().rubricVersion());
+            }
             // Chi phí từng lượt AI được ghi qua sink ngay khi AI trả về — kể cả khi sau đó bị từ chối / parse
             // lỗi (recorder chạy REQUIRES_NEW nên không bị rollback theo, cùng lý do với lượt nộp ở trên).
             // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — qua AiGradingFallbackService: thử pipeline
@@ -924,9 +940,21 @@ public class ReflexSequentialGradingService {
      * mở khoá bước ghi âm VÀ để chặn nộp lại bước viết (2 vai trò gộp 1 vì cùng điều kiện, xem Javadoc
      * lớp).
      */
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-28 — câu hỏi dạng PART2 (IELTS Speaking
+     * Part 2, Khối 8-9) BỎ HẲN bước Viết: vào thẳng ghi âm khi video chạm mốc, giống thi IELTS Part 2
+     * thật (không viết trước, không có bài viết Bước 1 làm mốc). Điểm Ngữ pháp của bước Nói chấm thẳng
+     * từ transcript — không có "Cách B" (giữ nguyên/làm sàn theo bài viết, xem {@link #callSpeakingAi})
+     * vì không có gì để đối chiếu.
+     */
+    private boolean isWritingSkipped(ReflexQuestionProgress progress) {
+        return progress.getReviewVideoQuestion().getQuestionFormat() == ReflexQuestionFormat.PART2;
+    }
+
     private boolean isWritingUnlocked(ReflexQuestionProgress progress) {
         // V222 — AI lỗi hết số lần thử (FAILED, đã hoàn lượt): không chặn học sinh, mở khoá bước nói, giáo viên chấm tay sau.
-        return progress.getWritingGradingStatus() == ReflexGradingStatus.FAILED || isWritingPassed(progress) || isWritingExhausted(progress);
+        return isWritingSkipped(progress)
+                || progress.getWritingGradingStatus() == ReflexGradingStatus.FAILED || isWritingPassed(progress) || isWritingExhausted(progress);
     }
 
     /** (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-07) — đã dùng hết {@link #MAX_STEP_ATTEMPTS} lần nộp bước nói mà vẫn chưa đạt. */
@@ -972,7 +1000,10 @@ public class ReflexSequentialGradingService {
         boolean speakingPassed = isSpeakingPassed(p);
         boolean writingExhausted = isWritingExhausted(p);
         boolean speakingExhausted = isSpeakingExhausted(p);
-        boolean questionPassed = writingPassed && speakingPassed;
+        // Bổ sung 2026-10-28 — câu PART2 không có bước Viết (xem isWritingSkipped): writingPassed luôn
+        // false (writingScore không bao giờ được chấm) nên phải bỏ qua điều kiện bước Viết khi tính đạt
+        // cả câu, chỉ xét bước Nói.
+        boolean questionPassed = (isWritingSkipped(p) || writingPassed) && speakingPassed;
         // Fix bug thật (2026-10-08, phát hiện qua test thật trên staging, đã xác nhận với người dùng) —
         // công thức cũ "questionPassed || speakingExhausted" bỏ sót trường hợp bước VIẾT hết lượt (chưa
         // đạt thật) NHƯNG bước NÓI sau đó đạt THẬT (không hết lượt): questionPassed luôn false (viết

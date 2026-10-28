@@ -2431,6 +2431,40 @@ UC-40: Soạn & giao đề kiểm tra
 > điểm tiêu chí/Key Grammar/nhận xét của AI không mang theo. Điểm tổng lượt
 > làm, ngưỡng đạt và báo cáo tự dùng điểm mới.
 
+> **Bổ sung 2026-10-28 (đã xác nhận với người dùng) --- câu hỏi dạng PART2
+> (IELTS Speaking Part 2, Khối 8-9 IELTS, ghi âm 90-120 giây) BỎ HẲN bước
+> Viết, khác hẳn mọi dạng câu hỏi khác (SHORT/PET4/PICTURE) vẫn giữ nguyên
+> luồng 2 bước Viết trước → Nói sau:**
+> (a) Video chạm mốc câu PART2 thì vào THẲNG bước Nói (`isWritingUnlocked`
+> luôn true cho câu PART2, `isWritingSkipped` ở
+> `ReflexSequentialGradingService`) --- không còn khung "Viết câu trả lời",
+> không giới hạn 3 lượt nộp bước Viết (không tồn tại bước đó để giới hạn).
+> (b) Vì không có bài viết Bước 1 nên **không áp dụng "Cách B"** (giữ
+> nguyên/làm sàn điểm Ngữ pháp theo bài viết) cho riêng câu PART2 --- điểm
+> Ngữ pháp chấm HOÀN TOÀN từ transcript bài nói, cùng cách các tiêu chí
+> khác (Fluency, Lexical...). Kỹ thuật: gọi `ReflexV2AiGradingService
+> #gradeSpeaking` với `Step1Anchor(0, null)` làm mốc "rỗng" --- các hàm
+> `writtenVsSpoken`/`sameAsWritten` trong `ReflexV2Scoring` đã tự coi
+> `text=null` là "không có Bước 1" (trả `null`), `regradeGrammar` với
+> `step1Percent=0` không bao giờ áp sàn --- không cần sửa logic chấm điểm.
+> Cổng "nói khác bài viết" (`ReflexAudioRejectedException`) cũng tự bỏ qua
+> vì không có gì để so khớp.
+> (c) `reflex_question_progress.rubric_version` (vốn chỉ được gán lúc chấm
+> bài Viết) được gán trực tiếp ở bước Nói cho riêng trường hợp này (luôn
+> `RUBRIC_V3`, hiện hành) --- để chấm lần 2 (`AiSecondGradingService`) và
+> các luồng đọc `rubric_version` khác vẫn hoạt động đúng dù chưa từng có
+> dòng Viết.
+> (d) **Video chạy song song trong lúc ghi âm** (riêng câu PART2, FE
+> `ReflexVideoTaskPage.tsx#startSpeakingRecording`) --- giống tương tác
+> thật, khác hẳn mọi câu khác vẫn đứng yên xuyên suốt bước Nói (xem SPIKE
+> 2026-08-25). Tái dùng cơ chế `awaitingNextMark` cũ (trước đó không còn
+> dùng từ SPIKE đó) --- video tự dừng khi chạm mốc câu kế tiếp HOẶC ngay
+> khi ghi âm kết thúc (hết giờ/bấm dừng tay), tuỳ cái nào tới trước.
+> **Lưu ý vận hành:** cần video nguồn có đủ đoạn hình sau mốc câu PART2
+> (90-120 giây) để phát trong lúc ghi âm --- video hết đoạn/chạm mốc câu kế
+> tiếp sớm hơn thì chỉ dừng hình, KHÔNG ảnh hưởng ghi âm (vẫn chạy ngầm tới
+> hết `maxRecordingSeconds`).
+
 > **Bổ sung V144/V148 (2026-08-24, đã xác nhận với người dùng) --- mục lục
 > Sách giáo trình cho Kho đề (đang thiếu ở tài liệu này, bổ sung lại
 > 2026-09-13 khi làm UC-72 dưới đây):** 1 "Đề" (`Exam`) không chỉ gắn 1

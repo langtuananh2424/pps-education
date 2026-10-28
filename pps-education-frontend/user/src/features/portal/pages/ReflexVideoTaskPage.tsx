@@ -57,9 +57,16 @@ function buildLockedYouTubeEmbedSrc(videoId: string, locked: boolean): string {
  * mang nghĩa "đã xong câu" — có thể là đạt thật hoặc hết lượt — xem displayProgress.questionPassed để
  * biết chính xác đạt hay không khi cần hiển thị khác nhau.
  */
-function stageForProgress(p: ReflexQuestionProgressResponse | undefined): "writing" | "speaking" | "passed" {
+/**
+ * Bổ sung 2026-10-28, đã xác nhận với người dùng — câu hỏi dạng PART2 (IELTS Speaking Part 2, Khối 8-9)
+ * BỎ HẲN bước Viết (vào thẳng ghi âm khi video chạm mốc, giống thi thật — không viết trước), xem Javadoc
+ * `isWritingSkipped` ở `ReflexSequentialGradingService` (backend). `p` còn `undefined` (câu chưa từng động
+ * vào, chưa có dòng tiến trình nào) thì không đọc được `writingUnlocked` từ backend — phải tự biết qua
+ * `questionFormat` để vào thẳng bước Nói ngay cả khi chưa có `p`.
+ */
+function stageForProgress(p: ReflexQuestionProgressResponse | undefined, questionFormat?: string | null): "writing" | "speaking" | "passed" {
   if (p?.questionFinalized) return "passed";
-  if (p?.writingUnlocked) return "speaking";
+  if (questionFormat === "PART2" || p?.writingUnlocked) return "speaking";
   return "writing";
 }
 
@@ -942,7 +949,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
    * yêu cầu (isReviewingVideo=true, xem handleReplayQuestion) — bấm khi đang ở bước VIẾT (video đứng yên
    * có chủ đích, chưa qua bước nghe lại) thì bỏ qua — không có gì để play/pause lúc đó.
    */
-  const canToggleManualPause = activeQuestionId == null || awaitingNextMark || isReviewingVideo;
+  // Bổ sung 2026-10-28 — khi video đang chạy song song vì câu PART2 đang ghi âm (xem startSpeakingRecording),
+  // không cho học sinh tự ý bấm nút play/pause tự dựng đè lên video (tránh đụng độ với việc video/ghi âm
+  // tự động dừng đồng bộ ở `wasRecordingRef` effect bên dưới).
+  const canToggleManualPause = (activeQuestionId == null || awaitingNextMark || isReviewingVideo) && !recorder.recording;
   /**
    * SPIKE (2026-08-25, xác nhận với người dùng, phát hiện thật khi test) — fix bug thật: đóng popup
    * "Đạt bước nói" (nút "Tiếp tục", xem handleContinueAfterSpeakingPass) lộ NGAY ManualPauseOverlay ở
@@ -988,10 +998,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     recorder.reset();
   };
 
-  const firstPendingQuestionIndex = () => questions.findIndex((q) => stageForProgress(progressRef.current[q.id]) !== "passed");
+  const firstPendingQuestionIndex = () => questions.findIndex((q) => stageForProgress(progressRef.current[q.id], q.questionFormat) !== "passed");
+
+  /**
+   * Bổ sung 2026-10-28 — vị trí phát THẬT gần nhất đã biết (CHỈ cập nhật khi KHÔNG đang xem lại, xem
+   * handleTimeUpdate), dùng để khôi phục khi YouTube bắn `ENDED` giả (xem handleVideoNaturallyEnded)
+   * — tránh gọi thẳng resumeVideo()/playVideo() trên player mà YouTube đã coi là "đã kết thúc" (tự ý
+   * reset currentTime về 0), xảy ra thường hơn hẳn với câu PART2 (video chạy/dừng liên tục theo từng
+   * lượt ghi âm, xem startSpeakingRecording) so với trước đây.
+   */
+  const lastKnownPlaybackTimeRef = useRef(0);
 
   const handleTimeUpdate = (currentSeconds: number) => {
     if (videoEndedRef.current || isReviewingVideoRef.current) return;
+    lastKnownPlaybackTimeRef.current = currentSeconds;
     const idx = firstPendingQuestionIndex();
     if (idx === -1) return;
     const current = questions[idx];
@@ -1052,7 +1072,17 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       // ENDED giả — còn câu chưa phải câu cuối, video thật ra chưa hết. Chỉ tự phát lại nếu lúc đó video
       // ĐANG LẼ RA phải chạy (giữa 2 câu, hoặc đang cho nghe lại) — không đụng vào lúc video đứng yên có
       // chủ đích ở bước viết.
-      if (activeQuestionIdRef.current == null || awaitingNextMarkRef.current) resumeVideo();
+      //
+      // Bổ sung 2026-10-28, đã xác nhận với người dùng (fix bug thật: câu PART2 ghi âm lại thì video tự
+      // nhảy lùi về mốc và phát lại từ đó, thay vì tiếp tục đúng vị trí đang dở) — YouTube tự ý reset
+      // currentTime về 0 khi coi player đã ENDED, kể cả khi tín hiệu đó là giả (xem Javadoc lớp). Gọi
+      // thẳng resumeVideo() lúc này vô tình phát lại từ đầu video. Tua về đúng vị trí THẬT gần nhất đã
+      // biết (lastKnownPlaybackTimeRef) TRƯỚC khi phát lại — vô hại cho native <video> (currentTime
+      // không tự reset) vì seekTo về đúng vị trí nó đang đứng.
+      if (activeQuestionIdRef.current == null || awaitingNextMarkRef.current) {
+        seekTo(lastKnownPlaybackTimeRef.current);
+        resumeVideo();
+      }
       return;
     }
     setVideoEnded(true);
@@ -1184,8 +1214,11 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const displayQuestionId = reviewQuestionId ?? activeQuestionId;
   const displayQuestion = questions.find((q) => q.id === displayQuestionId) ?? null;
   const displayProgress = displayQuestionId != null ? progress[displayQuestionId] : undefined;
-  const displayStage = stageForProgress(displayProgress);
+  const displayStage = stageForProgress(displayProgress, displayQuestion?.questionFormat);
   const isReviewing = reviewQuestionId != null;
+  /** Bổ sung 2026-10-28 — câu PART2 không có bước Viết (xem stageForProgress), nên không hiện tab "Viết"/
+   * sticker điểm Viết — chỉ còn mỗi bước Nói, hiện thẳng không cần chuyển tab. */
+  const hasWritingStage = displayQuestion?.questionFormat !== "PART2";
 
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — TRƯỚC ĐÂY khi qua bước Nói, bài viết
@@ -1283,13 +1316,13 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       // động bật ghi âm ngay, học sinh không kịp chuẩn bị. Nay hiện popup báo đạt + điểm/nhận xét, học
       // sinh tự bấm "Tiếp tục" khi sẵn sàng (xem handleContinueAfterWritingPass) — video chạy tiếp cho
       // nghe lại câu hỏi, còn GHI ÂM THẬT phải bấm riêng nút "Bắt đầu ghi âm" trong panel (handleStartRecording).
-      if (stageForProgress(response) === "speaking") {
+      if (stageForProgress(response, activeQuestion.questionFormat) === "speaking") {
         setWritingPassedPopup({ scorePercent: response.writingScorePercent, exhausted: response.writingExhausted });
       }
     } catch (err) {
       setWritingError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
       const refreshed = await refreshProgressFor(activeQuestion.id);
-      if (refreshed && stageForProgress(refreshed) === "speaking") {
+      if (refreshed && stageForProgress(refreshed, activeQuestion.questionFormat) === "speaking") {
         setWritingPassedPopup({ scorePercent: refreshed.writingScorePercent, exhausted: refreshed.writingExhausted });
       }
     } finally {
@@ -1311,10 +1344,52 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     setWritingPassedPopup(null);
   };
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-28 — câu hỏi dạng PART2 (Khối 8-9 IELTS,
+   * ghi âm 90-120 giây) cho video CHẠY TIẾP song song trong lúc ghi âm (giống tương tác thật), khác hẳn
+   * các dạng câu hỏi khác vẫn đứng yên xuyên suốt bước nói (xem SPIKE 2026-08-25 ở activateQuestion).
+   * Tái dùng CHÍNH cơ chế "nghe lại câu hỏi" cũ (awaitingNextMark — video được phép chạy, tự dừng khi
+   * chạm mốc câu KẾ TIẾP, xem handleTimeUpdate) đã bị tắt hẳn từ SPIKE đó, nay chỉ bật lại CÓ ĐIỀU KIỆN
+   * cho riêng khoảng thời gian đang ghi âm của câu PART2 — không đụng hành vi của các dạng câu hỏi khác.
+   *
+   * Bổ sung 2026-10-28 (lần 2, đã xác nhận với người dùng — ĐÚNG Ý ĐỊNH thiết kế gốc, không phải bug) —
+   * MỖI LẦN bấm "Bắt đầu ghi âm"/"Ghi âm lại" đều tua video về ĐÚNG mốc câu hỏi (`timestampSeconds`) rồi
+   * mới phát — để học sinh luôn nghe/xem lại TRỌN VẸN đoạn cue-card từ đầu mỗi lượt ghi âm, không phải
+   * tiếp nối dở dang từ lượt ghi trước. Trước đây hành vi "về mốc" này chỉ xảy ra TÌNH CỜ qua 1 lỗi vặt
+   * YouTube (tín hiệu ENDED giả tự ý reset về giây 0, xem handleVideoNaturallyEnded) — không đáng tin cậy
+   * (có lúc về mốc, có lúc không, tuỳ lỗi đó có kích hoạt). Tua CHỦ ĐỘNG ở đây để luôn chắc chắn, không
+   * phụ thuộc lỗi vặt đó nữa.
+   */
+  const startSpeakingRecording = () => {
+    if (!activeQuestion) return;
+    if (activeQuestion.questionFormat === "PART2") {
+      setAwaitingNextMark(true);
+      seekTo(activeQuestion.timestampSeconds);
+      resumeVideo();
+    }
+    recorder.start(activeQuestion.maxRecordingSeconds);
+  };
+
+  /**
+   * Đối xứng với `startSpeakingRecording` — video (nếu đang chạy song song vì câu PART2) phải dừng lại
+   * NGAY khi ghi âm kết thúc (hết giờ tự động HOẶC học sinh chủ động bấm dừng), không chờ tới lúc chạm
+   * mốc câu kế tiếp. `awaitingNextMarkRef.current` chỉ còn true khi video đang ở chế độ chạy song song
+   * này (mọi luồng khác đã bỏ hẳn từ SPIKE 2026-08-25), nên dùng thẳng làm điều kiện — không cần so
+   * sánh lại `questionFormat`.
+   */
+  const wasRecordingRef = useRef(false);
+  useEffect(() => {
+    if (wasRecordingRef.current && !recorder.recording && awaitingNextMarkRef.current) {
+      setAwaitingNextMark(false);
+      pauseVideo();
+    }
+    wasRecordingRef.current = recorder.recording;
+  }, [recorder.recording]);
+
   const handleStartRecording = () => {
     if (!activeQuestion) return;
     recorder.reset();
-    recorder.start(activeQuestion.maxRecordingSeconds);
+    startSpeakingRecording();
   };
 
   const handleSubmitSpeaking = async (blob: Blob) => {
@@ -1409,7 +1484,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     if (!activeQuestion) return;
     setSpeakingError(null);
     recorder.reset();
-    recorder.start(activeQuestion.maxRecordingSeconds);
+    startSpeakingRecording();
   };
 
   /**
@@ -1694,7 +1769,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
             {questions.length > 0 && (
               <div className="relative h-2 rounded-full bg-slate-100 mx-1.5">
                 {questions.map((q, i) => {
-                  const stage = stageForProgress(progress[q.id]);
+                  const stage = stageForProgress(progress[q.id], q.questionFormat);
                   const opened = q.id === activeQuestionId || progress[q.id] !== undefined;
                   const percent = Math.min(100, Math.max(0, (q.timestampSeconds / video.durationSeconds) * 100));
                   // 2026-10-07 — "passed" nay gồm cả trường hợp hết lượt mà chưa đạt (xem stageForProgress),
@@ -1776,13 +1851,15 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
              */}
             {displayStage !== "writing" && (
               <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex gap-2 sm:gap-5 z-10">
-                <ScoreSticker
-                  icon={<PenLine size={10} />}
-                  label={t("reflexVideoTask.writingStage.tabLabel")}
-                  percent={displayProgress?.writingScorePercent ?? null}
-                  tone="pass"
-                  tiltClass="-rotate-6"
-                />
+                {hasWritingStage && (
+                  <ScoreSticker
+                    icon={<PenLine size={10} />}
+                    label={t("reflexVideoTask.writingStage.tabLabel")}
+                    percent={displayProgress?.writingScorePercent ?? null}
+                    tone="pass"
+                    tiltClass="-rotate-6"
+                  />
+                )}
                 <ScoreSticker
                   icon={<Mic size={10} />}
                   label={t("reflexVideoTask.speakingStage.tabLabel")}
@@ -1806,7 +1883,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
              * phần ghi âm, tách thành 2 tab bấm chuyển qua lại (xem answerViewTab) — tab "Nói" mở mặc
              * định, không lộ bài viết; học sinh chủ động bấm tab "Viết" mới xem lại được.
              */}
-            {displayStage !== "writing" && (
+            {displayStage !== "writing" && hasWritingStage && (
               <div className="flex items-center gap-1.5 border-b border-line">
                 <button
                   type="button"
@@ -2210,7 +2287,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         ) : (
           <div className="space-y-2">
             {questions.map((q, i) => {
-              const stage = stageForProgress(progress[q.id]);
+              const stage = stageForProgress(progress[q.id], q.questionFormat);
               const isDisplayed = q.id === displayQuestionId;
               // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — câu ĐÃ ĐẠT bấm được để xem
               // lại kết quả (đáp án đã viết + nhận xét viết/nói) — trước đây chỉ hiện dòng tóm tắt tĩnh.
