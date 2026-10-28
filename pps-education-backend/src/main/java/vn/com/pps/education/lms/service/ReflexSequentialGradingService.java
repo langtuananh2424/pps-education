@@ -972,7 +972,10 @@ public class ReflexSequentialGradingService {
         boolean speakingPassed = isSpeakingPassed(p);
         boolean writingExhausted = isWritingExhausted(p);
         boolean speakingExhausted = isSpeakingExhausted(p);
-        boolean questionPassed = writingPassed && speakingPassed;
+        // Đổi 2026-10-28 (người dùng quyết định, phản hồi học sinh Huyền): câu ĐẠT khi bước NÓI đạt ngưỡng. Bước viết vẫn
+        // là cổng mở khoá bước nói (đạt thật hoặc hết lượt) và điểm Ngữ pháp bước viết vẫn làm mốc/sàn khi chấm nói,
+        // nhưng viết chưa đạt (hết lượt) không còn kéo câu xuống "Chưa đạt" khi nói đã đạt. Trước đó: writingPassed && speakingPassed.
+        boolean questionPassed = speakingPassed;
         // Fix bug thật (2026-10-08, phát hiện qua test thật trên staging, đã xác nhận với người dùng) —
         // công thức cũ "questionPassed || speakingExhausted" bỏ sót trường hợp bước VIẾT hết lượt (chưa
         // đạt thật) NHƯNG bước NÓI sau đó đạt THẬT (không hết lượt): questionPassed luôn false (viết
