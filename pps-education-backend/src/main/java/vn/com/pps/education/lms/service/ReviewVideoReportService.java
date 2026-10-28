@@ -106,8 +106,8 @@ public class ReviewVideoReportService {
      */
     private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
         int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
-        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
-                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
+        // Đổi 2026-10-28 — câu đạt khi bước NÓI đạt ngưỡng (mirror ReflexSequentialGradingService#toResponse).
+        return p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
     }
 
     public ReviewVideoReportService(ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
