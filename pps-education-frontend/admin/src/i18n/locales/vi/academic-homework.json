@@ -104,6 +104,7 @@
       "percent": "%",
       "completed": "Đã hoàn thành",
       "attemptCount": "Số lần làm",
+      "activeTime": "Thời gian làm",
       "violation": "Vi phạm",
       "viewDetailTitle": "Xem chi tiết"
     },

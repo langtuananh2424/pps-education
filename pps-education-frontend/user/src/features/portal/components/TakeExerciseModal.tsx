@@ -18,6 +18,7 @@ import {
   getListeningHint,
   listExerciseQuestions,
   listAnswers,
+  recordActiveTime,
   recordIntegrityEvents,
   recordListeningPlay,
   revealAndCloseAttempt,
@@ -26,6 +27,7 @@ import {
   submitAttempt,
   uploadMedia
 } from "../api";
+import { useActiveTimeTracker } from "../hooks/useActiveTimeTracker";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
 import MonitoringBadge from "./MonitoringBadge";
@@ -644,6 +646,8 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc useIntegrityMonitor.
   const attemptId = attempt?.id;
+  // Bổ sung 2026-10-26 — đo ngầm thời gian làm bài thực, xem Javadoc useActiveTimeTracker.
+  useActiveTimeTracker(attemptId != null ? [attemptId] : [], recordActiveTime, !readOnly && attemptId != null && attempt?.status === "IN_PROGRESS");
   const { violationCount, isMonitoringActive, justViolated, suppressForFilePicker } = useIntegrityMonitor({
     enabled: !readOnly && attemptId != null && !stoppedByViolation,
     autoFlushIntervalMs: 20000,
@@ -1097,6 +1101,8 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   textDraft={textDraft}
                   onTextChange={(questionId, v) => setTextDraft((prev) => ({ ...prev, [questionId]: v }))}
                   onTextBlur={handleTextBlur}
+                  onStructuredAnswer={handleStructuredAnswer}
+                  onStructuredDraft={(questionId, values) => textSaves.noteStructuredDraft(questionId, values)}
                   onAudioUpload={handleAudioAnswer}
                   onFilePickerOpen={suppressForFilePicker}
                   attemptId={attempt?.id}
@@ -1360,13 +1366,13 @@ export function QuestionBlock({
          */}
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
           {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
-            <span className="block text-sm sm:text-base italic font-normal text-muted whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
+            <span className="block text-base sm:text-lg italic font-normal text-muted whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
           )}
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
           </span>
           {question.questionType !== "WORD_BANK" && (
-            <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{renderRichText(question.questionContent)}</span>
+            <span className="text-base sm:text-base lg:text-lg whitespace-pre-line">{renderRichText(question.questionContent)}</span>
           )}
         </p>
         <div className="flex items-center gap-2 shrink-0">
@@ -1426,7 +1432,7 @@ export function QuestionBlock({
                 <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
                   <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
                 </div>
-                <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
+                <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-xs sm:text-sm font-bold">
                   <span>
                     <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
                     {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && renderRichText(c.content)}
@@ -1459,7 +1465,7 @@ export function QuestionBlock({
                 type="button"
                 disabled={readOnly || saving}
                 onClick={() => toggleChoice(c.id)}
-                className={`w-full text-left text-xs sm:text-sm lg:text-base font-bold px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
+                className={`w-full text-left text-sm sm:text-base lg:text-lg font-bold px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
               >
                 <span>
                   <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
@@ -1543,7 +1549,7 @@ export function QuestionBlock({
             disabled={readOnly || saving}
             rows={isFillInBlank ? 1 : 3}
             placeholder={t("takeExercise.question.answerPlaceholder")}
-            className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-3 sm:p-4 rounded-xl focus:outline-none disabled:opacity-70"
+            className="w-full bg-sky-2 border border-line/70 text-sm sm:text-base lg:text-lg p-3 sm:p-4 rounded-xl focus:outline-none disabled:opacity-70"
           />
           {isFillInBlank && showFeedback && (
             <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
@@ -2201,6 +2207,8 @@ export function GridQuestionGroup({
   textDraft,
   onTextChange,
   onTextBlur,
+  onStructuredAnswer,
+  onStructuredDraft,
   onAudioUpload,
   onFilePickerOpen,
   attemptId,
@@ -2218,6 +2226,8 @@ export function GridQuestionGroup({
   textDraft: Record<number, string>;
   onTextChange: (questionId: number, value: string) => void;
   onTextBlur: (questionId: number) => void;
+  onStructuredAnswer: (questionId: number, values: string[]) => void;
+  onStructuredDraft?: (questionId: number, values: string[]) => void;
   onAudioUpload: (questionId: number, file: File) => void;
   onFilePickerOpen: () => void;
   attemptId: number | undefined;
@@ -2259,11 +2269,11 @@ export function GridQuestionGroup({
         <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
             <div key={i} className={p.isSectionBreak ? "pt-2.5 sm:pt-3 mt-1 border-t border-line/60" : undefined}>
-              {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{renderRichText(p.name)}</p>}
+              {p.name && <p className="text-sm sm:text-base lg:text-lg font-black text-ink">{renderRichText(p.name)}</p>}
               {p.isTitle || p.isSectionBreak ? (
-                <p className="text-xs sm:text-sm lg:text-base font-black text-ink text-center">{renderRichText(p.content)}</p>
+                <p className="text-sm sm:text-base lg:text-lg font-black text-ink text-center">{renderRichText(p.content)}</p>
               ) : (
-                <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{renderRichText(p.content)}</p>
+                <p className="text-sm sm:text-base lg:text-lg text-ink whitespace-pre-line">{renderRichText(p.content)}</p>
               )}
             </div>
           ))}
@@ -2277,7 +2287,7 @@ export function GridQuestionGroup({
        * giấy gốc, không chỉ là "các thẻ từ" rải rác.
        */}
       {block.wordBox && block.wordBox.length > 0 && (
-        <table className="w-full border-collapse text-xs sm:text-sm lg:text-base text-ink">
+        <table className="w-full border-collapse text-sm sm:text-base lg:text-lg text-ink">
           <tbody>
             {chunkArray(block.wordBox, 4).map((row, ri) => (
               <tr key={ri}>
@@ -2342,7 +2352,7 @@ export function GridQuestionGroup({
                   onBlur={() => onTextBlur(q.questionId)}
                   disabled={rowReadOnly || saving}
                   placeholder={t("takeExercise.question.answerPlaceholder")}
-                  className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm p-2 rounded-xl text-center focus:outline-none disabled:opacity-70"
+                  className="w-full bg-sky-2 border border-line/70 text-sm sm:text-base p-2 rounded-xl text-center focus:outline-none disabled:opacity-70"
                 />
                 {isLockedCarriedOver(answer) && <CarriedOverBadge />}
                 {showFeedback && (
@@ -2374,6 +2384,13 @@ export function GridQuestionGroup({
           const isChoiceRow = CHOICE_TYPES.has(q.questionType) && q.choices.length > 0;
           const isFillInBlankRow = q.questionType === "FILL_IN_BLANK";
           const isSpeakingRow = q.questionType === "SPEAKING";
+          // Fix bug thật (người dùng báo "thiếu block chọn từ/chỗ lưu đáp án") — nhóm lưới (grid, có
+          // groupKey) trước đây CHỈ rẽ nhánh isChoiceRow/isFillInBlankRow/isSpeakingRow, bỏ sót hẳn
+          // WORD_BANK/SENTENCE_BUILDING (mirror QuestionBlock#isChoiceQuestion ở trên, câu ĐƠN LẺ đã có
+          // từ trước) — câu "Sắp xếp từ"/"Điền hộp từ vựng" nằm trong 1 nhóm (VD "Ex. 3" gộp Part A sắp
+          // xếp câu + Part B điền từ) không hiện khối chọn từ nào, học sinh không có cách nào trả lời.
+          const isWordBankRow = q.questionType === "WORD_BANK" && !!q.structuredContent?.blanks;
+          const isSentenceBuildingRow = q.questionType === "SENTENCE_BUILDING" && !!q.structuredContent?.chunks;
           // V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — khoá TỪNG câu riêng
           // trong nhóm theo carry-forward, khác `readOnly` (áp cho cả nhóm/cả attempt) — 1 nhóm có thể
           // có câu đã đúng (khoá) lẫn câu sai (còn sửa được) cùng lúc.
@@ -2381,11 +2398,13 @@ export function GridQuestionGroup({
           // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — ảnh đã hiện dùng chung ở
           // đầu khối (isSharedImageGroup=true) VÀ nội dung chỉ là "___" (GV không gõ số nữa) — ẩn phần
           // nội dung lặp lại, chỉ còn "{số thứ tự}." gọn gàng.
-          const hideContentText = isSharedImageGroup && isBlankOnlyContent(q.questionContent);
+          // WordBankBlock bên dưới tự render questionContent làm chính văn bản tương tác (mirror
+          // QuestionBlock#WORD_BANK ở trên) — hiện lại nguyên văn ở đây sẽ bị lặp cả đoạn 2 lần.
+          const hideContentText = isWordBankRow || (isSharedImageGroup && isBlankOnlyContent(q.questionContent));
           return (
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
+                <span className="text-base sm:text-base lg:text-lg font-bold text-ink flex-1 min-w-[160px]">
                   {startNumber != null ? startNumber + qIndex : q.displayOrder}.{!hideContentText && <> {renderRichText(q.questionContent)}</>}
                 </span>
                 {isLockedCarriedOver(answer) && <CarriedOverBadge />}
@@ -2436,7 +2455,7 @@ export function GridQuestionGroup({
                             <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
                               <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
                             </div>
-                            <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
+                            <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-xs sm:text-sm font-bold">
                               <span>
                                 <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
                                 {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && renderRichText(c.content)}
@@ -2468,7 +2487,7 @@ export function GridQuestionGroup({
                           type="button"
                           disabled={rowReadOnly || saving}
                           onClick={() => onChoiceToggle(q.questionId, nextChoiceSelection(q.questionType, selected, c.id))}
-                          className={`w-full text-left text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
+                          className={`w-full text-left text-sm sm:text-base font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
                           <span>
                             <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
@@ -2498,7 +2517,7 @@ export function GridQuestionGroup({
                     onBlur={() => onTextBlur(q.questionId)}
                     disabled={rowReadOnly || saving}
                     placeholder={t("takeExercise.question.answerPlaceholder")}
-                    className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
+                    className="w-full bg-sky-2 border border-line/70 text-sm sm:text-base lg:text-lg p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
                   />
                   {showFeedback && (
                     <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
@@ -2532,6 +2551,52 @@ export function GridQuestionGroup({
                     <audio controls src={answer.audioAnswerUrl} className="w-full mt-1" />
                   )}
                   <p className="text-[10px] text-muted italic">{t("takeExercise.question.manualGradingNote")}</p>
+                </div>
+              )}
+
+              {isWordBankRow && (
+                <WordBankBlock
+                  content={q.questionContent}
+                  wordPool={
+                    q.structuredContent!.inputMode === "text"
+                      ? (q.structuredContent!.wordBankOptions ?? [])
+                      : (q.structuredContent!.wordBankOptions ?? q.structuredContent!.blanks!)
+                  }
+                  inputMode={q.structuredContent!.inputMode}
+                  formMode={q.structuredContent!.format === "form"}
+                  instruction={q.structuredContent!.instruction ?? (q.structuredContent!.format === "form" ? q.referencePassage : null)}
+                  initialAnswer={answer?.structuredAnswer ?? undefined}
+                  readOnly={rowReadOnly}
+                  saving={saving}
+                  onChange={(values) => onStructuredAnswer(q.questionId, values)}
+                  onDraft={(values) => onStructuredDraft?.(q.questionId, values)}
+                />
+              )}
+
+              {isSentenceBuildingRow && (
+                <SentenceBuildingBlock
+                  chunkPool={q.structuredContent!.chunks!}
+                  chunkOrder={q.structuredContent!.chunkOrder}
+                  initialAnswer={answer?.structuredAnswer ?? undefined}
+                  readOnly={rowReadOnly}
+                  saving={saving}
+                  onChange={(values) => onStructuredAnswer(q.questionId, values)}
+                  onDraft={(values) => onStructuredDraft?.(q.questionId, values)}
+                />
+              )}
+
+              {(isWordBankRow || isSentenceBuildingRow) && showFeedback && (
+                <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+                  {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                  {notAnswered
+                    ? t("takeExercise.question.notAnsweredPrefix", {
+                        answer: (isWordBankRow ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(" — ") ?? "—"
+                      })
+                    : answer?.isCorrect
+                      ? t("takeExercise.question.correct")
+                      : t("takeExercise.question.correctAnswerPrefix", {
+                          answer: (isWordBankRow ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(" — ") ?? "—"
+                        })}
                 </div>
               )}
             </div>

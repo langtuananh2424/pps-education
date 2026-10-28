@@ -90,6 +90,9 @@ import java.util.stream.Collectors;
 @Service
 public class ExerciseAttemptService {
 
+    /** Trần số giây cộng thêm cho mỗi lần client gửi active-time (client gửi mỗi ~15s). */
+    private static final int MAX_ACTIVE_PING_SECONDS = 120;
+
     private final ExerciseAttemptRepository exerciseAttemptRepository;
     private final ExerciseAttemptHistoryRepository exerciseAttemptHistoryRepository;
     private final StudentAnswerRepository studentAnswerRepository;
@@ -658,6 +661,30 @@ public class ExerciseAttemptService {
         attempt = exerciseAttemptRepository.save(attempt);
         writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
         return toResponse(attempt);
+    }
+
+    /**
+     * V223 (bổ sung ngoài SDD gốc, đã yêu cầu 2026-10-26) — cộng dồn thời gian làm bài thực (ẩn với học sinh).
+     * Client gửi định kỳ số giây vừa ở trên màn hình làm bài (tab hiện + focus). Server KHÔNG tin tuyệt đối:
+     * mỗi lần chỉ cộng tối đa min(seconds, MAX_ACTIVE_PING_SECONDS, thời gian thực trôi qua kể từ lần gửi
+     * trước — hoặc từ startedAt nếu là lần đầu) nên gửi dồn/sửa request không thổi phồng được số liệu.
+     * Chỉ ghi khi lượt còn IN_PROGRESS (lượt đã nộp thì bỏ qua êm, không báo lỗi để không làm phiền client
+     * gửi nốt lần cuối sau khi nộp). Không tham gia điểm/ngưỡng đạt.
+     */
+    @Transactional
+    public void recordActiveTime(Long attemptId, int seconds, Long actorUserId) {
+        ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
+        if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS || seconds <= 0) {
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime since = attempt.getLastActivePingAt() != null ? attempt.getLastActivePingAt() : attempt.getStartedAt();
+        // +2s dung sai lệch đồng hồ/độ trễ mạng giữa 2 lần gửi.
+        long elapsed = Math.max(0, java.time.Duration.between(since, now).getSeconds()) + 2;
+        int credited = (int) Math.min(Math.min(seconds, MAX_ACTIVE_PING_SECONDS), elapsed);
+        attempt.setActiveSeconds(attempt.getActiveSeconds() + credited);
+        attempt.setLastActivePingAt(now);
+        exerciseAttemptRepository.save(attempt);
     }
 
     /** package-private static: tái dùng ở ExerciseReportService (FR-ACA-07) để không lệch công thức làm tròn. */

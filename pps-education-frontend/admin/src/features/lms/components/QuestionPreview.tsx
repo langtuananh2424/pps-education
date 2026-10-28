@@ -168,7 +168,7 @@ export function SpeakingInputPreview() {
  * trống đổi thành <input> gõ tay thay vì <select> — xem đúng lý do KHÔNG fallback wordPool=blanks
  * cho chế độ gõ tay ở TakeExerciseModal#WordBankBlock (tránh lộ sẵn đáp án trong hộp tham khảo).
  */
-function WordBankPreview({
+export function WordBankPreview({
   content,
   wordPool,
   inputMode = "select",
@@ -301,7 +301,7 @@ function WordBankPreview({
 }
 
 /** Mirror TakeExerciseModal#SentenceBuildingBlock (chạm từng khối theo thứ tự, không lưu lại). */
-function SentenceBuildingPreview({ chunkPool, chunkOrder }: { chunkPool: string[]; chunkOrder?: string[] }) {
+export function SentenceBuildingPreview({ chunkPool, chunkOrder }: { chunkPool: string[]; chunkOrder?: string[] }) {
   const { t } = useTranslation("lms-question-authoring");
   const shuffled = React.useMemo(() => {
     const arr = chunkPool.map((text, idx) => ({ text, idx }));

@@ -3,7 +3,16 @@ import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
 import { renderRichText } from "@/lib/richText";
 import { ExerciseQuestionResponse, ExerciseResponse, listExerciseQuestions } from "../api";
-import { CHOICE_TYPES, ChoiceButtons, QuestionImages, QuestionPreview, SpeakingInputPreview, useChoiceSelection } from "./QuestionPreview";
+import {
+  CHOICE_TYPES,
+  ChoiceButtons,
+  QuestionImages,
+  QuestionPreview,
+  SentenceBuildingPreview,
+  SpeakingInputPreview,
+  WordBankPreview,
+  useChoiceSelection
+} from "./QuestionPreview";
 
 /**
  * Bổ sung 2026-09-24 (đã xác nhận với người dùng, sửa bug thật) — lưới ảnh "Match the words with their
@@ -293,11 +302,20 @@ function GridQuestionRowPreview({
   const isChoiceRow = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
   const isFillInBlankRow = question.questionType === "FILL_IN_BLANK";
   const isSpeakingRow = question.questionType === "SPEAKING";
+  // Fix bug thật (người dùng báo "thiếu block chọn từ/chỗ lưu đáp án" ở màn Xem trước dạng học sinh)
+  // — mirror fix ở TakeExerciseModal.tsx#GridQuestionGroup bên app user: khối lưới (grid, có groupKey)
+  // trước đây CHỈ rẽ nhánh isChoiceRow/isFillInBlankRow/isSpeakingRow, bỏ sót hẳn WORD_BANK/
+  // SENTENCE_BUILDING (đã có sẵn ở QuestionPreview#câu ĐƠN LẺ) — câu "Sắp xếp từ"/"Điền hộp từ vựng"
+  // nằm trong 1 nhóm (VD "Ex. 3" gộp Part A sắp xếp câu + Part B điền từ) không hiện khối chọn từ nào.
+  const isWordBankRow = question.questionType === "WORD_BANK" && !!question.structuredContent?.blanks;
+  const isSentenceBuildingRow = question.questionType === "SENTENCE_BUILDING" && !!question.structuredContent?.chunks;
   const { selected, toggle } = useChoiceSelection(question.questionType === "MULTIPLE_ANSWER");
   // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — khi ảnh đã hiện dùng chung ở đầu
   // khối (hideImage=true) VÀ nội dung chỉ là "___" (GV không gõ số nữa, số thứ tự đã hiện qua
   // displayNumber) — ẩn luôn phần nội dung lặp, chỉ còn "{displayNumber}." gọn gàng.
-  const hideContentText = hideImage && isBlankOnlyContent(question.questionContent);
+  // WordBankPreview bên dưới tự render questionContent làm chính văn bản tương tác (mirror
+  // QuestionPreview#WORD_BANK câu đơn lẻ) — hiện lại nguyên văn ở đây sẽ bị lặp cả đoạn 2 lần.
+  const hideContentText = isWordBankRow || (hideImage && isBlankOnlyContent(question.questionContent));
 
   return (
     <div className="py-2.5 space-y-2">
@@ -317,6 +335,24 @@ function GridQuestionRowPreview({
       )}
 
       {isSpeakingRow && <SpeakingInputPreview />}
+
+      {isWordBankRow && (
+        <WordBankPreview
+          content={question.questionContent}
+          wordPool={
+            question.structuredContent!.inputMode === "text"
+              ? (question.structuredContent!.wordBankOptions ?? [])
+              : (question.structuredContent!.wordBankOptions ?? question.structuredContent!.blanks!)
+          }
+          inputMode={question.structuredContent!.inputMode}
+          formMode={question.structuredContent!.format === "form"}
+          instruction={question.structuredContent!.instruction ?? (question.structuredContent!.format === "form" ? question.referencePassage : null)}
+        />
+      )}
+
+      {isSentenceBuildingRow && (
+        <SentenceBuildingPreview chunkPool={question.structuredContent!.chunks!} chunkOrder={question.structuredContent!.chunkOrder} />
+      )}
     </div>
   );
 }

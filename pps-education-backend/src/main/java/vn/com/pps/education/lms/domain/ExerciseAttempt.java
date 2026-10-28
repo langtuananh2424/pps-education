@@ -86,4 +86,12 @@ public class ExerciseAttempt {
     /** V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25): học sinh ĐÃ ĐẠT nhưng còn lượt làm lại tự nguyện dừng lại để xem đáp án sớm — xem ExerciseAttemptService#revealAnswersAndClose. */
     @Column(name = "answers_revealed_early", nullable = false)
     private boolean answersRevealedEarly = false;
+
+    /** V223 (bổ sung ngoài SDD gốc, đã yêu cầu 2026-10-26): số giây học sinh thực sự ở trên màn hình làm bài (tab hiện + focus) — xem ExerciseAttemptService#recordActiveTime. Ẩn với học sinh, chỉ hiện ở thống kê BTVN. */
+    @Column(name = "active_seconds", nullable = false)
+    private int activeSeconds = 0;
+
+    /** V223: mốc server nhận lần gửi active_seconds gần nhất (NULL = chưa gửi lần nào, tính từ startedAt). */
+    @Column(name = "last_active_ping_at")
+    private OffsetDateTime lastActivePingAt;
 }

@@ -104,6 +104,7 @@
       "percent": "%",
       "completed": "Completed",
       "attemptCount": "Attempts",
+      "activeTime": "Time spent",
       "violation": "Violation",
       "viewDetailTitle": "View details"
     },

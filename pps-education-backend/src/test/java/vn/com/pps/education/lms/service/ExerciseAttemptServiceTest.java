@@ -205,6 +205,34 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(ExerciseNotAvailableException.class);
     }
 
+    /** V223: thời gian làm thực (ẩn) — mỗi lần gửi bị chặn bởi thời gian thực trôi qua, không thổi phồng được. */
+    @Test
+    void recordActiveTime_capsCreditedSecondsByRealElapsedTime() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+
+        exerciseAttemptService.recordActiveTime(attempt.id(), 600, studentUser.getId());
+
+        // Vừa mở xong (≈0s trôi qua) mà đòi cộng 600s -> chỉ được tối đa vài giây dung sai.
+        int credited = exerciseAttemptRepository.findById(attempt.id()).orElseThrow().getActiveSeconds();
+        assertThat(credited).isBetween(1, 5);
+    }
+
+    /** V223: lượt đã nộp thì bỏ qua êm, không cộng thêm. */
+    @Test
+    void recordActiveTime_ignoredAfterSubmit() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        answerCorrectly(attempt.id(), mc);
+        exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        exerciseAttemptService.recordActiveTime(attempt.id(), 30, studentUser.getId());
+
+        assertThat(exerciseAttemptRepository.findById(attempt.id()).orElseThrow().getActiveSeconds()).isZero();
+    }
+
     @Test
     void submitAttempt_UC24_A3_allMultipleChoiceFullyGradesImmediately() {
         QuestionResponse mc1 = createMcQuestion();

@@ -1329,6 +1329,14 @@ export interface IntegrityEventBatchResponse {
   attemptStopped: boolean;
 }
 
+/** Bổ sung 2026-10-26 — gửi ngầm số giây học sinh thực sự ở trên màn hình làm bài, xem useActiveTimeTracker. Server trả 204, lượt đã nộp thì bỏ qua êm. */
+export function recordActiveTime(attemptId: number, seconds: number): Promise<void> {
+  return apiRequest<void>(`/attempts/${attemptId}/active-time`, {
+    method: "POST",
+    body: JSON.stringify({ seconds })
+  });
+}
+
 /** Học sinh gửi theo lô các sự kiện thoát ra ngoài khi đang làm 1 lượt Exercise — dùng chung với useIntegrityMonitor. */
 export function recordIntegrityEvents(attemptId: number, request: RecordIntegrityEventsRequest): Promise<IntegrityEventBatchResponse> {
   return apiRequest<IntegrityEventBatchResponse>(`/attempts/${attemptId}/integrity-events`, {
