@@ -686,6 +686,8 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                       textDraft={textDraft}
                       onTextChange={(qId, v) => setTextDraft((prev) => ({ ...prev, [qId]: v }))}
                       onTextBlur={(qId) => handleTextBlur(sub.item.exerciseId, qId)}
+                      onStructuredAnswer={(qId, vals) => handleStructuredAnswer(sub.item.exerciseId, qId, vals)}
+                      onStructuredDraft={(qId, vals) => textSaves.noteStructuredDraft(qId, vals)}
                       onAudioUpload={(qId, file) => handleAudioAnswer(sub.item.exerciseId, qId, file)}
                       onFilePickerOpen={() => undefined}
                       attemptId={sub.attempt.id}
