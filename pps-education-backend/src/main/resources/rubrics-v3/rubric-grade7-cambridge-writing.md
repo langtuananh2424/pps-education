@@ -31,6 +31,12 @@ Tiếng Việt chêm vào được tính trong G5 (không trừ riêng).
 |G5|Tổng số lỗi ngữ pháp + dùng từ + cụm tiếng Việt chêm vào (lỗi đỏ tính 3, lỗi vàng tính 1)|0–1|2–3|≥4|
 
 
+**Ngoại lệ dạng SHORT — câu trả lời ngắn nhưng đúng, đủ ý (28/10/2026, phản hồi học sinh: "No, I don't. I usually study at my table with books and notes instead of using a computer" bị 50%).** Chỉ áp khi **đồng thời**: (a) dạng **SHORT**; (b) bài **≥15 từ tiếng Anh nhận ra được** (không kích hoạt C3); (c) **không có lỗi đỏ**, G5 ở mức 1 (0–1 điểm lỗi); (d) trả lời đúng ý câu hỏi (không kích hoạt C1). Khi đủ bốn điều kiện, **không phạt vì bài ngắn**:
+- **G1:** chỉ có 1–2 động từ có chủ ngữ nhưng chia đúng hết → **1** (thay vì 0 của quy tắc "<3 động từ"). Từ 3 động từ trở lên giữ quy tắc thường.
+- **G3:** chưa có câu phức/ghép nào → vẫn **1** (câu đơn đúng, đủ ý không bị phạt vì thiếu câu phức).
+- **G4:** từ **6** từ nội dung khác nhau trở lên → **1** (thay vì cần ≥10).
+G2 và G5 giữ nguyên. Ngoại lệ **không** áp cho PICTURE, và **không** áp cho bài có lỗi đỏ, quá ngắn (C3) hoặc lạc đề (C1). Dùng cho cả lượt chấm bài viết lẫn bài nói (nói trên transcript).
+
 **Dạng PICTURE — không tính là sai thì:** tả ảnh bằng **hiện tại đơn** hay **hiện tại tiếp diễn** đều đúng ("Two children play ball" = "Two children are playing ball"). Chỉ tính sai thì khi dùng quá khứ hoặc tương lai cho cảnh đang diễn ra trong ảnh.
 ## §4. Bài neo — đề mẫu "What do you usually do after school?"
 
@@ -39,6 +45,11 @@ Chỉ dùng để kiểm tra chéo, **không chép vào đầu ra**. Vector = G1
 **Neo 100% — GV [1,1,1,1,1]**
 > After school I usually go home and have a snack. Then I do my homework because my mom wants me to finish it early. If I have free time, I play badminton with my neighbour, and sometimes we go to the park together.
 - G1: 7 động từ đều đúng. G2: 3/3 câu không lỗi. G3: because, if, and-mệnh đề → ≥2. G4: >10 từ. G5: 0 lỗi.
+
+**Neo 100% — câu trả lời ngắn đúng, đủ ý (ngoại lệ SHORT) — GV [1,1,1,1,1]** (đề "Do you often use computers for studying?")
+> No, I don't. I usually study at my table with books and notes instead of using a computer
+- ~18 từ → không C3; trả lời đúng ý → không C1; 0 lỗi → đủ điều kiện ngoại lệ. G1: chỉ 2 động từ có chủ ngữ (don't, study) đều đúng → **1** theo ngoại lệ. G2: 2/2 câu không lỗi (thiếu dấu chấm cuối không phải lỗi). G3: 0 câu phức → **1** theo ngoại lệ ("instead of using" là cụm gerund). G4: study, table, books, notes, use, computer = 6 → **1** theo ngoại lệ. G5: 0 lỗi → 1.
+- Bài này **không được** rơi xuống 50% chỉ vì ít động từ, không có câu phức và 6 từ nội dung.
 
 **Neo 60% — GV [0.5,0.5,0.5,1,0.5]**
 > After school I go hôm. Um I eat um cake and watch TV. Then I do homework, bicause my teacher give (...4s) many homework. Sometime I I play game wis my bra-dơ.

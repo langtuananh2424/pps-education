@@ -377,8 +377,8 @@ public class HomeworkProgressService {
                 .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId(), p -> p));
         long passedCount = questions.stream().filter(q -> {
             ReflexQuestionProgress p = progressByQuestionId.get(q.getId());
+            // Đổi 2026-10-28 — câu đạt khi bước NÓI đạt ngưỡng (mirror ReflexSequentialGradingService#toResponse).
             return p != null
-                    && p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
                     && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
         }).count();
         return Math.round(passedCount * 100f / questions.size());
