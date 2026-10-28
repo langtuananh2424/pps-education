@@ -439,6 +439,38 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(submittedSecond.passed()).isTrue();
     }
 
+    /**
+     * Bổ sung 2026-10-28 (đã xác nhận với người dùng) — bài Writing (ESSAY) chưa đạt rồi bấm "Làm lại"
+     * phải GIỮ nguyên bài viết cũ làm bản nháp (không khoá, sửa trực tiếp được), không bắt viết lại từ đầu.
+     */
+    @Test
+    void startAttempt_UC24_boSung_prefillsPreviousEssayTextOnRetake() {
+        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
+                        null, null, new BigDecimal("2.0"), null, null, null, null),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        exerciseAttemptService.saveAnswer(first.id(),
+                new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null, null), studentUser.getId());
+        exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
+
+        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+
+        StudentAnswer draft = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), essay.id()).orElseThrow();
+        assertThat(draft.getAnswerText()).isEqualTo("Bài làm của em...");
+        assertThat(draft.isCarriedOverFromPreviousAttempt()).isFalse();
+        exerciseAttemptService.saveAnswer(second.id(),
+                new SaveAnswerRequest(essay.id(), "Bài làm của em đã sửa.", null, null, null), studentUser.getId());
+    }
+
     /** V177 — chặn ở Backend, không chỉ ẩn nút ở FE. */
     @Test
     void saveAnswer_UC24_A2_rejectsEditingCarriedOverAnswer() {
@@ -497,11 +529,12 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     /**
      * V177 — ESSAY/SPEAKING chấm tay/AI không có cờ correct tin cậy (xem Javadoc
-     * ExerciseAttemptService#toResponse(StudentAnswer)) nên KHÔNG được carry-forward dù đã trả lời ở
-     * lượt trước — luôn phải nộp lại ở mọi lượt làm lại.
+     * ExerciseAttemptService#toResponse(StudentAnswer)) nên KHÔNG được carry-forward KHOÁ dù đã trả lời ở
+     * lượt trước — luôn phải nộp lại ở mọi lượt làm lại. Sửa 2026-10-28: riêng ESSAY vẫn được mang NỘI
+     * DUNG bài viết cũ sang làm bản nháp KHÔNG khoá (học sinh sửa trên bài cũ, không phải viết lại).
      */
     @Test
-    void startAttempt_UC24_A2_doesNotCarryOverManuallyGradedEssayAnswer() {
+    void startAttempt_UC24_A2_doesNotLockManuallyGradedEssayAnswerOnRetake() {
         QuestionResponse mc = createMcQuestion();
         QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
                 new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
@@ -525,7 +558,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
         ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
 
-        assertThat(studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), essay.id())).isEmpty();
+        StudentAnswer essayDraft = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), essay.id()).orElseThrow();
+        assertThat(essayDraft.isCarriedOverFromPreviousAttempt()).isFalse();
+        assertThat(essayDraft.getAnswerText()).isEqualTo("Bài làm của em...");
         assertThat(studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), mc.id())).isEmpty();
     }
 
