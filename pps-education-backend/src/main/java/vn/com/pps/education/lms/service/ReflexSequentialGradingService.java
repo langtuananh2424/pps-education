@@ -946,9 +946,16 @@ public class ReflexSequentialGradingService {
      * thật (không viết trước, không có bài viết Bước 1 làm mốc). Điểm Ngữ pháp của bước Nói chấm thẳng
      * từ transcript — không có "Cách B" (giữ nguyên/làm sàn theo bài viết, xem {@link #callSpeakingAi})
      * vì không có gì để đối chiếu.
+     *
+     * Mở rộng cùng ngày (lần 2, đã xác nhận với người dùng) — PET4 (Khối 8, PET Speaking Part 4) và
+     * PICTURE (Khối 7-8, PET Speaking Task 2 tả tranh) cũng BỎ bước Viết, cùng lý do: thi PET Speaking
+     * thật không viết trước. Dùng chung {@code Step1Anchor(0, null)} ở {@link #callSpeakingAi} — GV chấm
+     * thẳng từ transcript theo bảng checkpoint G1-G5/D1-D5/P1-P5 của rubric khối tương ứng.
      */
     private boolean isWritingSkipped(ReflexQuestionProgress progress) {
-        return progress.getReviewVideoQuestion().getQuestionFormat() == ReflexQuestionFormat.PART2;
+        ReflexQuestionFormat format = progress.getReviewVideoQuestion().getQuestionFormat();
+        return format == ReflexQuestionFormat.PART2 || format == ReflexQuestionFormat.PET4
+                || format == ReflexQuestionFormat.PICTURE;
     }
 
     private boolean isWritingUnlocked(ReflexQuestionProgress progress) {

@@ -63,12 +63,18 @@ function buildLockedYouTubeEmbedSrc(videoId: string, locked: boolean): string {
  * `isWritingSkipped` ở `ReflexSequentialGradingService` (backend). `p` còn `undefined` (câu chưa từng động
  * vào, chưa có dòng tiến trình nào) thì không đọc được `writingUnlocked` từ backend — phải tự biết qua
  * `questionFormat` để vào thẳng bước Nói ngay cả khi chưa có `p`.
+ *
+ * Mở rộng cùng ngày (lần 2, đã xác nhận với người dùng) — PET4/PICTURE (PET Speaking Part 4/Task 2, Khối
+ * 7-8 Cambridge) cũng bỏ bước Viết, cùng lý do thi thật không viết trước. Phải khớp CHÍNH XÁC với
+ * `isWritingSkipped` phía backend — đổi 1 bên mà quên bên kia sẽ lệch trạng thái hiển thị với trạng thái
+ * chấm thật.
  */
+const WRITING_SKIPPED_FORMATS = new Set(["PART2", "PET4", "PICTURE"]);
 function stageForProgress(p: ReflexQuestionProgressResponse | undefined, questionFormat?: string | null): "writing" | "speaking" | "passed" {
   if (p?.questionFinalized) return "passed";
   // V222 — bài nói đã nộp và đang chờ chấm nền: học sinh được qua câu kế ngay, điểm hiện ở phần Rà soát.
   if (p?.speakingGradingStatus === "PENDING") return "passed";
-  if (questionFormat === "PART2" || p?.writingUnlocked) return "speaking";
+  if (WRITING_SKIPPED_FORMATS.has(questionFormat ?? "") || p?.writingUnlocked) return "speaking";
   return "writing";
 }
 
@@ -1238,9 +1244,9 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const displayProgress = displayQuestionId != null ? progress[displayQuestionId] : undefined;
   const displayStage = stageForProgress(displayProgress, displayQuestion?.questionFormat);
   const isReviewing = reviewQuestionId != null;
-  /** Bổ sung 2026-10-28 — câu PART2 không có bước Viết (xem stageForProgress), nên không hiện tab "Viết"/
-   * sticker điểm Viết — chỉ còn mỗi bước Nói, hiện thẳng không cần chuyển tab. */
-  const hasWritingStage = displayQuestion?.questionFormat !== "PART2";
+  /** Bổ sung 2026-10-28 — câu PART2/PET4/PICTURE không có bước Viết (xem stageForProgress), nên không hiện
+   * tab "Viết"/sticker điểm Viết — chỉ còn mỗi bước Nói, hiện thẳng không cần chuyển tab. */
+  const hasWritingStage = !WRITING_SKIPPED_FORMATS.has(displayQuestion?.questionFormat ?? "");
 
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — TRƯỚC ĐÂY khi qua bước Nói, bài viết
@@ -1401,10 +1407,16 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
    * YouTube (tín hiệu ENDED giả tự ý reset về giây 0, xem handleVideoNaturallyEnded) — không đáng tin cậy
    * (có lúc về mốc, có lúc không, tuỳ lỗi đó có kích hoạt). Tua CHỦ ĐỘNG ở đây để luôn chắc chắn, không
    * phụ thuộc lỗi vặt đó nữa.
+   *
+   * Bổ sung 2026-10-28 (lần 3, đã xác nhận với người dùng) — mở rộng "video chạy song song khi ghi âm"
+   * cho 2 dạng PET Cambridge (PET4 — Khối 8, PICTURE — Khối 7-8). Dùng CHUNG {@link WRITING_SKIPPED_FORMATS}
+   * — không phải trùng hợp: cả 3 dạng PART2/PET4/PICTURE đều bỏ hẳn bước Viết (lần sửa 2026-10-28 thứ 4,
+   * xem Javadoc `stageForProgress`/`isWritingSkipped` backend), nên video chạy ngay từ lúc bắt đầu ghi âm
+   * (không có màn hình đứng yên chờ bước Viết trước đó) là đúng cho cả 3 — không cần tách riêng danh sách.
    */
   const startSpeakingRecording = () => {
     if (!activeQuestion) return;
-    if (activeQuestion.questionFormat === "PART2") {
+    if (WRITING_SKIPPED_FORMATS.has(activeQuestion.questionFormat ?? "")) {
       setAwaitingNextMark(true);
       seekTo(activeQuestion.timestampSeconds);
       resumeVideo();
