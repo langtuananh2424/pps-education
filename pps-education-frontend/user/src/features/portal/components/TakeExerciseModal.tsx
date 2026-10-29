@@ -2286,7 +2286,6 @@ export function GridQuestionGroup({
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
-      {block.instruction && <p className="text-sm sm:text-base italic font-bold text-muted whitespace-pre-line">{renderRichText(block.instruction)}</p>}
       {block.referencePassage && (
         <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
@@ -2301,6 +2300,14 @@ export function GridQuestionGroup({
           ))}
         </div>
       )}
+      {/*
+       * Fix bug thật 2026-10-29 (đã xác nhận với người dùng qua ảnh chụp, so sánh đề giấy gốc) — "Hướng
+       * dẫn" trước đây hiện TRƯỚC đoạn văn tham chiếu — sai thứ tự so với đề giấy gốc (đoạn văn đọc hiểu
+       * đứng TRƯỚC, "Hướng dẫn"/câu lệnh câu hỏi đứng NGAY TRÊN câu 1, SAU đoạn văn). Chuyển xuống đây
+       * (sau đoạn văn, trước hộp từ vựng/câu hỏi) để khớp đúng bố cục sách — mirror
+       * ExerciseStudentPreviewModal.tsx bên app admin.
+       */}
+      {block.instruction && <p className="text-sm sm:text-base italic font-bold text-muted whitespace-pre-line">{renderRichText(block.instruction)}</p>}
       {/*
        * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO tĩnh, khớp hình thức
        * "khung từ" trong đề giấy gốc (Ex.1 "Choose the correct word from the word box below") — chỉ để
