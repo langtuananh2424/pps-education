@@ -278,6 +278,23 @@ public class ExerciseAttemptService {
                         draft.setAutoGradable(previousAnswer.isAutoGradable());
                         studentAnswerRepository.save(draft);
                     });
+            // Bổ sung 2026-10-28 (đã xác nhận với người dùng — học sinh bấm "Làm lại" sau khi AI chấm bài
+            // Writing chưa đạt thì bài viết cũ bị mất, phải viết lại từ đầu) — câu ESSAY mang NỘI DUNG
+            // bài viết lượt trước sang làm bản nháp ban đầu của lượt mới (KHÔNG khoá, carriedOver=false,
+            // sửa trực tiếp trên bài cũ được). Không copy điểm/nhận xét chấm — lượt mới chấm lại từ đầu qua
+            // đúng pipeline sẵn có.
+            previousAnswers.stream()
+                    .filter(a -> !a.isAutoGradable()
+                            && a.getQuestion().getQuestionType() == Question.QuestionType.ESSAY
+                            && a.getAnswerText() != null && !a.getAnswerText().isBlank())
+                    .forEach(previousAnswer -> {
+                        StudentAnswer draft = new StudentAnswer();
+                        draft.setExerciseAttempt(newAttempt);
+                        draft.setQuestion(previousAnswer.getQuestion());
+                        draft.setAnswerText(previousAnswer.getAnswerText());
+                        draft.setAutoGradable(false);
+                        studentAnswerRepository.save(draft);
+                    });
         }
 
         writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.CREATED);

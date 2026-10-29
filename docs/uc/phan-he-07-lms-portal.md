@@ -2433,8 +2433,10 @@ UC-40: Soạn & giao đề kiểm tra
 
 > **Bổ sung 2026-10-28 (đã xác nhận với người dùng) --- câu hỏi dạng PART2
 > (IELTS Speaking Part 2, Khối 8-9 IELTS, ghi âm 90-120 giây) BỎ HẲN bước
-> Viết, khác hẳn mọi dạng câu hỏi khác (SHORT/PET4/PICTURE) vẫn giữ nguyên
-> luồng 2 bước Viết trước → Nói sau:**
+> Viết, khác hẳn dạng SHORT (duy nhất còn giữ nguyên luồng 2 bước Viết
+> trước → Nói sau). PET4/PICTURE nhắc tới "giữ nguyên" ở câu này ĐÃ LỖI
+> THỜI --- xem mục bổ sung 2026-10-28 phía dưới (ngay trước mục V144/V148)
+> đè lên, 2 dạng đó SAU NÀY cũng bỏ bước Viết y hệt PART2:**
 > (a) Video chạm mốc câu PART2 thì vào THẲNG bước Nói (`isWritingUnlocked`
 > luôn true cho câu PART2, `isWritingSkipped` ở
 > `ReflexSequentialGradingService`) --- không còn khung "Viết câu trả lời",
@@ -2464,6 +2466,21 @@ UC-40: Soạn & giao đề kiểm tra
 > (90-120 giây) để phát trong lúc ghi âm --- video hết đoạn/chạm mốc câu kế
 > tiếp sớm hơn thì chỉ dừng hình, KHÔNG ảnh hưởng ghi âm (vẫn chạy ngầm tới
 > hết `maxRecordingSeconds`).
+
+> **Bổ sung 2026-10-28, đã xác nhận với người dùng --- mở rộng y hệt mục
+> trên (BỎ bước Viết + video chạy song song lúc ghi âm) sang 2 dạng PET
+> Cambridge: PET4 (Khối 8) và PICTURE (Khối 7-8, tả tranh).** Lý do giống
+> PART2: cả 2 dạng này đều mô phỏng PET Speaking thật (Part 4 trả lời ngay
+> tại chỗ, Task 2 tả tranh ngay khi nhìn thấy) --- không viết trước. Kỹ
+> thuật dùng CHUNG code path với PART2 (`isWritingSkipped` backend giờ
+> trả `true` cho cả 3 format; FE `WRITING_SKIPPED_FORMATS` ở
+> `ReflexVideoTaskPage.tsx` gộp chung `{PART2, PET4, PICTURE}` cho cả 2
+> việc: bỏ tab Viết VÀ cho video chạy song song khi ghi âm) --- không phải
+> bản rubric riêng, chỉ đổi luồng UI + bỏ "Cách B" (Step1Anchor rỗng) như
+> PART2. Rubric chấm GV/DM/P của PET4/PICTURE (xem mục V200 phía trên)
+> không đổi --- vẫn chấm thẳng từ transcript theo đúng bảng checkpoint đã
+> có, chỉ khác là giờ không còn bài viết Bước 1 nào để so/đối chiếu (giống
+> PART2, không áp sàn, không xét "nói khác bài viết").
 
 > **Bổ sung V144/V148 (2026-08-24, đã xác nhận với người dùng) --- mục lục
 > Sách giáo trình cho Kho đề (đang thiếu ở tài liệu này, bổ sung lại
