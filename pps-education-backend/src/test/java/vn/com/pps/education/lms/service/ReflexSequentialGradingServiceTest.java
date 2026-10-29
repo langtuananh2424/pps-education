@@ -322,6 +322,22 @@ class ReflexSequentialGradingServiceTest {
         assertThat(third.questionFinalized()).isTrue();
     }
 
+    /** Câu PART2 (không có bước Viết) ghi âm lần đầu: chưa có dòng tiến trình → phải lưu dòng trước khi tăng lượt, không báo "hết lượt". */
+    @Test
+    void submitSpokenAnswer_UC23b_part2FirstRecording_createsRowAndDoesNotReportExhausted() {
+        Fixture f = legacySpeakingFixture();
+        when(f.question().getQuestionFormat()).thenReturn(vn.com.pps.education.common.ReflexQuestionFormat.PART2);
+        when(progressRepository.findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(QUESTION_ID, STUDENT_ID, ASSIGNMENT_ID))
+                .thenReturn(Optional.empty(), Optional.of(f.progress()));
+        when(speakingGradingService.grade(any(), any(), any(), any())).thenReturn(
+                new ReflexSpeakingContentAiGradingService.GradeResult("transcript", List.of(), 50, "feedback", null));
+
+        ReflexQuestionProgressResponse response = service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+
+        verify(progressRepository, times(2)).save(any()); // tạo dòng + ghi kết quả
+        assertThat(response.speakingAttemptCount()).isEqualTo(1);
+    }
+
     /** Alternate Flow — AI lỗi đã hoàn lượt (FAILED, 0/3): học sinh vẫn được ghi âm lại, không báo "hết lượt". */
     @Test
     void submitSpokenAnswer_UC23b_A_aiFailedRefunded_allowsResubmission() {
