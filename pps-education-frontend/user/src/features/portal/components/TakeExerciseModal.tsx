@@ -450,6 +450,28 @@ export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]):
 }
 
 /**
+ * Bổ sung 2026-10-29 (đã xác nhận với người dùng) — khi nhiều "phần" khác nhau (VD IELTS Listening
+ * Section 1: Q1-6 "điền phiếu thông tin" + Q7-8 "chọn 2 đáp án") được gộp CHUNG 1 groupKey vì cùng 1
+ * URL Audio (xem backend QuestionImportService#AUDIO_GROUPABLE_KINDS), khối chỉ hiện ĐÚNG 1 "Hướng
+ * dẫn" duy nhất ở đầu (của câu đầu tiên) — Hướng dẫn của các phần sau trong CÙNG khối bị "nuốt" mất,
+ * học sinh không biết câu 7-8 đổi sang dạng bài khác dù audio vẫn đúng DÙNG CHUNG 1 LẦN. Tính lại ranh
+ * giới: câu nào có structuredContent.instruction KHÁC Hướng dẫn gần nhất đã hiện (kể cả Hướng dẫn ở
+ * đầu khối) thì hiện lại 1 dòng Hướng dẫn mới ngay trước câu đó. Mirror admin/.../ExerciseStudentPreviewModal.tsx.
+ */
+export function attachSectionInstructions(
+  questions: ExerciseQuestionResponse[],
+  blockInstruction: string | null
+): { question: ExerciseQuestionResponse; sectionInstruction: string | null }[] {
+  let lastInstruction = blockInstruction;
+  return questions.map((question) => {
+    const instruction = question.structuredContent?.instruction ?? null;
+    const sectionInstruction = instruction != null && instruction !== lastInstruction ? instruction : null;
+    if (sectionInstruction != null) lastInstruction = sectionInstruction;
+    return { question, sectionInstruction };
+  });
+}
+
+/**
  * UC-24/A4, UC-27/A2: đáp án đúng (correctChoiceIds/correctAnswerText/correctStructuredContent) đã
  * thật sự lộ ra chưa — dùng chung cho mọi loại câu hỏi thay vì kiểm tra riêng lẻ isCorrect (field đó
  * luôn có giá trị ngay khi tự chấm xong, không phụ thuộc gate làm lại). Câu tự luận/Nói (ESSAY/
@@ -2373,7 +2395,7 @@ export function GridQuestionGroup({
         </div>
       ) : (
       <div className="divide-y divide-line/50">
-        {block.questions.map((q, qIndex) => {
+        {attachSectionInstructions(block.questions, block.instruction).map(({ question: q, sectionInstruction }, qIndex) => {
           const answer = answersByQuestion.get(q.questionId);
           const selected = new Set(answer?.selectedChoiceIds ?? []);
           const correctIds = new Set(answer?.correctChoiceIds ?? []);
@@ -2401,8 +2423,14 @@ export function GridQuestionGroup({
           // WordBankBlock bên dưới tự render questionContent làm chính văn bản tương tác (mirror
           // QuestionBlock#WORD_BANK ở trên) — hiện lại nguyên văn ở đây sẽ bị lặp cả đoạn 2 lần.
           const hideContentText = isWordBankRow || (isSharedImageGroup && isBlankOnlyContent(q.questionContent));
+          // WORD_BANK tự hiện Hướng dẫn riêng qua prop `instruction` của WordBankBlock bên dưới (xem
+          // q.structuredContent.instruction truyền vào đó) — không lặp lại sub-header ở đây.
           return (
-            <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
+            <React.Fragment key={q.id}>
+              {sectionInstruction && !isWordBankRow && (
+                <p className="pt-2.5 lg:pt-3.5 text-sm sm:text-base italic text-muted whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
+              )}
+            <div className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-base sm:text-base lg:text-lg font-bold text-ink flex-1 min-w-[160px]">
                   {startNumber != null ? startNumber + qIndex : q.displayOrder}.{!hideContentText && <> {renderRichText(q.questionContent)}</>}
@@ -2600,6 +2628,7 @@ export function GridQuestionGroup({
                 </div>
               )}
             </div>
+            </React.Fragment>
           );
         })}
       </div>
