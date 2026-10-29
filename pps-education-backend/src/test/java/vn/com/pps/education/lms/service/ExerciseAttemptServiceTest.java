@@ -854,6 +854,57 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(answer.isCorrect()).isFalse();
     }
 
+    /**
+     * Bổ sung 2026-10-29 (đã xác nhận với người dùng — fix bug thật: ô "blanks" của WORD_BANK liệt kê
+     * nhiều phương án phân tách "/" (VD "fifteen dollars / $15 / 15 dollars") bị so khớp NGUYÊN VĂN
+     * cả chuỗi thay vì tách "/" như FILL_IN_BLANK đã làm — học sinh gõ đúng 1 trong các phương án vẫn
+     * bị chấm sai). Khớp BẤT KỲ phương án nào trong "blanks" là ĐÚNG, tương tự
+     * {@link ExerciseAttemptServiceTest#submitAttempt_MainFlow_wordBankGradesCorrectOrderedAnswers}.
+     */
+    @Test
+    void submitAttempt_UC27_boSung_wordBankAcceptsAnySlashSeparatedVariantPerBlank() {
+        QuestionResponse wordBank = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("WORD_BANK", "LISTENING", "EASY",
+                        "How much does it cost to register? ___",
+                        null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("blanks", List.of("fifteen dollars / $15 / 15 dollars")), null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(wordBank), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("$15")), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.status()).isEqualTo("FULLY_GRADED");
+        assertThat(submitted.totalScore()).isEqualByComparingTo("1.0");
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isCorrect()).isTrue();
+    }
+
+    /** Bổ sung 2026-10-29 — vẫn chấm SAI khi không khớp phương án nào trong danh sách "/" đã soạn. */
+    @Test
+    void submitAttempt_UC27_boSung_wordBankRejectsAnswerNotMatchingAnySlashVariant() {
+        QuestionResponse wordBank = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("WORD_BANK", "LISTENING", "EASY",
+                        "How much does it cost to register? ___",
+                        null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("blanks", List.of("fifteen dollars / $15 / 15 dollars")), null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(wordBank), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("15")), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.totalScore()).isEqualByComparingTo("0");
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isCorrect()).isFalse();
+    }
+
     /** V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): Sắp xếp câu. */
     @Test
     void submitAttempt_MainFlow_sentenceBuildingGradesCorrectOrder() {

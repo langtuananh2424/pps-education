@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ClipboardList, Download, Layers, Pencil, Plus, Trash2, Users, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardList, Download, Layers, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
@@ -40,6 +40,7 @@ import {
   updateExerciseQuestionPoints
 } from "../api";
 import CreateAndAssignExerciseModal, { ExerciseQuestionsStep } from "../components/CreateAndAssignExerciseModal";
+import BulkMediaUploadModal from "../components/BulkMediaUploadModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
 import ExerciseStudentPreviewModal from "../components/ExerciseStudentPreviewModal";
 import QuestionEditorForm from "../components/QuestionEditorForm";
@@ -121,6 +122,7 @@ export default function ExerciseAssignPage() {
   const [loadingExams, setLoadingExams] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
   const [createExamOpen, setCreateExamOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
@@ -230,12 +232,20 @@ export default function ExerciseAssignPage() {
           <p className="text-sm text-slate-500 mt-1">{t("assignPage.description")}</p>
         </div>
         {canManage && (
-          <Button variant="primary" size="sm" onClick={() => setCreateExamOpen(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            {t("assignPage.createExam")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setBulkUploadOpen(true)}>
+              <Upload className="w-3.5 h-3.5" />
+              {t("bulkUpload.open")}
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setCreateExamOpen(true)}>
+              <Plus className="w-3.5 h-3.5" />
+              {t("assignPage.createExam")}
+            </Button>
+          </div>
         )}
       </div>
+
+      {bulkUploadOpen && <BulkMediaUploadModal onClose={() => setBulkUploadOpen(false)} />}
 
       <FloatingError message={error} onClose={() => setError(null)} />
 

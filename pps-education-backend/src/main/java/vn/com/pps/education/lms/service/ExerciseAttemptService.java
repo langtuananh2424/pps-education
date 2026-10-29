@@ -910,7 +910,9 @@ public class ExerciseAttemptService {
     /**
      * WORD_BANK/SENTENCE_BUILDING (V85, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-08-04): so khớp elementwise (case-insensitive + trim), ĐÚNG thứ tự — student phải chọn
-     * đúng thứ tự (khớp key "blanks"/"chunks" trong Question.structuredContent).
+     * đúng thứ tự (khớp key "blanks"/"chunks" trong Question.structuredContent). Từ 2026-10-29 (đã
+     * xác nhận với người dùng): riêng key "blanks" (WORD_BANK, KHÔNG phải "chunks" của
+     * SENTENCE_BUILDING), mỗi ô nhận NHIỀU phương án phân tách "/" — xem {@link #blankMatches}.
      */
     private boolean structuredAnswerMatches(Question question, String key, List<String> given) {
         if (given == null || question.getStructuredContent() == null) {
@@ -923,14 +925,37 @@ public class ExerciseAttemptService {
         if (!(raw instanceof List<?> correctList) || correctList.size() != given.size()) {
             return false;
         }
+        boolean isBlanksKey = "blanks".equals(key);
         for (int i = 0; i < correctList.size(); i++) {
             String correct = String.valueOf(correctList.get(i));
             String submitted = given.get(i);
-            if (submitted == null || !correct.trim().equalsIgnoreCase(submitted.trim())) {
+            boolean matched = isBlanksKey
+                    ? blankMatches(correct, submitted)
+                    : submitted != null && correct.trim().equalsIgnoreCase(submitted.trim());
+            if (!matched) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Bổ sung 2026-10-29 (đã xác nhận với người dùng) — áp dụng cho key "blanks" (WORD_BANK, không
+     * phải dạng "form" đã có {@link FormAnswerMatcher} riêng): đáp án đúng 1 ô có thể liệt kê NHIỀU
+     * phương án phân tách "/" (VD "fifteen dollars / $15 / 15 dollars"), mirror
+     * {@link #parseAcceptedAnswers} đang dùng cho FILL_IN_BLANK — khớp ÍT NHẤT 1 phương án là đúng.
+     * Ô đáp án đúng để trống (hợp lệ, VD "không cần mạo từ") chỉ khớp khi học sinh cũng để trống.
+     */
+    private static boolean blankMatches(String correct, String submitted) {
+        if (submitted == null) {
+            return false;
+        }
+        String strippedGiven = stripTrailingPunctuation(submitted);
+        if (correct == null || correct.isBlank()) {
+            return strippedGiven.isEmpty();
+        }
+        return parseAcceptedAnswers(correct).stream()
+                .anyMatch(variant -> stripTrailingPunctuation(variant).equalsIgnoreCase(strippedGiven));
     }
 
     /**
@@ -952,7 +977,7 @@ public class ExerciseAttemptService {
         for (int i = 0; i < correctList.size(); i++) {
             String correct = String.valueOf(correctList.get(i));
             String submitted = i < given.size() ? given.get(i) : null;
-            if (submitted != null && correct.trim().equalsIgnoreCase(submitted.trim())) {
+            if (blankMatches(correct, submitted)) {
                 result.add(submitted);
                 anyCorrect = true;
             } else {
@@ -1044,7 +1069,7 @@ public class ExerciseAttemptService {
         for (int i = 0; i < total; i++) {
             String correct = String.valueOf(correctList.get(i));
             String submitted = i < given.size() ? given.get(i) : null;
-            if (submitted != null && correct.trim().equalsIgnoreCase(submitted.trim())) {
+            if (blankMatches(correct, submitted)) {
                 matched++;
             }
         }

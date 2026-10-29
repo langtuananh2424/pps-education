@@ -184,19 +184,22 @@ public class QuestionImportService {
     private final QuestionBankService questionBankService;
     private final UserRepository userRepository;
     private final List<QuestionRowParser> parsers;
+    private final ImportMediaUrlResolver mediaUrlResolver;
 
     public QuestionImportService(ImportJobRepository importJobRepository,
                                   QuestionBankRepository questionBankRepository,
                                   ExamRepository examRepository,
                                   QuestionBankService questionBankService,
                                   UserRepository userRepository,
-                                  List<QuestionRowParser> parsers) {
+                                  List<QuestionRowParser> parsers,
+                                  ImportMediaUrlResolver mediaUrlResolver) {
         this.importJobRepository = importJobRepository;
         this.questionBankRepository = questionBankRepository;
         this.examRepository = examRepository;
         this.questionBankService = questionBankService;
         this.userRepository = userRepository;
         this.parsers = parsers;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     /**
@@ -270,6 +273,10 @@ public class QuestionImportService {
             try (InputStream inputStream = file.getInputStream()) {
                 parsedRows = parser.parse(inputStream);
             }
+            // Đường dẫn tương đối trong "URL Audio"/"URL Hình ảnh" → link đầy đủ theo môi trường (xem ImportMediaUrlResolver).
+            parsedRows = parsedRows.stream()
+                    .map(r -> r.withMediaUrls(mediaUrlResolver.resolveAudio(r.audioUrl()), mediaUrlResolver.resolveImage(r.imageUrl())))
+                    .toList();
 
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
@@ -718,8 +725,14 @@ public class QuestionImportService {
         return skill;
     }
 
+    // Bổ sung 2026-10-29 (đã xác nhận với người dùng) — fix gap thật: KIND_FORM_COMPLETION
+    // (NGHE_PHIEU_THONG_TIN) bị bỏ sót khỏi tập này dù đi qua đúng mapToRequest()/computeAutoGroupKeys()
+    // như các kind nghe khác — khiến 1 bài IELTS Listening Section chuẩn (VD Q1-6 "điền phiếu thông tin"
+    // + Q7-8 "NGHE_NHIEU_DAP_AN" ngay sau) dù GV điền ĐÚNG CÙNG 1 "URL Audio" ở cả 2 dòng vẫn luôn bị
+    // tách 2 nhóm riêng (2 audio player, không gộp được) vì kênh audio bị ép null cho KIND_FORM_COMPLETION
+    // ở computeAutoGroupKeys (audio = AUDIO_GROUPABLE_KINDS.contains(kind) ? ... : null).
     private static final Set<String> AUDIO_GROUPABLE_KINDS = Set.of("TRAC_NGHIEM_VOICE", "NGHE_DIEN_TU", "NGHE_NOP_AUDIO", "NGHE_CHON_HINH",
-            KIND_LISTENING_MULTIPLE_ANSWER);
+            KIND_LISTENING_MULTIPLE_ANSWER, KIND_FORM_COMPLETION);
     /**
      * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — kênh gộp nhóm THỨ 3 (cạnh đoạn văn/audio ở
      * trên), riêng cho ANH_TRAC_NGHIEM: nhiều dòng LIÊN TIẾP cùng "URL Hình ảnh" (VD 4 câu matching cùng
