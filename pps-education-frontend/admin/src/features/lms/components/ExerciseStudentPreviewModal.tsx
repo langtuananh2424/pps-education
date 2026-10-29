@@ -133,6 +133,29 @@ function computeStartNumbers(blocks: RenderBlock[]): number[] {
   return blocks.map((b) => (b.type === "grid" ? b.questions[0].displayOrder : b.question.displayOrder));
 }
 
+/**
+ * Bổ sung 2026-10-29 (đã xác nhận với người dùng) — khi nhiều "phần" khác nhau (VD IELTS Listening
+ * Section 1: Q1-6 "điền phiếu thông tin" + Q7-8 "chọn 2 đáp án") được gộp CHUNG 1 groupKey vì cùng 1
+ * URL Audio (xem backend QuestionImportService#AUDIO_GROUPABLE_KINDS), khối chỉ hiện ĐÚNG 1 "Hướng dẫn"
+ * duy nhất ở đầu (của câu đầu tiên) — Hướng dẫn của các phần sau trong CÙNG khối bị "nuốt" mất hoàn
+ * toàn, học sinh không biết câu 7-8 đổi sang dạng bài khác. Tính lại ranh giới: câu nào có
+ * structuredContent.instruction KHÁC với Hướng dẫn gần nhất đã hiện (kể cả Hướng dẫn ở đầu khối) thì
+ * hiện lại 1 dòng Hướng dẫn mới ngay trước câu đó — chỉ audio là DÙNG CHUNG 1 LẦN, còn Hướng dẫn vẫn
+ * tách đúng theo cột "Hướng dẫn" của từng dòng Excel gốc.
+ */
+function attachSectionInstructions(
+  questions: ExerciseQuestionResponse[],
+  blockInstruction: string | null
+): { question: ExerciseQuestionResponse; sectionInstruction: string | null }[] {
+  let lastInstruction = blockInstruction;
+  return questions.map((question) => {
+    const instruction = question.structuredContent?.instruction ?? null;
+    const sectionInstruction = instruction != null && instruction !== lastInstruction ? instruction : null;
+    if (sectionInstruction != null) lastInstruction = sectionInstruction;
+    return { question, sectionInstruction };
+  });
+}
+
 interface ExerciseStudentPreviewModalProps {
   exercise: ExerciseResponse;
   onClose: () => void;
@@ -278,8 +301,13 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {block.questions.map((q, qIndex) => (
-            <GridQuestionRowPreview key={q.id} question={q} displayNumber={startNumber + qIndex} hideImage={isSharedImageGroup} />
+          {attachSectionInstructions(block.questions, block.instruction).map(({ question: q, sectionInstruction }, qIndex) => (
+            <React.Fragment key={q.id}>
+              {sectionInstruction && (
+                <p className="pt-2 text-sm sm:text-base italic text-slate-500 whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
+              )}
+              <GridQuestionRowPreview question={q} displayNumber={startNumber + qIndex} hideImage={isSharedImageGroup} />
+            </React.Fragment>
           ))}
         </div>
       )}

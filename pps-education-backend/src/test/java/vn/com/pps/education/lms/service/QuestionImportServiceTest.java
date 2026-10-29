@@ -365,6 +365,39 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * Bổ sung 2026-10-29 (đã xác nhận với người dùng) — fix gap thật: NGHE_PHIEU_THONG_TIN bị bỏ sót
+     * khỏi AUDIO_GROUPABLE_KINDS nên trước fix này, 1 bài IELTS Listening Section chuẩn (Q1-6 "điền
+     * phiếu thông tin" + Q7-8 "NGHE_NHIEU_DAP_AN" liền sau, CÙNG 1 URL Audio) luôn bị tách 2 nhóm
+     * riêng (2 audio player) dù GV điền đúng cùng link audio ở cả 2 dòng — phát hiện khi review preview
+     * "Xem trước dạng học sinh" của exercise G6-STD-C2-U7... thấy audio player thứ 2 rỗng vì tách nhóm.
+     */
+    @Test
+    void importQuestions_boSung_autoGroupsFormCompletionWithFollowingMultipleAnswerSharingAudioUrl() throws IOException {
+        String audioUrl = "https://example.com/listening/section1-library.mp3";
+        byte[] file = buildExcel(new String[][]{
+                {"NGHE_PHIEU_THONG_TIN", null, "- Family name: Milton\n- First names: (1) ___", null, null, null, null,
+                        "Jayne", audioUrl, null, "Fill in each blank.", "1", null, null},
+                {"NGHE_NHIEU_DAP_AN", null, "What will the woman use the internet for?", "to check email", "to book a room",
+                        "to read news", "to watch videos", "A|B", audioUrl, null, null, "2", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "section1-listening.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(2);
+
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        QuestionResponse formQuestion = findByContentPrefix(saved, "- Family name");
+        QuestionResponse multiAnswerQuestion = findByContentPrefix(saved, "What will the woman use the internet for");
+
+        assertThat(formQuestion.groupKey()).isNotNull();
+        assertThat(formQuestion.groupKey()).isEqualTo(multiAnswerQuestion.groupKey());
+        assertThat(formQuestion.audioUrl()).isEqualTo(audioUrl);
+        assertThat(multiAnswerQuestion.audioUrl()).isEqualTo(audioUrl);
+    }
+
+    /**
      * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — "Nghe chọn hình" (VOICE_PICTURE_CHOICE) mở khóa
      * import Excel qua kind NGHE_CHON_HINH: mỗi đáp án 1 ảnh lấy từ "URL Hình ảnh" phân tách "|", "Đáp
      * án A/B/C" (không điền) tự dùng chữ cái làm nhãn mặc định.
