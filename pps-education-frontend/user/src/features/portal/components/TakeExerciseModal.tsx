@@ -2301,10 +2301,25 @@ export function GridQuestionGroup({
         </div>
       )}
       {/*
+       * Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — ảnh DÙNG CHUNG
+       * hiện 1 LẦN DUY NHẤT ở đây (mirror block.referencePassage ở trên), KHÔNG lặp lại ở từng dòng câu
+       * hỏi bên dưới (xem chỗ render ảnh riêng từng câu, đã thêm điều kiện !isSharedImageGroup).
+       *
+       * Fix bug thật 2026-10-30 (đã xác nhận với người dùng qua ảnh chụp, so sánh đề giấy gốc) — trước
+       * đây hiện SAU "Hướng dẫn"/hộp từ vựng/audio — sai thứ tự so với đề giấy gốc (ảnh/biểu đồ tham
+       * chiếu luôn đứng NGAY SAU tiêu đề Ex., TRƯỚC câu lệnh "A. Complete..."). Chuyển lên đây, ngay sau
+       * đoạn văn tham chiếu — mirror đúng vị trí referencePassage, và mirror
+       * ExerciseStudentPreviewModal.tsx bên app admin.
+       */}
+      {isSharedImageGroup && block.imageUrl && (
+        <QuestionImages imageUrl={block.imageUrl} className="block w-full max-w-[780px] mx-auto rounded-xl border border-line/60" />
+      )}
+
+      {/*
        * Fix bug thật 2026-10-29 (đã xác nhận với người dùng qua ảnh chụp, so sánh đề giấy gốc) — "Hướng
        * dẫn" trước đây hiện TRƯỚC đoạn văn tham chiếu — sai thứ tự so với đề giấy gốc (đoạn văn đọc hiểu
        * đứng TRƯỚC, "Hướng dẫn"/câu lệnh câu hỏi đứng NGAY TRÊN câu 1, SAU đoạn văn). Chuyển xuống đây
-       * (sau đoạn văn, trước hộp từ vựng/câu hỏi) để khớp đúng bố cục sách — mirror
+       * (sau đoạn văn/ảnh tham chiếu, trước hộp từ vựng/câu hỏi) để khớp đúng bố cục sách — mirror
        * ExerciseStudentPreviewModal.tsx bên app admin.
        */}
       {block.instruction && <p className="text-sm sm:text-base italic font-bold text-muted whitespace-pre-line">{renderRichText(block.instruction)}</p>}
@@ -2349,14 +2364,6 @@ export function GridQuestionGroup({
             />
           )}
         </div>
-      )}
-      {/*
-       * Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — ảnh DÙNG CHUNG
-       * hiện 1 LẦN DUY NHẤT ở đây (mirror block.referencePassage/block.audioUrl ở trên), KHÔNG lặp lại ở
-       * từng dòng câu hỏi bên dưới (xem chỗ render ảnh riêng từng câu, đã thêm điều kiện !isSharedImageGroup).
-       */}
-      {isSharedImageGroup && block.imageUrl && (
-        <QuestionImages imageUrl={block.imageUrl} className="block w-full max-w-[780px] mx-auto rounded-xl border border-line/60" />
       )}
       {isPictureMatchGrid ? (
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">

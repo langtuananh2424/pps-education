@@ -252,10 +252,22 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
         </div>
       )}
       {/*
+       * Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — ảnh DÙNG CHUNG
+       * hiện 1 LẦN DUY NHẤT ở đây (mirror block.referencePassage ở trên), KHÔNG lặp lại trong từng dòng
+       * câu hỏi bên dưới (xem prop hideImage ở GridQuestionRowPreview).
+       *
+       * Fix bug thật 2026-10-30 (đã xác nhận với người dùng qua ảnh chụp, so sánh đề giấy gốc) — trước
+       * đây hiện SAU "Hướng dẫn"/hộp từ vựng/audio — sai thứ tự so với đề giấy gốc (ảnh/biểu đồ tham
+       * chiếu luôn đứng NGAY SAU tiêu đề Ex., TRƯỚC câu lệnh "A. Complete..."). Chuyển lên đây, ngay sau
+       * đoạn văn tham chiếu — mirror đúng vị trí referencePassage.
+       */}
+      {isSharedImageGroup && block.imageUrl && <QuestionImages imageUrl={block.imageUrl} large />}
+
+      {/*
        * Fix bug thật 2026-10-29 (đã xác nhận với người dùng qua ảnh chụp, so sánh đề giấy gốc) — "Hướng
        * dẫn" trước đây hiện TRƯỚC đoạn văn tham chiếu (referencePassage) — sai thứ tự so với đề giấy gốc
        * (đoạn văn đọc hiểu đứng TRƯỚC, "Hướng dẫn"/câu lệnh câu hỏi đứng NGAY TRÊN câu 1, SAU đoạn văn).
-       * Chuyển xuống đây (sau đoạn văn, trước hộp từ vựng/câu hỏi) để khớp đúng bố cục sách.
+       * Chuyển xuống đây (sau đoạn văn/ảnh tham chiếu, trước hộp từ vựng/câu hỏi) để khớp đúng bố cục sách.
        */}
       {block.instruction && <p className="text-sm sm:text-base italic font-bold text-slate-500 whitespace-pre-line">{renderRichText(block.instruction)}</p>}
 
@@ -279,13 +291,6 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
         // eslint-disable-next-line jsx-a11y/media-has-caption
         <audio controls src={block.audioUrl} className="w-full" />
       )}
-
-      {/*
-       * Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — ảnh DÙNG CHUNG
-       * hiện 1 LẦN DUY NHẤT ở đây (mirror block.referencePassage/block.audioUrl ở trên), KHÔNG lặp lại
-       * trong từng dòng câu hỏi bên dưới (xem prop hideImage ở GridQuestionRowPreview).
-       */}
-      {isSharedImageGroup && block.imageUrl && <QuestionImages imageUrl={block.imageUrl} large />}
 
       {/*
        * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18, mirror TakeExerciseModal#GridQuestionGroup
