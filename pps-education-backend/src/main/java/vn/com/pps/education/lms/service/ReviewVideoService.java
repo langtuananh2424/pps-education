@@ -172,6 +172,16 @@ public class ReviewVideoService {
     /** V200 — kiểm tra + gán dạng đề / dữ liệu tranh của câu hỏi REFLEX. */
     private final ReflexQuestionFormatService reflexQuestionFormatService;
     private double connectionMinWatchRatio;
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-28 — YouTube Data API (dùng lúc import,
+     * xem {@link YouTubeDurationService}) và YouTube IFrame Player API (dùng lúc phát thật ở client, xem
+     * {@code ReviewVideoTaskModal.tsx}) có thể trả về 2 con số thời lượng lệch nhau vài giây cho CÙNG 1
+     * video — đã xác nhận bằng dữ liệu thật: nhiều lượt xem CONNECTION kẹt vĩnh viễn ở đúng
+     * {@code watchedSeconds = durationSeconds - 1} dù học sinh đã xem hết (video ENDED, không tua lại
+     * được nên không có cách nào tự phục hồi). Dung sai này áp dụng cho cả so sánh tuyệt đối (CONNECTION)
+     * lẫn so sánh theo % (REFLEX) ở {@link #reportProgress}.
+     */
+    private static final int QUALIFIED_WATCH_TOLERANCE_SECONDS = 2;
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
@@ -1208,10 +1218,13 @@ public class ReviewVideoService {
         // xem HẾT (100%, cố định, không còn cấu hình %) mới được làm câu hỏi; completionThresholdPercent
         // đổi ý nghĩa cho CONNECTION thành "ngưỡng % pass" (dùng ở computeConnectionPassScore), KHÔNG
         // còn dùng để tính qualified nữa. REFLEX giữ nguyên y hệt logic cũ (đọc completionThresholdPercent).
+        // Trừ thêm QUALIFIED_WATCH_TOLERANCE_SECONDS — xem Javadoc hằng số.
         ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         boolean qualified = video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION
-                ? sessionWatchedSeconds >= video.getDurationSeconds() && hasWatchedForRealTime(session, video)
-                : sessionWatchedSeconds >= video.getDurationSeconds() * (video.getCompletionThresholdPercent() / 100.0);
+                ? sessionWatchedSeconds >= video.getDurationSeconds() - QUALIFIED_WATCH_TOLERANCE_SECONDS
+                        && hasWatchedForRealTime(session, video)
+                : sessionWatchedSeconds >= video.getDurationSeconds() * (video.getCompletionThresholdPercent() / 100.0)
+                        - QUALIFIED_WATCH_TOLERANCE_SECONDS;
         session.setQualified(qualified);
         reviewVideoWatchSessionRepository.save(session);
 
