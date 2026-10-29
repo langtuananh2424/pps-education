@@ -1386,9 +1386,9 @@ export function QuestionBlock({
          * loại khác — hiện lại y nguyên ở đây thành ra lặp NGUYÊN VĂN cả đoạn 2 lần (1 lần thô không
          * tương tác, 1 lần có ô điền thật). Ẩn hẳn span nội dung cho riêng WORD_BANK, chỉ giữ số thứ tự.
          */}
-        <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
+        <p className="text-sm sm:text-base lg:text-lg font-normal text-ink">
           {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
-            <span className="block text-base sm:text-lg italic font-normal text-muted whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
+            <span className="block text-base sm:text-lg italic font-bold text-muted whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
           )}
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
@@ -2037,7 +2037,7 @@ function WordBankBlock({
     <div className="space-y-2">
       {/* 2026-10-14 (đã xác nhận với người dùng) — tăng cỡ chữ dòng hướng dẫn, mirror QuestionPreview.tsx
        * (trước đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc). */}
-      {instruction && <p className="text-sm sm:text-base italic text-muted">{renderRichText(instruction)}</p>}
+      {instruction && <p className="text-sm sm:text-base italic font-bold text-muted">{renderRichText(instruction)}</p>}
       {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{renderRichText(title)}</p>}
       {wordPool.length > 0 && (
         <div className="space-y-1">
@@ -2057,7 +2057,7 @@ function WordBankBlock({
           </table>
         </div>
       )}
-      <p className={`text-sm sm:text-base lg:text-lg ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-ink leading-8 lg:leading-10`}>
+      <p className={`text-sm sm:text-base lg:text-lg font-normal text-ink leading-8 lg:leading-10 ${formMode ? "whitespace-pre-line" : ""}`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
             {renderRichText(part)}
@@ -2286,7 +2286,7 @@ export function GridQuestionGroup({
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
-      {block.instruction && <p className="text-sm sm:text-base italic text-muted whitespace-pre-line">{renderRichText(block.instruction)}</p>}
+      {block.instruction && <p className="text-sm sm:text-base italic font-bold text-muted whitespace-pre-line">{renderRichText(block.instruction)}</p>}
       {block.referencePassage && (
         <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
@@ -2428,11 +2428,11 @@ export function GridQuestionGroup({
           return (
             <React.Fragment key={q.id}>
               {sectionInstruction && !isWordBankRow && (
-                <p className="pt-2.5 lg:pt-3.5 text-sm sm:text-base italic text-muted whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
+                <p className="pt-2.5 lg:pt-3.5 text-sm sm:text-base italic font-bold text-muted whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
               )}
             <div className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-base sm:text-base lg:text-lg font-bold text-ink flex-1 min-w-[160px]">
+                <span className="text-base sm:text-base lg:text-lg font-normal text-ink flex-1 min-w-[160px]">
                   {startNumber != null ? startNumber + qIndex : q.displayOrder}.{!hideContentText && <> {renderRichText(q.questionContent)}</>}
                 </span>
                 {isLockedCarriedOver(answer) && <CarriedOverBadge />}
@@ -2592,7 +2592,7 @@ export function GridQuestionGroup({
                   }
                   inputMode={q.structuredContent!.inputMode}
                   formMode={q.structuredContent!.format === "form"}
-                  instruction={q.structuredContent!.instruction ?? (q.structuredContent!.format === "form" ? q.referencePassage : null)}
+                  instruction={sectionInstruction ?? (q.structuredContent!.format === "form" ? q.referencePassage : null)}
                   initialAnswer={answer?.structuredAnswer ?? undefined}
                   readOnly={rowReadOnly}
                   saving={saving}

@@ -237,7 +237,7 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
-      {block.instruction && <p className="text-sm sm:text-base italic text-slate-500 whitespace-pre-line">{renderRichText(block.instruction)}</p>}
+      {block.instruction && <p className="text-sm sm:text-base italic font-bold text-slate-500 whitespace-pre-line">{renderRichText(block.instruction)}</p>}
       {block.referencePassage && (
         <div className="bg-slate-50 rounded-xl p-3 space-y-2">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
@@ -301,14 +301,31 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {attachSectionInstructions(block.questions, block.instruction).map(({ question: q, sectionInstruction }, qIndex) => (
-            <React.Fragment key={q.id}>
-              {sectionInstruction && (
-                <p className="pt-2 text-sm sm:text-base italic text-slate-500 whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
-              )}
-              <GridQuestionRowPreview question={q} displayNumber={startNumber + qIndex} hideImage={isSharedImageGroup} />
-            </React.Fragment>
-          ))}
+          {attachSectionInstructions(block.questions, block.instruction).map(({ question: q, sectionInstruction }, qIndex) => {
+            // Fix bug thật 2026-10-29 (đã xác nhận với người dùng qua ảnh chụp) — câu WORD_BANK tự hiện
+            // "Hướng dẫn" riêng qua prop `instruction` của WordBankPreview bên dưới (xem GridQuestionRowPreview),
+            // nếu CŨNG hiện thêm đoạn <p> sectionInstruction ở đây thì "Hướng dẫn" bị lặp 2 LẦN cho câu
+            // WORD_BANK (1 lần ở đây, 1 lần trong WordBankPreview) — kể cả khi sectionInstruction đã null
+            // (trùng block.instruction) vẫn còn 1 lần lặp từ WordBankPreview vì nó đọc THẲNG
+            // question.structuredContent.instruction, không biết gì về việc block đã hiện rồi. Truyền
+            // sectionInstruction xuống làm NGUỒN DUY NHẤT cho WordBankPreview#instruction (xem
+            // GridQuestionRowPreview) thay vì đọc lại structuredContent.instruction — tự động null khi
+            // trùng Hướng dẫn đã hiện (ở block hoặc section trước), không cần đoạn <p> riêng nữa.
+            const isWordBankRow = q.questionType === "WORD_BANK" && !!q.structuredContent?.blanks;
+            return (
+              <React.Fragment key={q.id}>
+                {sectionInstruction && !isWordBankRow && (
+                  <p className="pt-2 text-sm sm:text-base italic font-bold text-slate-500 whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
+                )}
+                <GridQuestionRowPreview
+                  question={q}
+                  displayNumber={startNumber + qIndex}
+                  hideImage={isSharedImageGroup}
+                  sectionInstruction={sectionInstruction}
+                />
+              </React.Fragment>
+            );
+          })}
         </div>
       )}
     </div>
@@ -318,13 +335,18 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
 function GridQuestionRowPreview({
   question,
   displayNumber,
-  hideImage
+  hideImage,
+  sectionInstruction
 }: {
   question: ExerciseQuestionResponse;
   displayNumber: number;
   /** Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — true khi ảnh của câu này đã hiện
    * 1 LẦN DUY NHẤT ở đầu khối nhóm (block.imageUrl, xem GridQuestionGroupPreview), không lặp lại ở đây. */
   hideImage?: boolean;
+  /** Bổ sung 2026-10-29 (đã xác nhận với người dùng) — "Hướng dẫn" ĐÃ qua dedup ở GridQuestionGroupPreview
+   * (null nếu trùng Hướng dẫn đã hiện ở block hoặc câu liền trước) — dùng làm nguồn DUY NHẤT cho
+   * WordBankPreview#instruction bên dưới, xem Javadoc ở chỗ gọi component này. */
+  sectionInstruction?: string | null;
 }) {
   const { t } = useTranslation("lms-question-authoring");
   const isChoiceRow = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
@@ -347,7 +369,7 @@ function GridQuestionRowPreview({
 
   return (
     <div className="py-2.5 space-y-2">
-      <span className="text-sm font-bold text-slate-800">
+      <span className="text-sm font-normal text-slate-800">
         {displayNumber}.{!hideContentText && <> {renderRichText(question.questionContent)}</>}
       </span>
 
@@ -374,7 +396,7 @@ function GridQuestionRowPreview({
           }
           inputMode={question.structuredContent!.inputMode}
           formMode={question.structuredContent!.format === "form"}
-          instruction={question.structuredContent!.instruction ?? (question.structuredContent!.format === "form" ? question.referencePassage : null)}
+          instruction={sectionInstruction ?? (question.structuredContent!.format === "form" ? question.referencePassage : null)}
         />
       )}
 
