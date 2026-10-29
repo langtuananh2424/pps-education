@@ -184,19 +184,22 @@ public class QuestionImportService {
     private final QuestionBankService questionBankService;
     private final UserRepository userRepository;
     private final List<QuestionRowParser> parsers;
+    private final ImportMediaUrlResolver mediaUrlResolver;
 
     public QuestionImportService(ImportJobRepository importJobRepository,
                                   QuestionBankRepository questionBankRepository,
                                   ExamRepository examRepository,
                                   QuestionBankService questionBankService,
                                   UserRepository userRepository,
-                                  List<QuestionRowParser> parsers) {
+                                  List<QuestionRowParser> parsers,
+                                  ImportMediaUrlResolver mediaUrlResolver) {
         this.importJobRepository = importJobRepository;
         this.questionBankRepository = questionBankRepository;
         this.examRepository = examRepository;
         this.questionBankService = questionBankService;
         this.userRepository = userRepository;
         this.parsers = parsers;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     /**
@@ -270,6 +273,10 @@ public class QuestionImportService {
             try (InputStream inputStream = file.getInputStream()) {
                 parsedRows = parser.parse(inputStream);
             }
+            // Đường dẫn tương đối trong "URL Audio"/"URL Hình ảnh" → link đầy đủ theo môi trường (xem ImportMediaUrlResolver).
+            parsedRows = parsedRows.stream()
+                    .map(r -> r.withMediaUrls(mediaUrlResolver.resolveAudio(r.audioUrl()), mediaUrlResolver.resolveImage(r.imageUrl())))
+                    .toList();
 
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
