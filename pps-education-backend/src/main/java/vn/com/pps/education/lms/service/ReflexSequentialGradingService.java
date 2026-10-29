@@ -249,7 +249,8 @@ public class ReflexSequentialGradingService {
         if (progress.getWritingGradingStatus() == ReflexGradingStatus.PENDING) {
             throw new RetakeNotAllowedException(GRADING_IN_PROGRESS_MESSAGE);
         }
-        if (isWritingUnlocked(progress)) {
+        // FAILED (AI lỗi, đã hoàn lượt) KHÔNG chặn nộp lại — chỉ đạt thật/hết lượt/bỏ bước viết mới chặn.
+        if (isWritingSkipped(progress) || isWritingPassed(progress) || isWritingExhausted(progress)) {
             throw new RetakeNotAllowedException("error.retakeNotAllowed.reflexWriting", new Object[]{MAX_STEP_ATTEMPTS},
                     "Bước viết của câu hỏi này đã hết lượt nộp (tối đa " + MAX_STEP_ATTEMPTS + ").");
         }
@@ -267,6 +268,9 @@ public class ReflexSequentialGradingService {
         }
         if (late) {
             progress.setLateSubmission(true);
+        }
+        if (progress.getWritingGradingStatus() == ReflexGradingStatus.FAILED) {
+            progress.setWritingGradingStatus(ReflexGradingStatus.NONE); // lượt mới thay lượt AI lỗi
         }
         progress.setAnswerText(answerText);
         progress.setWritingAttemptCount(progress.getWritingAttemptCount() + 1);
@@ -413,7 +417,8 @@ public class ReflexSequentialGradingService {
         if (progress.getSpeakingGradingStatus() == ReflexGradingStatus.PENDING) {
             throw new RetakeNotAllowedException(GRADING_IN_PROGRESS_MESSAGE);
         }
-        if (isSpeakingFinalized(progress)) {
+        // FAILED (AI lỗi, đã hoàn lượt) KHÔNG chặn nộp lại — nếu không học sinh thấy "hết lượt" dù 0/3 lần.
+        if (isSpeakingPassed(progress) || isSpeakingExhausted(progress)) {
             throw new RetakeNotAllowedException("error.retakeNotAllowed.reflexSpeaking", new Object[]{MAX_STEP_ATTEMPTS},
                     "Bước ghi âm của câu hỏi này đã hết lượt nộp (tối đa " + MAX_STEP_ATTEMPTS + ").");
         }
@@ -435,6 +440,9 @@ public class ReflexSequentialGradingService {
         }
         if (late) {
             progress.setLateSubmission(true);
+        }
+        if (progress.getSpeakingGradingStatus() == ReflexGradingStatus.FAILED) {
+            progress.setSpeakingGradingStatus(ReflexGradingStatus.NONE); // lượt mới thay lượt AI lỗi
         }
         progress.setAudioUrl(audioUrl);
         progress.setSpeakingAttemptCount(progress.getSpeakingAttemptCount() + 1);
