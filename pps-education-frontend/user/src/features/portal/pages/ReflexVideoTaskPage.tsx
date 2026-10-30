@@ -988,6 +988,15 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
    * chuyển câu để tránh nhận nhầm cú chạm đó.
    */
   const suppressManualToggleUntilRef = useRef(0);
+  /**
+   * 2026-10-30 (yêu cầu người dùng) — "cửa sổ nghe" của bước nói: video chạy từ mốc câu tới (mốc câu KẾ − 3s) rồi tự dừng,
+   * học sinh TỰ bấm ghi âm. Sau seek (làm lại từ mốc) player YouTube có thể còn trả về vị trí cũ vài tick — bỏ qua việc
+   * kiểm tra điểm dừng trong khoảng ngắn này để không dừng oan ngay lúc vừa tua.
+   */
+  const LISTEN_STOP_BEFORE_NEXT_SECONDS = 3;
+  const listenGraceUntilRef = useRef(0);
+  /** true sau khi bấm "Ghi âm lại": video đã phát lại từ mốc, chờ học sinh tự bấm "Bắt đầu ghi âm" (không ghi âm luôn để tiếng video không lẫn vào bài nói). */
+  const [retryReady, setRetryReady] = useState(false);
   const handleToggleManualPause = () => {
     if (!canToggleManualPause || Date.now() < suppressManualToggleUntilRef.current) return;
     if (userPausedRef.current) {
@@ -1014,9 +1023,17 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const activateQuestion = (q: ReviewVideoQuestionResponse) => {
     setActiveQuestionId(q.id);
     setUserPaused(false);
-    setAwaitingNextMark(false);
-    pauseVideo();
+    setRetryReady(false);
     const p = progressRef.current[q.id];
+    // 2026-10-30 (yêu cầu người dùng) — bước VIẾT: video dừng tại mốc. Câu chỉ có bước NÓI (PART2/PET4/PICTURE, hoặc đã
+    // qua bước viết): KHÔNG dừng, video chạy tiếp tới (mốc câu kế − 3s) rồi mới dừng, học sinh tự bấm ghi âm.
+    if (stageForProgress(p, q.questionFormat) === "speaking") {
+      setAwaitingNextMark(true);
+      listenGraceUntilRef.current = Date.now() + 1000;
+    } else {
+      setAwaitingNextMark(false);
+      pauseVideo();
+    }
     setAnswerDraft(p?.answerText ?? "");
     setWritingError(null);
     setSpeakingError(null);
@@ -1038,7 +1055,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const lastKnownPlaybackTimeRef = useRef(0);
 
   const handleTimeUpdate = (currentSeconds: number) => {
-    if (videoEndedRef.current || isReviewingVideoRef.current) return;
+    // Video đã hết mà học sinh LÀM LẠI 1 câu (có câu đang mở) vẫn phải theo dõi điểm dừng của cửa sổ nghe.
+    if ((videoEndedRef.current && activeQuestionIdRef.current == null) || isReviewingVideoRef.current) return;
     lastKnownPlaybackTimeRef.current = currentSeconds;
     const idx = firstPendingQuestionIndex();
     if (idx === -1) return;
@@ -1061,7 +1079,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         return;
       }
       const next = questions[idx + 1];
-      if (next && currentSeconds >= next.timestampSeconds) {
+      const stopAt = next ? Math.max(next.timestampSeconds - LISTEN_STOP_BEFORE_NEXT_SECONDS, current.timestampSeconds) : null;
+      if (stopAt != null && currentSeconds >= stopAt && Date.now() >= listenGraceUntilRef.current) {
         setAwaitingNextMark(false);
         pauseVideo();
       }
@@ -1390,55 +1409,32 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
    */
   const handleContinueAfterWritingPass = () => {
     setWritingPassedPopup(null);
+    // 2026-10-30 (yêu cầu người dùng) — đổi lại thiết kế 2026-08-25: qua bước viết, sang bước nói thì video CHẠY TIẾP từ
+    // mốc câu tới (mốc câu kế − 3s). Cú bấm "Tiếp tục" là thao tác thật nên play() không bị trình duyệt chặn.
+    if (activeQuestionIdRef.current == null || videoEndedRef.current) return;
+    setAwaitingNextMark(true);
+    setUserPaused(false);
+    listenGraceUntilRef.current = Date.now() + 1000;
+    suppressManualToggleUntilRef.current = Date.now() + 600;
+    resumeVideo();
   };
 
   /**
-   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-28 — câu hỏi dạng PART2 (Khối 8-9 IELTS,
-   * ghi âm 90-120 giây) cho video CHẠY TIẾP song song trong lúc ghi âm (giống tương tác thật), khác hẳn
-   * các dạng câu hỏi khác vẫn đứng yên xuyên suốt bước nói (xem SPIKE 2026-08-25 ở activateQuestion).
-   * Tái dùng CHÍNH cơ chế "nghe lại câu hỏi" cũ (awaitingNextMark — video được phép chạy, tự dừng khi
-   * chạm mốc câu KẾ TIẾP, xem handleTimeUpdate) đã bị tắt hẳn từ SPIKE đó, nay chỉ bật lại CÓ ĐIỀU KIỆN
-   * cho riêng khoảng thời gian đang ghi âm của câu PART2 — không đụng hành vi của các dạng câu hỏi khác.
-   *
-   * Bổ sung 2026-10-28 (lần 2, đã xác nhận với người dùng — ĐÚNG Ý ĐỊNH thiết kế gốc, không phải bug) —
-   * MỖI LẦN bấm "Bắt đầu ghi âm"/"Ghi âm lại" đều tua video về ĐÚNG mốc câu hỏi (`timestampSeconds`) rồi
-   * mới phát — để học sinh luôn nghe/xem lại TRỌN VẸN đoạn cue-card từ đầu mỗi lượt ghi âm, không phải
-   * tiếp nối dở dang từ lượt ghi trước. Trước đây hành vi "về mốc" này chỉ xảy ra TÌNH CỜ qua 1 lỗi vặt
-   * YouTube (tín hiệu ENDED giả tự ý reset về giây 0, xem handleVideoNaturallyEnded) — không đáng tin cậy
-   * (có lúc về mốc, có lúc không, tuỳ lỗi đó có kích hoạt). Tua CHỦ ĐỘNG ở đây để luôn chắc chắn, không
-   * phụ thuộc lỗi vặt đó nữa.
-   *
-   * Bổ sung 2026-10-28 (lần 3, đã xác nhận với người dùng) — mở rộng "video chạy song song khi ghi âm"
-   * cho 2 dạng PET Cambridge (PET4 — Khối 8, PICTURE — Khối 7-8). Dùng CHUNG {@link WRITING_SKIPPED_FORMATS}
-   * — không phải trùng hợp: cả 3 dạng PART2/PET4/PICTURE đều bỏ hẳn bước Viết (lần sửa 2026-10-28 thứ 4,
-   * xem Javadoc `stageForProgress`/`isWritingSkipped` backend), nên video chạy ngay từ lúc bắt đầu ghi âm
-   * (không có màn hình đứng yên chờ bước Viết trước đó) là đúng cho cả 3 — không cần tách riêng danh sách.
+   * Bắt đầu ghi âm (học sinh tự bấm). Lịch sử: 2026-10-28 PART2/PET4/PICTURE từng cho video chạy SONG SONG khi ghi âm;
+   * 2026-10-30 đổi: video chạy ở "cửa sổ nghe" (từ mốc câu tới mốc câu kế − 3s, xem activateQuestion/handleTimeUpdate),
+   * còn lúc ghi âm video luôn dừng.
    */
   const startSpeakingRecording = () => {
     if (!activeQuestion) return;
-    if (WRITING_SKIPPED_FORMATS.has(activeQuestion.questionFormat ?? "")) {
-      setAwaitingNextMark(true);
-      seekTo(activeQuestion.timestampSeconds);
-      resumeVideo();
-    }
-    recorder.start(activeQuestion.maxRecordingSeconds);
-  };
-
-  /**
-   * Đối xứng với `startSpeakingRecording` — video (nếu đang chạy song song vì câu PART2) phải dừng lại
-   * NGAY khi ghi âm kết thúc (hết giờ tự động HOẶC học sinh chủ động bấm dừng), không chờ tới lúc chạm
-   * mốc câu kế tiếp. `awaitingNextMarkRef.current` chỉ còn true khi video đang ở chế độ chạy song song
-   * này (mọi luồng khác đã bỏ hẳn từ SPIKE 2026-08-25), nên dùng thẳng làm điều kiện — không cần so
-   * sánh lại `questionFormat`.
-   */
-  const wasRecordingRef = useRef(false);
-  useEffect(() => {
-    if (wasRecordingRef.current && !recorder.recording && awaitingNextMarkRef.current) {
+    // 2026-10-30 (yêu cầu người dùng) — thay thế cơ chế "video chạy song song khi ghi âm" của PART2/PET4/PICTURE: học
+    // sinh tự bấm ghi âm, video dừng ngay lúc đó để tiếng video không lẫn vào bài nói.
+    if (awaitingNextMarkRef.current) {
       setAwaitingNextMark(false);
       pauseVideo();
     }
-    wasRecordingRef.current = recorder.recording;
-  }, [recorder.recording]);
+    setRetryReady(false);
+    recorder.start(activeQuestion.maxRecordingSeconds);
+  };
 
   const handleStartRecording = () => {
     if (!activeQuestion) return;
@@ -1557,11 +1553,19 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     setReviewQuestionId(null);
     unmarkAdvanced(q.id);
     activateQuestion(q);
+    // Làm lại cũng phát lại video từ mốc câu (activateQuestion đã bật cửa sổ nghe cho câu ở bước nói).
+    if (awaitingNextMarkRef.current) {
+      setRetryReady(true);
+      seekTo(q.timestampSeconds);
+      resumeVideo();
+    }
   };
 
   const handleContinueAfterSpeakingPass = () => {
     setSpeakingPassedPopup(null);
     setActiveQuestionId(null);
+    setAwaitingNextMark(false);
+    setRetryReady(false);
     setUserPaused(false);
     // Khoá tạm nút play/pause tự dựng — xem ghi chú ở suppressManualToggleUntilRef/canToggleManualPause
     // (tránh cú chạm đóng popup này "chạm xuyên" luôn sang nút vừa lộ ra, tự bấm tạm dừng lại ngay).
@@ -1594,7 +1598,14 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     if (!activeQuestion) return;
     setSpeakingError(null);
     recorder.reset();
-    startSpeakingRecording();
+    // 2026-10-30 (yêu cầu người dùng) — "Ghi âm lại" phát lại video từ ĐÚNG mốc câu, KHÔNG ghi âm luôn: học sinh nghe xong
+    // tự bấm "Bắt đầu ghi âm" (ghi luôn thì tiếng video lẫn vào bài nói, ảnh hưởng chất lượng chấm).
+    setRetryReady(true);
+    setAwaitingNextMark(true);
+    setUserPaused(false);
+    listenGraceUntilRef.current = Date.now() + 1000;
+    seekTo(activeQuestion.timestampSeconds);
+    resumeVideo();
   };
 
   /**
@@ -2196,7 +2207,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       </button>
                     </div>
                   </div>
-                ) : !displayProgress?.speakingFeedback ? (
+                ) : !displayProgress?.speakingFeedback || retryReady ? (
                   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây tự động bật
                   // ghi âm ngay khi mở bước nói (kể cả khi mở lại câu đã đạt viết từ trước) — nay học sinh
                   // phải chủ động bấm mới ghi âm (mirror nút trong popup "Đạt bước viết").
@@ -2371,7 +2382,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                     )}
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-line/60">
-                      {!displayProgress.speakingPassed && !displayProgress.speakingExhausted && !isReviewing ? (
+                      {!displayProgress.speakingPassed && !displayProgress.speakingExhausted && !isReviewing && !retryReady ? (
                         <button
                           onClick={handleRetrySpeaking}
                           className="flex items-center gap-1.5 px-3.5 py-2 bg-coral hover:bg-coral/90 text-white rounded-xl text-xs font-extrabold"
