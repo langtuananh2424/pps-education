@@ -48,7 +48,7 @@ public class PronunciationEngineClient {
     @Value("${app.ai-grading.pronunciation.engine-token:}")
     private String token;
 
-    @Value("${app.ai-grading.pronunciation.engine-timeout-seconds:90}")
+    @Value("${app.ai-grading.pronunciation.engine-timeout-seconds:150}")
     private int timeoutSeconds;
 
     @Value("${app.ai-grading.direct-max-attempts:3}")
