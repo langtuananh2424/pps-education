@@ -60,6 +60,15 @@ public class AiGradingFallbackService {
     private final GroqSpeechClient groqSpeechClient;
     private final AzurePronunciationClient azurePronunciationClient;
     private final AudioTranscoder audioTranscoder;
+    /** Bộ chấm phát âm GOPT thay Azure; null khi dựng bằng constructor 7 tham số (test). Chỉ dùng khi provider = gopt. */
+    private final GoptPronunciationService goptPronunciation;
+
+    /**
+     * Nguồn điểm Phát âm: {@code azure} (mặc định) hoặc {@code gopt} (service suy luận Kaldi/GOPT + PPS Hybrid v2, xem
+     * {@link GoptPronunciationService}). Chọn gopt mà service lỗi thì thử Azure nếu đã cấu hình, rồi mới rơi về 9Router.
+     */
+    @Value("${app.ai-grading.pronunciation.provider:azure}")
+    private String pronunciationProvider;
 
     @Value("${app.ai-grading.claude-direct.model:claude-haiku-5-5}")
     private String claudeModel;
@@ -107,6 +116,17 @@ public class AiGradingFallbackService {
                                      ReflexV2Prompts reflexV2Prompts, ClaudeAiClient claudeAiClient,
                                      GroqSpeechClient groqSpeechClient, AzurePronunciationClient azurePronunciationClient,
                                      AudioTranscoder audioTranscoder) {
+        this(writingAiGradingService, reflexV2AiGradingService, reflexV2Prompts, claudeAiClient, groqSpeechClient,
+                azurePronunciationClient, audioTranscoder, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AiGradingFallbackService(WritingAiGradingService writingAiGradingService,
+                                     ReflexV2AiGradingService reflexV2AiGradingService,
+                                     ReflexV2Prompts reflexV2Prompts, ClaudeAiClient claudeAiClient,
+                                     GroqSpeechClient groqSpeechClient, AzurePronunciationClient azurePronunciationClient,
+                                     AudioTranscoder audioTranscoder, GoptPronunciationService goptPronunciation) {
+        this.goptPronunciation = goptPronunciation;
         this.writingAiGradingService = writingAiGradingService;
         this.reflexV2AiGradingService = reflexV2AiGradingService;
         this.reflexV2Prompts = reflexV2Prompts;
@@ -114,6 +134,28 @@ public class AiGradingFallbackService {
         this.groqSpeechClient = groqSpeechClient;
         this.azurePronunciationClient = azurePronunciationClient;
         this.audioTranscoder = audioTranscoder;
+    }
+
+    private boolean usesGopt() {
+        return goptPronunciation != null && "gopt".equalsIgnoreCase(pronunciationProvider) && goptPronunciation.isConfigured();
+    }
+
+    /** Điểm Phát âm: GOPT nếu được chọn (lỗi thì thử Azure), ngược lại Azure. Trả null/không có điểm nghĩa là cần dự phòng 9Router. */
+    private AzurePronunciationClient.Result assessPronunciation(boolean useGopt, byte[] audioBytes, String mimeType, String transcript,
+                                                                 GroqSpeechClient.TranscriptionResult transcription, int grade) {
+        if (useGopt) {
+            AzurePronunciationClient.Result viaGopt = goptPronunciation.assess(audioBytes, mimeType, transcript,
+                    transcription != null ? transcription.words() : List.of(), grade);
+            if (viaGopt != null && viaGopt.hasScores()) {
+                return viaGopt;
+            }
+            log.warn("AiGradingFallbackService: GOPT không có điểm Phát âm — {}", viaGopt == null ? "null" : viaGopt.rawJson());
+            if (!azurePronunciationClient.isConfigured()) {
+                return viaGopt;
+            }
+        }
+        return azurePronunciationClient.assessSegmented(audioBytes, mimeType, transcript,
+                transcription != null ? transcription.segments() : List.of());
     }
 
     // ===================== Essay (UC-40/41) =====================
@@ -213,7 +255,8 @@ public class AiGradingFallbackService {
 
         long groqStartedAt = pipelineStartedAt;
         GroqSpeechClient.TranscriptionResult transcription = groqSpeechClient.isConfigured()
-                ? groqSpeechClient.transcribe(audioBytes, mimeType, "answer.webm", null) : null;
+                ? (usesGopt() ? groqSpeechClient.transcribe(audioBytes, mimeType, "answer.webm", null, true)
+                : groqSpeechClient.transcribe(audioBytes, mimeType, "answer.webm", null)) : null;
         String transcriptionSource = SOURCE_DIRECT;
         String transcript;
         String lowConfidenceWarning = null;
@@ -273,10 +316,11 @@ public class AiGradingFallbackService {
                         return null;
                     }
                 }), AI_PARALLEL_EXECUTOR);
-        java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture = !azurePronunciationClient.isConfigured()
+        final boolean useGopt = usesGopt();
+        java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture = !useGopt && !azurePronunciationClient.isConfigured()
                 ? java.util.concurrent.CompletableFuture.completedFuture(null)
-                : java.util.concurrent.CompletableFuture.supplyAsync(() -> azurePronunciationClient.assessSegmented(audioBytes, mimeType, transcript,
-                        transcription != null ? transcription.segments() : List.of()), AI_PARALLEL_EXECUTOR);
+                : java.util.concurrent.CompletableFuture.supplyAsync(() -> assessPronunciation(useGopt, audioBytes, mimeType, transcript,
+                        transcription, task.grade()), AI_PARALLEL_EXECUTOR);
         ClaudeSpeakingJson claudeResult = claudeFuture.join();
         AzurePronunciationClient.Result pronunciation = azureFuture.join();
         log.info("AiGradingFallbackService: Claude+Azure chạy song song xong sau {}ms.", System.currentTimeMillis() - parallelStartedAt);
@@ -385,14 +429,15 @@ public class AiGradingFallbackService {
         Map<String, Object> audit = new LinkedHashMap<>();
         audit.put("taskId", task.id());
         audit.put("rubricFormat", task.rubricFormat());
+        String pronunciationEngine = azureOk ? pronunciation.engine() : AzurePronunciationClient.Result.ENGINE_AZURE;
         audit.put("gradedBy", SOURCE_DIRECT.equals(transcriptionSource) && claudeResult != null && azureOk
-                ? "claude-direct+groq+azure" : "mixed-direct-9router");
+                ? "claude-direct+groq+" + pronunciationEngine : "mixed-direct-9router");
         audit.put("sources", Map.of("transcription", transcriptionSource, "content", contentSource, "pronunciation", pronunciationSource));
         audit.put("model", contentModel);
         audit.put("gates", scored.gates());
         audit.put("spokenRedCount", spokenRed);
         audit.put("grammarKeptFromStep1", keepStep1Grammar);
-        audit.put("pronunciationSource", azureOk ? "azure-direct" : "9router-estimate");
+        audit.put("pronunciationSource", azureOk ? pronunciationEngine + "-direct" : "9router-estimate");
         audit.put("pronunciationRaw", azureOk ? pronunciation.rawJson() : null);
         audit.put("pronunciationChunks", azureOk ? pronunciation.chunkCount() : 0);
         // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — chi tiết từng từ/âm vị của Azure (y hệt dữ liệu

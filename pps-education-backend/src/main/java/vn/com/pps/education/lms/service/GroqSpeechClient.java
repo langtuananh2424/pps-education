@@ -59,9 +59,17 @@ public class GroqSpeechClient {
     public record Segment(double startSec, double endSec, String text) {
     }
 
-    public record TranscriptionResult(String text, String lowConfidenceWarning, List<Segment> segments) {
+    /** Mốc thời gian từng từ theo Whisper (giây); chỉ có khi gọi với {@code wantWords = true}. */
+    public record Word(String word, double startSec, double endSec) {
+    }
+
+    public record TranscriptionResult(String text, String lowConfidenceWarning, List<Segment> segments, List<Word> words) {
+        public TranscriptionResult(String text, String lowConfidenceWarning, List<Segment> segments) {
+            this(text, lowConfidenceWarning, segments, List.of());
+        }
+
         public TranscriptionResult(String text, String lowConfidenceWarning) {
-            this(text, lowConfidenceWarning, List.of());
+            this(text, lowConfidenceWarning, List.of(), List.of());
         }
     }
 
@@ -75,13 +83,22 @@ public class GroqSpeechClient {
 
     /** @param promptHint PHẢI truyền {@code null} trong code thật — xem Javadoc lớp. */
     public TranscriptionResult transcribe(byte[] audioBytes, String mimeType, String filename, String promptHint) {
+        return transcribe(audioBytes, mimeType, filename, promptHint, false);
+    }
+
+    /**
+     * @param promptHint PHẢI truyền {@code null} trong code thật — xem Javadoc lớp.
+     * @param wantWords  true: xin thêm mốc thời gian từng từ ({@code timestamp_granularities[]=word}) cho bộ chấm phát âm GOPT
+     *                   (đo trôi chảy theo ngắt nghỉ giữa các từ). Mặc định false để luồng Azure không đổi gì.
+     */
+    public TranscriptionResult transcribe(byte[] audioBytes, String mimeType, String filename, String promptHint, boolean wantWords) {
         if (!isConfigured()) {
             log.warn("GroqSpeechClient: chưa cấu hình GROQ_API_KEY.");
             return null;
         }
         try {
             String boundary = "----ppsGroqDirect" + UUID.randomUUID();
-            byte[] body = buildMultipartBody(boundary, audioBytes, mimeType, filename, promptHint);
+            byte[] body = buildMultipartBody(boundary, audioBytes, mimeType, filename, promptHint, wantWords);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.groq.com/openai/v1/audio/transcriptions"))
                     .header("Authorization", "Bearer " + apiKey)
@@ -113,7 +130,13 @@ public class GroqSpeechClient {
             }
             String warning = warnings.isEmpty() ? null
                     : "Groq không chắc chắn ở đoạn: " + String.join("; ", warnings) + " — nên nghe lại audio gốc để xác nhận.";
-            return new TranscriptionResult(text, warning, segments);
+            List<Word> words = new ArrayList<>();
+            for (JsonNode w : json.path("words")) {
+                if (w.has("start") && w.has("end")) {
+                    words.add(new Word(w.path("word").asText(""), w.path("start").asDouble(), w.path("end").asDouble()));
+                }
+            }
+            return new TranscriptionResult(text, warning, segments, words);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -123,12 +146,18 @@ public class GroqSpeechClient {
         }
     }
 
-    private byte[] buildMultipartBody(String boundary, byte[] audioBytes, String mimeType, String filename, String promptHint)
-            throws IOException {
+    private byte[] buildMultipartBody(String boundary, byte[] audioBytes, String mimeType, String filename, String promptHint,
+                                     boolean wantWords) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         String prefix = "--" + boundary + "\r\n";
         out.write((prefix + "Content-Disposition: form-data; name=\"model\"\r\n\r\n" + MODEL + "\r\n").getBytes(StandardCharsets.UTF_8));
         out.write((prefix + "Content-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n").getBytes(StandardCharsets.UTF_8));
+        if (wantWords) {   // xin cả mốc từ lẫn mốc câu (mốc câu còn dùng để cắt bài dài)
+            for (String granularity : new String[]{"word", "segment"}) {
+                out.write((prefix + "Content-Disposition: form-data; name=\"timestamp_granularities[]\"\r\n\r\n" + granularity + "\r\n")
+                        .getBytes(StandardCharsets.UTF_8));
+            }
+        }
         if (promptHint != null && !promptHint.isBlank()) {
             String trimmed = promptHint.length() > PROMPT_MAX_CHARS ? promptHint.substring(0, PROMPT_MAX_CHARS) : promptHint;
             out.write((prefix + "Content-Disposition: form-data; name=\"prompt\"\r\n\r\n" + trimmed + "\r\n").getBytes(StandardCharsets.UTF_8));
