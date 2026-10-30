@@ -596,6 +596,11 @@ PRONUNCIATION_ENGINE_TOKEN=<token của đúng môi trường trong ENGINE_TOKEN
 rồi `docker compose up -d --no-deps backend`. `PRONUNCIATION_ENGINE_URL` mặc định đã là `http://speaking-engine:8100`.
 Quay lại Azure: đặt `PRONUNCIATION_PROVIDER=azure` (hoặc bỏ dòng) rồi `up -d` lại. Engine lỗi giữa chừng thì backend tự thử Azure rồi 9Router.
 
+**Phiên âm dự phòng bằng Whisper cục bộ.** Engine còn có Whisper (`large-v3-turbo`, CPU) ở `/v1/transcribe`. Khi Groq lỗi hoặc chưa cấu hình, bước phiên âm của
+Speaking thử Whisper của engine trước, rồi mới rơi về 9Router. Chậm hơn Groq nhiều (hạn 120 giây, `PRONUNCIATION_ENGINE_TRANSCRIBE_TIMEOUT_SECONDS`) nhưng không
+đưa âm thanh ra ngoài. Đường lui này chỉ cần engine đã cấu hình (`PRONUNCIATION_ENGINE_TOKEN`), **không phụ thuộc `PRONUNCIATION_PROVIDER`**, nên bật cả khi điểm phát âm
+vẫn là Azure. Tắt bằng `PRONUNCIATION_ENGINE_WHISPER_FALLBACK=false`. Bài phiên âm bằng Whisper có cảnh báo cho giáo viên và `audit.sources.transcription = engine-whisper`.
+
 **Tài nguyên.** Engine giới hạn 8 CPU và 8 GB RAM (`ENGINE_CPUS`, `ENGINE_MEMORY`), mỗi lần chỉ chấm `MAX_CONCURRENT=2` bài, bài thừa xếp hàng.
 Một bài mất khoảng 2 đến 4 giây; lớp đông nộp cùng lúc thì bài cuối chờ lâu hơn tương ứng.
 

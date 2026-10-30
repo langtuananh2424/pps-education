@@ -26,7 +26,7 @@ class AiGradingFallbackServicePronunciationProviderTest {
     private final GoptPronunciationService gopt = mock(GoptPronunciationService.class);
     private final AiGradingFallbackService service = new AiGradingFallbackService(
             mock(WritingAiGradingService.class), mock(ReflexV2AiGradingService.class), mock(ReflexV2Prompts.class),
-            mock(ClaudeAiClient.class), mock(GroqSpeechClient.class), azure, mock(AudioTranscoder.class), gopt);
+            mock(ClaudeAiClient.class), mock(GroqSpeechClient.class), azure, mock(AudioTranscoder.class), gopt, mock(PronunciationEngineClient.class));
 
     private boolean usesGopt() {
         return Boolean.TRUE.equals(ReflectionTestUtils.invokeMethod(service, "usesGopt"));
