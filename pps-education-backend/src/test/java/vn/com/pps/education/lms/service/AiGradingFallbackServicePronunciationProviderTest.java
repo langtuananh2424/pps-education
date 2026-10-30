@@ -33,7 +33,7 @@ class AiGradingFallbackServicePronunciationProviderTest {
     }
 
     private AzurePronunciationClient.Result assess(boolean useGopt) {
-        return ReflectionTestUtils.invokeMethod(service, "assessPronunciation", useGopt, new byte[]{1}, "audio/webm", "I like school", null, 7);
+        return ReflectionTestUtils.invokeMethod(service, "assessPronunciation", useGopt, new byte[]{1}, "audio/webm", "I like school", null, 7, "I like school");
     }
 
     @Test
@@ -65,7 +65,7 @@ class AiGradingFallbackServicePronunciationProviderTest {
 
     @Test
     void goptScores_azureNotCalled() {
-        when(gopt.assess(any(), any(), any(), anyList(), anyInt())).thenReturn(GOPT_OK);
+        when(gopt.assess(any(), any(), any(), anyList(), anyInt(), any())).thenReturn(GOPT_OK);
 
         assertThat(assess(true)).isSameAs(GOPT_OK);
         verify(azure, never()).assessSegmented(any(), any(), any(), anyList());
@@ -73,7 +73,7 @@ class AiGradingFallbackServicePronunciationProviderTest {
 
     @Test
     void goptFails_azureConfigured_usesAzure() {
-        when(gopt.assess(any(), any(), any(), anyList(), anyInt())).thenReturn(AzurePronunciationClient.Result.error("GOPT: lỗi"));
+        when(gopt.assess(any(), any(), any(), anyList(), anyInt(), any())).thenReturn(AzurePronunciationClient.Result.error("GOPT: lỗi"));
         when(azure.isConfigured()).thenReturn(true);
         when(azure.assessSegmented(any(), any(), any(), anyList())).thenReturn(AZURE_OK);
 
@@ -82,7 +82,7 @@ class AiGradingFallbackServicePronunciationProviderTest {
 
     @Test
     void goptFails_azureNotConfigured_returnsNoScoresForNineRouterFallback() {
-        when(gopt.assess(any(), any(), any(), anyList(), anyInt())).thenReturn(AzurePronunciationClient.Result.error("GOPT: lỗi"));
+        when(gopt.assess(any(), any(), any(), anyList(), anyInt(), any())).thenReturn(AzurePronunciationClient.Result.error("GOPT: lỗi"));
         when(azure.isConfigured()).thenReturn(false);
 
         assertThat(assess(true).hasScores()).isFalse();
@@ -94,6 +94,6 @@ class AiGradingFallbackServicePronunciationProviderTest {
         when(azure.assessSegmented(any(), any(), any(), anyList())).thenReturn(AZURE_OK);
 
         assertThat(assess(false)).isSameAs(AZURE_OK);
-        verify(gopt, never()).assess(any(), any(), any(), anyList(), anyInt());
+        verify(gopt, never()).assess(any(), any(), any(), anyList(), anyInt(), any());
     }
 }

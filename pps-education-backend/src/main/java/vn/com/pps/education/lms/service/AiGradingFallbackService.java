@@ -173,10 +173,11 @@ public class AiGradingFallbackService {
 
     /** Điểm Phát âm: GOPT nếu được chọn (lỗi thì thử Azure), ngược lại Azure. Trả null/không có điểm nghĩa là cần dự phòng 9Router. */
     private AzurePronunciationClient.Result assessPronunciation(boolean useGopt, byte[] audioBytes, String mimeType, String transcript,
-                                                                 GroqSpeechClient.TranscriptionResult transcription, int grade) {
+                                                                 GroqSpeechClient.TranscriptionResult transcription, int grade,
+                                                                 String writtenText) {
         if (useGopt) {
             AzurePronunciationClient.Result viaGopt = goptPronunciation.assess(audioBytes, mimeType, transcript,
-                    transcription != null ? transcription.words() : List.of(), grade);
+                    transcription != null ? transcription.words() : List.of(), grade, writtenText);
             if (viaGopt != null && viaGopt.hasScores()) {
                 return viaGopt;
             }
@@ -357,7 +358,7 @@ public class AiGradingFallbackService {
         java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture = !useGopt && !azurePronunciationClient.isConfigured()
                 ? java.util.concurrent.CompletableFuture.completedFuture(null)
                 : java.util.concurrent.CompletableFuture.supplyAsync(() -> assessPronunciation(useGopt, audioBytes, mimeType, transcript,
-                        transcription, task.grade()), AI_PARALLEL_EXECUTOR);
+                        transcription, task.grade(), anchor.text()), AI_PARALLEL_EXECUTOR);
         ClaudeSpeakingJson claudeResult = claudeFuture.join();
         AzurePronunciationClient.Result pronunciation = azureFuture.join();
         log.info("AiGradingFallbackService: Claude+Azure chạy song song xong sau {}ms.", System.currentTimeMillis() - parallelStartedAt);
