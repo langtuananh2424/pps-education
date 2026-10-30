@@ -47,6 +47,16 @@ import java.util.function.BiFunction;
 public class AiGradingFallbackService {
 
     private static final Logger log = LoggerFactory.getLogger(AiGradingFallbackService.class);
+    private static final Logger shadowLog = LoggerFactory.getLogger("pps.pronunciation.shadow");
+
+    /** Một luồng, hàng chờ 8, tràn thì bỏ: shadow không bao giờ được làm chậm hay chen chỗ bài chấm thật trên engine. */
+    private static final java.util.concurrent.ThreadPoolExecutor SHADOW_EXECUTOR = new java.util.concurrent.ThreadPoolExecutor(
+            1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS, new java.util.concurrent.ArrayBlockingQueue<>(8),
+            runnable -> {
+                Thread t = new Thread(runnable, "pronunciation-shadow");
+                t.setDaemon(true);
+                return t;
+            }, new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
 
     /** Mirror {@link ReflexV2AiGradingService#MAX_WORDS_PER_SECOND} — không truy cập được (private), định nghĩa lại cùng giá trị đã thống nhất với người training. */
     private static final double MAX_WORDS_PER_SECOND = 3.5;
@@ -62,6 +72,8 @@ public class AiGradingFallbackService {
     private final AudioTranscoder audioTranscoder;
     /** Bộ chấm phát âm GOPT thay Azure; null khi dựng bằng constructor 7 tham số (test). Chỉ dùng khi provider = gopt. */
     private final GoptPronunciationService goptPronunciation;
+    /** Service suy luận dùng chung (Whisper cục bộ làm đường lui khi Groq lỗi); null khi dựng bằng constructor 7 tham số (test). */
+    private final PronunciationEngineClient engineClient;
 
     /**
      * Nguồn điểm Phát âm: {@code azure} (mặc định) hoặc {@code gopt} (service suy luận Kaldi/GOPT + PPS Hybrid v2, xem
@@ -69,6 +81,14 @@ public class AiGradingFallbackService {
      */
     @Value("${app.ai-grading.pronunciation.provider:azure}")
     private String pronunciationProvider;
+
+    /**
+     * Chế độ shadow: provider = azure mà bật cờ này (và đã cấu hình engine) thì sau khi Azure chấm xong, chạy thêm GOPT ở nền và ghi một
+     * dòng log {@code PRONUNCIATION_SHADOW} so hai bên (xem {@link PronunciationShadow}). Điểm học viên vẫn là của Azure. Mặc định tắt vì
+     * mỗi bài tốn thêm một lần chạy engine.
+     */
+    @Value("${app.ai-grading.pronunciation.shadow-enabled:false}")
+    private boolean pronunciationShadowEnabled;
 
     @Value("${app.ai-grading.claude-direct.model:claude-haiku-5-5}")
     private String claudeModel;
@@ -117,7 +137,7 @@ public class AiGradingFallbackService {
                                      GroqSpeechClient groqSpeechClient, AzurePronunciationClient azurePronunciationClient,
                                      AudioTranscoder audioTranscoder) {
         this(writingAiGradingService, reflexV2AiGradingService, reflexV2Prompts, claudeAiClient, groqSpeechClient,
-                azurePronunciationClient, audioTranscoder, null);
+                azurePronunciationClient, audioTranscoder, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -125,8 +145,10 @@ public class AiGradingFallbackService {
                                      ReflexV2AiGradingService reflexV2AiGradingService,
                                      ReflexV2Prompts reflexV2Prompts, ClaudeAiClient claudeAiClient,
                                      GroqSpeechClient groqSpeechClient, AzurePronunciationClient azurePronunciationClient,
-                                     AudioTranscoder audioTranscoder, GoptPronunciationService goptPronunciation) {
+                                     AudioTranscoder audioTranscoder, GoptPronunciationService goptPronunciation,
+                                     PronunciationEngineClient engineClient) {
         this.goptPronunciation = goptPronunciation;
+        this.engineClient = engineClient;
         this.writingAiGradingService = writingAiGradingService;
         this.reflexV2AiGradingService = reflexV2AiGradingService;
         this.reflexV2Prompts = reflexV2Prompts;
@@ -134,6 +156,34 @@ public class AiGradingFallbackService {
         this.groqSpeechClient = groqSpeechClient;
         this.azurePronunciationClient = azurePronunciationClient;
         this.audioTranscoder = audioTranscoder;
+    }
+
+    /** Phiên âm bằng Whisper của engine, đổi sang khung kết quả của Groq. Null nếu engine chưa cấu hình, tắt đường lui, hoặc lỗi. */
+    private GroqSpeechClient.TranscriptionResult transcribeWithEngineWhisper(byte[] audioBytes, String mimeType) {
+        if (engineClient == null || !engineClient.canTranscribe()) {
+            return null;
+        }
+        PronunciationEngineClient.Transcription t = engineClient.transcribe(audioBytes, mimeType, "answer.webm");
+        if (t == null || t.text() == null) {
+            log.warn("AiGradingFallbackService: Whisper cục bộ của engine cũng không phiên âm được.");
+            return null;
+        }
+        List<GroqSpeechClient.Segment> segments = new ArrayList<>();
+        if (t.segments() != null) {
+            for (PronunciationEngineClient.TranscribedSegment s : t.segments()) {
+                segments.add(new GroqSpeechClient.Segment(s.start(), s.end(), s.text()));
+            }
+        }
+        List<GroqSpeechClient.Word> words = new ArrayList<>();
+        if (t.words() != null) {
+            for (PronunciationEngineClient.TranscribedWord w : t.words()) {
+                words.add(new GroqSpeechClient.Word(w.word(), w.start(), w.end()));
+            }
+        }
+        return new GroqSpeechClient.TranscriptionResult(t.text(),
+                "Groq lỗi hoặc chưa cấu hình: đã phiên âm bằng Whisper cục bộ (" + t.model()
+                        + "), có thể kém chính xác hơn — nên nghe lại audio gốc để xác nhận.",
+                segments, words);
     }
 
     private boolean usesGopt() {
@@ -154,8 +204,28 @@ public class AiGradingFallbackService {
                 return viaGopt;
             }
         }
-        return azurePronunciationClient.assessSegmented(audioBytes, mimeType, transcript,
+        AzurePronunciationClient.Result viaAzure = azurePronunciationClient.assessSegmented(audioBytes, mimeType, transcript,
                 transcription != null ? transcription.segments() : List.of());
+        shadowCompare(viaAzure, audioBytes, mimeType, transcript, transcription, grade);
+        return viaAzure;
+    }
+
+    /** Chạy GOPT ở nền để so với điểm Azure vừa có (chỉ khi bật shadow). Mọi lỗi chỉ ghi log, không ảnh hưởng bài chấm. */
+    private void shadowCompare(AzurePronunciationClient.Result azure, byte[] audioBytes, String mimeType, String transcript,
+                               GroqSpeechClient.TranscriptionResult transcription, int grade) {
+        if (!pronunciationShadowEnabled || goptPronunciation == null || !goptPronunciation.isConfigured()
+                || azure == null || !azure.hasScores()) {
+            return;
+        }
+        List<GroqSpeechClient.Word> stamps = transcription != null ? transcription.words() : List.of();
+        SHADOW_EXECUTOR.execute(() -> {
+            try {
+                AzurePronunciationClient.Result gopt = goptPronunciation.assess(audioBytes, mimeType, transcript, stamps, grade);
+                shadowLog.info("{}{}", PronunciationShadow.PREFIX, PronunciationShadow.compare(azure, gopt, transcript));
+            } catch (RuntimeException e) {
+                shadowLog.warn("{}shadow lỗi: {}", PronunciationShadow.PREFIX, e.getMessage());
+            }
+        });
     }
 
     // ===================== Essay (UC-40/41) =====================
@@ -229,6 +299,8 @@ public class AiGradingFallbackService {
 
     private static final String SOURCE_DIRECT = "direct";
     private static final String SOURCE_NINE_ROUTER = "9router";
+    /** Phiên âm bằng Whisper cục bộ của engine (đường lui khi Groq lỗi). */
+    private static final String SOURCE_ENGINE_WHISPER = "engine-whisper";
 
     /**
      * Pipeline MỚI, mỗi bước có nhà cung cấp trực tiếp riêng và DỰ PHÒNG 9Router riêng (không kéo cả cụm):
@@ -254,14 +326,18 @@ public class AiGradingFallbackService {
         double durationSec = measured.map(SpeechMeter.Measurement::durationSec).orElse((double) task.seconds());
 
         long groqStartedAt = pipelineStartedAt;
-        GroqSpeechClient.TranscriptionResult transcription = groqSpeechClient.isConfigured()
+        GroqSpeechClient.TranscriptionResult viaGroq = groqSpeechClient.isConfigured()
                 ? (usesGopt() ? groqSpeechClient.transcribe(audioBytes, mimeType, "answer.webm", null, true)
                 : groqSpeechClient.transcribe(audioBytes, mimeType, "answer.webm", null)) : null;
-        String transcriptionSource = SOURCE_DIRECT;
+        // Groq lỗi hoặc chưa cấu hình: thử Whisper cục bộ của engine (chậm hơn nhưng không phụ thuộc dịch vụ ngoài) trước khi rơi về 9Router.
+        GroqSpeechClient.TranscriptionResult viaEngine = viaGroq == null ? transcribeWithEngineWhisper(audioBytes, mimeType) : null;
+        GroqSpeechClient.TranscriptionResult transcription = viaGroq != null ? viaGroq : viaEngine;
+        String transcriptionSource = viaGroq == null && viaEngine != null ? SOURCE_ENGINE_WHISPER : SOURCE_DIRECT;
         String transcript;
         String lowConfidenceWarning = null;
         if (transcription != null) {
-            log.info("AiGradingFallbackService: Groq STT xong sau {}ms.", System.currentTimeMillis() - groqStartedAt);
+            log.info("AiGradingFallbackService: STT ({}) xong sau {}ms.", viaGroq != null ? "Groq" : "Whisper cục bộ",
+                    System.currentTimeMillis() - groqStartedAt);
             transcript = transcription.text() == null ? "" : transcription.text().trim();
             lowConfidenceWarning = transcription.lowConfidenceWarning();
         } else {
@@ -430,8 +506,10 @@ public class AiGradingFallbackService {
         audit.put("taskId", task.id());
         audit.put("rubricFormat", task.rubricFormat());
         String pronunciationEngine = azureOk ? pronunciation.engine() : AzurePronunciationClient.Result.ENGINE_AZURE;
-        audit.put("gradedBy", SOURCE_DIRECT.equals(transcriptionSource) && claudeResult != null && azureOk
-                ? "claude-direct+groq+" + pronunciationEngine : "mixed-direct-9router");
+        boolean directTranscription = SOURCE_DIRECT.equals(transcriptionSource) || SOURCE_ENGINE_WHISPER.equals(transcriptionSource);
+        String sttLabel = SOURCE_ENGINE_WHISPER.equals(transcriptionSource) ? "whisper-local" : "groq";
+        audit.put("gradedBy", directTranscription && claudeResult != null && azureOk
+                ? "claude-direct+" + sttLabel + "+" + pronunciationEngine : "mixed-direct-9router");
         audit.put("sources", Map.of("transcription", transcriptionSource, "content", contentSource, "pronunciation", pronunciationSource));
         audit.put("model", contentModel);
         audit.put("gates", scored.gates());

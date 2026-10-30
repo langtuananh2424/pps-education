@@ -54,6 +54,25 @@ public class PronunciationEngineClient {
     @Value("${app.ai-grading.direct-max-attempts:3}")
     private int maxAttempts;
 
+    /** Whisper cục bộ chậm hơn Groq nhiều (CPU), nên có hạn riêng. */
+    @Value("${app.ai-grading.pronunciation.engine-transcribe-timeout-seconds:120}")
+    private int transcribeTimeoutSeconds;
+
+    /** Dùng Whisper của engine làm đường lui khi Groq lỗi hoặc chưa cấu hình (chỉ có tác dụng khi engine đã cấu hình). */
+    @Value("${app.ai-grading.pronunciation.engine-whisper-fallback:true}")
+    private boolean whisperFallbackEnabled;
+
+    /** Số lần lỗi engine LIÊN TIẾP thì ngắt mạch (0 = tắt), xem {@link EngineCircuitBreaker}. Mỗi đường (analyze, transcribe) có mạch riêng. */
+    @Value("${app.ai-grading.pronunciation.engine-breaker-failures:3}")
+    private int breakerFailures = 3;
+
+    /** Thời gian mở mạch (giây): trong lúc này không gọi engine, rơi thẳng về đường dự phòng. */
+    @Value("${app.ai-grading.pronunciation.engine-breaker-cooldown-seconds:60}")
+    private int breakerCooldownSeconds = 60;
+
+    private EngineCircuitBreaker analyzeBreaker;
+    private EngineCircuitBreaker transcribeBreaker;
+
     /** Chất lượng thu: biên độ đỉnh, nền ồn, chênh tiếng/ồn, số giây có tiếng và tổng số giây. */
     @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -77,6 +96,24 @@ public class PronunciationEngineClient {
     public record Analysis(Boolean noSignal, AudioInfo audio, Ipa ipa, PronunciationInput.Gopt gopt, Map<String, Double> latencySeconds) {
     }
 
+    /** Một từ có mốc thời gian (giây) của Whisper cục bộ. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record TranscribedWord(String word, double start, double end, double probability) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record TranscribedSegment(double start, double end, String text) {
+    }
+
+    /** Kết quả nhận dạng của engine, cùng khung với verbose_json của Groq. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record Transcription(String text, String language, double duration, List<TranscribedSegment> segments,
+                                List<TranscribedWord> words, String model) {
+    }
+
     public PronunciationEngineClient(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
@@ -85,42 +122,127 @@ public class PronunciationEngineClient {
         return baseUrl != null && !baseUrl.isBlank() && token != null && !token.isBlank();
     }
 
+    private synchronized EngineCircuitBreaker analyzeBreaker() {
+        if (analyzeBreaker == null) {
+            analyzeBreaker = new EngineCircuitBreaker(breakerFailures, breakerCooldownSeconds * 1000L, System::currentTimeMillis);
+        }
+        return analyzeBreaker;
+    }
+
+    private synchronized EngineCircuitBreaker transcribeBreaker() {
+        if (transcribeBreaker == null) {
+            transcribeBreaker = new EngineCircuitBreaker(breakerFailures, breakerCooldownSeconds * 1000L, System::currentTimeMillis);
+        }
+        return transcribeBreaker;
+    }
+
     /** @param words các từ mục tiêu theo thứ tự (backend đã tách từ và đổi số thành chữ). */
     public Analysis analyze(byte[] audioBytes, String mimeType, String filename, List<String> words) {
         if (!isConfigured()) {
             log.warn("PronunciationEngineClient: chưa cấu hình engine-url / engine-token.");
             return null;
         }
-        try {
-            String boundary = "----ppsEngine" + UUID.randomUUID();
-            byte[] body = multipart(boundary, audioBytes, mimeType, filename, objectMapper.writeValueAsString(words));
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl.replaceAll("/+$", "") + "/v1/analyze"))
-                    .header("Authorization", "Bearer " + token)
-                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                    .timeout(Duration.ofSeconds(timeoutSeconds))
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                    .build();
-            HttpResponse<String> response = DirectAiRetry.send("PronunciationEngineClient", maxAttempts,
-                    () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
-            if (response.statusCode() >= 300) {
-                log.warn("PronunciationEngineClient: HTTP {} — {}", response.statusCode(), response.body());
-                return null;
-            }
-            return objectMapper.readValue(response.body(), Analysis.class);
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            log.warn("PronunciationEngineClient: gọi lỗi. {}", e.getMessage());
+        EngineCircuitBreaker breaker = analyzeBreaker();
+        if (!breaker.tryAcquire()) {
+            log.warn("PronunciationEngineClient: engine lỗi liên tiếp, tạm ngừng gọi /v1/analyze thêm {}s (rơi về đường dự phòng).",
+                    breaker.remainingMillis() / 1000);
             return null;
+        }
+        try {
+            return post("/v1/analyze", audioBytes, mimeType, filename, Map.of("words", objectMapper.writeValueAsString(words)),
+                    timeoutSeconds, Analysis.class, breaker);
+        } catch (IOException | InterruptedException e) {
+            return failed(e);
         }
     }
 
-    private static byte[] multipart(String boundary, byte[] audio, String mimeType, String filename, String wordsJson) throws IOException {
+    /** Whisper cục bộ đang bật làm đường lui (đã cấu hình engine và không tắt bằng engine-whisper-fallback=false). */
+    public boolean canTranscribe() {
+        return whisperFallbackEnabled && isConfigured();
+    }
+
+    /**
+     * Nhận dạng giọng nói bằng Whisper của engine. Dùng khi Groq lỗi: chậm hơn (CPU) nhưng không phụ thuộc dịch vụ ngoài và không đưa
+     * âm thanh ra ngoài. Trả null khi lỗi (cùng quy ước với các client AI khác).
+     */
+    public Transcription transcribe(byte[] audioBytes, String mimeType, String filename) {
+        if (!canTranscribe()) {
+            return null;
+        }
+        EngineCircuitBreaker breaker = transcribeBreaker();
+        if (!breaker.tryAcquire()) {
+            log.warn("PronunciationEngineClient: engine lỗi liên tiếp, tạm ngừng gọi /v1/transcribe thêm {}s (rơi về 9Router).",
+                    breaker.remainingMillis() / 1000);
+            return null;
+        }
+        try {
+            return post("/v1/transcribe", audioBytes, mimeType, filename, Map.of("language", "en"), transcribeTimeoutSeconds,
+                    Transcription.class, breaker);
+        } catch (IOException | InterruptedException e) {
+            return failed(e);
+        }
+    }
+
+    private <T> T post(String path, byte[] audio, String mimeType, String filename, Map<String, String> fields, int timeoutSec,
+                       Class<T> type, EngineCircuitBreaker breaker) throws IOException, InterruptedException {
+        String boundary = "----ppsEngine" + UUID.randomUUID();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl.replaceAll("/+$", "") + path))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .timeout(Duration.ofSeconds(timeoutSec))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipart(boundary, audio, mimeType, filename, fields)))
+                .build();
+        HttpResponse<String> response;
+        try {
+            response = DirectAiRetry.send("PronunciationEngineClient", maxAttempts,
+                    () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
+        } catch (InterruptedException e) {
+            breaker.onAbort();
+            throw e;
+        } catch (IOException e) {
+            breaker.onFailure();   // không kết nối được hoặc timeout: engine chết hoặc treo
+            throw e;
+        }
+        int status = response.statusCode();
+        if (status >= 500) {
+            breaker.onFailure();
+            log.warn("PronunciationEngineClient: HTTP {} — {}", status, response.body());
+            return null;
+        }
+        breaker.onSuccess();   // engine trả lời được (kể cả 4xx): còn sống
+        if (status >= 300) {
+            if (status == 413) {
+                log.warn("PronunciationEngineClient: audio quá dài so với giới hạn của engine (HTTP 413), rơi về đường dự phòng — {}", response.body());
+            } else {
+                log.warn("PronunciationEngineClient: HTTP {} — {}", status, response.body());
+            }
+            return null;
+        }
+        try {
+            return objectMapper.readValue(response.body(), type);
+        } catch (IOException e) {
+            breaker.onFailure();   // phản hồi hỏng cũng là engine không khoẻ
+            throw e;
+        }
+    }
+
+    private static <T> T failed(Exception e) {
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        log.warn("PronunciationEngineClient: gọi lỗi. {}", e.getMessage());
+        return null;
+    }
+
+    private static byte[] multipart(String boundary, byte[] audio, String mimeType, String filename, Map<String, String> fields)
+            throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         String prefix = "--" + boundary + "\r\n";
-        out.write((prefix + "Content-Disposition: form-data; name=\"words\"\r\n\r\n" + wordsJson + "\r\n").getBytes(StandardCharsets.UTF_8));
+        for (Map.Entry<String, String> f : fields.entrySet()) {
+            out.write((prefix + "Content-Disposition: form-data; name=\"" + f.getKey() + "\"\r\n\r\n" + f.getValue() + "\r\n")
+                    .getBytes(StandardCharsets.UTF_8));
+        }
         String fname = filename == null ? "answer.webm" : filename;
         String ctype = mimeType == null ? "application/octet-stream" : mimeType;
         out.write((prefix + "Content-Disposition: form-data; name=\"audio\"; filename=\"" + fname + "\"\r\n"

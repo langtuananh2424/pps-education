@@ -199,8 +199,11 @@ services:
       AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
       AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
       PRONUNCIATION_PROVIDER: ${PRONUNCIATION_PROVIDER:-azure}
-      PRONUNCIATION_ENGINE_URL: ${PRONUNCIATION_ENGINE_URL:-}
+      PRONUNCIATION_ENGINE_URL: ${PRONUNCIATION_ENGINE_URL:-http://speaking-engine:8100}
       PRONUNCIATION_ENGINE_TOKEN: ${PRONUNCIATION_ENGINE_TOKEN:-}
+      PRONUNCIATION_SHADOW: ${PRONUNCIATION_SHADOW:-false}
+      PRONUNCIATION_ENGINE_BREAKER_FAILURES: ${PRONUNCIATION_ENGINE_BREAKER_FAILURES:-3}
+      PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS: ${PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS:-60}
       CLAUDE_DIRECT_ENABLED: ${CLAUDE_DIRECT_ENABLED:-false}
       CLAUDE_DIRECT_MODEL: ${CLAUDE_DIRECT_MODEL:-claude-haiku-5-5}
       CLAUDE_DIRECT_TIMEOUT_SECONDS: ${CLAUDE_DIRECT_TIMEOUT_SECONDS:-150}
@@ -241,9 +244,15 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-    networks: [internal]
+    # speaking-engine: dịch vụ chấm phát âm (Kaldi GOP + GOPT) dùng chung cho staging, production và các ứng dụng khác, chạy ở stack
+    # riêng (repo pps-speaking-engine). Backend chỉ GỌI NÓ khi PRONUNCIATION_PROVIDER=gopt; mạng này luôn được nối để bật gopt không phải
+    # tạo lại container. Mạng do CD tạo idempotent trước khi `up` (xem cd-*.yml) nên deploy không phụ thuộc engine đã chạy hay chưa.
+    networks: [internal, speaking-engine]
 
 networks:
+  speaking-engine:
+    name: speaking-engine-net
+    external: true
   internal:
     driver: bridge
     ipam:
