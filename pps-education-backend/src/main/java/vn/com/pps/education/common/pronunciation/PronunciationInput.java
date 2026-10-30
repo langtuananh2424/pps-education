@@ -15,11 +15,23 @@ import java.util.List;
  * @param writing        thông tin ghép bài viết (null nếu không có bài viết)
  * @param gopt           kết quả Kaldi + GOPT (null nếu GOPT tắt)
  * @param noSpeech       true nếu không có tiếng nói để chấm
+ * @param mode           chế độ chấm; {@link #MODE_UNSCRIPTED} là bài nói tự do
+ * @param whisperTranscript transcript của STT (bài nói tự do chấm trên chữ này)
+ * @param audioSeconds   độ dài file âm thanh (giây)
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record PronunciationInput(List<Word> words, List<Timestamp> wordTimestamps, Writing writing, Scores scores,
-                                 Gopt gopt, Boolean noSpeech) {
+                                 Gopt gopt, Boolean noSpeech, String mode, String whisperTranscript, Double audioSeconds) {
+
+    /** Chế độ của bài nói tự do (không có bài viết mẫu), xem {@link SpontaneousScorer}. */
+    public static final String MODE_UNSCRIPTED = "unscripted_8_9";
+
+    /** Bài chấm phát âm thuần, không cần transcript / thời lượng (dùng cho {@link PpsHybridScorer}). */
+    public PronunciationInput(List<Word> words, List<Timestamp> wordTimestamps, Writing writing, Scores scores,
+                              Gopt gopt, Boolean noSpeech) {
+        this(words, wordTimestamps, writing, scores, gopt, noSpeech, null, null, null);
+    }
 
     /** whisper: ok / diff / extra / missed / unverified; score: điểm IPA 0-100. */
     @JsonIgnoreProperties(ignoreUnknown = true)

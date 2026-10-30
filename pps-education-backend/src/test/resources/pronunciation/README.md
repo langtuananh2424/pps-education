@@ -13,3 +13,10 @@ và phải đổi cả hai phía.
 Cùng cách làm cho `TargetMerger` (port của `target_merge.py`): 270 ca ghép bài viết với lời nói, các ca số thành chữ
 (`words_of`) và các ca từ chèn có/không giống tiếng Anh (`plausible`). Khác lab ở một chỗ duy nhất, có chủ ý: số có nhiều
 dấu chấm như "1.2.3" làm bản Python lỗi, bản Java bỏ dấu chấm thừa; golden không chứa ca này.
+
+# spontaneous_golden.json
+
+Cùng cách làm cho `SpontaneousScorer` (port của `spontaneous_scorer.py`): 220 ca chấm bài nói tự do với đủ trạng thái
+(`ok`, `too_short`, `wrong_language`, `refused`, `llm_unavailable`, `no_alignment`, không có điểm), nhiều khối lớp, nhiều kết quả
+chấm GV/TR (thiếu, lỗi, ngoài khoảng) và các cấu hình tham số khác mặc định. Kèm kết quả `needs_llm` của từng ca.
+Bài thoát sớm của lab ghi `wpm`/`word_mean_accuracy`/`ending_sound_errors` = null còn bản Java bỏ hẳn khoá; bài test coi hai cách là một.
