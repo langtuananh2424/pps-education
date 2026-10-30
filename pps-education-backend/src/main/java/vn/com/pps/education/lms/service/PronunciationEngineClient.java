@@ -35,7 +35,12 @@ public class PronunciationEngineClient {
     private static final Logger log = LoggerFactory.getLogger(PronunciationEngineClient.class);
 
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    /**
+     * Ép HTTP/1.1: service là uvicorn (h11) qua http thường. Mặc định HttpClient của Java gửi kèm yêu cầu nâng cấp lên HTTP/2
+     * (Upgrade: h2c), uvicorn không hiểu, bỏ mất phần thân và trả 422 "thiếu audio/words" (phát hiện khi chạy thật 2026-10-30).
+     */
+    private final HttpClient httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(10)).build();
 
     @Value("${app.ai-grading.pronunciation.engine-url:}")
     private String baseUrl;
