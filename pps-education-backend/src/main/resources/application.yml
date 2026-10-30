@@ -305,6 +305,11 @@ app:
       # đưa âm thanh ra ngoài) trước khi rơi về 9Router. Chỉ có tác dụng khi đã cấu hình engine-url/engine-token, không phụ thuộc provider ở trên.
       engine-whisper-fallback: ${PRONUNCIATION_ENGINE_WHISPER_FALLBACK:true}
       engine-transcribe-timeout-seconds: ${PRONUNCIATION_ENGINE_TRANSCRIBE_TIMEOUT_SECONDS:120}
+      # Ngắt mạch: engine lỗi/treo liên tiếp N lần thì tạm ngừng gọi (giây), rơi thẳng về Azure/9Router thay vì mỗi bài chờ hết timeout. 0 = tắt.
+      engine-breaker-failures: ${PRONUNCIATION_ENGINE_BREAKER_FAILURES:3}
+      engine-breaker-cooldown-seconds: ${PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS:60}
+      # Shadow: provider=azure mà bật thì chạy thêm GOPT ở nền và ghi log PRONUNCIATION_SHADOW để so điểm; không đổi điểm học viên.
+      shadow-enabled: ${PRONUNCIATION_SHADOW:false}
     azure-direct:
       timeout-seconds: ${AZURE_DIRECT_TIMEOUT_SECONDS:60}
       # Azure short-audio chỉ nhận ~60s: bài dài hơn mức này được cắt theo câu (mốc Groq), chấm từng đoạn rồi ghép - xem AzureAudioChunker.

@@ -601,8 +601,54 @@ Speaking thử Whisper của engine trước, rồi mới rơi về 9Router. Ch�
 đưa âm thanh ra ngoài. Đường lui này chỉ cần engine đã cấu hình (`PRONUNCIATION_ENGINE_TOKEN`), **không phụ thuộc `PRONUNCIATION_PROVIDER`**, nên bật cả khi điểm phát âm
 vẫn là Azure. Tắt bằng `PRONUNCIATION_ENGINE_WHISPER_FALLBACK=false`. Bài phiên âm bằng Whisper có cảnh báo cho giáo viên và `audit.sources.transcription = engine-whisper`.
 
-**Tài nguyên.** Engine giới hạn 8 CPU và 8 GB RAM (`ENGINE_CPUS`, `ENGINE_MEMORY`), mỗi lần chỉ chấm `MAX_CONCURRENT=2` bài, bài thừa xếp hàng.
-Một bài mất khoảng 2 đến 4 giây; lớp đông nộp cùng lúc thì bài cuối chờ lâu hơn tương ứng.
+**Tài nguyên.** Engine giới hạn 12 CPU và 8 GB RAM (`ENGINE_CPUS`, `ENGINE_MEMORY`; luồng PyTorch `OMP_NUM_THREADS=6`, Whisper `WHISPER_THREADS=8`),
+mỗi lần chỉ chấm `MAX_CONCURRENT=2` bài, bài thừa xếp hàng; Whisper có hàng riêng, từng bài một. Đo ngày 2026-10-30 (máy rảnh): bài 9 giây khoảng 2 giây,
+30 giây khoảng 5 giây, 60 giây khoảng 10 giây (chỉ chấm phát âm, chưa gồm nhận dạng và Claude). Staging và production **dùng chung** một engine, nên test nặng
+trên staging làm chậm production (chưa có hạn mức theo từng token).
+
+**Giới hạn audio.** `/v1/analyze` nhận tối đa 90 giây (`MAX_AUDIO_SECONDS` của engine), `/v1/transcribe` tối đa 300 giây; quá thì engine trả HTTP 413. Backend coi 413 như
+engine không chấm được (log "audio quá dài") và rơi về Azure, KHÔNG làm mở ngắt mạch. Lý do: RAM của wav2vec2 tăng nhanh theo độ dài (120 giây khoảng 5 GB,
+300 giây làm container hết RAM). Bài nói tự do dài hơn 90 giây vì vậy luôn chấm bằng Azure cho tới khi có cắt đoạn.
+
+**Ngắt mạch.** Engine treo còn tệ hơn engine chết (mỗi lời gọi chờ hết 90 giây), nên client ngừng gọi sau `PRONUNCIATION_ENGINE_BREAKER_FAILURES=3` lỗi liên tiếp
+(không kết nối được, timeout, HTTP 5xx, phản hồi hỏng) trong `PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS=60` giây; trong lúc đó bài chấm rơi thẳng về Azure/9Router, hết
+thời gian thì cho đúng một lời gọi thăm dò. Phản hồi 4xx (sai token, 413) nghĩa là engine còn sống nên không tính. `/v1/analyze` và `/v1/transcribe` có mạch riêng.
+Dấu hiệu trong log: "tạm ngừng gọi /v1/analyze". Đặt `PRONUNCIATION_ENGINE_BREAKER_FAILURES=0` để tắt.
+
+**Chấm thử song song (shadow) để so với Azure.** Khi `PRONUNCIATION_PROVIDER=azure` mà đặt `PRONUNCIATION_SHADOW=true` (và đã có `PRONUNCIATION_ENGINE_TOKEN`), sau mỗi bài Azure
+chấm xong, backend chạy thêm GOPT ở nền (một luồng, hàng chờ 8, tràn thì bỏ nên không bao giờ chen chỗ bài thật) và ghi một dòng log. Điểm học viên vẫn là của Azure.
+Mỗi bài thêm một lần chạy engine, nên chỉ bật ở staging, hoặc production trong thời gian ngắn:
+
+```bash
+docker logs pps-staging-backend-1 2>&1 | grep PRONUNCIATION_SHADOW | sed 's/.*PRONUNCIATION_SHADOW //'
+```
+
+Mỗi dòng là JSON: `{"words":N,"azure":{accuracy,fluency,completeness,prosody,overall},"gopt":{...},"delta_gopt_minus_azure":{...}}`
+(GOPT lỗi thì `gopt` có `error`). Gom vài chục bài, xem `delta_gopt_minus_azure.overall` có lệch có hệ thống không rồi mới bật `gopt` ở production.
+
+**Quay lại Azure (rollback).** Key và cấu hình Azure (`AZURE_SPEECH_*`) vẫn nằm trong `.env` của staging và production nên không cần dựng lại gì:
+
+1. Sửa `/opt/pps-education/<môi trường>/.env`: `PRONUNCIATION_PROVIDER=azure` (hoặc xoá dòng). File thuộc user `deploy`, cần `sudo`.
+2. `cd /opt/pps-education/<môi trường> && docker compose up -d --no-deps backend` (tạo lại container mới nhận biến môi trường).
+3. Kiểm tra: log bài chấm kế tiếp ghi `audit.gradedBy` có `+azure` (không còn `+gopt`).
+
+Không cần dừng engine. Whisper dự phòng (`PRONUNCIATION_ENGINE_WHISPER_FALLBACK`) độc lập với `PRONUNCIATION_PROVIDER`, tắt riêng nếu muốn.
+
+**Lưu ý release 2026-10-30 (hàng đợi Clip phản xạ trên production).** `.env` production đã có `REFLEX_QUEUE_ENABLED=true`, nhưng `docker-compose.yml` production trên server
+(bản 22/10) chưa truyền biến này vào container nên hàng đợi đang TẮT ở production (staging bật từ 29/10: làn nói 2 luồng, làn viết 3 luồng, mặc định
+`REFLEX_QUEUE_SPEAKING_CONCURRENCY=2`, `REFLEX_QUEUE_WRITING_CONCURRENCY=3`). Khi CD chép compose mới lên và tạo lại container, hàng đợi tự BẬT ở production: kết quả chấm Clip
+phản xạ đến sau (bất đồng bộ) thay vì ngay trong request. Sau release cần theo dõi các bài Clip phản xạ đầu tiên.
+
+**Giới hạn đã biết.** Ghi lại để không quên khi nâng cấp:
+
+- Điểm GOPT chưa hiệu chỉnh với giáo viên; ngưỡng "Mispronunciation" (điểm từ dưới 6/10) mới là ước lượng; lớp 9 tính như lớp 7 (v2 mới hiệu chuẩn lớp 6 đến 8). Thang điểm khác Azure
+  nên điểm học viên có thể lệch; phát âm hiện chỉ để tham khảo khi mở khoá (`REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION=false`). Dùng chế độ shadow ở trên để hiệu chỉnh.
+- Kaldi và GOPT huấn luyện trên giọng bản ngữ (Librispeech); audio điện thoại nhiễu của học viên Việt có thể bị chấm khắt khe hơn. Mới so khớp IPA với lab trên 9 bài mẫu thật;
+  `espeak-ng` trong image (1.51) khác máy lab (1.52).
+- Từ ngoài từ điển (tên riêng, từ lạ) được đoán bằng G2P; bảng sửa `gop/overrides.txt` nằm trong image nên sửa phải build lại engine.
+- Whisper cục bộ chạy CPU nên chậm: khoảng 32 giây cho 60 giây audio (5 phút audio mất khoảng 4 phút), vượt timeout 120 giây của backend với audio khoảng 3 phút trở lên.
+- Một container engine duy nhất: engine chết thì chấm rơi về Azure/9Router (không mất bài), bài đang chấm dở bị mất và chấm lại theo đường dự phòng. RAM tối đa 8 GB: hai bài 90 giây
+  cộng Whisper cùng lúc có thể chạm giới hạn rồi bị kill.
 
 ## 6. Quản trị từ xa trong LAN
 
