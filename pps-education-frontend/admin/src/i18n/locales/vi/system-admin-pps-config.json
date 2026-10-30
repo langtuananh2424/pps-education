@@ -1,0 +1,61 @@
+{
+  "ppsConfigPage": {
+    "title": "Cấu hình chấm phát âm",
+    "description": "Tham số của bộ chấm phát âm PPS Hybrid v2 (GOPT + wav2vec2). Lưu xong có hiệu lực ngay với các bài chấm sau, không cần deploy. Tham số không đổi dùng giá trị mặc định của đặc tả.",
+    "loadError": "Không tải được cấu hình chấm phát âm.",
+    "lastUpdated": "Sửa lần cuối bởi {{name}} lúc {{time}}",
+    "neverUpdated": "Chưa chỉnh lần nào: đang dùng mặc định của đặc tả.",
+    "summary": {
+      "changed": "{{count}} tham số khác mặc định",
+      "allDefault": "Toàn bộ là mặc định",
+      "unsaved": "{{count}} thay đổi chưa lưu"
+    },
+    "noteLabel": "Ghi chú thay đổi (không bắt buộc)",
+    "notePlaceholder": "Ví dụ: siết điểm phụ âm cuối theo góp ý giáo viên",
+    "actions": {
+      "save": "Lưu cấu hình",
+      "saving": "Đang lưu...",
+      "discard": "Hoàn tác thay đổi",
+      "resetAll": "Khôi phục mặc định",
+      "export": "Xuất JSON",
+      "import": "Nhập JSON",
+      "history": "Lịch sử",
+      "resetField": "Đặt về mặc định"
+    },
+    "saved": "Đã lưu cấu hình chấm phát âm. Các bài chấm sau sẽ dùng cấu hình mới.",
+    "resetDone": "Đã khôi phục toàn bộ về mặc định.",
+    "resetConfirm": "Khôi phục toàn bộ tham số về mặc định của đặc tả? Mọi chỉnh sửa hiện có sẽ bị thay (vẫn xem lại được trong lịch sử).",
+    "saveErrorDefault": "Không lưu được cấu hình.",
+    "field": {
+      "default": "Mặc định: {{value}}",
+      "range": "Từ {{min}} đến {{max}}",
+      "changedBadge": "Khác mặc định",
+      "unsavedBadge": "Chưa lưu"
+    },
+    "errors": {
+      "notNumber": "Phải là một số.",
+      "range": "Phải từ {{min}} đến {{max}}.",
+      "weightSum": "{{name}} phải cộng bằng 1 (hiện {{sum}}).",
+      "topFloor": "\"Điểm GOPT coi là đạt tối đa\" phải lớn hơn \"Điểm GOPT coi là sai hẳn\".",
+      "pauseOrder": "\"Ngắt dài\" phải lớn hơn \"Ngắt ngắn\"."
+    },
+    "weightGroup": {
+      "utterance_weights": "Tổng trọng số của Total",
+      "spontaneous_weights": "Tổng trọng số nói tự do"
+    },
+    "importFile": {
+      "invalidJson": "File không phải JSON hợp lệ.",
+      "unknownKeys": "File có tham số không tồn tại: {{keys}}.",
+      "notNumberKeys": "Các tham số sau không phải số: {{keys}}.",
+      "done": "Đã nhập {{count}} tham số từ file. Chưa lưu: kiểm tra lại rồi bấm Lưu cấu hình. Tham số không có trong file được đặt về mặc định."
+    },
+    "history": {
+      "title": "Lịch sử chỉnh cấu hình",
+      "loading": "Đang tải...",
+      "empty": "Chưa có lần chỉnh nào.",
+      "loadError": "Không tải được lịch sử.",
+      "noChange": "(không có thay đổi so với mặc định)",
+      "default": "mặc định"
+    }
+  }
+}

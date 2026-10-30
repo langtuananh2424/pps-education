@@ -615,6 +615,20 @@ engine không chấm được (log "audio quá dài") và rơi về Azure, KHÔN
 thời gian thì cho đúng một lời gọi thăm dò. Phản hồi 4xx (sai token, 413) nghĩa là engine còn sống nên không tính. `/v1/analyze` và `/v1/transcribe` có mạch riêng.
 Dấu hiệu trong log: "tạm ngừng gọi /v1/analyze". Đặt `PRONUNCIATION_ENGINE_BREAKER_FAILURES=0` để tắt.
 
+**Trang chỉnh tham số bộ chấm (Quản trị hệ thống, Cấu hình chấm phát âm, đường dẫn `/system-admin/pps-config`).** Chỉnh các tham số của PPS Hybrid v2
+(điểm âm vị, điểm từ, trần và hệ số theo trạng thái Whisper, trôi chảy, điểm câu và chốt chặn, điều chỉnh theo khối; các tham số nói tự do hiện chưa có tác dụng vì
+`SpontaneousScorer` không được gọi) mà không cần deploy:
+
+- **Quyền:** xem cần `system.settings.view`; sửa, lưu, khôi phục, nhập cần `system.settings.manage` (chỉ SYS_ADMIN, như Cài đặt hệ thống).
+- **Cách lưu:** bảng `pps_scoring_config` (V225) chỉ giữ các tham số KHÁC mặc định; giá trị mặc định và khoảng cho phép nằm trong mã (`PpsConfig`, sinh từ `pps_config.py` của lab). Lưu là
+  lưu TOÀN BỘ cấu hình đang hiện trên trang: tham số không đổi về mặc định. Backend kiểm tra lại (khoảng cho phép, các nhóm trọng số cộng bằng 1, `phone.top` > `phone.floor`,
+  ngắt dài > ngắt ngắn) và từ chối kèm tên tham số sai.
+- **Hiệu lực:** ngay với các bài chấm sau khi lưu (bài đang chấm dở giữ bản cũ). Khi chạy nhiều bản backend, bản kia nạp lại sau tối đa 60 giây (`app.pps-config.refresh-ms`).
+  Backend khởi động nạp cấu hình từ DB; cấu hình hỏng chỉ ghi cảnh báo và dùng mặc định.
+- **Xuất, nhập JSON:** xuất ra file `{"config": {...}}` nhập lại được; nhập chỉ điền vào biểu mẫu, phải bấm Lưu mới có hiệu lực.
+- **Lịch sử:** mỗi lần lưu có thay đổi ghi người sửa, giờ, ghi chú, giá trị trước và sau (50 lần gần nhất trên trang). **Khôi phục mặc định** cũng được ghi lại.
+- Chỉnh điểm ở đây ảnh hưởng điểm học viên khi `PRONUNCIATION_PROVIDER=gopt`; nên thử trên staging và so với điểm giáo viên trước khi đổi ở production.
+
 **Quay lại Azure (rollback).** Key và cấu hình Azure (`AZURE_SPEECH_*`) vẫn nằm trong `.env` của staging và production nên không cần dựng lại gì:
 
 1. Sửa `/opt/pps-education/<môi trường>/.env`: `PRONUNCIATION_PROVIDER=azure` (hoặc xoá dòng). File thuộc user `deploy`, cần `sudo`.
