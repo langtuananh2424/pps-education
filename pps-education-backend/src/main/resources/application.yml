@@ -301,6 +301,10 @@ app:
       engine-url: ${PRONUNCIATION_ENGINE_URL:}
       engine-token: ${PRONUNCIATION_ENGINE_TOKEN:}
       engine-timeout-seconds: ${PRONUNCIATION_ENGINE_TIMEOUT_SECONDS:90}
+      # Phiên âm: Groq lỗi hoặc chưa cấu hình thì thử Whisper cục bộ của chính engine (large-v3-turbo trên CPU, chậm hơn Groq nhiều nhưng không
+      # đưa âm thanh ra ngoài) trước khi rơi về 9Router. Chỉ có tác dụng khi đã cấu hình engine-url/engine-token, không phụ thuộc provider ở trên.
+      engine-whisper-fallback: ${PRONUNCIATION_ENGINE_WHISPER_FALLBACK:true}
+      engine-transcribe-timeout-seconds: ${PRONUNCIATION_ENGINE_TRANSCRIBE_TIMEOUT_SECONDS:120}
     azure-direct:
       timeout-seconds: ${AZURE_DIRECT_TIMEOUT_SECONDS:60}
       # Azure short-audio chỉ nhận ~60s: bài dài hơn mức này được cắt theo câu (mốc Groq), chấm từng đoạn rồi ghép - xem AzureAudioChunker.

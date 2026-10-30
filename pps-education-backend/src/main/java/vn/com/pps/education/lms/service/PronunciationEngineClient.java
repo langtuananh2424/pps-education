@@ -54,6 +54,14 @@ public class PronunciationEngineClient {
     @Value("${app.ai-grading.direct-max-attempts:3}")
     private int maxAttempts;
 
+    /** Whisper cục bộ chậm hơn Groq nhiều (CPU), nên có hạn riêng. */
+    @Value("${app.ai-grading.pronunciation.engine-transcribe-timeout-seconds:120}")
+    private int transcribeTimeoutSeconds;
+
+    /** Dùng Whisper của engine làm đường lui khi Groq lỗi hoặc chưa cấu hình (chỉ có tác dụng khi engine đã cấu hình). */
+    @Value("${app.ai-grading.pronunciation.engine-whisper-fallback:true}")
+    private boolean whisperFallbackEnabled;
+
     /** Chất lượng thu: biên độ đỉnh, nền ồn, chênh tiếng/ồn, số giây có tiếng và tổng số giây. */
     @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -77,6 +85,24 @@ public class PronunciationEngineClient {
     public record Analysis(Boolean noSignal, AudioInfo audio, Ipa ipa, PronunciationInput.Gopt gopt, Map<String, Double> latencySeconds) {
     }
 
+    /** Một từ có mốc thời gian (giây) của Whisper cục bộ. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record TranscribedWord(String word, double start, double end, double probability) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record TranscribedSegment(double start, double end, String text) {
+    }
+
+    /** Kết quả nhận dạng của engine, cùng khung với verbose_json của Groq. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record Transcription(String text, String language, double duration, List<TranscribedSegment> segments,
+                                List<TranscribedWord> words, String model) {
+    }
+
     public PronunciationEngineClient(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
@@ -92,35 +118,69 @@ public class PronunciationEngineClient {
             return null;
         }
         try {
-            String boundary = "----ppsEngine" + UUID.randomUUID();
-            byte[] body = multipart(boundary, audioBytes, mimeType, filename, objectMapper.writeValueAsString(words));
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl.replaceAll("/+$", "") + "/v1/analyze"))
-                    .header("Authorization", "Bearer " + token)
-                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                    .timeout(Duration.ofSeconds(timeoutSeconds))
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                    .build();
-            HttpResponse<String> response = DirectAiRetry.send("PronunciationEngineClient", maxAttempts,
-                    () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
-            if (response.statusCode() >= 300) {
-                log.warn("PronunciationEngineClient: HTTP {} — {}", response.statusCode(), response.body());
-                return null;
-            }
-            return objectMapper.readValue(response.body(), Analysis.class);
+            return post("/v1/analyze", audioBytes, mimeType, filename, Map.of("words", objectMapper.writeValueAsString(words)),
+                    timeoutSeconds, Analysis.class);
         } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            log.warn("PronunciationEngineClient: gọi lỗi. {}", e.getMessage());
-            return null;
+            return failed(e);
         }
     }
 
-    private static byte[] multipart(String boundary, byte[] audio, String mimeType, String filename, String wordsJson) throws IOException {
+    /** Whisper cục bộ đang bật làm đường lui (đã cấu hình engine và không tắt bằng engine-whisper-fallback=false). */
+    public boolean canTranscribe() {
+        return whisperFallbackEnabled && isConfigured();
+    }
+
+    /**
+     * Nhận dạng giọng nói bằng Whisper của engine. Dùng khi Groq lỗi: chậm hơn (CPU) nhưng không phụ thuộc dịch vụ ngoài và không đưa
+     * âm thanh ra ngoài. Trả null khi lỗi (cùng quy ước với các client AI khác).
+     */
+    public Transcription transcribe(byte[] audioBytes, String mimeType, String filename) {
+        if (!canTranscribe()) {
+            return null;
+        }
+        try {
+            return post("/v1/transcribe", audioBytes, mimeType, filename, Map.of("language", "en"), transcribeTimeoutSeconds,
+                    Transcription.class);
+        } catch (IOException | InterruptedException e) {
+            return failed(e);
+        }
+    }
+
+    private <T> T post(String path, byte[] audio, String mimeType, String filename, Map<String, String> fields, int timeoutSec,
+                       Class<T> type) throws IOException, InterruptedException {
+        String boundary = "----ppsEngine" + UUID.randomUUID();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl.replaceAll("/+$", "") + path))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .timeout(Duration.ofSeconds(timeoutSec))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipart(boundary, audio, mimeType, filename, fields)))
+                .build();
+        HttpResponse<String> response = DirectAiRetry.send("PronunciationEngineClient", maxAttempts,
+                () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
+        if (response.statusCode() >= 300) {
+            log.warn("PronunciationEngineClient: HTTP {} — {}", response.statusCode(), response.body());
+            return null;
+        }
+        return objectMapper.readValue(response.body(), type);
+    }
+
+    private static <T> T failed(Exception e) {
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        log.warn("PronunciationEngineClient: gọi lỗi. {}", e.getMessage());
+        return null;
+    }
+
+    private static byte[] multipart(String boundary, byte[] audio, String mimeType, String filename, Map<String, String> fields)
+            throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         String prefix = "--" + boundary + "\r\n";
-        out.write((prefix + "Content-Disposition: form-data; name=\"words\"\r\n\r\n" + wordsJson + "\r\n").getBytes(StandardCharsets.UTF_8));
+        for (Map.Entry<String, String> f : fields.entrySet()) {
+            out.write((prefix + "Content-Disposition: form-data; name=\"" + f.getKey() + "\"\r\n\r\n" + f.getValue() + "\r\n")
+                    .getBytes(StandardCharsets.UTF_8));
+        }
         String fname = filename == null ? "answer.webm" : filename;
         String ctype = mimeType == null ? "application/octet-stream" : mimeType;
         out.write((prefix + "Content-Disposition: form-data; name=\"audio\"; filename=\"" + fname + "\"\r\n"

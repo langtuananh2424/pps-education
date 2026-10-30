@@ -27,6 +27,12 @@ class PronunciationEngineClientTest {
                "words":[{"word":"I","accuracy":8,"stress":9.5,"total":8,"phones":[{"p":"AY","s":1.9}],"guessed_pron":false}]},
              "latency_seconds":{"total":2.1}}""";
 
+    private static final String TRANSCRIBE_RESPONSE = """
+            {"text":"I like my school.","language":"en","duration":2.0,
+             "segments":[{"start":0.0,"end":2.0,"text":"I like my school."}],
+             "words":[{"word":"I","start":0.0,"end":0.2,"probability":0.9},{"word":"like","start":0.4,"end":0.7,"probability":0.8}],
+             "model":"whisper-large-v3-turbo","latency_seconds":4.2}""";
+
     private HttpServer server;
     private final AtomicReference<String> upgrade = new AtomicReference<>("(chưa gọi)");
     private final AtomicReference<String> auth = new AtomicReference<>();
@@ -44,7 +50,8 @@ class PronunciationEngineClientTest {
             contentType.set(exchange.getRequestHeaders().getFirst("Content-Type"));
             path.set(exchange.getRequestURI().getPath());
             body.set(exchange.getRequestBody().readAllBytes());
-            byte[] out = (status == 200 ? RESPONSE : "{\"detail\":\"loi\"}").getBytes(StandardCharsets.UTF_8);
+            String ok = exchange.getRequestURI().getPath().equals("/v1/transcribe") ? TRANSCRIBE_RESPONSE : RESPONSE;
+            byte[] out = (status == 200 ? ok : "{\"detail\":\"loi\"}").getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(status, out.length);
             exchange.getResponseBody().write(out);
@@ -63,8 +70,43 @@ class PronunciationEngineClientTest {
         ReflectionTestUtils.setField(c, "baseUrl", url);
         ReflectionTestUtils.setField(c, "token", token);
         ReflectionTestUtils.setField(c, "timeoutSeconds", 10);
+        ReflectionTestUtils.setField(c, "transcribeTimeoutSeconds", 10);
+        ReflectionTestUtils.setField(c, "whisperFallbackEnabled", true);
         ReflectionTestUtils.setField(c, "maxAttempts", 1);
         return c;
+    }
+
+    @Test
+    void transcribe_postsToTranscribeEndpointAndReadsGroqShapedResult() {
+        PronunciationEngineClient.Transcription t = client(url(), "tok").transcribe(new byte[]{1, 2}, "audio/webm", "a.webm");
+
+        assertThat(path.get()).isEqualTo("/v1/transcribe");
+        assertThat(upgrade.get()).isEqualTo("null");
+        assertThat(auth.get()).isEqualTo("Bearer tok");
+        String raw = new String(body.get(), StandardCharsets.ISO_8859_1);
+        assertThat(raw).contains("name=\"language\"").contains("en").contains("name=\"audio\"; filename=\"a.webm\"");
+        assertThat(t.text()).isEqualTo("I like my school.");
+        assertThat(t.model()).isEqualTo("whisper-large-v3-turbo");
+        assertThat(t.segments()).hasSize(1);
+        assertThat(t.words()).extracting(PronunciationEngineClient.TranscribedWord::word).containsExactly("I", "like");
+        assertThat(t.words().get(1).start()).isEqualTo(0.4);
+    }
+
+    @Test
+    void transcribe_isOffWhenFallbackDisabledOrEngineNotConfigured() {
+        PronunciationEngineClient off = client(url(), "tok");
+        ReflectionTestUtils.setField(off, "whisperFallbackEnabled", false);
+        assertThat(off.canTranscribe()).isFalse();
+        assertThat(off.transcribe(new byte[]{1}, "audio/webm", "a.webm")).isNull();
+        assertThat(client("", "tok").canTranscribe()).isFalse();
+        assertThat(client(url(), "tok").canTranscribe()).isTrue();
+        assertThat(upgrade.get()).as("không có yêu cầu nào được gửi").isEqualTo("(chưa gọi)");
+    }
+
+    @Test
+    void transcribe_httpErrorReturnsNull() {
+        status = 503;
+        assertThat(client(url(), "tok").transcribe(new byte[]{1}, "audio/webm", "a.webm")).isNull();
     }
 
     private String url() {
