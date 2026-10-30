@@ -47,6 +47,16 @@ import java.util.function.BiFunction;
 public class AiGradingFallbackService {
 
     private static final Logger log = LoggerFactory.getLogger(AiGradingFallbackService.class);
+    private static final Logger shadowLog = LoggerFactory.getLogger("pps.pronunciation.shadow");
+
+    /** Một luồng, hàng chờ 8, tràn thì bỏ: shadow không bao giờ được làm chậm hay chen chỗ bài chấm thật trên engine. */
+    private static final java.util.concurrent.ThreadPoolExecutor SHADOW_EXECUTOR = new java.util.concurrent.ThreadPoolExecutor(
+            1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS, new java.util.concurrent.ArrayBlockingQueue<>(8),
+            runnable -> {
+                Thread t = new Thread(runnable, "pronunciation-shadow");
+                t.setDaemon(true);
+                return t;
+            }, new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
 
     /** Mirror {@link ReflexV2AiGradingService#MAX_WORDS_PER_SECOND} — không truy cập được (private), định nghĩa lại cùng giá trị đã thống nhất với người training. */
     private static final double MAX_WORDS_PER_SECOND = 3.5;
@@ -71,6 +81,14 @@ public class AiGradingFallbackService {
      */
     @Value("${app.ai-grading.pronunciation.provider:azure}")
     private String pronunciationProvider;
+
+    /**
+     * Chế độ shadow: provider = azure mà bật cờ này (và đã cấu hình engine) thì sau khi Azure chấm xong, chạy thêm GOPT ở nền và ghi một
+     * dòng log {@code PRONUNCIATION_SHADOW} so hai bên (xem {@link PronunciationShadow}). Điểm học viên vẫn là của Azure. Mặc định tắt vì
+     * mỗi bài tốn thêm một lần chạy engine.
+     */
+    @Value("${app.ai-grading.pronunciation.shadow-enabled:false}")
+    private boolean pronunciationShadowEnabled;
 
     @Value("${app.ai-grading.claude-direct.model:claude-haiku-5-5}")
     private String claudeModel;
@@ -186,8 +204,28 @@ public class AiGradingFallbackService {
                 return viaGopt;
             }
         }
-        return azurePronunciationClient.assessSegmented(audioBytes, mimeType, transcript,
+        AzurePronunciationClient.Result viaAzure = azurePronunciationClient.assessSegmented(audioBytes, mimeType, transcript,
                 transcription != null ? transcription.segments() : List.of());
+        shadowCompare(viaAzure, audioBytes, mimeType, transcript, transcription, grade);
+        return viaAzure;
+    }
+
+    /** Chạy GOPT ở nền để so với điểm Azure vừa có (chỉ khi bật shadow). Mọi lỗi chỉ ghi log, không ảnh hưởng bài chấm. */
+    private void shadowCompare(AzurePronunciationClient.Result azure, byte[] audioBytes, String mimeType, String transcript,
+                               GroqSpeechClient.TranscriptionResult transcription, int grade) {
+        if (!pronunciationShadowEnabled || goptPronunciation == null || !goptPronunciation.isConfigured()
+                || azure == null || !azure.hasScores()) {
+            return;
+        }
+        List<GroqSpeechClient.Word> stamps = transcription != null ? transcription.words() : List.of();
+        SHADOW_EXECUTOR.execute(() -> {
+            try {
+                AzurePronunciationClient.Result gopt = goptPronunciation.assess(audioBytes, mimeType, transcript, stamps, grade);
+                shadowLog.info("{}{}", PronunciationShadow.PREFIX, PronunciationShadow.compare(azure, gopt, transcript));
+            } catch (RuntimeException e) {
+                shadowLog.warn("{}shadow lỗi: {}", PronunciationShadow.PREFIX, e.getMessage());
+            }
+        });
     }
 
     // ===================== Essay (UC-40/41) =====================

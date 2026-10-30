@@ -62,6 +62,17 @@ public class PronunciationEngineClient {
     @Value("${app.ai-grading.pronunciation.engine-whisper-fallback:true}")
     private boolean whisperFallbackEnabled;
 
+    /** Số lần lỗi engine LIÊN TIẾP thì ngắt mạch (0 = tắt), xem {@link EngineCircuitBreaker}. Mỗi đường (analyze, transcribe) có mạch riêng. */
+    @Value("${app.ai-grading.pronunciation.engine-breaker-failures:3}")
+    private int breakerFailures = 3;
+
+    /** Thời gian mở mạch (giây): trong lúc này không gọi engine, rơi thẳng về đường dự phòng. */
+    @Value("${app.ai-grading.pronunciation.engine-breaker-cooldown-seconds:60}")
+    private int breakerCooldownSeconds = 60;
+
+    private EngineCircuitBreaker analyzeBreaker;
+    private EngineCircuitBreaker transcribeBreaker;
+
     /** Chất lượng thu: biên độ đỉnh, nền ồn, chênh tiếng/ồn, số giây có tiếng và tổng số giây. */
     @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -111,15 +122,35 @@ public class PronunciationEngineClient {
         return baseUrl != null && !baseUrl.isBlank() && token != null && !token.isBlank();
     }
 
+    private synchronized EngineCircuitBreaker analyzeBreaker() {
+        if (analyzeBreaker == null) {
+            analyzeBreaker = new EngineCircuitBreaker(breakerFailures, breakerCooldownSeconds * 1000L, System::currentTimeMillis);
+        }
+        return analyzeBreaker;
+    }
+
+    private synchronized EngineCircuitBreaker transcribeBreaker() {
+        if (transcribeBreaker == null) {
+            transcribeBreaker = new EngineCircuitBreaker(breakerFailures, breakerCooldownSeconds * 1000L, System::currentTimeMillis);
+        }
+        return transcribeBreaker;
+    }
+
     /** @param words các từ mục tiêu theo thứ tự (backend đã tách từ và đổi số thành chữ). */
     public Analysis analyze(byte[] audioBytes, String mimeType, String filename, List<String> words) {
         if (!isConfigured()) {
             log.warn("PronunciationEngineClient: chưa cấu hình engine-url / engine-token.");
             return null;
         }
+        EngineCircuitBreaker breaker = analyzeBreaker();
+        if (!breaker.tryAcquire()) {
+            log.warn("PronunciationEngineClient: engine lỗi liên tiếp, tạm ngừng gọi /v1/analyze thêm {}s (rơi về đường dự phòng).",
+                    breaker.remainingMillis() / 1000);
+            return null;
+        }
         try {
             return post("/v1/analyze", audioBytes, mimeType, filename, Map.of("words", objectMapper.writeValueAsString(words)),
-                    timeoutSeconds, Analysis.class);
+                    timeoutSeconds, Analysis.class, breaker);
         } catch (IOException | InterruptedException e) {
             return failed(e);
         }
@@ -138,16 +169,22 @@ public class PronunciationEngineClient {
         if (!canTranscribe()) {
             return null;
         }
+        EngineCircuitBreaker breaker = transcribeBreaker();
+        if (!breaker.tryAcquire()) {
+            log.warn("PronunciationEngineClient: engine lỗi liên tiếp, tạm ngừng gọi /v1/transcribe thêm {}s (rơi về 9Router).",
+                    breaker.remainingMillis() / 1000);
+            return null;
+        }
         try {
             return post("/v1/transcribe", audioBytes, mimeType, filename, Map.of("language", "en"), transcribeTimeoutSeconds,
-                    Transcription.class);
+                    Transcription.class, breaker);
         } catch (IOException | InterruptedException e) {
             return failed(e);
         }
     }
 
     private <T> T post(String path, byte[] audio, String mimeType, String filename, Map<String, String> fields, int timeoutSec,
-                       Class<T> type) throws IOException, InterruptedException {
+                       Class<T> type, EngineCircuitBreaker breaker) throws IOException, InterruptedException {
         String boundary = "----ppsEngine" + UUID.randomUUID();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl.replaceAll("/+$", "") + path))
@@ -156,13 +193,38 @@ public class PronunciationEngineClient {
                 .timeout(Duration.ofSeconds(timeoutSec))
                 .POST(HttpRequest.BodyPublishers.ofByteArray(multipart(boundary, audio, mimeType, filename, fields)))
                 .build();
-        HttpResponse<String> response = DirectAiRetry.send("PronunciationEngineClient", maxAttempts,
-                () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
-        if (response.statusCode() >= 300) {
-            log.warn("PronunciationEngineClient: HTTP {} — {}", response.statusCode(), response.body());
+        HttpResponse<String> response;
+        try {
+            response = DirectAiRetry.send("PronunciationEngineClient", maxAttempts,
+                    () -> httpClient.send(request, HttpResponse.BodyHandlers.ofString()));
+        } catch (InterruptedException e) {
+            breaker.onAbort();
+            throw e;
+        } catch (IOException e) {
+            breaker.onFailure();   // không kết nối được hoặc timeout: engine chết hoặc treo
+            throw e;
+        }
+        int status = response.statusCode();
+        if (status >= 500) {
+            breaker.onFailure();
+            log.warn("PronunciationEngineClient: HTTP {} — {}", status, response.body());
             return null;
         }
-        return objectMapper.readValue(response.body(), type);
+        breaker.onSuccess();   // engine trả lời được (kể cả 4xx): còn sống
+        if (status >= 300) {
+            if (status == 413) {
+                log.warn("PronunciationEngineClient: audio quá dài so với giới hạn của engine (HTTP 413), rơi về đường dự phòng — {}", response.body());
+            } else {
+                log.warn("PronunciationEngineClient: HTTP {} — {}", status, response.body());
+            }
+            return null;
+        }
+        try {
+            return objectMapper.readValue(response.body(), type);
+        } catch (IOException e) {
+            breaker.onFailure();   // phản hồi hỏng cũng là engine không khoẻ
+            throw e;
+        }
     }
 
     private static <T> T failed(Exception e) {
