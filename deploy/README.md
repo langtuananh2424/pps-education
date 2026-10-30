@@ -615,17 +615,6 @@ engine không chấm được (log "audio quá dài") và rơi về Azure, KHÔN
 thời gian thì cho đúng một lời gọi thăm dò. Phản hồi 4xx (sai token, 413) nghĩa là engine còn sống nên không tính. `/v1/analyze` và `/v1/transcribe` có mạch riêng.
 Dấu hiệu trong log: "tạm ngừng gọi /v1/analyze". Đặt `PRONUNCIATION_ENGINE_BREAKER_FAILURES=0` để tắt.
 
-**Chấm thử song song (shadow) để so với Azure.** Khi `PRONUNCIATION_PROVIDER=azure` mà đặt `PRONUNCIATION_SHADOW=true` (và đã có `PRONUNCIATION_ENGINE_TOKEN`), sau mỗi bài Azure
-chấm xong, backend chạy thêm GOPT ở nền (một luồng, hàng chờ 8, tràn thì bỏ nên không bao giờ chen chỗ bài thật) và ghi một dòng log. Điểm học viên vẫn là của Azure.
-Mỗi bài thêm một lần chạy engine, nên chỉ bật ở staging, hoặc production trong thời gian ngắn:
-
-```bash
-docker logs pps-staging-backend-1 2>&1 | grep PRONUNCIATION_SHADOW | sed 's/.*PRONUNCIATION_SHADOW //'
-```
-
-Mỗi dòng là JSON: `{"words":N,"azure":{accuracy,fluency,completeness,prosody,overall},"gopt":{...},"delta_gopt_minus_azure":{...}}`
-(GOPT lỗi thì `gopt` có `error`). Gom vài chục bài, xem `delta_gopt_minus_azure.overall` có lệch có hệ thống không rồi mới bật `gopt` ở production.
-
 **Quay lại Azure (rollback).** Key và cấu hình Azure (`AZURE_SPEECH_*`) vẫn nằm trong `.env` của staging và production nên không cần dựng lại gì:
 
 1. Sửa `/opt/pps-education/<môi trường>/.env`: `PRONUNCIATION_PROVIDER=azure` (hoặc xoá dòng). File thuộc user `deploy`, cần `sudo`.
@@ -642,7 +631,7 @@ phản xạ đến sau (bất đồng bộ) thay vì ngay trong request. Sau rel
 **Giới hạn đã biết.** Ghi lại để không quên khi nâng cấp:
 
 - Điểm GOPT chưa hiệu chỉnh với giáo viên; ngưỡng "Mispronunciation" (điểm từ dưới 6/10) mới là ước lượng; lớp 9 tính như lớp 7 (v2 mới hiệu chuẩn lớp 6 đến 8). Thang điểm khác Azure
-  nên điểm học viên có thể lệch; phát âm hiện chỉ để tham khảo khi mở khoá (`REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION=false`). Dùng chế độ shadow ở trên để hiệu chỉnh.
+  nên điểm học viên có thể lệch; phát âm hiện chỉ để tham khảo khi mở khoá (`REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION=false`).
 - Kaldi và GOPT huấn luyện trên giọng bản ngữ (Librispeech); audio điện thoại nhiễu của học viên Việt có thể bị chấm khắt khe hơn. Mới so khớp IPA với lab trên 9 bài mẫu thật;
   `espeak-ng` trong image (1.51) khác máy lab (1.52).
 - Từ ngoài từ điển (tên riêng, từ lạ) được đoán bằng G2P; bảng sửa `gop/overrides.txt` nằm trong image nên sửa phải build lại engine.
