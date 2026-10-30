@@ -38,6 +38,7 @@ import {
   Receipt,
   Send,
   Settings2,
+  SlidersHorizontal,
   ShieldCheck,
   UserCog,
   UserRound,
@@ -115,6 +116,7 @@ export const navSections: NavSection[] = [
       { id: "sys-override", label: "Tùy chỉnh tài khoản", path: "/system-admin/overrides", icon: UserCog },
       { id: "sys-audit", label: "Nhật ký thay đổi", path: "/system-admin/audit-log", icon: History },
       { id: "sys-settings", label: "Cài đặt hệ thống", path: "/system-admin/settings", icon: Settings2 },
+      { id: "sys-pps-config", label: "Cấu hình chấm phát âm", path: "/system-admin/pps-config", icon: SlidersHorizontal },
       { id: "sys-send-notification", label: "Gửi thông báo", path: "/system-admin/send-notification", icon: Send },
       { id: "sys-ai-token-usage", label: "Sử dụng token AI", path: "/system-admin/ai-token-usage", icon: Coins }
     ]
