@@ -2476,12 +2476,12 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       // Từ 2026-10-28 câu đạt khi NÓI đạt, nên "chưa đạt mà đã chốt" luôn là nói hết lượt — nêu rõ bước nào chưa đạt.
                       <span className="flex items-center gap-1">
                         <AlertTriangle size={13} />{" "}
-                        {t(progress[q.id]?.writingPassed ? "reflexVideoTask.question.speakingNotPassedExhausted" : "reflexVideoTask.question.writingSpeakingNotPassedExhausted")}
+                        {t(progress[q.id]?.writingPassed || WRITING_SKIPPED_FORMATS.has(q.questionFormat ?? "") ? "reflexVideoTask.question.speakingNotPassedExhausted" : "reflexVideoTask.question.writingSpeakingNotPassedExhausted")}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1">
                         <CheckCircle2 size={13} />{" "}
-                        {t(progress[q.id]?.writingPassed === false ? "reflexVideoTask.question.passedWritingNot" : "reflexVideoTask.question.passed")}
+                        {t(progress[q.id]?.writingPassed === false && !WRITING_SKIPPED_FORMATS.has(q.questionFormat ?? "") ? "reflexVideoTask.question.passedWritingNot" : "reflexVideoTask.question.passed")}
                       </span>
                     )
                   ) : (

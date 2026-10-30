@@ -57,10 +57,19 @@ public class AzurePronunciationClient {
     /** {@code chunkCount}: số đoạn audio đã gửi Azure (1 = bài ngắn gửi nguyên). */
     public record Result(Integer accuracyScore, Integer fluencyScore, Integer completenessScore,
                           Integer prosodyScore, Integer overallScore, List<PronunciationWordDetail> words, String rawJson,
-                          int chunkCount) {
+                          int chunkCount, String engine) {
+        /** Nguồn điểm: Azure hoặc bộ chấm GOPT (xem {@link GoptPronunciationService}); dùng chung khung kết quả để luồng chấm không đổi. */
+        public static final String ENGINE_AZURE = "azure";
+        public static final String ENGINE_GOPT = "gopt";
+
+        Result(Integer accuracyScore, Integer fluencyScore, Integer completenessScore, Integer prosodyScore,
+               Integer overallScore, List<PronunciationWordDetail> words, String rawJson, int chunkCount) {
+            this(accuracyScore, fluencyScore, completenessScore, prosodyScore, overallScore, words, rawJson, chunkCount, ENGINE_AZURE);
+        }
+
         Result(Integer accuracyScore, Integer fluencyScore, Integer completenessScore, Integer prosodyScore,
                Integer overallScore, List<PronunciationWordDetail> words, String rawJson) {
-            this(accuracyScore, fluencyScore, completenessScore, prosodyScore, overallScore, words, rawJson, 1);
+            this(accuracyScore, fluencyScore, completenessScore, prosodyScore, overallScore, words, rawJson, 1, ENGINE_AZURE);
         }
 
         static Result error(String message) {

@@ -293,6 +293,23 @@ app:
     direct-total-budget-seconds: ${DIRECT_AI_TOTAL_BUDGET_SECONDS:60}
     groq-direct:
       timeout-seconds: ${GROQ_DIRECT_TIMEOUT_SECONDS:60}
+    # Nguồn điểm Phát âm của Speaking (UC-23b): azure (mặc định) hoặc gopt = service suy luận pps-speaking-engine (Kaldi GOP + GOPT +
+    # wav2vec2) chấm lại bằng PPS Hybrid v2, xem GoptPronunciationService. Chọn gopt mà chưa cấu hình engine-url/engine-token hoặc
+    # service lỗi thì tự dùng Azure (nếu đã cấu hình), rồi mới tới 9Router. Service chỉ nên nghe nội bộ (127.0.0.1 / Tailscale).
+    pronunciation:
+      provider: ${PRONUNCIATION_PROVIDER:azure}
+      engine-url: ${PRONUNCIATION_ENGINE_URL:}
+      engine-token: ${PRONUNCIATION_ENGINE_TOKEN:}
+      engine-timeout-seconds: ${PRONUNCIATION_ENGINE_TIMEOUT_SECONDS:90}
+      # Phiên âm: Groq lỗi hoặc chưa cấu hình thì thử Whisper cục bộ của chính engine (large-v3-turbo trên CPU, chậm hơn Groq nhiều nhưng không
+      # đưa âm thanh ra ngoài) trước khi rơi về 9Router. Chỉ có tác dụng khi đã cấu hình engine-url/engine-token, không phụ thuộc provider ở trên.
+      engine-whisper-fallback: ${PRONUNCIATION_ENGINE_WHISPER_FALLBACK:true}
+      engine-transcribe-timeout-seconds: ${PRONUNCIATION_ENGINE_TRANSCRIBE_TIMEOUT_SECONDS:120}
+      # Ngắt mạch: engine lỗi/treo liên tiếp N lần thì tạm ngừng gọi (giây), rơi thẳng về Azure/9Router thay vì mỗi bài chờ hết timeout. 0 = tắt.
+      engine-breaker-failures: ${PRONUNCIATION_ENGINE_BREAKER_FAILURES:3}
+      engine-breaker-cooldown-seconds: ${PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS:60}
+      # Shadow: provider=azure mà bật thì chạy thêm GOPT ở nền và ghi log PRONUNCIATION_SHADOW để so điểm; không đổi điểm học viên.
+      shadow-enabled: ${PRONUNCIATION_SHADOW:false}
     azure-direct:
       timeout-seconds: ${AZURE_DIRECT_TIMEOUT_SECONDS:60}
       # Azure short-audio chỉ nhận ~60s: bài dài hơn mức này được cắt theo câu (mốc Groq), chấm từng đoạn rồi ghép - xem AzureAudioChunker.
