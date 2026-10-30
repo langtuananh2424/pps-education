@@ -30,6 +30,7 @@ import systemAdminRolesEn from "./locales/en/system-admin-roles.json";
 import systemAdminUsersEn from "./locales/en/system-admin-users.json";
 import systemAdminOverridesEn from "./locales/en/system-admin-overrides.json";
 import systemAdminSettingsEn from "./locales/en/system-admin-settings.json";
+import systemAdminPpsConfigEn from "./locales/en/system-admin-pps-config.json";
 import notificationsEn from "./locales/en/notifications.json";
 import academicOversightEn from "./locales/en/academic-oversight.json";
 import financeEn from "./locales/en/finance.json";
@@ -62,6 +63,7 @@ import systemAdminRolesVi from "./locales/vi/system-admin-roles.json";
 import systemAdminUsersVi from "./locales/vi/system-admin-users.json";
 import systemAdminOverridesVi from "./locales/vi/system-admin-overrides.json";
 import systemAdminSettingsVi from "./locales/vi/system-admin-settings.json";
+import systemAdminPpsConfigVi from "./locales/vi/system-admin-pps-config.json";
 import notificationsVi from "./locales/vi/notifications.json";
 import academicOversightVi from "./locales/vi/academic-oversight.json";
 import financeVi from "./locales/vi/finance.json";
@@ -102,6 +104,7 @@ i18n.use(initReactI18next).init({
       "system-admin-users": systemAdminUsersVi,
       "system-admin-overrides": systemAdminOverridesVi,
       "system-admin-settings": systemAdminSettingsVi,
+      "system-admin-pps-config": systemAdminPpsConfigVi,
       notifications: notificationsVi,
       "academic-oversight": academicOversightVi,
       finance: financeVi
@@ -136,6 +139,7 @@ i18n.use(initReactI18next).init({
       "system-admin-users": systemAdminUsersEn,
       "system-admin-overrides": systemAdminOverridesEn,
       "system-admin-settings": systemAdminSettingsEn,
+      "system-admin-pps-config": systemAdminPpsConfigEn,
       notifications: notificationsEn,
       "academic-oversight": academicOversightEn,
       finance: financeEn
@@ -174,6 +178,7 @@ i18n.use(initReactI18next).init({
     "system-admin-users",
     "system-admin-overrides",
     "system-admin-settings",
+    "system-admin-pps-config",
     "notifications",
     "academic-oversight",
     "finance"

@@ -206,6 +206,11 @@ public final class PpsConfig {
         return d == Math.rint(d) ? Long.toString((long) d) : Double.toString(d);
     }
 
+    /** Tiền tố của các nhóm trọng số phải cộng bằng 1 (giao diện hiện tổng để người sửa không phải đoán). */
+    public static List<String> weightGroups() {
+        return WEIGHT_GROUPS;
+    }
+
     /** Danh sách tham số theo nhóm hiển thị, giữ thứ tự khai báo. */
     public static Map<String, List<Field>> fieldsByGroup() {
         Map<String, List<Field>> out = new LinkedHashMap<>();

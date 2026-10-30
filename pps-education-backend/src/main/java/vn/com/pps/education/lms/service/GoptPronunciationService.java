@@ -24,7 +24,8 @@ import java.util.regex.Pattern;
  *
  * <p>Luồng: transcript của Groq → tách từ (số thành chữ) → service suy luận ({@link PronunciationEngineClient}: wav2vec2 IPA, Kaldi
  * gióng hàng, GOPT) → {@link PpsHybridScorer} chấm lại điểm từ, âm, trôi chảy, ngữ điệu → đổi sang thang 0-100 của Azure.
- * Như Azure trước đây, câu mục tiêu là transcript (không phải bài viết Bước 1): học sinh có thể nói khác bài viết.
+ * Câu mục tiêu theo lab: có bài viết Bước 1 thì ghép bài viết với lời nói ({@link TargetMerger}, chế độ {@code writing_merged}) để từ
+ * đọc lệch không bị coi là "nói thêm" rồi chấm cao; không có bài viết (câu không có bước Viết) thì chấm trên chính lời STT nghe được.
  *
  * <p>Trả {@code Result.error(...)} (không có điểm) khi service lỗi, không có tín hiệu tiếng nói, hoặc Kaldi không gióng hàng được
  * (âm thanh quá ngắn, chỉ lẩm bẩm). Đó là điểm "không đo được", không phải 0: luồng chấm xử lý như khi Azure lỗi.
@@ -63,15 +64,43 @@ public class GoptPronunciationService {
         return engine.isConfigured();
     }
 
-    /**
-     * @param wordStamps mốc thời gian từng từ của Groq (rỗng thì trôi chảy tính theo heuristic)
-     * @param grade      khối 6-9 của đề (khối 9 tính như khối 7 vì v2 mới hiệu chuẩn cho khối 6-8)
-     */
+    /** Chấm không có bài viết: câu mục tiêu là transcript (câu không có bước Viết). */
     public AzurePronunciationClient.Result assess(byte[] audioBytes, String mimeType, String transcript,
                                                   List<GroqSpeechClient.Word> wordStamps, int grade) {
-        List<String> words = TargetMerger.wordsOf(transcript);
-        if (words.isEmpty()) {
-            return AzurePronunciationClient.Result.error("GOPT: transcript không có từ nào để chấm phát âm");
+        return assess(audioBytes, mimeType, transcript, wordStamps, grade, null);
+    }
+
+    /**
+     * @param wordStamps  mốc thời gian từng từ của STT (rỗng thì trôi chảy tính theo heuristic)
+     * @param grade       khối 6-9 của đề (khối 9 tính như khối 7 vì v2 mới hiệu chuẩn cho khối 6-8)
+     * @param writtenText bài viết Bước 1; trống hoặc null nếu câu không có bước Viết
+     */
+    public AzurePronunciationClient.Result assess(byte[] audioBytes, String mimeType, String transcript,
+                                                  List<GroqSpeechClient.Word> wordStamps, int grade, String writtenText) {
+        boolean guided = writtenText != null && !TargetMerger.wordsOf(writtenText).isEmpty();
+        List<String> said = saidWords(wordStamps, transcript);
+        TargetMerger.Result merge = null;
+        boolean fallback = false;
+        List<String> words;
+        if (guided) {
+            merge = TargetMerger.merge(writtenText, said);
+            words = merge.words().stream().map(TargetMerger.MergedWord::word).toList();
+            if (words.isEmpty()) {
+                return AzurePronunciationClient.Result.error("GOPT: STT không nghe ra từ nào để chấm");
+            }
+            if (garbled(said, merge)) {
+                // STT nghe ra chữ vô nghĩa dù có thể vẫn có tiếng nói: tạm dùng bài viết làm câu mẫu, sau khi engine đo xong âm thanh có rõ
+                // và có tiếng đủ không (như lab) mới giữ; các từ bị đánh dấu unverified nên điểm bị chặn trần và trừ chốt chặn.
+                fallback = true;
+                words = TargetMerger.wordsOf(writtenText);
+                merge = new TargetMerger.Result(words.stream().map(w -> new TargetMerger.MergedWord(w, "writing", null, null)).toList(),
+                        List.of(), words.size(), 0, 0, 0);
+            }
+        } else {
+            words = TargetMerger.wordsOf(transcript);
+            if (words.isEmpty()) {
+                return AzurePronunciationClient.Result.error("GOPT: transcript không có từ nào để chấm phát âm");
+            }
         }
         PronunciationEngineClient.Analysis analysis = engine.analyze(audioBytes, mimeType, "answer.webm", words);
         if (analysis == null) {
@@ -81,12 +110,19 @@ public class GoptPronunciationService {
             return AzurePronunciationClient.Result.error("GOPT: âm thanh gần như không có tín hiệu");
         }
         if (analysis.ipa() == null || analysis.ipa().words() == null || analysis.ipa().words().size() != words.size()) {
-            return AzurePronunciationClient.Result.error("GOPT: số từ IPA không khớp transcript");
+            return AzurePronunciationClient.Result.error("GOPT: số từ IPA không khớp câu mục tiêu");
+        }
+        if (fallback && !clearEnoughForFallback(analysis.audio())) {
+            return AzurePronunciationClient.Result.error("GOPT: STT không nhận ra lời nói và âm thanh không đủ rõ để dùng bài viết thay thế");
         }
         double seconds = analysis.audio() == null ? 0.0 : analysis.audio().seconds();
         List<PronunciationInput.Timestamp> stamps = timestamps(wordStamps);
+        List<PronunciationInput.Word> inputWords = guided
+                ? toGuidedInputWords(analysis.ipa().words(), merge.words(), fallback) : toInputWords(analysis.ipa().words());
+        PronunciationInput.Writing writing = guided
+                ? new PronunciationInput.Writing(merge.nWriting(), merge.nOmitted(), merge.nExpanded(), fallback) : null;
         PronunciationInput input = new PronunciationInput(
-                toInputWords(analysis.ipa().words()), stamps, null,
+                inputWords, stamps, writing,
                 new PronunciationInput.Scores((double) fluencyHeuristic(stamps, seconds)), analysis.gopt(), false);
 
         Optional<PpsV2Result> scored = PpsHybridScorer.score(input, grade, null, configHolder.get());
@@ -102,6 +138,57 @@ public class GoptPronunciationService {
         return new AzurePronunciationClient.Result(toPercent(u.accuracyCalibrated()), toPercent(u.fluencyCalibrated()),
                 toPercent(u.completenessCalibrated()), toPercent(u.prosodicCalibrated()), toPercent(u.totalCalibrated()),
                 toWordDetails(v2.words()), rawJson(v2, analysis), 1, AzurePronunciationClient.Result.ENGINE_GOPT);
+    }
+
+    // ---------- ghép bài viết với lời nói (chế độ writing_merged của lab) ----------
+
+    /** Các từ STT nghe được theo thứ tự: mốc từ nếu có, không thì tách từ transcript (STT dự phòng không trả mốc). */
+    static List<String> saidWords(List<GroqSpeechClient.Word> stamps, String transcript) {
+        List<String> out = new ArrayList<>();
+        if (stamps != null) {
+            for (GroqSpeechClient.Word w : stamps) {
+                if (w.word() != null) {
+                    out.add(w.word());
+                }
+            }
+        }
+        return out.isEmpty() ? TargetMerger.wordsOf(transcript) : out;
+    }
+
+    private static final Pattern FOREIGN_LETTER = Pattern.compile("[\\p{L}&&[^A-Za-z]]");
+
+    /**
+     * STT nghe thành chữ ngoại ngữ (ký tự có dấu: lời nghe được là rác) hoặc gần như không nghe ra gì, và không có từ bài viết nào khớp:
+     * port điều kiện {@code garbled} của lab. Khi đó không thể tin STT để dựng câu mục tiêu.
+     */
+    static boolean garbled(List<String> said, TargetMerger.Result merge) {
+        long heard = said.stream().filter(w -> HAS_ALNUM.matcher(w).find()).count();
+        long foreign = said.stream().filter(w -> FOREIGN_LETTER.matcher(w).find()).count();
+        long matched = merge.words().stream().filter(m -> "writing".equals(m.origin()) && m.heardAs() == null).count();
+        boolean anyWriting = merge.words().stream().anyMatch(m -> "writing".equals(m.origin()));
+        boolean mostlyForeign = !said.isEmpty() && (double) foreign / said.size() >= 0.2 && matched < 0.5 * Math.max(1, merge.nWriting());
+        return mostlyForeign || (heard <= 3 && !anyWriting);
+    }
+
+    /** Lab chỉ dùng bài viết thay STT khi âm thanh rõ (chênh tiếng/ồn từ 20 dB) và có ít nhất 1,5 giây tiếng. */
+    static boolean clearEnoughForFallback(PronunciationEngineClient.AudioInfo audio) {
+        return audio != null && audio.snrDb() >= 20.0 && audio.activeSeconds() >= 1.5;
+    }
+
+    /**
+     * Trạng thái từng từ so với lời STT, đúng lab: unverified (dùng bài viết thay STT), extra (nói thêm), diff (STT nghe thành từ khác),
+     * ok. Chặn trần điểm từ theo trạng thái nằm ở {@link PpsHybridScorer}.
+     */
+    static List<PronunciationInput.Word> toGuidedInputWords(List<PronunciationEngineClient.IpaWord> ipaWords,
+                                                            List<TargetMerger.MergedWord> merged, boolean fallback) {
+        List<PronunciationInput.Word> out = new ArrayList<>();
+        for (int i = 0; i < ipaWords.size(); i++) {
+            PronunciationEngineClient.IpaWord w = ipaWords.get(i);
+            TargetMerger.MergedWord m = merged.get(i);
+            String status = fallback ? "unverified" : "expanded".equals(m.origin()) ? "extra" : m.heardAs() != null ? "diff" : "ok";
+            out.add(new PronunciationInput.Word(w.word(), w.expectedIpa(), w.heardIpa(), w.issues(), w.score() == null ? 0 : w.score(), status));
+        }
+        return out;
     }
 
     // ---------- ánh xạ ----------

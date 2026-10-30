@@ -63,6 +63,13 @@ export const PAGE_PERMISSIONS: Record<string, PagePermissions> = {
       { label: "Sửa, Lưu cấu hình", codes: ["system.settings.manage"] },
     ]
   },
+  // Quản trị hệ thống · Cấu hình chấm phát âm (PPS Hybrid v2), dùng chung quyền với Cài đặt hệ thống
+  "sys-pps-config": {
+    viewCodes: ["system.settings.view"],
+    actions: [
+      { label: "Sửa, Lưu, Khôi phục, Nhập cấu hình chấm phát âm", codes: ["system.settings.manage"] },
+    ]
+  },
   // Quản trị hệ thống · Sử dụng token AI
   "sys-ai-token-usage": {
     viewCodes: ["system.ai-usage.view"],
