@@ -628,6 +628,13 @@ Không cần dừng engine. Whisper dự phòng (`PRONUNCIATION_ENGINE_WHISPER_F
 `REFLEX_QUEUE_SPEAKING_CONCURRENCY=2`, `REFLEX_QUEUE_WRITING_CONCURRENCY=3`). Khi CD chép compose mới lên và tạo lại container, hàng đợi tự BẬT ở production: kết quả chấm Clip
 phản xạ đến sau (bất đồng bộ) thay vì ngay trong request. Sau release cần theo dõi các bài Clip phản xạ đầu tiên.
 
+**Chấm theo lab: phần nào đã dùng, phần nào cố ý không nối** (quyết định 2026-10-30).
+
+- *Đã dùng:* bộ chấm phát âm PPS Hybrid v2 (`GoptPronunciationService` + `PpsHybridScorer`, đã khớp lab bằng golden test). Điểm của nó là điểm tiêu chí `P` của Reflex (`overallScore`, gồm cả trôi chảy và ngữ điệu tính từ mốc thời gian từ). Câu có bài viết Bước 1 chấm theo chế độ `writing_merged` của lab (ghép bài viết với lời nói, từ đọc lệch bị chặn trần).
+- *Cố ý không nối:* chấm nói tự do 4 trụ cột (`SpontaneousScorer`: P 30%, F 25%, GV 25%, TR 20%, Haiku chấm GV và TR). Mọi câu nói của pps-education, có hay không có bước Viết, đã đi qua hệ chấm Reflex v3 do người đào tạo hiệu chuẩn (bộ tiêu chí theo khối và dạng đề: `FC, LR, GRA, P` hoặc `GV, DM, P`, cổng chặn C1/C2/C3, các trần điểm, rubric riêng). Nối 4 trụ cột vào sẽ tạo điểm thứ hai cạnh tranh hoặc thay điểm Reflex.
+- *Ánh xạ khi cần so sánh hai hệ:* P ↔ `P`; F (trôi chảy theo mốc thời gian) ↔ một phần của `P` và `FC` (Reflex đưa Claude số liệu đo tiếng nói: thời lượng, giây có tiếng, ngắt dài nhất); GV ↔ `GV`, `LR`, `GRA`; TR ↔ `DM` và cổng lạc đề; bộ lọc quá ngắn, sai ngôn ngữ ↔ cổng `minWords` và C1/C2/C3.
+- `SpontaneousScorer` và `SpontaneousLlmService` vẫn nằm trong mã (đã có golden test với lab) nhưng không được gọi. Nếu sau này muốn dùng thì quyết định lại: chỉ tham khảo hay thay điểm, và phải được người đào tạo xác nhận.
+
 **Giới hạn đã biết.** Ghi lại để không quên khi nâng cấp:
 
 - Điểm GOPT chưa hiệu chỉnh với giáo viên; ngưỡng "Mispronunciation" (điểm từ dưới 6/10) mới là ước lượng; lớp 9 tính như lớp 7 (v2 mới hiệu chuẩn lớp 6 đến 8). Thang điểm khác Azure
