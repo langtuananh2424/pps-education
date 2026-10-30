@@ -171,7 +171,7 @@ Lý do: một bài 40 từ chỉ gồm *museum, football, tired, happy* vẫn đ
 
 Hậu tố mức độ: `1` = nhẹ, người đọc vẫn hiểu ngay → **vàng**; `2` = nặng, làm sai nghĩa hoặc người đọc phải đoán → **đỏ**.
 
-Ví dụ: `She {{gr2|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
+Ví dụ: `She {{gr1|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
 
 Chỉ đánh dấu **vị trí**: không viết từ/câu đúng, không thêm mũi tên, không ghi chú trong ngoặc.
 

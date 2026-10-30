@@ -171,7 +171,7 @@ Chỉ in khi lượt giao bài **có gắn key grammar** (mã tra trong `KeyGram
 - **Key grammar Chưa đạt → Grammatical Range & Accuracy bị trần:** dùng đúng 0 lần → tối đa 40%; dùng đúng 1 lần → tối đa 50% (điểm thấp hơn thì giữ nguyên). Đạt thì không đổi điểm.
 - **Chưa đạt → câu thứ hai bắt buộc yêu cầu học sinh viết lại bài**, dùng đúng ít nhất 2 lần cấu trúc được giao.
 - **Không gợi ý cách sửa** trong nhận xét key grammar: không câu mẫu, không phiên bản viết lại, không nói câu nào nên đổi thành gì.
-- Trong mục 1: dùng đúng key grammar → `{{kg|…}}` (xanh, thay cho `{{ok|…}}`); dùng sai → `{{gr2|…}}` (đỏ).
+- Trong mục 1: dùng đúng key grammar → `{{kg|…}}` (xanh, thay cho `{{ok|…}}`); dùng sai → `{{gr1|…}}` (vàng; chỉ `{{gr2|…}}` khi đoạn đó khó hiểu).
 
 Các neo ở §6 không gắn key grammar nên chỉ có phần nhận xét chung.
 
@@ -187,7 +187,7 @@ Các neo ở §6 không gắn key grammar nên chỉ có phần nhận xét chun
 
 Hậu tố mức độ: `1` = nhẹ, người đọc vẫn hiểu ngay → **vàng**; `2` = nặng, làm sai nghĩa hoặc người đọc phải đoán → **đỏ**.
 
-Ví dụ: `She {{gr2|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
+Ví dụ: `She {{gr1|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
 
 Chỉ đánh dấu **vị trí**: không viết từ/câu đúng, không thêm mũi tên, không ghi chú trong ngoặc.
 
@@ -245,8 +245,18 @@ Số lỗi phải **bằng đúng** số token lỗi đánh dấu ở mục 1. N
 
 ### Phát triển ý phải khớp với số đã trích dẫn — bắt buộc
 
-`T3` được chấm theo **đúng số ý đã trích dẫn được bằng chứng** (con số, tên riêng, hoặc việc đã xảy ra).
+`T3` được chấm theo **đúng số ý đã trích dẫn được bằng chứng**: (a) con số, (b) tên riêng, (c) việc đã xảy ra,
+hoặc **(d) lý do / hệ quả cụ thể** (vòng 17) — mệnh đề sau *because / so / if …* nêu nguyên nhân hay hệ quả có nội dung
+riêng của chủ đề (*if students eat too much unhealthy food, they may feel tired and cannot focus*). Đánh giá chung chung
+(*because I like it*, *because it is good / useful*) hoặc câu khái quát đứng riêng không có từ nối nguyên nhân / hệ quả thì
+**không** phải loại (d).
 Không trích dẫn được ý nào → `T3` = 0, dù bài "trông" có chi tiết.
+
+**Trần phát triển lệch — hệ thống tự áp (vòng 17).** So `Ý được phát triển` với `R_total` (số yêu cầu của đề):
+≤ 1/3 → Task Response tối đa **60%**; dưới 1 → tối đa **80%**; đủ → không trần. Đề nghị luận "agree or disagree, give
+reasons" có `R_total` = 2 (quan điểm + lý do). Trần bài mỏng (0 ý → 40%) vẫn áp như cũ; trùng nhau thì lấy mức thấp hơn.
+
+**Trần bài chỉ có lý do — hệ thống tự áp (vòng 17b).** Có ý được phát triển nhưng **toàn bộ** bằng chứng là loại (d) — không một ví dụ, con số, tên riêng hay sự việc thật — thì Task Response / Achievement **tối đa 80%**. Mục 0 ghi thêm `Ý có bằng chứng (a)/(b)/(c)`; số này = 0 thì trần kích hoạt. *when / after / also / and* không phải từ nối nguyên nhân — "When I read books, I can learn…" không phải loại (d).
 
 ### Lỗi ngôn ngữ không được lan sang tiêu chí nội dung — bắt buộc
 
@@ -292,9 +302,9 @@ Một cụm chỉ được tô `{{ok|...}}` khi nó **vừa đúng vừa tự nh
 
 ---
 
-### NEO A — 40%
+### NEO A — 45%
 
-**Bài gốc (81 từ; 5 từ trùng đề → `N_net` 76 = 76% yêu cầu → G1 băng 50–79%: Task Response trần 60, không ảnh hưởng vì đã bị trần mỏng 40):**
+**Bài gốc (81 từ; 5 từ trùng đề → `N_net` 76 = 76% yêu cầu → G1 băng 50–79%: Task Response trần 50):**
 
 > I think foreign language is more useful. Because we can talk with foreigner. History is boredom, i don't like it. My teacher tell history is important. i don't agree. My sister is 15. Foreign language help us take job. Many company want people who speaks english. History are about old thing. It happen long time ago. i think we should learn foreign language. That is my opinion. Foreign language is very useful for student. We should learn it hardly every day.
 
@@ -302,27 +312,27 @@ Một cụm chỉ được tô `{{ok|...}}` khi nó **vừa đúng vừa tự nh
 
 ### 1. Bài viết đã đánh dấu
 
-I think foreign language is more useful. {{gr2|Because we can talk with foreigner}}. History is {{sp1|boredom}}, {{pu1|i}} don't like it. My teacher {{wd1|tell}} history is important. {{pu1|i}} don't agree. My sister is 15. Foreign language {{gr2|help}} us {{wd1|take job}}. Many {{gr1|company}} want people who {{gr1|speaks}} {{pu1|english}}. History {{gr1|are}} about old {{gr1|thing}}. It {{gr2|happen}} {{gr1|long time ago}}. {{pu1|i}} think we should learn foreign language. That is my opinion. Foreign language is very useful for {{gr1|student}}. We should learn it {{wd1|hardly}} every day.
+I think foreign language is more useful. {{gr1|Because we can talk with foreigner}}. History is {{sp1|boredom}}, {{pu1|i}} don't like it. My teacher {{wd1|tell}} history is important. {{pu1|i}} don't agree. My sister is 15. Foreign language {{gr1|help}} us {{wd1|take job}}. Many {{gr1|company}} want people who {{gr1|speaks}} {{pu1|english}}. History {{gr1|are}} about old {{gr1|thing}}. It {{gr1|happen}} {{gr1|long time ago}}. {{pu1|i}} think we should learn foreign language. That is my opinion. Foreign language is very useful for {{gr1|student}}. We should learn it {{wd1|hardly}} every day.
 
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
-| Task Response / Achievement | 40% |
+| Task Response / Achievement | 50% |
 | Coherence & Cohesion | 20% |
 | Lexical Resource | 70% |
 | Grammatical Range & Accuracy | 40% |
-| **Tổng kết** | **40%** |
+| **Tổng kết** | **45%** |
 
 ### 3. Nhận xét
 
 Em nêu được quan điểm rõ ràng ngay từ câu đầu. Ưu tiên sắp tới: giải thích mỗi lý do bằng một ví dụ cụ thể, và dùng từ nối để nối các câu ngắn.
 
 **Checkpoint:**
-`T1` = 1 · `T2` = 1 · `T3` = 0 (không ý nào có số, tên riêng hay sự việc) · `T4` = 1 (1/15 câu lạc → 93%) · `T5` = 1 → 5/5 → **trần bài mỏng khối 8: 40%**.
+`T1` = 1 · `T2` = 1 · `T3` = 0.5 (1 ý loại (d): "Because we can talk with foreigner" — câu cụt là lỗi ngữ pháp, không trừ ở nội dung) · `T4` = 1 (1/15 câu lạc → 93%) · `T5` = 1 → 4.5/5 = 90% → 1/2 yêu cầu có ý phát triển → 80%, toàn lý do (d) → 80% → G1 → **50%**.
 `CC1` = 0.5 (đứt mạch ở "My sister is 15.") · `CC2` = 0 (một khối) · `CC3` = 0 ("Because" dùng sai thành câu cụt; không từ nối đúng) · `CC4` = 0.5 (it, it) · `CC5` = 0 (lặp ≥ 3: "foreign language is (very) useful", "should learn", "That is my opinion") → 1/5 = **20%**.
 `L1` = 1 · `L2` = 0.5 (N_lex = 3: tell, take job, hardly) · `L3` = 1 (`K_topic`: foreigner, teacher, job, company, old, study) · `L4` = 1 · `L5` = 0 (P_para = 0, N_copy = 5) → 3.5/5 = **70%** (trần 4 lỗi chính tả + dùng từ / 81 từ = 70 — trùng).
 `R1` = 1 · `R2` = 0 · `R3` = 0.5 (4/14 động từ sai → 71%) · `R4` = 1 · `R5` = 1 → 3.5/5 = 70% → trần 13 lỗi ngữ pháp + dấu câu / 81 từ = 16/100 → **40%**.
-Tổng kết (40 + 20 + 70 + 40) / 4 = 42.5 → **40%**.
+Tổng kết (50 + 20 + 70 + 40) / 4 = 45 → **45%**.
 
 ---
 
@@ -338,7 +348,7 @@ Neo này định nghĩa **đáy của thang điểm cho bài có thật**, phân
 
 ### 1. Bài viết đã đánh dấu
 
-{{pu1|i}} think foreign {{sp1|languag}} good. {{sp1|englsh}} {{gr2|very important}}. many people learn {{sp1|englsh}}. {{sp1|histroy}} {{gr2|not important}}. {{sp1|histroy}} {{gr2|old}}. {{gr2|we no use}}. foreign {{sp1|languag}} {{gr2|help job}}. {{sp1|compeny}} want {{sp1|englsh}}. {{pu1|i}} learn {{sp1|englsh}} every day. my {{sp1|teecher}} {{gr2|good}}. she teach english. {{gr2|i like}}. {{sp1|histroy}} {{gr2|boring}}. {{gr2|i no like}}. {{gr2|school teach english more good}}. {{gr2|that my idea}}. foreign language {{gr2|very good}} for {{sp1|studant}}. everybody learn english.
+{{pu1|i}} think foreign {{sp1|languag}} good. {{sp1|englsh}} {{gr1|very important}}. many people learn {{sp1|englsh}}. {{sp1|histroy}} {{gr1|not important}}. {{sp1|histroy}} {{gr1|old}}. {{gr2|we no use}}. foreign {{sp1|languag}} {{gr1|help job}}. {{sp1|compeny}} want {{sp1|englsh}}. {{pu1|i}} learn {{sp1|englsh}} every day. my {{sp1|teecher}} {{gr1|good}}. she teach english. {{gr1|i like}}. {{sp1|histroy}} {{gr1|boring}}. {{gr1|i no like}}. {{gr2|school teach english more good}}. {{gr1|that my idea}}. foreign language {{gr1|very good}} for {{sp1|studant}}. everybody learn english.
 
 ### 2. Điểm
 | Tiêu chí | % |
@@ -392,7 +402,7 @@ In conclusion, I think schools should spend more time on foreign languages than 
 Quan điểm của em rõ và câu nào cũng đúng ngữ pháp. Ưu tiên sắp tới: mỗi lý do cần một ví dụ thật, ví dụ một người em quen đã dùng tiếng Anh để xin việc.
 
 **Checkpoint:**
-`T1` = 1 · `T2` = 1 · `T3` = 0 (**không một ví dụ, con số hay trường hợp cụ thể nào** — chỉ mệnh đề khái quát) · `T4` = 1 · `T5` = 1 → 5/5 → **trần bài mỏng khối 8: 40%**.
+`T1` = 1 · `T2` = 1 · `T3` = 0 (**không một ví dụ, con số hay trường hợp cụ thể nào** — chỉ mệnh đề khái quát; "People can talk to foreigners more easily" đứng riêng, không có từ nối nguyên nhân / hệ quả nên **không** phải loại (d)) · `T4` = 1 · `T5` = 1 → 5/5 → **trần bài mỏng khối 8: 40%**.
 `CC1` = 1 · `CC2` = 1 (mở bài · 2 đoạn thân · kết bài) · `CC3` = 0.5 (also, but, In conclusion — 3 từ nối, chưa đủ 4) · `CC4` = 0.5 (It, it) · `CC5` = 1 → 4/5 = **80%**.
 `L1`–`L4` = 1 · `L5` = 0.5 (N_copy > 0 ở câu mở bài; P_para = 1: "spend more time on foreign languages than on history") → 4.5/5 = **90%**, 0 lỗi.
 `R1`–`R5` = 1 (who-clause, but-clause) → **100%**, 0 lỗi.
@@ -402,7 +412,7 @@ Tổng kết (40 + 80 + 90 + 100) / 4 = 77.5 → **75%**.
 
 ---
 
-### NEO B — 60%
+### NEO B — 65%
 
 **Bài gốc (102 từ; 10 từ trùng đề):**
 
@@ -413,33 +423,33 @@ Tổng kết (40 + 80 + 90 + 100) / 4 = 77.5 → **75%**.
 
 ### 1. Bài viết đã đánh dấu
 
-{{pu1|In my opinion learning}} a foreign language is more useful than learning history{{pu1|, history}} is not useful at all. English {{gr2|help}} us to communicate with people from other {{gr1|country}}. {{ok|For example, my cousin got a good job in a hotel last year because my cousin can speak}} {{pu1|english}} well. We can also watch {{gr1|film}} and read {{gr1|book}} from many {{gr1|country}}. My brother {{gr1|play}} football every weekend.
+{{pu1|In my opinion learning}} a foreign language is more useful than learning history{{pu1|, history}} is not useful at all. English {{gr1|help}} us to communicate with people from other {{gr1|country}}. {{ok|For example, my cousin got a good job in a hotel last year because my cousin can speak}} {{pu1|english}} well. We can also watch {{gr1|film}} and read {{gr1|book}} from many {{gr1|country}}. My brother {{gr1|play}} football every weekend.
 
-However, {{gr1|the history}} is also important because history {{gr2|teach}} us about our nation. But {{pu1|i}} think foreign language is more useful for our future. {{pu1|therefore}}, students should spend more time on {{gr1|the language}} and less time on {{gr1|the history}}.
+However, {{gr1|the history}} is also important because history {{gr1|teach}} us about our nation. But {{pu1|i}} think foreign language is more useful for our future. {{pu1|therefore}}, students should spend more time on {{gr1|the language}} and less time on {{gr1|the history}}.
 
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
-| Task Response / Achievement | 70% |
+| Task Response / Achievement | 80% |
 | Coherence & Cohesion | 60% |
 | Lexical Resource | 80% |
 | Grammatical Range & Accuracy | 40% |
-| **Tổng kết** | **60%** |
+| **Tổng kết** | **65%** |
 
 ### 3. Nhận xét
 
 Em có một ví dụ cụ thể rất thuyết phục và dùng tốt các từ nối For example, However. Ưu tiên sắp tới: giữ quan điểm nhất quán về môn Lịch sử, và danh từ số nhiều sau "many", "other".
 
 **Checkpoint:**
-`T1` = 1 · `T2` = 1 · `T3` = 0.5 (1 ý có bằng chứng loại (c): "my cousin got a good job in a hotel last year") · `T4` = 0.5 (1/9 câu lạc: "My brother play football…" → 89%) · `T5` = 0.5 (mâu thuẫn: "history is not useful at all" ↔ "history is also important") → 3.5/5 = **70%**.
+`T1` = 1 · `T2` = 1 · `T3` = 1 (2 ý: loại (c) "my cousin got a good job in a hotel last year"; loại (d) "because history teach us about our nation") · `T4` = 0.5 (1/9 câu lạc: "My brother play football…" → 89%) · `T5` = 0.5 (mâu thuẫn: "history is not useful at all" ↔ "history is also important") → 4/5 = **80%** (2/2 yêu cầu có ý phát triển — không trần).
 `CC1` = 0.5 (đứt mạch ở câu lạc đề) · `CC2` = 0.5 (2 đoạn, không có kết bài riêng) · `CC3` = 1 (For example, because, also, However, But, therefore) · `CC4` = 0.5 (2: our, our) · `CC5` = 0.5 (lặp 2: "my cousin", "more useful") → 3/5 = **60%**.
 `L1`–`L4` = 1 · `L5` = 0 (N_copy = 10, P_para = 0) → 4/5 = **80%**, 0 lỗi chính tả / dùng từ.
 `R1` = 1 · `R2` = 0.5 · `R3` = 0.5 (3/11 động từ sai → 73%) · `R4` = 1 · `R5` = 1 → 4/5 = 80% → trần 15 lỗi ngữ pháp + dấu câu / 102 từ = 14.7/100 → **40%**.
-Tổng kết (70 + 60 + 80 + 40) / 4 = 62.5 → **60%**.
+Tổng kết (80 + 60 + 80 + 40) / 4 = 65 → **65%**.
 
 ---
 
-### NEO C — 80%
+### NEO C — 85%
 
 **Bài gốc (111 từ):**
 
@@ -457,24 +467,24 @@ I strongly agree that learning a foreign language is more useful for students to
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
-| Task Response / Achievement | 90% |
+| Task Response / Achievement | 100% |
 | Coherence & Cohesion | 90% |
 | Lexical Resource | 80% |
 | Grammatical Range & Accuracy | 70% |
-| **Tổng kết** | **80%** |
+| **Tổng kết** | **85%** |
 
 ### 3. Nhận xét
 
 Em phát triển lý do chính bằng một ví dụ thật và dùng câu phức rất chính xác. Ưu tiên sắp tới: chia động từ theo chủ ngữ ("who speaks", "information is") và tách mở bài thành đoạn riêng.
 
 **Checkpoint:**
-`T1` = 1 · `T2` = 1 · `T3` = 0.5 (1 ý có bằng chứng loại (c): "was offered a job … last year"; ý về internet là khái quát) · `T4` = 1 · `T5` = 1 → 4.5/5 = **90%**.
+`T1` = 1 · `T2` = 1 · `T3` = 1 (2 ý: loại (c) "was offered a job … last year"; loại (d) "so students who cannot read it lose access to a huge amount of knowledges") · `T4` = 1 · `T5` = 1 → 5/5 = **100%**.
 `CC1` = 1 · `CC2` = 0.5 (2 đoạn — mở bài không tách riêng) · `CC3` = 1 (while, Moreover, so, Although, For this reason) · `CC4` = 1 (who, his, it, it) · `CC5` = 1 → 4.5/5 = **90%**.
 `L1`–`L4` = 1 · `L5` = 0.5 (N_copy > 0 ở câu mở bài; P_para = 1: "does not open doors in the same practical way") → 4.5/5 = 90% → trần 3 lỗi chính tả / 111 từ → **80%**.
 `R1`–`R5` = 1 (who-clause, while, although, so) → 5/5 → trần 5 lỗi ngữ pháp + dấu câu / 111 từ = 4.5/100 → **70%**.
-Tổng kết (90 + 90 + 80 + 70) / 4 = 82.5 → **80%**.
+Tổng kết (100 + 90 + 80 + 70) / 4 = 85 → **85%**.
 
-**Vì sao không phải 100%:** chỉ một ý có bằng chứng thật; mở bài không tách đoạn; năm lỗi ngữ pháp và ba lỗi chính tả trong 111 từ.
+**Vì sao không phải 100%:** mở bài không tách đoạn; năm lỗi ngữ pháp và ba lỗi chính tả trong 111 từ.
 
 ---
 
@@ -500,7 +510,7 @@ Kiểu lách rất phổ biến: học sinh chép nguyên một câu của đề
 
 {{wd2|Some students think that learning a foreign language is more useful than learning history.}} In my opinion I agree with this idea.
 
-English {{gr2|help}} us to talk with people from other {{gr1|country}} and find a good job. My cousin {{gr2|speak}} English very well and he {{gr2|work}} in a big company now. History is only about the past and we can read it in {{wd1|the book}}.
+English {{gr1|help}} us to talk with people from other {{gr1|country}} and find a good job. My cousin {{gr1|speak}} English very well and he {{gr1|work}} in a big company now. History is only about the past and we can read it in {{wd1|the book}}.
 
 {{wd2|Some students think that learning a foreign language is more useful than learning history.}} That is why I agree with this opinion.
 

@@ -94,6 +94,10 @@ Nếu có bài mẫu/reference text được cung cấp và bài học sinh trù
 | **CC4** | **Reference / pronouns** — đọc thẳng `số phương tiện KHÁC NHAU` ở mục 0 (cùng một đại từ lặp lại chỉ tính một lần) | ≥ 2 phương tiện khác nhau | 1 | 0 / tham chiếu thường không rõ |
 | **CC5** | **Repetition control** — đọc thẳng số ở dòng `Từ, cụm lặp không cần thiết` của mục 0 | 0–1 mục | 2 mục | ≥ 3 mục |
 
+**Trần không từ nối — hệ thống tự áp (vòng 17).** `Từ nối đúng` = 0 → Coherence & Cohesion **tối đa 50%**. Bài chỉ gồm
+câu ngắn đặt cạnh nhau, dù chia đoạn gọn, vẫn chưa thể hiện được liên kết. (Giáo viên: bài sạch lỗi nhưng không một
+từ nối nào được CC 70% là quá cao.)
+
 ### LEXICAL RESOURCE — LR
 
 | ID | Checkpoint | **1** | **0.5** | **0** |
@@ -109,6 +113,21 @@ Nếu có bài mẫu/reference text được cung cấp và bài học sinh trù
 Lý do: một bài 40 từ chỉ gồm *museum, football, tired, happy* vẫn đủ `K_topic` ≥ 4 nhưng đó là vốn từ A1 —
 đếm số lượng không phản ánh trình độ, nên mức `1` đòi thêm cụm từ.
 
+**`K_level` — trình độ từ, hệ thống tự áp (vòng 17).** `K_level` là số mục trong `K_topic` ở **mức A2 trở lên** — không thuộc
+vốn từ A1 cơ bản (*big, good, nice, happy, school, bus, car, bicycle, train, go, like, home, house, friend, people, city,
+phone, far, slow, fast, everywhere, ticket, money…*). Trích nguyên văn từng mục; **phân vân giữa A1 và A2 thì tính là A1**;
+không trích được thì tính là 0. Lý do: bài toàn từ A1 viết đúng vẫn dễ đạt L1, L2, L4 — giáo viên phản hồi
+một bài "từ dễ ợt" vẫn được Lexical Resource 70%.
+
+| `K_level` | Lexical Resource |
+|---|---|
+| 0 | tối đa **40%** |
+| 1–2 | tối đa **60%** |
+| ≥ 3 | không trần |
+
+**Sàn Lexical Resource 40%:** bài trả lời **đủ mọi yêu cầu** của đề (`R_answered` = `R_total`) và **không bị G1** thì
+Lexical Resource không dưới 40% — vốn từ ít nhất đã đủ để truyền đạt nội dung. Máy tự áp.
+
 ### GRAMMATICAL RANGE & ACCURACY — GRA
 
 | ID | Checkpoint | **1** | **0.5** | **0** |
@@ -118,6 +137,18 @@ Lý do: một bài 40 từ chỉ gồm *museum, football, tired, happy* vẫn đ
 | **R3** | **Tense / verb control** | ≥70% correct | 45–69% | <45% |
 | **R4** | **Sentence range** | Simple + ≥2 joined/extended sentences | Simple + 1 extended | Only short/repeated simple patterns |
 | **R5** | **Error impact** | 0–1 idea unclear because of grammar | 2 | ≥3 / frequent meaning loss |
+
+**Phân loại lỗi theo mức độ hiểu được — vòng 17.** Đếm số lỗi chưa đủ: điều quan trọng là câu sai có khiến người đọc
+không hiểu ý hay không.
+
+- **Lỗi nhẹ (`gr1` / `pu1`) — mặc định.** Sai cấu trúc nhưng nghĩa vẫn rõ: *It have many bus* · *I can reading books* ·
+  *last weekend I go there* · *Although …, but …* · *my school big*.
+- **Lỗi nặng (`gr2` / `pu2`).** Chỉ khi đoạn đó **đã được trích** ở dòng `Chỗ người đọc phải đoán` của mục 0:
+  *The ticket is money* · *The bus is very people*. Không có ở dòng đó thì không được tô đỏ.
+
+Hệ thống tự áp hai lớp cho Grammatical Range & Accuracy:
+1. **Mật độ lỗi có trọng số:** lỗi nhẹ tính **0.5**, lỗi nặng tính **1**, rồi tra bảng trần theo số lỗi ở §6.
+2. **Trần hiểu được:** quá **50%** số câu có lỗi nặng → tối đa **20%**; **25–50%** → tối đa **40%**.
 
 ## §4. Quy đổi
 
@@ -171,7 +202,7 @@ Chỉ in khi lượt giao bài **có gắn key grammar** (mã tra trong `KeyGram
 - **Key grammar Chưa đạt → Grammatical Range & Accuracy bị trần:** dùng đúng 0 lần → tối đa 40%; dùng đúng 1 lần → tối đa 50% (điểm thấp hơn thì giữ nguyên). Đạt thì không đổi điểm.
 - **Chưa đạt → câu thứ hai bắt buộc yêu cầu học sinh viết lại bài**, dùng đúng ít nhất 2 lần cấu trúc được giao.
 - **Không gợi ý cách sửa** trong nhận xét key grammar: không câu mẫu, không phiên bản viết lại, không nói câu nào nên đổi thành gì.
-- Trong mục 1: dùng đúng key grammar → `{{kg|…}}` (xanh, thay cho `{{ok|…}}`); dùng sai → `{{gr2|…}}` (đỏ).
+- Trong mục 1: dùng đúng key grammar → `{{kg|…}}` (xanh, thay cho `{{ok|…}}`); dùng sai → `{{gr1|…}}` (vàng; chỉ `{{gr2|…}}` khi đoạn đó khó hiểu).
 
 Các neo ở §6 không gắn key grammar nên chỉ có phần nhận xét chung.
 
@@ -187,7 +218,7 @@ Các neo ở §6 không gắn key grammar nên chỉ có phần nhận xét chun
 
 Hậu tố mức độ: `1` = nhẹ, người đọc vẫn hiểu ngay → **vàng**; `2` = nặng, làm sai nghĩa hoặc người đọc phải đoán → **đỏ**.
 
-Ví dụ: `She {{gr2|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
+Ví dụ: `She {{gr1|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
 
 Chỉ đánh dấu **vị trí**: không viết từ/câu đúng, không thêm mũi tên, không ghi chú trong ngoặc.
 
@@ -227,7 +258,7 @@ Thang này khác nhau giữa các khối vì giới hạn số từ khác nhau �
 Các ngưỡng % ở §3 đo **"đạt mục tiêu khối"**, không đo **"không sai"**. Vì vậy sau khi cộng checkpoint, hệ thống
 tự áp trần theo **mật độ lỗi trên 100 từ**, dựa đúng vào số lỗi đếm ở mục 0:
 
-- **Grammatical Range & Accuracy** — đếm lỗi **ngữ pháp + dấu câu**.
+- **Grammatical Range & Accuracy** — đếm lỗi **ngữ pháp + dấu câu**, lỗi nhẹ (`1`) tính 0.5, lỗi nặng (`2`) tính 1 (vòng 17, xem §3 GRA).
 - **Lexical Resource** — đếm lỗi **chính tả + dùng từ** (kể cả từ tiếng Việt). Lỗi ngữ pháp và dấu câu **không** làm giảm Lexical Resource.
 
 | Lỗi / 100 từ | Tối đa |
@@ -245,8 +276,24 @@ Số lỗi phải **bằng đúng** số token lỗi đánh dấu ở mục 1. N
 
 ### Phát triển ý phải khớp với số đã trích dẫn — bắt buộc
 
-`T3` được chấm theo **đúng số ý đã trích dẫn được bằng chứng** (con số, tên riêng, hoặc việc đã xảy ra).
+`T3` được chấm theo **đúng số ý đã trích dẫn được bằng chứng**: (a) con số, (b) tên riêng, (c) việc đã xảy ra,
+hoặc **(d) lý do / hệ quả cụ thể** (vòng 17) — mệnh đề sau *because / so / if …* nêu nguyên nhân hay hệ quả có nội dung
+riêng của chủ đề (*because it is cheap* · *if students eat too much unhealthy food, they may feel tired*). Đánh giá chung
+chung (*because I like it*, *because it is good / fun*) không phải loại (d).
 Không trích dẫn được ý nào → `T3` = 0, dù bài "trông" có chi tiết.
+
+**Trần phát triển lệch — hệ thống tự áp (vòng 17).** So `Ý được phát triển` với `R_total` (số yêu cầu của đề):
+
+| Ý được phát triển / `R_total` | Task Response / Achievement |
+|---|---|
+| ≤ 1/3 | tối đa **60%** |
+| dưới 1 | tối đa **80%** |
+| đủ | không trần |
+
+Lý do: đề 3 câu hỏi mà chỉ một câu được triển khai, còn lại là câu ngắn trả lời cho có, thì bài "khô" và lệch —
+giáo viên chấm cỡ 60%. Trần bài mỏng (0 ý phát triển → 50%) vẫn áp như cũ; trùng nhau thì lấy mức thấp hơn.
+
+**Trần bài chỉ có lý do — hệ thống tự áp (vòng 17b).** Có ý được phát triển nhưng **toàn bộ** bằng chứng là loại (d) — không một ví dụ, con số, tên riêng hay sự việc thật — thì Task Response / Achievement **tối đa 80%**. Mục 0 ghi thêm `Ý có bằng chứng (a)/(b)/(c)`; số này = 0 thì trần kích hoạt. *when / after / also / and* không phải từ nối nguyên nhân — "When I read books, I can learn…" không phải loại (d).
 
 ### Lỗi ngôn ngữ không được lan sang tiêu chí nội dung — bắt buộc
 
@@ -292,7 +339,7 @@ Một cụm chỉ được tô `{{ok|...}}` khi nó **vừa đúng vừa tự nh
 
 ---
 
-### NEO A — 40%
+### NEO A — 45%
 
 **Bài gốc (52 từ):**
 
@@ -305,16 +352,16 @@ Một cụm chỉ được tô `{{ok|...}}` khi nó **vừa đúng vừa tự nh
 
 Hi Chris
 
-My school is big and {{gr2|have}} many {{gr1|student}}. I like {{pu1|english}} best. {{pu1|the}} teacher is {{sp1|nise}}. My brother is 10. {{pu1|after}} school {{pu1|i}} play {{sp1|footbal}} with my {{sp1|freind}}. {{sp1|Sometime}} {{pu1|i}} go home and {{wd1|see tv}}. I am happy in my {{sp1|scool}}. My school is {{gr1|very good school}}. I like it.
+My school is big and {{gr1|have}} many {{gr1|student}}. I like {{pu1|english}} best. {{pu1|the}} teacher is {{sp1|nise}}. My brother is 10. {{pu1|after}} school {{pu1|i}} play {{sp1|footbal}} with my {{sp1|freind}}. {{sp1|Sometime}} {{pu1|i}} go home and {{wd1|see tv}}. I am happy in my {{sp1|scool}}. My school is {{gr1|very good school}}. I like it.
 
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
 | Task Response / Achievement | 50% |
 | Coherence & Cohesion | 30% |
-| Lexical Resource | 50% |
-| Grammatical Range & Accuracy | 40% |
-| **Tổng kết** | **40%** |
+| Lexical Resource | 40% |
+| Grammatical Range & Accuracy | 60% |
+| **Tổng kết** | **45%** |
 
 ### 3. Nhận xét
 
@@ -323,9 +370,9 @@ Em đã chạm được cả ba ý mà đề yêu cầu. Ưu tiên sắp tới: 
 **Checkpoint:**
 `T1` = 1 (đủ ba ý; "the teacher is nise" trả lời *why*) · `T2` = 1 · `T3` = 0 (không ý nào có số, tên riêng hay sự việc) · `T4` = 1 (1/10 câu lạc → 90%) · `T5` = 1 → 5/5 → **trần bài mỏng khối 7: 50%**.
 `CC1` = 0.5 (đứt mạch ở "My brother is 10.") · `CC2` = 0 (không có chào cuối, thân bài một khối) · `CC3` = 0.5 (2 lần "and") · `CC4` = 0.5 (1 tham chiếu: "it") · `CC5` = 0 (lặp ≥ 3: "happy in my scool", "very good school", "I like it") → 1.5/5 = **30%**.
-`L1` = 1 · `L2` = 1 (N_lex = 1) · `L3` = 1 (`K_topic`: big, home, tv, happy) · `L4` = 0.5 (5 lỗi chính tả / 52 từ) · `L5` = 0.5 (P_para = 0, N_copy = 0) → 4/5 = 80% → trần 6 lỗi chính tả + dùng từ / 52 từ = 11.5/100 → **50%**.
-`R1` = 1 · `R2` = 0.5 (3/10 mệnh đề sai) · `R3` = 1 · `R4` = 0.5 · `R5` = 1 → 4/5 = 80% → trần 8 lỗi ngữ pháp + dấu câu / 52 từ = 15/100 → **40%**.
-Tổng kết (50 + 30 + 50 + 40) / 4 = 42.5 → **40%**.
+`L1` = 1 · `L2` = 1 (N_lex = 1) · `L3` = 1 (`K_topic`: big, home, tv, happy) · `L4` = 0.5 (5 lỗi chính tả / 52 từ) · `L5` = 0.5 (P_para = 0, N_copy = 0) → 4/5 = 80% → trần 6 lỗi chính tả + dùng từ / 52 từ = 11.5/100 → 50% → **`K_level` = 0** (cả bốn từ đều A1) → **40%**.
+`R1` = 1 · `R2` = 0.5 (3/10 mệnh đề sai) · `R3` = 1 · `R4` = 0.5 · `R5` = 1 → 4/5 = 80% → 8 lỗi ngữ pháp + dấu câu, **đều là lỗi nhẹ** (người đọc hiểu ngay) → 8 × 0.5 = 4 / 52 từ = 7.7/100 → **60%**.
+Tổng kết (50 + 30 + 40 + 60) / 4 = 45 → **45%**.
 
 ---
 
@@ -341,7 +388,7 @@ Neo này định nghĩa **đáy của thang điểm cho bài có thật**, phân
 
 ### 1. Bài viết đã đánh dấu
 
-{{pu1|hi}} chris. {{gr2|my}} {{sp1|scool}} {{gr2|big}}. {{gr2|have many}} {{sp1|studen}} and {{sp1|techer}}. {{pu1|i}} like {{pu1|english}}. {{gr2|english good}}. {{sp1|techer}} {{gr2|good too}}. {{pu1|after}} {{sp1|scool}} {{pu1|i}} go home. {{sp1|sometime}} {{pu1|i}} play with {{sp1|frend}}. my {{sp1|scool}} {{gr2|have}} {{sp1|libary}}. {{sp1|libary}} {{gr2|big}}. {{pu1|i}} {{gr2|happy}} in {{sp1|scool}}. {{sp1|scool}} {{gr2|very nice}}. bye chris.
+{{pu1|hi}} chris. {{gr1|my}} {{sp1|scool}} {{gr1|big}}. {{gr1|have many}} {{sp1|studen}} and {{sp1|techer}}. {{pu1|i}} like {{pu1|english}}. {{gr1|english good}}. {{sp1|techer}} {{gr1|good too}}. {{pu1|after}} {{sp1|scool}} {{pu1|i}} go home. {{sp1|sometime}} {{pu1|i}} play with {{sp1|frend}}. my {{sp1|scool}} {{gr1|have}} {{sp1|libary}}. {{sp1|libary}} {{gr1|big}}. {{pu1|i}} {{gr1|happy}} in {{sp1|scool}}. {{sp1|scool}} {{gr1|very nice}}. bye chris.
 
 ### 2. Điểm
 | Tiêu chí | % |
@@ -359,15 +406,15 @@ Em đã chạm được cả ba ý mà đề hỏi. Ưu tiên sắp tới: mỗi
 **Checkpoint:**
 `T1` = 0.5 ("english good" — phần *why* rất yếu) · `T2` = 1 · `T3` = 0 · `T4` = 1 · `T5` = 1 → 3.5/5 → trần bài mỏng 50 → động từ sai > 50% → **trần 40%**.
 `CC1` = 0.5 · `CC2` = 0 (một khối) · `CC3` = 0.5 (1 "and") · `CC4` = 0 · `CC5` = 0 (lặp ≥ 3: good, big, scool) → 1/5 = **20%**.
-`L1` = 0.5 · `L2` = 1 · `L3` = 1 (`K_topic`: home, play, english, big, nice) · `L4` = 0 (11 lỗi chính tả / 43 từ) · `L5` = 0.5 → 3/5 = 60% → trần 11 lỗi / 43 từ → **40%**.
-Grammatical Range: động từ sai > 50% → **trần 20%**.
+`L1` = 0.5 · `L2` = 1 · `L3` = 1 (`K_topic`: home, play, english, big, nice) · `L4` = 0 (11 lỗi chính tả / 43 từ) · `L5` = 0.5 → 3/5 = 60% → trần 11 lỗi / 43 từ → **40%** (`K_level` = 0 cũng cho trần 40 — trùng).
+Grammatical Range: động từ sai > 50% → **trần 20%**. Các lỗi thiếu động từ (*my scool big*, *english good*) vẫn hiểu được nên tô **vàng**; điểm thấp đến từ trần động từ, không phải từ màu.
 Tổng kết (40 + 20 + 40 + 20) / 4 = **30%** (trần Tổng kết 35% do động từ sai > 50% — không ảnh hưởng). **Đây là 30% chứ không phải 0%: bài vẫn là tiếng Anh và vẫn chạm đủ ý.**
 
 ---
 
-### NEO M — 80% · đủ ý nhưng mỏng, ngôn ngữ sạch
+### NEO M — 65% · đủ ý nhưng mỏng, ngôn ngữ sạch
 
-So với **NEO A0** và **NEO A**: cả ba bài đều không phát triển ý. Khác biệt là bài này **ngôn ngữ không lỗi**, nên hai hàng ngôn ngữ cao trong khi Task Response vẫn chỉ 50%. Đây là phép thử: **đừng để ngôn ngữ sạch kéo Task Response lên.**
+So với **NEO A0** và **NEO A**: cả ba bài đều không phát triển ý. Khác biệt là bài này **ngôn ngữ không lỗi**, nên Grammatical Range cao trong khi Task Response vẫn chỉ 50%. Đây là phép thử: **đừng để ngôn ngữ sạch kéo Task Response lên.**
 
 **Output chuẩn:**
 
@@ -387,9 +434,9 @@ Minh
 |---|---:|
 | Task Response / Achievement | 50% |
 | Coherence & Cohesion | 90% |
-| Lexical Resource | 90% |
+| Lexical Resource | 40% |
 | Grammatical Range & Accuracy | 90% |
-| **Tổng kết** | **80%** |
+| **Tổng kết** | **65%** |
 
 ### 3. Nhận xét
 
@@ -399,9 +446,9 @@ Câu nào của em cũng đúng ngữ pháp và bố cục thư rất gọn. Ưu
 45 từ = 75% yêu cầu → G1 băng 50–79% (Task Response trần 60).
 `T1` = 0.5 ("It is a good subject" không trả lời *why*) · `T2` = 1 · `T3` = 0 · `T4` = 1 · `T5` = 1 → 3.5/5 → **trần bài mỏng 50%**.
 `CC1` = 1 · `CC2` = 1 (thân bài 2 đoạn) · `CC3` = 0.5 (1 "and") · `CC4` = 1 (it, It) · `CC5` = 1 → 4.5/5 = **90%**.
-`L1`–`L4` = 1 (`K_topic`: house, football, friends, home, early) · `L5` = 0.5 → 4.5/5 = **90%**, 0 lỗi.
+`L1`–`L4` = 1 (`K_topic`: house, football, friends, home, early) · `L5` = 0.5 → 4.5/5 = 90%, 0 lỗi → **`K_level` = 0** (cả năm từ đều A1) → **40%**. Đúng mà toàn từ A1 thì chưa phải vốn từ của khối 7.
 `R1`–`R3` = 1 · `R4` = 0.5 (chỉ 1 câu ghép) · `R5` = 1 → 4.5/5 = **90%**, 0 lỗi.
-Tổng kết (50 + 90 + 90 + 90) / 4 = 80 → **80%**. **Ba hàng cao không kéo được Task Response lên** — đó là điều neo này chặn.
+Tổng kết (50 + 90 + 40 + 90) / 4 = 67.5 → **65%**. **Ba hàng cao không kéo được Task Response lên** — đó là điều neo này chặn.
 
 ---
 
@@ -428,10 +475,10 @@ Minh
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
-| Task Response / Achievement | 70% |
+| Task Response / Achievement | 60% |
 | Coherence & Cohesion | 60% |
-| Lexical Resource | 60% |
-| Grammatical Range & Accuracy | 60% |
+| Lexical Resource | 40% |
+| Grammatical Range & Accuracy | 80% |
 | **Tổng kết** | **60%** |
 
 ### 3. Nhận xét
@@ -439,15 +486,15 @@ Minh
 Em cho người đọc một chi tiết cụ thể về quy mô trường. Ưu tiên sắp tới: trả lời đủ câu hỏi *why* và bỏ câu không liên quan đến đề.
 
 **Checkpoint:**
-`T1` = 0.5 (thiếu phần *why*) · `T2` = 1 · `T3` = 0.5 (1 ý có bằng chứng loại (a): "about 900 student") · `T4` = 0.5 (1/6 câu lạc: "My sister is in grade 3." → 83%) · `T5` = 1 → 3.5/5 = **70%**.
+`T1` = 0.5 (thiếu phần *why*) · `T2` = 1 · `T3` = 0.5 (1 ý có bằng chứng loại (a): "about 900 student") · `T4` = 0.5 (1/6 câu lạc: "My sister is in grade 3." → 83%) · `T5` = 1 → 3.5/5 = 70% → 1/3 yêu cầu có ý phát triển → **60%**.
 `CC1` = 0.5 (đứt mạch ở câu lạc đề) · `CC2` = 0.5 (thân bài một khối, chào đầu và chào cuối tách dòng) · `CC3` = 0.5 (2 lần "and") · `CC4` = 1 (we, it) · `CC5` = 0.5 (lặp 2: "I like", "school") → 3/5 = **60%**.
-`L1` = 1 · `L2` = 1 (N_lex = 1) · `L3` = 1 (`K_topic`: big, 900, football, books, nice) · `L4` = 1 (3 lỗi chính tả / 55 từ) · `L5` = 0.5 → 4.5/5 = 90% → trần 4 lỗi chính tả + dùng từ / 55 từ = 7.3/100 → **60%**.
-`R1` = 1 · `R2` = 1 · `R3` = 1 · `R4` = 0.5 · `R5` = 1 → 4.5/5 = 90% → trần 4 lỗi ngữ pháp + dấu câu / 55 từ = 7.3/100 → **60%**.
-Tổng kết (70 + 60 + 60 + 60) / 4 = 62.5 → **60%**.
+`L1` = 1 · `L2` = 1 (N_lex = 1) · `L3` = 1 (`K_topic`: big, 900, football, books, nice) · `L4` = 1 (3 lỗi chính tả / 55 từ) · `L5` = 0.5 → 4.5/5 = 90% → trần 4 lỗi chính tả + dùng từ / 55 từ = 7.3/100 → 60% → **`K_level` = 0** → **40%**.
+`R1` = 1 · `R2` = 1 · `R3` = 1 · `R4` = 0.5 · `R5` = 1 → 4.5/5 = 90% → 4 lỗi nhẹ × 0.5 = 2 / 55 từ = 3.6/100 → **80%**.
+Tổng kết (60 + 60 + 40 + 80) / 4 = **60%**.
 
 ---
 
-### NEO C — 80%
+### NEO C — 75%
 
 **Bài gốc (80 từ):**
 
@@ -473,24 +520,24 @@ Minh
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
-| Task Response / Achievement | 90% |
+| Task Response / Achievement | 80% |
 | Coherence & Cohesion | 80% |
-| Lexical Resource | 80% |
-| Grammatical Range & Accuracy | 70% |
-| **Tổng kết** | **80%** |
+| Lexical Resource | 60% |
+| Grammatical Range & Accuracy | 80% |
+| **Tổng kết** | **70%** |
 
 ### 3. Nhận xét
 
 Em trả lời đủ ba ý, có lý do cho môn học yêu thích và một chi tiết cụ thể về ngày thứ Sáu. Ưu tiên sắp tới: chia động từ theo chủ ngữ và tách thân bài thành hai đoạn.
 
 **Checkpoint:**
-`T1` = 1 · `T2` = 1 · `T3` = 0.5 (1 ý có bằng chứng loại (a): "on friday I go to the school libary to prepare for my tests"; lý do thích English là thói quen chung, không tính) · `T4` = 1 · `T5` = 1 → 4.5/5 = **90%**.
+`T1` = 1 · `T2` = 1 · `T3` = 1 (2 ý: loại (a) "on friday I go to the school libary to prepare for my tests"; loại (d) "because the teacher explain everything clearly and we often play games") · `T4` = 1 · `T5` = 1 → 5/5 = 100% → 2/3 yêu cầu có ý phát triển (phần *after school* chỉ trả lời) → **80%**.
 `CC1` = 1 · `CC2` = 0.5 (thân bài một khối) · `CC3` = 1 (and, because, but — 3 loại) · `CC4` = 1 (the teacher, we, it, there) · `CC5` = 0.5 (lặp 2: "big school", "I like it") → 4/5 = **80%**.
-`L1`–`L4` = 1 (`K_topic`: teachers, clearly, games, football, tests, quiet) · `L5` = 0.5 → 4.5/5 = 90% → trần 2 lỗi chính tả / 80 từ = 2.5/100 → **80%**.
-`R1`–`R5` = 1 → 5/5 → trần 4 lỗi ngữ pháp + dấu câu / 80 từ = 5/100 → **70%**.
-Tổng kết (90 + 80 + 80 + 70) / 4 = **80%**.
+`L1`–`L4` = 1 (`K_topic`: teachers, clearly, games, football, tests, quiet) · `L5` = 0.5 → 4.5/5 = 90% → trần 2 lỗi chính tả / 80 từ = 2.5/100 → 80% → `K_level` = 2 (clearly, prepare for my tests) → **60%**.
+`R1`–`R5` = 1 → 5/5 → 4 lỗi nhẹ × 0.5 = 2 / 80 từ = 2.5/100 → **80%**.
+Tổng kết (80 + 80 + 60 + 80) / 4 = **75%**.
 
-**Vì sao không phải 100%:** chỉ một ý có chi tiết thật; thân bài không tách đoạn; lặp ý ở câu cuối; bốn lỗi ngữ pháp và dấu câu trong 80 từ.
+**Vì sao không cao hơn:** phần *after school* chỉ trả lời, không triển khai; thân bài không tách đoạn; lặp ý ở câu cuối; vốn từ phần lớn ở mức A1.
 
 ---
 
@@ -511,16 +558,16 @@ Neo này dạy cách chấm dạng bài phổ biến nhất ở học sinh Việ
 
 ### 1. Bài viết đã đánh dấu
 
-The school bus did not come that morning. I {{gr2|wait}} at the bus stop {{gr1|very long time}}. I {{gr2|am}} {{sp1|verry}} {{wd1|worry}} {{sp1|becaus}} {{pu1|i}} {{gr2|will late}} for the test.
+The school bus did not come that morning. I {{gr1|wait}} at the bus stop {{gr1|very long time}}. I {{gr1|am}} {{sp1|verry}} {{wd1|worry}} {{sp1|becaus}} {{pu1|i}} {{gr1|will late}} for the test.
 
-My {{sp1|freind}} Nam {{gr2|call}} his father and he {{gr2|take}} us to school by motorbike. {{gr2|When we arrive}}, the teacher {{gr2|is}} angry {{ok|but she let us in}}. I am very happy and lucky.
+My {{sp1|freind}} Nam {{gr1|call}} his father and he {{gr1|take}} us to school by motorbike. {{gr1|When we arrive}}, the teacher {{gr1|is}} angry {{ok|but she let us in}}. I am very happy and lucky.
 
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
 | Task Response / Achievement | 40% |
 | Coherence & Cohesion | 100% |
-| Lexical Resource | 70% |
+| Lexical Resource | 60% |
 | Grammatical Range & Accuracy | 20% |
 | **Tổng kết** | **35%** |
 
@@ -531,9 +578,9 @@ Em kể đúng đề, diễn biến có mở đầu và kết thúc rõ ràng. �
 **Checkpoint:**
 `T1`–`T5` = 1 (có "Nam" — tên riêng, và một sự việc kể lại được) → 100% → động từ sai > 50% → **trần 40%**.
 `CC1`–`CC5` = 1 (hai đoạn, becaus / and / When / but, he / us / she / we) → **100%**.
-`L1`–`L4` = 1 · `L5` = 0 (N_copy = 8, P_para = 0) → 4/5 = 80% → trần 4 lỗi chính tả + dùng từ / 60 từ = 6.7/100 → **70%**.
-Grammatical Range: 8/9 động từ chính sai (> 50%) → **trần 20%**.
-Trung bình (40 + 100 + 70 + 20) / 4 = 57.5 → **trần Tổng kết 35%** vì quá nửa động từ sai. **Bài đúng đề mà hỏng thì động từ hệ thống thì không thể đạt 40%** — bất kể mạch văn tốt đến đâu.
+`L1`–`L4` = 1 · `L5` = 0 (N_copy = 8, P_para = 0) → 4/5 = 80% → trần 4 lỗi chính tả + dùng từ / 60 từ = 6.7/100 → 70% → `K_level` = 2 (let us in, lucky) → **60%**.
+Grammatical Range: 8/9 động từ chính sai (> 50%) → **trần 20%**. Các lỗi thì đều hiểu được nên tô **vàng**; trần đến từ tỉ lệ động từ sai.
+Trung bình (40 + 100 + 60 + 20) / 4 = 55 → **trần Tổng kết 35%** vì quá nửa động từ sai. **Bài đúng đề mà hỏng thì động từ hệ thống thì không thể đạt 40%** — bất kể mạch văn tốt đến đâu.
 
 ---
 
@@ -563,7 +610,7 @@ Hi Chris,
 
 My school is very big and it has a {{wd2|san truong}} very large. There are 900 students and many {{wd2|cay xanh}} around.
 
-{{ok|I like Literature best because the teacher is very}} {{wd2|hien}} and she {{gr2|tell}} many interesting {{gr1|story}}. {{ok|After school I usually play}} {{wd2|cau long}} {{ok|with my friends near the gate}}.
+{{ok|I like Literature best because the teacher is very}} {{wd2|hien}} and she {{gr1|tell}} many interesting {{gr1|story}}. {{ok|After school I usually play}} {{wd2|cau long}} {{ok|with my friends near the gate}}.
 
 Write back soon,
 Minh
@@ -571,10 +618,10 @@ Minh
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
-| Task Response / Achievement | 90% |
+| Task Response / Achievement | 80% |
 | Coherence & Cohesion | 100% |
 | Lexical Resource | 60% |
-| Grammatical Range & Accuracy | 80% |
+| Grammatical Range & Accuracy | 90% |
 | **Tổng kết** | **80%** |
 
 ### 3. Nhận xét
@@ -582,8 +629,8 @@ Minh
 Em trả lời đủ ba ý, bố cục thư rõ ràng và biết dùng because để giải thích lựa chọn. Ưu tiên sắp tới: tra từ tiếng Anh thay vì viết tiếng Việt, và thêm s vào danh từ số nhiều.
 
 **Checkpoint:**
-`T1` = 1 · `T2` = 1 · `T3` = 0.5 (1 ý có bằng chứng loại (a): "There are 900 students") · `T4` = 1 · `T5` = 1 → 4.5/5 = **90%**.
+`T1` = 1 · `T2` = 1 · `T3` = 1 (2 ý: loại (a) "There are 900 students"; loại (d) "because the teacher is very hien and she tell many interesting story") · `T4` = 1 · `T5` = 1 → 5/5 = 100% → 2/3 yêu cầu có ý phát triển → **80%**.
 `CC1`–`CC5` = 1 (thân bài 2 đoạn; and, because; it, she) → **100%** — **bài có tiếng Việt vẫn có thể mạch lạc rất tốt**.
-`L1` = 0.5 (bí từ ở 4 chỗ) · `L2` = 0.5 (N_lex = 4 — cả bốn cụm tiếng Việt) · `L3` = 1 · `L4` = 1 · `L5` = 0.5 → 3.5/5 = 70% → trần 4 lỗi dùng từ / 57 từ = 7.02/100 (vượt ngưỡng 7) → **60%**.
-`R1`–`R5` = 1 → 5/5 → trần 2 lỗi ngữ pháp / 57 từ = 3.5/100 → **80%**. **Không bị trừ thêm vì các từ tiếng Việt** — đúng nguyên tắc tránh double penalty.
-Tổng kết (90 + 100 + 60 + 80) / 4 = 82.5 → **80%**.
+`L1` = 0.5 (bí từ ở 4 chỗ) · `L2` = 0.5 (N_lex = 4 — cả bốn cụm tiếng Việt) · `L3` = 1 · `L4` = 1 · `L5` = 0.5 → 3.5/5 = 70% → trần 4 lỗi dùng từ / 57 từ = 7.02/100 (vượt ngưỡng 7) → **60%** (`K_level` = 1: near the gate → trần 60, trùng). Bốn cụm tiếng Việt được tô **đỏ** vì người đọc không hiểu — phải trích cả bốn ở dòng `Chỗ người đọc phải đoán`.
+`R1`–`R5` = 1 → 5/5 → 2 lỗi nhẹ × 0.5 = 1 / 57 từ = 1.75/100 → **90%**. **Không bị trừ thêm vì các từ tiếng Việt** — đúng nguyên tắc tránh double penalty.
+Tổng kết (80 + 100 + 60 + 90) / 4 = 82.5 → **80%**.
