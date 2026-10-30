@@ -10,6 +10,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,11 +41,13 @@ class PronunciationEngineClientTest {
     private final AtomicReference<String> path = new AtomicReference<>();
     private final AtomicReference<byte[]> body = new AtomicReference<>();
     private volatile int status = 200;
+    private final AtomicInteger hits = new AtomicInteger();
 
     @BeforeEach
     void start() throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
+            hits.incrementAndGet();
             upgrade.set(String.valueOf(exchange.getRequestHeaders().getFirst("Upgrade")));
             auth.set(exchange.getRequestHeaders().getFirst("Authorization"));
             contentType.set(exchange.getRequestHeaders().getFirst("Content-Type"));
@@ -149,5 +152,62 @@ class PronunciationEngineClientTest {
     @Test
     void connectionRefused_returnsNull() {
         assertThat(client("http://127.0.0.1:1", "tok").analyze(new byte[]{1}, "audio/webm", "a.webm", List.of("I"))).isNull();
+    }
+    private String serverUrl() {
+        return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    @Test
+    void breakerOpensAfterConsecutiveServerErrorsAndStopsCallingTheEngine() {
+        PronunciationEngineClient c = client(serverUrl(), "tok");
+        ReflectionTestUtils.setField(c, "breakerFailures", 3);
+        status = 503;
+        for (int i = 0; i < 3; i++) {
+            assertThat(c.analyze(new byte[]{1}, "audio/wav", "a.wav", List.of("I"))).isNull();
+        }
+        assertThat(hits.get()).isEqualTo(3);
+
+        assertThat(c.analyze(new byte[]{1}, "audio/wav", "a.wav", List.of("I"))).isNull();
+
+        assertThat(hits.get()).as("mạch mở: không gửi thêm request").isEqualTo(3);
+        status = 200;
+        assertThat(c.transcribe(new byte[]{1}, "audio/wav", "a.wav")).as("mỗi đường có mạch riêng").isNotNull();
+    }
+
+    @Test
+    void clientErrorsDoNotOpenTheBreakerBecauseTheEngineIsAlive() {
+        PronunciationEngineClient c = client(serverUrl(), "tok");
+        ReflectionTestUtils.setField(c, "breakerFailures", 2);
+        status = 413;
+        for (int i = 0; i < 5; i++) {
+            assertThat(c.analyze(new byte[]{1}, "audio/wav", "a.wav", List.of("I"))).isNull();
+        }
+        assertThat(hits.get()).isEqualTo(5);
+        status = 200;
+        assertThat(c.analyze(new byte[]{1}, "audio/wav", "a.wav", List.of("I"))).isNotNull();
+    }
+
+    @Test
+    void breakerCountsConnectionFailuresAndRecoversAfterTheCooldown() {
+        PronunciationEngineClient c = client("http://127.0.0.1:1", "tok");   // cổng đóng: không kết nối được
+        ReflectionTestUtils.setField(c, "breakerFailures", 2);
+        ReflectionTestUtils.setField(c, "breakerCooldownSeconds", 0);        // hết thời gian mở ngay: cho thăm dò
+        assertThat(c.analyze(new byte[]{1}, "audio/wav", "a.wav", List.of("I"))).isNull();
+        assertThat(c.analyze(new byte[]{1}, "audio/wav", "a.wav", List.of("I"))).isNull();
+
+        ReflectionTestUtils.setField(c, "baseUrl", serverUrl());
+        assertThat(c.analyze(new byte[]{1}, "audio/wav", "a.wav", List.of("I"))).as("thăm dò thành công").isNotNull();
+        assertThat(hits.get()).isEqualTo(1);
+    }
+
+    @Test
+    void breakerCanBeDisabled() {
+        PronunciationEngineClient c = client(serverUrl(), "tok");
+        ReflectionTestUtils.setField(c, "breakerFailures", 0);
+        status = 500;
+        for (int i = 0; i < 6; i++) {
+            c.analyze(new byte[]{1}, "audio/wav", "a.wav", List.of("I"));
+        }
+        assertThat(hits.get()).isEqualTo(6);
     }
 }
