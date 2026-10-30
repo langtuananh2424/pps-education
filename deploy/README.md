@@ -615,6 +615,20 @@ engine không chấm được (log "audio quá dài") và rơi về Azure, KHÔN
 thời gian thì cho đúng một lời gọi thăm dò. Phản hồi 4xx (sai token, 413) nghĩa là engine còn sống nên không tính. `/v1/analyze` và `/v1/transcribe` có mạch riêng.
 Dấu hiệu trong log: "tạm ngừng gọi /v1/analyze". Đặt `PRONUNCIATION_ENGINE_BREAKER_FAILURES=0` để tắt.
 
+**Trang chỉnh tham số bộ chấm (Quản trị hệ thống, Cấu hình chấm phát âm, đường dẫn `/system-admin/pps-config`).** Chỉnh các tham số của PPS Hybrid v2
+(điểm âm vị, điểm từ, trần và hệ số theo trạng thái Whisper, trôi chảy, điểm câu và chốt chặn, điều chỉnh theo khối; các tham số nói tự do hiện chưa có tác dụng vì
+`SpontaneousScorer` không được gọi) mà không cần deploy:
+
+- **Quyền:** xem cần `system.settings.view`; sửa, lưu, khôi phục, nhập cần `system.settings.manage` (chỉ SYS_ADMIN, như Cài đặt hệ thống).
+- **Cách lưu:** bảng `pps_scoring_config` (V225) chỉ giữ các tham số KHÁC mặc định; giá trị mặc định và khoảng cho phép nằm trong mã (`PpsConfig`, sinh từ `pps_config.py` của lab). Lưu là
+  lưu TOÀN BỘ cấu hình đang hiện trên trang: tham số không đổi về mặc định. Backend kiểm tra lại (khoảng cho phép, các nhóm trọng số cộng bằng 1, `phone.top` > `phone.floor`,
+  ngắt dài > ngắt ngắn) và từ chối kèm tên tham số sai.
+- **Hiệu lực:** ngay với các bài chấm sau khi lưu (bài đang chấm dở giữ bản cũ). Khi chạy nhiều bản backend, bản kia nạp lại sau tối đa 60 giây (`app.pps-config.refresh-ms`).
+  Backend khởi động nạp cấu hình từ DB; cấu hình hỏng chỉ ghi cảnh báo và dùng mặc định.
+- **Xuất, nhập JSON:** xuất ra file `{"config": {...}}` nhập lại được; nhập chỉ điền vào biểu mẫu, phải bấm Lưu mới có hiệu lực.
+- **Lịch sử:** mỗi lần lưu có thay đổi ghi người sửa, giờ, ghi chú, giá trị trước và sau (50 lần gần nhất trên trang). **Khôi phục mặc định** cũng được ghi lại.
+- Chỉnh điểm ở đây ảnh hưởng điểm học viên khi `PRONUNCIATION_PROVIDER=gopt`; nên thử trên staging và so với điểm giáo viên trước khi đổi ở production.
+
 **Quay lại Azure (rollback).** Key và cấu hình Azure (`AZURE_SPEECH_*`) vẫn nằm trong `.env` của staging và production nên không cần dựng lại gì:
 
 1. Sửa `/opt/pps-education/<môi trường>/.env`: `PRONUNCIATION_PROVIDER=azure` (hoặc xoá dòng). File thuộc user `deploy`, cần `sudo`.
@@ -627,6 +641,13 @@ Không cần dừng engine. Whisper dự phòng (`PRONUNCIATION_ENGINE_WHISPER_F
 (bản 22/10) chưa truyền biến này vào container nên hàng đợi đang TẮT ở production (staging bật từ 29/10: làn nói 2 luồng, làn viết 3 luồng, mặc định
 `REFLEX_QUEUE_SPEAKING_CONCURRENCY=2`, `REFLEX_QUEUE_WRITING_CONCURRENCY=3`). Khi CD chép compose mới lên và tạo lại container, hàng đợi tự BẬT ở production: kết quả chấm Clip
 phản xạ đến sau (bất đồng bộ) thay vì ngay trong request. Sau release cần theo dõi các bài Clip phản xạ đầu tiên.
+
+**Chấm theo lab: phần nào đã dùng, phần nào cố ý không nối** (quyết định 2026-10-30).
+
+- *Đã dùng:* bộ chấm phát âm PPS Hybrid v2 (`GoptPronunciationService` + `PpsHybridScorer`, đã khớp lab bằng golden test). Điểm của nó là điểm tiêu chí `P` của Reflex (`overallScore`, gồm cả trôi chảy và ngữ điệu tính từ mốc thời gian từ). Câu có bài viết Bước 1 chấm theo chế độ `writing_merged` của lab (ghép bài viết với lời nói, từ đọc lệch bị chặn trần).
+- *Cố ý không nối:* chấm nói tự do 4 trụ cột (`SpontaneousScorer`: P 30%, F 25%, GV 25%, TR 20%, Haiku chấm GV và TR). Mọi câu nói của pps-education, có hay không có bước Viết, đã đi qua hệ chấm Reflex v3 do người đào tạo hiệu chuẩn (bộ tiêu chí theo khối và dạng đề: `FC, LR, GRA, P` hoặc `GV, DM, P`, cổng chặn C1/C2/C3, các trần điểm, rubric riêng). Nối 4 trụ cột vào sẽ tạo điểm thứ hai cạnh tranh hoặc thay điểm Reflex.
+- *Ánh xạ khi cần so sánh hai hệ:* P ↔ `P`; F (trôi chảy theo mốc thời gian) ↔ một phần của `P` và `FC` (Reflex đưa Claude số liệu đo tiếng nói: thời lượng, giây có tiếng, ngắt dài nhất); GV ↔ `GV`, `LR`, `GRA`; TR ↔ `DM` và cổng lạc đề; bộ lọc quá ngắn, sai ngôn ngữ ↔ cổng `minWords` và C1/C2/C3.
+- `SpontaneousScorer` và `SpontaneousLlmService` vẫn nằm trong mã (đã có golden test với lab) nhưng không được gọi. Nếu sau này muốn dùng thì quyết định lại: chỉ tham khảo hay thay điểm, và phải được người đào tạo xác nhận.
 
 **Giới hạn đã biết.** Ghi lại để không quên khi nâng cấp:
 

@@ -168,7 +168,7 @@ Chỉ in khi lượt giao bài **có gắn key grammar** (mã tra trong `KeyGram
 - **Key grammar Chưa đạt → Language bị trần:** dùng đúng 0 lần → tối đa 40%; dùng đúng 1 lần → tối đa 50% (điểm thấp hơn thì giữ nguyên). Đạt thì không đổi điểm.
 - **Chưa đạt → câu thứ hai bắt buộc yêu cầu học sinh viết lại bài**, dùng đúng ít nhất 2 lần cấu trúc được giao.
 - **Không gợi ý cách sửa** trong nhận xét key grammar: không câu mẫu, không phiên bản viết lại, không nói câu nào nên đổi thành gì.
-- Trong mục 1: dùng đúng key grammar → `{{kg|…}}` (xanh, thay cho `{{ok|…}}`); dùng sai → `{{gr2|…}}` (đỏ).
+- Trong mục 1: dùng đúng key grammar → `{{kg|…}}` (xanh, thay cho `{{ok|…}}`); dùng sai → `{{gr1|…}}` (vàng; chỉ `{{gr2|…}}` khi đoạn đó khó hiểu).
 
 Các neo ở §6 không gắn key grammar nên chỉ có phần nhận xét chung.
 
@@ -184,7 +184,7 @@ Các neo ở §6 không gắn key grammar nên chỉ có phần nhận xét chun
 
 Hậu tố mức độ: `1` = nhẹ, người đọc vẫn hiểu ngay → **vàng**; `2` = nặng, làm sai nghĩa hoặc người đọc phải đoán → **đỏ**.
 
-Ví dụ: `She {{gr2|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
+Ví dụ: `She {{gr1|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
 
 Chỉ đánh dấu **vị trí**: không viết từ/câu đúng, không thêm mũi tên, không ghi chú trong ngoặc.
 
@@ -439,7 +439,7 @@ Tổng kết (60 + 50 + 70 + 60) / 4 = **60%**.
 
 ---
 
-### NEO C — 80%
+### NEO C — 85%
 
 **Bài gốc (73 từ):**
 
@@ -468,21 +468,21 @@ Minh
 ### 2. Điểm
 | Tiêu chí | % |
 |---|---:|
-| Content | 90% |
+| Content | 100% |
 | Communicative Achievement | 90% |
 | Organisation | 80% |
 | Language | 70% |
-| **Tổng kết** | **80%** |
+| **Tổng kết** | **85%** |
 
 ### 3. Nhận xét
 
 Em trả lời đủ ba câu hỏi, giọng thư thân mật và có chi tiết thật về bức tranh tường cả lớp đang vẽ. Ưu tiên sắp tới: danh từ số nhiều và động từ đi với "they".
 
 **Checkpoint:**
-`C1` = 1 · `C2` = 1 · `C3` = 0.5 (1 ý có bằng chứng: "This month we are painting…" — loại (a)/(c); lý do áo khoác là thói quen, không tính) · `C4` = 1 · `C5` = 1 → 4.5/5 = **90%**.
+`C1` = 1 · `C2` = 1 · `C3` = 1 (2 ý: "This month we are painting…" — loại (a)/(c); "because our classrooms are quite cold in the morning" — loại (d), lý do cụ thể, vòng 17) · `C4` = 1 · `C5` = 1 → 5/5 = **100%**.
 `CA1` = 1 · `CA2` = 1 (2 câu cảm thán: "…next week!", "…really fun!") · `CA3` = 1 · `CA4` = 1 · `CA5` = 0.5 (chỉ câu công thức "I am so exited that you are coming") → 4.5/5 = **90%**.
 `O1` = 1 · `O2` = 1 (thân bài 2 đoạn) · `O3` = 0.5 (2 từ nối: because, but) · `O4` = 1 (They, it) · `O5` = 0.5 (lặp 2 chỗ: "small", "yard") → 4/5 = **80%**.
 `L1`–`L5` = 1 → 5/5 → 4 lỗi / 73 từ = 5.5 lỗi/100 từ → **trần 70%**.
-Tổng kết (90 + 90 + 80 + 70) / 4 = 82.5 → **80%**.
+Tổng kết (100 + 90 + 80 + 70) / 4 = 85 → **85%**.
 
 **Vì sao không phải 100%:** chỉ một ý có chi tiết thật; chỉ hai từ nối; lặp từ; và bốn lỗi ngôn ngữ trong 73 từ.
