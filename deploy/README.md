@@ -565,6 +565,40 @@ Set `NINE_ROUTER_API_KEY`/`NINE_ROUTER_MODEL`/`NINE_ROUTER_STT_MODEL`/
 `NINE_ROUTER_AUDIO_MODEL` trong `.env` mỗi stack theo combo đã tạo (xem
 `.env.example` gốc repo, mục 9Router, để biết ý nghĩa từng biến).
 
+## 5b. Dịch vụ chấm phát âm (pps-speaking-engine)
+
+Chấm phát âm của Speaking (UC-23b) có thể dùng GOPT thay Azure. Phần suy luận (Kaldi GOP + GOPT + wav2vec2 IPA) chạy ở **một container
+dùng chung** cho staging, production và các ứng dụng khác (PPS Speaking Lab, ứng dụng sau này), repo riêng
+[pps-speaking-engine](https://github.com/langtuananh2424/pps-speaking-engine). Backend chỉ GỌI nó khi `PRONUNCIATION_PROVIDER=gopt`;
+mặc định vẫn là Azure nên chưa có engine thì mọi thứ chạy như cũ.
+
+**Mạng.** Engine nằm trong mạng bridge tên cố định `speaking-engine-net`; backend staging và production cùng nối mạng này (ngoài `internal`)
+và gọi `http://speaking-engine:8100`. Compose của backend khai báo mạng là `external`, và CD (`cd-staging.yml`, `cd-production.yml`) tạo
+mạng idempotent trước khi `up`, nên deploy backend không phụ thuộc engine đã chạy hay chưa. Cổng 8100 của engine chỉ publish vào
+`127.0.0.1` của server (cho ứng dụng chạy trên host), không ra ngoài.
+
+**Dựng engine** (một lần, trên server):
+
+```bash
+git clone https://github.com/langtuananh2424/pps-speaking-engine.git ~/pps-speaking-engine && cd ~/pps-speaking-engine
+docker network inspect speaking-engine-net >/dev/null 2>&1 || docker network create speaking-engine-net
+cp .env.example .env    # điền ENGINE_TOKENS: mỗi ứng dụng một token (pps-staging, pps-production, lab, ...)
+docker compose up -d --build   # lần đầu build Kaldi khoảng 40 phút với BUILD_JOBS=10
+```
+
+**Bật cho một môi trường.** Trong `/opt/pps-education/<staging|production>/.env` đặt:
+
+```
+PRONUNCIATION_PROVIDER=gopt
+PRONUNCIATION_ENGINE_TOKEN=<token của đúng môi trường trong ENGINE_TOKENS>
+```
+
+rồi `docker compose up -d --no-deps backend`. `PRONUNCIATION_ENGINE_URL` mặc định đã là `http://speaking-engine:8100`.
+Quay lại Azure: đặt `PRONUNCIATION_PROVIDER=azure` (hoặc bỏ dòng) rồi `up -d` lại. Engine lỗi giữa chừng thì backend tự thử Azure rồi 9Router.
+
+**Tài nguyên.** Engine giới hạn 8 CPU và 8 GB RAM (`ENGINE_CPUS`, `ENGINE_MEMORY`), mỗi lần chỉ chấm `MAX_CONCURRENT=2` bài, bài thừa xếp hàng.
+Một bài mất khoảng 2 đến 4 giây; lớp đông nộp cùng lúc thì bài cuối chờ lâu hơn tương ứng.
+
 ## 6. Quản trị từ xa trong LAN
 
 1. Đặt IP LAN tĩnh cho server qua DHCP reservation trên router (theo MAC).
