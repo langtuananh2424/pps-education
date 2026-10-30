@@ -454,4 +454,139 @@ class WritingV3ScoringTest {
         // Các tiêu chí khác không liên quan tới key grammar phải giữ nguyên 100%.
         assertThat(result).contains(scoreRow("Task Response / Achievement", 100));
     }
+
+    // ===================== Vòng 17 (gói bo-cham-writing-K6-K9, cập nhật 30/10/2026) =====================
+
+    private static final WritingV3Grade G8_IELTS = WritingV3Grade.G8_IELTS;
+
+    @Test
+    void enforceScore_g7_developedRatioAtMostThird_capsTaskResponseAt60() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 3 · R_answered: 3", "Ý được phát triển: 1",
+                "Ý có bằng chứng (a)/(b)/(c): 1");
+        String result = WritingV3Scoring.enforceScore(md, G7_IELTS, null);
+        assertThat(result).contains(scoreRow("Task Response / Achievement", 60)).contains("ý được phát triển");
+        // Các tiêu chí khác không bị trần "phát triển lệch" (chỉ áp cho Task Response/Achievement).
+        assertThat(result).contains(scoreRow("Lexical Resource", 100));
+    }
+
+    @Test
+    void enforceScore_g8_developedRatioBelowFull_capsTaskResponseAt80() {
+        String md = perfectEssayMd(G8_IELTS, "R_total: 2 · R_answered: 2", "Ý được phát triển: 1",
+                "Ý có bằng chứng (a)/(b)/(c): 1");
+        String result = WritingV3Scoring.enforceScore(md, G8_IELTS, null);
+        assertThat(result).contains(scoreRow("Task Response / Achievement", 80));
+    }
+
+    @Test
+    void enforceScore_g7_developedRatioFull_noCap() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 3 · R_answered: 3", "Ý được phát triển: 3",
+                "Ý có bằng chứng (a)/(b)/(c): 3");
+        assertThat(WritingV3Scoring.enforceScore(md, G7_IELTS, null)).isSameAs(md);
+    }
+
+    @Test
+    void enforceScore_g7_developedIdeasAllReasonOnly_capsTaskResponseAt80() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 3 · R_answered: 3", "Ý được phát triển: 3",
+                "Ý có bằng chứng (a)/(b)/(c): 0");
+        String result = WritingV3Scoring.enforceScore(md, G7_IELTS, null);
+        assertThat(result).contains(scoreRow("Task Response / Achievement", 80)).contains("bằng chứng loại (d)");
+    }
+
+    @Test
+    void enforceScore_g6DoesNotApplyVong17TaskResponseCaps() {
+        // Khối 6 không có "Task Response/Achievement" (dùng "Content") và chưa có quy tắc vòng 17 này.
+        WritingV3Grade g6 = WritingV3Grade.G6;
+        String md = perfectEssayMd(g6, "R_total: 3 · R_answered: 3", "Ý được phát triển: 1",
+                "Ý có bằng chứng (a)/(b)/(c): 1");
+        assertThat(WritingV3Scoring.enforceScore(md, g6, null)).isSameAs(md);
+    }
+
+    @Test
+    void enforceScore_g7_kLevelZero_capsLexicalResourceAt40() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1", "K_level: 0");
+        String result = WritingV3Scoring.enforceScore(md, G7_IELTS, null);
+        assertThat(result).contains(scoreRow("Lexical Resource", 40)).contains("K_level thấp");
+    }
+
+    @Test
+    void enforceScore_g7_kLevelTwo_capsLexicalResourceAt60() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1", "K_level: 2");
+        assertThat(WritingV3Scoring.enforceScore(md, G7_IELTS, null)).contains(scoreRow("Lexical Resource", 60));
+    }
+
+    @Test
+    void enforceScore_g7_kLevelAtLeastThree_noCap() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1", "K_level: 3");
+        assertThat(WritingV3Scoring.enforceScore(md, G7_IELTS, null)).isSameAs(md);
+    }
+
+    @Test
+    void enforceScore_g7_lexicalResourceFloor40_whenAnsweredFullyAndNotUnderlength() {
+        // Model tự chấm Lexical Resource 20% (checkpoint thấp) nhưng bài trả lời đủ đề, không bị G1 -> sàn 40%.
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1").replace(
+                "Lexical Resource = 1 + 1 + 1 + 1 + 1 = 5/5 → 100% → sau trần: 100% (không trần)",
+                "Lexical Resource = 0.5 + 0 + 0 + 0 + 0 = 0.5/5 → 10% → sau trần: 10% (không trần)")
+                .replace(scoreRow("Lexical Resource", 100), scoreRow("Lexical Resource", 10));
+        String result = WritingV3Scoring.enforceScore(md, G7_IELTS, null);
+        assertThat(result).contains(scoreRow("Lexical Resource", 40)).contains("sàn tối thiểu 40%");
+    }
+
+    @Test
+    void enforceScore_g7_lexicalResourceFloorNotApplied_whenOffTopic() {
+        // Lạc đề (R_answered thấp) thì KHÔNG áp sàn 40% — trần lạc đề vẫn thắng.
+        String md = perfectEssayMd(G7_IELTS, "R_total: 3 · R_answered: 0");
+        String result = WritingV3Scoring.enforceScore(md, G7_IELTS, null);
+        assertThat(result).contains(scoreRow("Lexical Resource", 20));
+    }
+
+    @Test
+    void enforceScore_g7_noConnectors_capsCoherenceCohesionAt50() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1", "Từ nối đúng: 0");
+        String result = WritingV3Scoring.enforceScore(md, G7_IELTS, null);
+        assertThat(result).contains(scoreRow("Coherence & Cohesion", 50)).contains("không có từ nối đúng nào");
+    }
+
+    @Test
+    void enforceScore_g7_hasConnectors_noCoherenceCap() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1", "Từ nối đúng: 2");
+        assertThat(WritingV3Scoring.enforceScore(md, G7_IELTS, null)).isSameAs(md);
+    }
+
+    @Test
+    void enforceScore_g7_weightedGrammarDensity_lightErrorsOnly_lessPunishingThanRawCount() {
+        // 6 lỗi NHẸ (nhẹ 0.5 mỗi lỗi) = mật độ có trọng số 3 lỗi / 60 từ = 5/100 từ -> tra bảng -> 70%
+        // (so với đếm thô 6 lỗi / 60 từ = 10/100 từ -> 60% ở test enforceScore_capsGrammarByErrorDensity_andRecomputesTotal).
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1",
+                "   Trong số lỗi ngữ pháp + dấu câu trên, phân theo mức độ (vòng 17) — nhẹ (gr1+pu1, người đọc vẫn hiểu ngay): 6"
+                        + " · nặng (gr2+pu2, CHỈ khi đã trích ở \"Chỗ người đọc phải đoán nội dung\"): 0")
+                .replace("Số lỗi ngữ pháp: 0", "Số lỗi ngữ pháp: 6");
+        String result = WritingV3Scoring.enforceScore(md, G7_IELTS, null);
+        assertThat(result).contains(scoreRow("Grammatical Range & Accuracy", 70)).contains("mật độ lỗi có trọng số");
+    }
+
+    @Test
+    void enforceScore_g7_severeSentenceRatioOverHalf_capsGrammarAt20() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1", "Số câu có lỗi NẶNG (gr2 hoặc pu2) trong tổng N_sent câu (vòng 17): 3 / 5");
+        String result = WritingV3Scoring.enforceScore(md, G7_IELTS, null);
+        assertThat(result).contains(scoreRow("Grammatical Range & Accuracy", 20)).contains("nhiều câu có lỗi nặng");
+    }
+
+    @Test
+    void enforceScore_g7_severeSentenceRatioQuarterToHalf_capsGrammarAt40() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1", "Số câu có lỗi NẶNG (gr2 hoặc pu2) trong tổng N_sent câu (vòng 17): 1 / 4");
+        assertThat(WritingV3Scoring.enforceScore(md, G7_IELTS, null)).contains(scoreRow("Grammatical Range & Accuracy", 40));
+    }
+
+    @Test
+    void enforceScore_g7_severeSentenceRatioUnderQuarter_noCap() {
+        String md = perfectEssayMd(G7_IELTS, "R_total: 1 · R_answered: 1", "Số câu có lỗi NẶNG (gr2 hoặc pu2) trong tổng N_sent câu (vòng 17): 1 / 5");
+        assertThat(WritingV3Scoring.enforceScore(md, G7_IELTS, null)).isSameAs(md);
+    }
+
+    @Test
+    void enforceScore_g8DoesNotApplyG7OnlyVong17Rules() {
+        // K_level/trần CC không từ nối/mật độ lỗi có trọng số CHỈ áp Khối 7 IELTS — Khối 8 IELTS chưa có trong rubric.
+        String md = perfectEssayMd(G8_IELTS, "R_total: 1 · R_answered: 1", "K_level: 0", "Từ nối đúng: 0");
+        assertThat(WritingV3Scoring.enforceScore(md, G8_IELTS, null)).isSameAs(md);
+    }
 }

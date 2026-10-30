@@ -206,8 +206,40 @@ public class WritingV3PromptBuilder {
                 "Cấm: không in số liệu N_*; không in điểm từng checkpoint; không in điểm thô /5; không viết lại toàn bài;",
                 "không giải thích từng checkpoint; không thêm lời mở đầu hay kết luận dài; không nêu tên học sinh."
         ));
+        applyVong17Fields(lines, grade);
         applyKeyGrammar(lines, grade, keyGrammarDictionary, keyGrammarIds);
         return String.join("\n", lines);
+    }
+
+    /**
+     * Thêm các trường đo ở mục 0 cần cho hậu kiểm vòng 17 (gói {@code bo-cham-writing-K6-K9}, cập nhật
+     * 30/10/2026) — mirror các dòng "hệ thống tự áp" mới trong rubric: trần "phát triển lệch"/"chỉ có lý
+     * do" (Khối 7–8 IELTS), K_level/trần CC không từ nối/mật độ lỗi có trọng số (chỉ Khối 7 IELTS, các khối
+     * khác KHÔNG có quy tắc này trong rubric nên không thêm trường, tránh hỏi model đếm thứ không dùng tới).
+     * Xem {@link vn.com.pps.education.common.WritingV3Scoring#enforceScore} — đọc lại đúng các trường này.
+     */
+    private void applyVong17Fields(List<String> lines, WritingV3Grade grade) {
+        boolean isG7Ielts = "g7".equals(grade.code());
+        boolean needsEvidenceSplit = isG7Ielts || "g8".equals(grade.code());
+
+        if (needsEvidenceSplit) {
+            int idx = lines.indexOf("Ý bắt buộc của đề bị thiếu: __ (liệt kê)");
+            lines.add(idx + 1, "Ý có bằng chứng (a)/(b)/(c): __ — trong số \"Ý được phát triển\" ở trên, bao nhiêu ý có bằng"
+                    + " chứng loại (a) con số/thời điểm, (b) tên riêng, hoặc (c) việc đã xảy ra. KHÔNG tính ý chỉ có bằng chứng"
+                    + " loại (d) lý do/hệ quả cụ thể (vòng 17) — ý đó vẫn là \"đã phát triển\" ở trên nhưng không tính vào đây.");
+        }
+
+        if (isG7Ielts) {
+            int kTopicIdx = lines.indexOf("   từ dùng sai (đã tính ở N_lex), từ tiếng Việt. Dùng cho checkpoint độ đa dạng từ (IELTS L3 / Cambridge B1 L2).");
+            lines.add(kTopicIdx + 1, "K_level (số mục trong K_topic ở MỨC A2 TRỞ LÊN, vòng 17): __ — không tính vốn từ A1 cơ bản"
+                    + " (big, good, nice, happy, school, bus, car, bicycle, train, go, like, home, house, friend, people, city,"
+                    + " phone, far, slow, fast, everywhere, ticket, money…). Liệt kê nguyên văn từng mục; phân vân A1/A2 thì tính là A1.");
+
+            int grammarIdx = lines.indexOf("Số lỗi ngữ pháp: __ — đúng bằng số token {{gr1|...}} + {{gr2|...}} sẽ đánh dấu ở mục 1; trích từng lỗi.");
+            lines.add(grammarIdx + 1, "   Trong số lỗi ngữ pháp + dấu câu trên, phân theo mức độ (vòng 17) — nhẹ (gr1+pu1, người đọc"
+                    + " vẫn hiểu ngay): __ · nặng (gr2+pu2, CHỈ khi đã trích ở \"Chỗ người đọc phải đoán nội dung\"): __");
+            lines.add(grammarIdx + 2, "Số câu có lỗi NẶNG (gr2 hoặc pu2) trong tổng N_sent câu (vòng 17): __ / __");
+        }
     }
 
     /** Chèn/thay thế các đoạn liên quan Key Grammar vào skeleton cố định ở trên — xem Javadoc {@link #systemPrompt}. */
