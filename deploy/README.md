@@ -601,16 +601,16 @@ Speaking thử Whisper của engine trước, rồi mới rơi về 9Router. Ch�
 đưa âm thanh ra ngoài. Đường lui này chỉ cần engine đã cấu hình (`PRONUNCIATION_ENGINE_TOKEN`), **không phụ thuộc `PRONUNCIATION_PROVIDER`**, nên bật cả khi điểm phát âm
 vẫn là Azure. Tắt bằng `PRONUNCIATION_ENGINE_WHISPER_FALLBACK=false`. Bài phiên âm bằng Whisper có cảnh báo cho giáo viên và `audit.sources.transcription = engine-whisper`.
 
-**Tài nguyên.** Engine giới hạn 12 CPU và 8 GB RAM (`ENGINE_CPUS`, `ENGINE_MEMORY`; luồng PyTorch `OMP_NUM_THREADS=6`, Whisper `WHISPER_THREADS=8`),
+**Tài nguyên.** Engine giới hạn 12 CPU và 12 GB RAM (`ENGINE_CPUS`, `ENGINE_MEMORY`; luồng PyTorch `OMP_NUM_THREADS=6`, Whisper `WHISPER_THREADS=8`),
 mỗi lần chỉ chấm `MAX_CONCURRENT=2` bài, bài thừa xếp hàng; Whisper có hàng riêng, từng bài một. Đo ngày 2026-10-30 (máy rảnh): bài 9 giây khoảng 2 giây,
 30 giây khoảng 5 giây, 60 giây khoảng 10 giây (chỉ chấm phát âm, chưa gồm nhận dạng và Claude). Staging và production **dùng chung** một engine, nên test nặng
 trên staging làm chậm production (chưa có hạn mức theo từng token).
 
-**Giới hạn audio.** `/v1/analyze` nhận tối đa 90 giây (`MAX_AUDIO_SECONDS` của engine), `/v1/transcribe` tối đa 300 giây; quá thì engine trả HTTP 413. Backend coi 413 như
-engine không chấm được (log "audio quá dài") và rơi về Azure, KHÔNG làm mở ngắt mạch. Lý do: RAM của wav2vec2 tăng nhanh theo độ dài (120 giây khoảng 5 GB,
-300 giây làm container hết RAM). Bài nói tự do dài hơn 90 giây vì vậy luôn chấm bằng Azure cho tới khi có cắt đoạn.
+**Giới hạn audio.** `/v1/analyze` nhận tối đa 130 giây (`MAX_AUDIO_SECONDS` của engine, nâng từ 90 giây ngày 30/10/2026 cho audio tối đa 120 giây của khối 8), `/v1/transcribe` tối đa 300 giây; quá thì engine trả HTTP 413. Backend coi 413 như
+engine không chấm được (log "audio quá dài") và rơi về Azure, KHÔNG làm mở ngắt mạch. Lý do: RAM của wav2vec2 tăng nhanh theo độ dài (120 giây khoảng 3 GB mỗi bài;
+hai bài 120 giây cùng lúc đỉnh ~6,3 GiB, kèm Whisper ~8,5 GiB, nên engine cần giới hạn RAM 12 GB; 300 giây làm container 8 GB hết RAM). Bài nói tự do dài hơn 130 giây vì vậy luôn chấm bằng Azure cho tới khi có cắt đoạn.
 
-**Ngắt mạch.** Engine treo còn tệ hơn engine chết (mỗi lời gọi chờ hết 90 giây), nên client ngừng gọi sau `PRONUNCIATION_ENGINE_BREAKER_FAILURES=3` lỗi liên tiếp
+**Ngắt mạch.** Engine treo còn tệ hơn engine chết (mỗi lời gọi chờ hết timeout, mặc định 150 giây), nên client ngừng gọi sau `PRONUNCIATION_ENGINE_BREAKER_FAILURES=3` lỗi liên tiếp
 (không kết nối được, timeout, HTTP 5xx, phản hồi hỏng) trong `PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS=60` giây; trong lúc đó bài chấm rơi thẳng về Azure/9Router, hết
 thời gian thì cho đúng một lời gọi thăm dò. Phản hồi 4xx (sai token, 413) nghĩa là engine còn sống nên không tính. `/v1/analyze` và `/v1/transcribe` có mạch riêng.
 Dấu hiệu trong log: "tạm ngừng gọi /v1/analyze". Đặt `PRONUNCIATION_ENGINE_BREAKER_FAILURES=0` để tắt.
@@ -657,7 +657,7 @@ phản xạ đến sau (bất đồng bộ) thay vì ngay trong request. Sau rel
   `espeak-ng` trong image (1.51) khác máy lab (1.52).
 - Từ ngoài từ điển (tên riêng, từ lạ) được đoán bằng G2P; bảng sửa `gop/overrides.txt` nằm trong image nên sửa phải build lại engine.
 - Whisper cục bộ chạy CPU nên chậm: khoảng 32 giây cho 60 giây audio (5 phút audio mất khoảng 4 phút), vượt timeout 120 giây của backend với audio khoảng 3 phút trở lên.
-- Một container engine duy nhất: engine chết thì chấm rơi về Azure/9Router (không mất bài), bài đang chấm dở bị mất và chấm lại theo đường dự phòng. RAM tối đa 8 GB: hai bài 90 giây
+- Một container engine duy nhất: engine chết thì chấm rơi về Azure/9Router (không mất bài), bài đang chấm dở bị mất và chấm lại theo đường dự phòng. RAM tối đa 12 GB: hai bài 120 giây
   cộng Whisper cùng lúc có thể chạm giới hạn rồi bị kill.
 
 ## 6. Quản trị từ xa trong LAN
