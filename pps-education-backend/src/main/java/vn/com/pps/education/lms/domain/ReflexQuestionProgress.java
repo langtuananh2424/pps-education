@@ -169,6 +169,16 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     @Column(name = "rubric_version", length = 10)
     private String rubricVersion;
 
+    /** V222 — trạng thái chấm AI của bước viết khi bật hàng đợi (NONE với luồng đồng bộ cũ). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "writing_grading_status", nullable = false, length = 10)
+    private ReflexGradingStatus writingGradingStatus = ReflexGradingStatus.NONE;
+
+    /** V222 — như {@link #writingGradingStatus}, cho bước nói. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "speaking_grading_status", nullable = false, length = 10)
+    private ReflexGradingStatus speakingGradingStatus = ReflexGradingStatus.NONE;
+
     /** V185 — điểm Ngữ pháp từ bước viết (luồng v2), mang sang bước nói. Từ 23/9 chỉ làm SÀN (nửa điểm này), không còn khoá — tên cột giữ nguyên. */
     @Column(name = "writing_locked_grammar_percent", precision = 5, scale = 2)
     private BigDecimal writingLockedGrammarPercent;

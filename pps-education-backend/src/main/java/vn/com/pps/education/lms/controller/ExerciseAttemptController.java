@@ -16,6 +16,7 @@ import vn.com.pps.education.lms.dto.IntegrityEventBatchResponse;
 import vn.com.pps.education.lms.dto.IntegritySummaryResponse;
 import vn.com.pps.education.lms.dto.ListeningHintResponse;
 import vn.com.pps.education.lms.dto.ListeningPlayProgressResponse;
+import vn.com.pps.education.lms.dto.RecordActiveTimeRequest;
 import vn.com.pps.education.lms.dto.RecordIntegrityEventsRequest;
 import vn.com.pps.education.lms.dto.RecordListeningPlayRequest;
 import vn.com.pps.education.lms.dto.SaveAnswerRequest;
@@ -89,6 +90,15 @@ public class ExerciseAttemptController {
     public ResponseEntity<ExerciseAttemptResponse> revealAnswersAndClose(@PathVariable Long id,
                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseAttemptService.revealAnswersAndClose(id, actor.userId()));
+    }
+
+    /** V223 (bổ sung ngoài SDD gốc, đã yêu cầu 2026-10-26) — xem Javadoc ExerciseAttemptService#recordActiveTime. */
+    @PostMapping("/api/attempts/{id}/active-time")
+    public ResponseEntity<Void> recordActiveTime(@PathVariable Long id,
+                                                   @Valid @RequestBody RecordActiveTimeRequest request,
+                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
+        exerciseAttemptService.recordActiveTime(id, request.seconds(), actor.userId());
+        return ResponseEntity.noContent().build();
     }
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc AttemptIntegrityService. */

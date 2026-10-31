@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
 import { compressImageForUpload } from "@/lib/imageCompression";
 import { ApiError, apiRequest } from "@/lib/apiClient";
+import { getAccessToken } from "@/lib/tokenStorage";
 import type { Page } from "@/types";
 
 /**
@@ -802,6 +803,15 @@ export interface ReflexQuestionProgressResponse {
   speakingHint: string | null;
   /** V178 — % từng tiêu chí rubric, tách riêng khỏi speakingFeedback (trước đây nhúng trong feedback). */
   speakingCriteriaScores: { criterion: string; percent: number }[] | null;
+  /**
+   * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — chi tiết phát âm TỪNG TỪ/ÂM VỊ do Azure Pronunciation
+   * Assessment chấm. Chỉ có khi lượt nói đi qua pipeline trực tiếp Groq+Claude+Azure — NULL khi chấm bằng
+   * luồng cũ (9Router/Gemini) hoặc Azure lỗi. accuracyScore/errorType ở mức từ, phonemes ở mức âm vị
+   * (ký hiệu gần ARPAbet, FE tự chuyển sang IPA để hiển thị — xem ARPABET_TO_IPA trong ReflexVideoTaskPage.tsx).
+   */
+  speakingPronunciationWords:
+    | { word: string; accuracyScore: number | null; errorType: string | null; phonemes: { phoneme: string; accuracyScore: number | null }[] }[]
+    | null;
   speakingPassed: boolean;
   speakingAttemptCount: number;
   /** true khi CẢ 2 bước đã đạt THẬT (điểm >= ngưỡng) — KHÁC questionFinalized (xem field đó). */
@@ -830,7 +840,17 @@ export interface ReflexQuestionProgressResponse {
    */
   questionFinalized: boolean;
   updatedAt: string;
+  /**
+   * V222 — trạng thái chấm AI của bước viết khi server bật hàng đợi: PENDING = đang chờ chấm (hỏi lại tiến trình đến
+   * khi hết PENDING, xem waitForReflexGrading), GRADED, FAILED = AI lỗi hết số lần thử (đã hoàn lượt, chờ giáo viên
+   * chấm tay), REJECTED = bản ghi bị từ chối. NONE khi server chấm đồng bộ.
+   */
+  writingGradingStatus: ReflexGradingStatus;
+  /** V222 — như writingGradingStatus, cho bước nói. */
+  speakingGradingStatus: ReflexGradingStatus;
 }
+
+export type ReflexGradingStatus = "NONE" | "PENDING" | "GRADED" | "FAILED" | "REJECTED";
 
 /** Bước 1: nộp câu trả lời viết, AI chấm ngữ pháp ngay (đạt ngưỡng % cấu hình theo video, mặc định 70). */
 export function submitReflexWrittenAnswer(questionId: number, assignmentId: number, answerText: string): Promise<ReflexQuestionProgressResponse> {
@@ -849,6 +869,34 @@ export function submitReflexSpokenAnswer(questionId: number, assignmentId: numbe
   });
 }
 
+const REFLEX_GRADING_POLL_MS = 2000;
+/** Hàng đợi thử lại tối đa 5 lần, mỗi lần AI có thể mất tới ~90 giây — chờ tối đa 10 phút rồi trả bản đang PENDING cho caller báo "vẫn đang chấm". */
+const REFLEX_GRADING_MAX_WAIT_MS = 10 * 60 * 1000;
+
+/**
+ * V222 — server bật hàng đợi thì nộp bài trả về ngay với trạng thái PENDING; hàm này hỏi lại tiến trình đến khi bước
+ * `step` của câu hỏi hết PENDING. Lỗi mạng tạm thời khi hỏi lại thì bỏ qua và hỏi tiếp (kết quả vẫn nằm ở server).
+ */
+export async function waitForReflexGrading(
+  assignmentId: number,
+  initial: ReflexQuestionProgressResponse,
+  step: "writing" | "speaking"
+): Promise<ReflexQuestionProgressResponse> {
+  const statusOf = (p: ReflexQuestionProgressResponse) => (step === "writing" ? p.writingGradingStatus : p.speakingGradingStatus);
+  let latest = initial;
+  const deadline = Date.now() + REFLEX_GRADING_MAX_WAIT_MS;
+  while (statusOf(latest) === "PENDING" && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, REFLEX_GRADING_POLL_MS));
+    try {
+      const all = await listMyReflexProgress(assignmentId);
+      latest = all.find((p) => p.questionId === initial.questionId) ?? latest;
+    } catch {
+      // mạng chập chờn: hỏi lại ở vòng sau
+    }
+  }
+  return latest;
+}
+
 /** V199 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — công tắc bộ lọc thu âm ở Cài đặt hệ thống. */
 export interface ReflexRecordingConfig {
   filterEnabled: boolean;
@@ -861,6 +909,22 @@ export function getReflexRecordingConfig(): Promise<ReflexRecordingConfig> {
 /** Tiến trình đã lưu của MỌI câu hỏi thuộc video này trong lần giao đang mở — dùng để dựng lại đúng trạng thái khoá/mở khi vào/tải lại trang. */
 export function listMyReflexProgress(assignmentId: number): Promise<ReflexQuestionProgressResponse[]> {
   return apiRequest<ReflexQuestionProgressResponse[]>(`/review-video-assignments/${assignmentId}/reflex-progress`);
+}
+
+/**
+ * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — tải lại byte audio ĐÃ GHI ÂM qua backend (không
+ * qua apiRequest vì hàm đó luôn parse JSON) để vẽ dạng sóng âm. KHÔNG dùng để phát audio (vẫn phát qua
+ * audioUrl trực tiếp như cũ) — chỉ vì Web Audio API cần fetch() đọc được byte, mà bucket lưu audio
+ * (R2 public-base-url) không bật CORS cho việc đó, trong khi gọi API backend của chính hệ thống thì
+ * không bị chặn CORS (cùng origin qua proxy dev/production).
+ */
+export async function fetchSpeakingAudioArrayBuffer(questionId: number, assignmentId: number): Promise<ArrayBuffer> {
+  const token = getAccessToken();
+  const res = await fetch(`/api/review-video-questions/${questionId}/reflex-progress/speaking-audio?assignmentId=${assignmentId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return res.arrayBuffer();
 }
 
 /**
@@ -1263,6 +1327,14 @@ export interface IntegrityEventBatchResponse {
   notifiedByThisBatch: boolean;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — true = bài làm vừa bị hệ thống dừng ép do vượt ngưỡng vi phạm. */
   attemptStopped: boolean;
+}
+
+/** Bổ sung 2026-10-26 — gửi ngầm số giây học sinh thực sự ở trên màn hình làm bài, xem useActiveTimeTracker. Server trả 204, lượt đã nộp thì bỏ qua êm. */
+export function recordActiveTime(attemptId: number, seconds: number): Promise<void> {
+  return apiRequest<void>(`/attempts/${attemptId}/active-time`, {
+    method: "POST",
+    body: JSON.stringify({ seconds })
+  });
 }
 
 /** Học sinh gửi theo lô các sự kiện thoát ra ngoài khi đang làm 1 lượt Exercise — dùng chung với useIntegrityMonitor. */

@@ -3,7 +3,16 @@ import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
 import { renderRichText } from "@/lib/richText";
 import { ExerciseQuestionResponse, ExerciseResponse, listExerciseQuestions } from "../api";
-import { CHOICE_TYPES, ChoiceButtons, QuestionImages, QuestionPreview, SpeakingInputPreview, useChoiceSelection } from "./QuestionPreview";
+import {
+  CHOICE_TYPES,
+  ChoiceButtons,
+  QuestionImages,
+  QuestionPreview,
+  SentenceBuildingPreview,
+  SpeakingInputPreview,
+  WordBankPreview,
+  useChoiceSelection
+} from "./QuestionPreview";
 
 /**
  * Bổ sung 2026-09-24 (đã xác nhận với người dùng, sửa bug thật) — lưới ảnh "Match the words with their
@@ -124,6 +133,29 @@ function computeStartNumbers(blocks: RenderBlock[]): number[] {
   return blocks.map((b) => (b.type === "grid" ? b.questions[0].displayOrder : b.question.displayOrder));
 }
 
+/**
+ * Bổ sung 2026-10-29 (đã xác nhận với người dùng) — khi nhiều "phần" khác nhau (VD IELTS Listening
+ * Section 1: Q1-6 "điền phiếu thông tin" + Q7-8 "chọn 2 đáp án") được gộp CHUNG 1 groupKey vì cùng 1
+ * URL Audio (xem backend QuestionImportService#AUDIO_GROUPABLE_KINDS), khối chỉ hiện ĐÚNG 1 "Hướng dẫn"
+ * duy nhất ở đầu (của câu đầu tiên) — Hướng dẫn của các phần sau trong CÙNG khối bị "nuốt" mất hoàn
+ * toàn, học sinh không biết câu 7-8 đổi sang dạng bài khác. Tính lại ranh giới: câu nào có
+ * structuredContent.instruction KHÁC với Hướng dẫn gần nhất đã hiện (kể cả Hướng dẫn ở đầu khối) thì
+ * hiện lại 1 dòng Hướng dẫn mới ngay trước câu đó — chỉ audio là DÙNG CHUNG 1 LẦN, còn Hướng dẫn vẫn
+ * tách đúng theo cột "Hướng dẫn" của từng dòng Excel gốc.
+ */
+function attachSectionInstructions(
+  questions: ExerciseQuestionResponse[],
+  blockInstruction: string | null
+): { question: ExerciseQuestionResponse; sectionInstruction: string | null }[] {
+  let lastInstruction = blockInstruction;
+  return questions.map((question) => {
+    const instruction = question.structuredContent?.instruction ?? null;
+    const sectionInstruction = instruction != null && instruction !== lastInstruction ? instruction : null;
+    if (sectionInstruction != null) lastInstruction = sectionInstruction;
+    return { question, sectionInstruction };
+  });
+}
+
 interface ExerciseStudentPreviewModalProps {
   exercise: ExerciseResponse;
   onClose: () => void;
@@ -205,7 +237,6 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
-      {block.instruction && <p className="text-sm sm:text-base italic text-slate-500 whitespace-pre-line">{renderRichText(block.instruction)}</p>}
       {block.referencePassage && (
         <div className="bg-slate-50 rounded-xl p-3 space-y-2">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
@@ -220,6 +251,25 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
           ))}
         </div>
       )}
+      {/*
+       * Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — ảnh DÙNG CHUNG
+       * hiện 1 LẦN DUY NHẤT ở đây (mirror block.referencePassage ở trên), KHÔNG lặp lại trong từng dòng
+       * câu hỏi bên dưới (xem prop hideImage ở GridQuestionRowPreview).
+       *
+       * Fix bug thật 2026-10-30 (đã xác nhận với người dùng qua ảnh chụp, so sánh đề giấy gốc) — trước
+       * đây hiện SAU "Hướng dẫn"/hộp từ vựng/audio — sai thứ tự so với đề giấy gốc (ảnh/biểu đồ tham
+       * chiếu luôn đứng NGAY SAU tiêu đề Ex., TRƯỚC câu lệnh "A. Complete..."). Chuyển lên đây, ngay sau
+       * đoạn văn tham chiếu — mirror đúng vị trí referencePassage.
+       */}
+      {isSharedImageGroup && block.imageUrl && <QuestionImages imageUrl={block.imageUrl} large />}
+
+      {/*
+       * Fix bug thật 2026-10-29 (đã xác nhận với người dùng qua ảnh chụp, so sánh đề giấy gốc) — "Hướng
+       * dẫn" trước đây hiện TRƯỚC đoạn văn tham chiếu (referencePassage) — sai thứ tự so với đề giấy gốc
+       * (đoạn văn đọc hiểu đứng TRƯỚC, "Hướng dẫn"/câu lệnh câu hỏi đứng NGAY TRÊN câu 1, SAU đoạn văn).
+       * Chuyển xuống đây (sau đoạn văn/ảnh tham chiếu, trước hộp từ vựng/câu hỏi) để khớp đúng bố cục sách.
+       */}
+      {block.instruction && <p className="text-sm sm:text-base italic font-bold text-slate-500 whitespace-pre-line">{renderRichText(block.instruction)}</p>}
 
       {block.wordBox && block.wordBox.length > 0 && (
         <table className="w-full border-collapse text-sm text-slate-800">
@@ -243,13 +293,6 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
       )}
 
       {/*
-       * Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU) — ảnh DÙNG CHUNG
-       * hiện 1 LẦN DUY NHẤT ở đây (mirror block.referencePassage/block.audioUrl ở trên), KHÔNG lặp lại
-       * trong từng dòng câu hỏi bên dưới (xem prop hideImage ở GridQuestionRowPreview).
-       */}
-      {isSharedImageGroup && block.imageUrl && <QuestionImages imageUrl={block.imageUrl} large />}
-
-      {/*
        * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18, mirror TakeExerciseModal#GridQuestionGroup
        * — bài "Match the words with their correct picture" (DIEN_TU_NHOM, mỗi câu 1 ảnh KHÁC NHAU) đúng
        * hình thức sách in là LƯỚI ảnh nhỏ gọn, ô điền ngay dưới mỗi ảnh — không liệt kê dọc từng câu 1 dòng.
@@ -269,9 +312,31 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {block.questions.map((q, qIndex) => (
-            <GridQuestionRowPreview key={q.id} question={q} displayNumber={startNumber + qIndex} hideImage={isSharedImageGroup} />
-          ))}
+          {attachSectionInstructions(block.questions, block.instruction).map(({ question: q, sectionInstruction }, qIndex) => {
+            // Fix bug thật 2026-10-29 (đã xác nhận với người dùng qua ảnh chụp) — câu WORD_BANK tự hiện
+            // "Hướng dẫn" riêng qua prop `instruction` của WordBankPreview bên dưới (xem GridQuestionRowPreview),
+            // nếu CŨNG hiện thêm đoạn <p> sectionInstruction ở đây thì "Hướng dẫn" bị lặp 2 LẦN cho câu
+            // WORD_BANK (1 lần ở đây, 1 lần trong WordBankPreview) — kể cả khi sectionInstruction đã null
+            // (trùng block.instruction) vẫn còn 1 lần lặp từ WordBankPreview vì nó đọc THẲNG
+            // question.structuredContent.instruction, không biết gì về việc block đã hiện rồi. Truyền
+            // sectionInstruction xuống làm NGUỒN DUY NHẤT cho WordBankPreview#instruction (xem
+            // GridQuestionRowPreview) thay vì đọc lại structuredContent.instruction — tự động null khi
+            // trùng Hướng dẫn đã hiện (ở block hoặc section trước), không cần đoạn <p> riêng nữa.
+            const isWordBankRow = q.questionType === "WORD_BANK" && !!q.structuredContent?.blanks;
+            return (
+              <React.Fragment key={q.id}>
+                {sectionInstruction && !isWordBankRow && (
+                  <p className="pt-2 text-sm sm:text-base italic font-bold text-slate-500 whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
+                )}
+                <GridQuestionRowPreview
+                  question={q}
+                  displayNumber={startNumber + qIndex}
+                  hideImage={isSharedImageGroup}
+                  sectionInstruction={sectionInstruction}
+                />
+              </React.Fragment>
+            );
+          })}
         </div>
       )}
     </div>
@@ -281,27 +346,41 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
 function GridQuestionRowPreview({
   question,
   displayNumber,
-  hideImage
+  hideImage,
+  sectionInstruction
 }: {
   question: ExerciseQuestionResponse;
   displayNumber: number;
   /** Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — true khi ảnh của câu này đã hiện
    * 1 LẦN DUY NHẤT ở đầu khối nhóm (block.imageUrl, xem GridQuestionGroupPreview), không lặp lại ở đây. */
   hideImage?: boolean;
+  /** Bổ sung 2026-10-29 (đã xác nhận với người dùng) — "Hướng dẫn" ĐÃ qua dedup ở GridQuestionGroupPreview
+   * (null nếu trùng Hướng dẫn đã hiện ở block hoặc câu liền trước) — dùng làm nguồn DUY NHẤT cho
+   * WordBankPreview#instruction bên dưới, xem Javadoc ở chỗ gọi component này. */
+  sectionInstruction?: string | null;
 }) {
   const { t } = useTranslation("lms-question-authoring");
   const isChoiceRow = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
   const isFillInBlankRow = question.questionType === "FILL_IN_BLANK";
   const isSpeakingRow = question.questionType === "SPEAKING";
+  // Fix bug thật (người dùng báo "thiếu block chọn từ/chỗ lưu đáp án" ở màn Xem trước dạng học sinh)
+  // — mirror fix ở TakeExerciseModal.tsx#GridQuestionGroup bên app user: khối lưới (grid, có groupKey)
+  // trước đây CHỈ rẽ nhánh isChoiceRow/isFillInBlankRow/isSpeakingRow, bỏ sót hẳn WORD_BANK/
+  // SENTENCE_BUILDING (đã có sẵn ở QuestionPreview#câu ĐƠN LẺ) — câu "Sắp xếp từ"/"Điền hộp từ vựng"
+  // nằm trong 1 nhóm (VD "Ex. 3" gộp Part A sắp xếp câu + Part B điền từ) không hiện khối chọn từ nào.
+  const isWordBankRow = question.questionType === "WORD_BANK" && !!question.structuredContent?.blanks;
+  const isSentenceBuildingRow = question.questionType === "SENTENCE_BUILDING" && !!question.structuredContent?.chunks;
   const { selected, toggle } = useChoiceSelection(question.questionType === "MULTIPLE_ANSWER");
   // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_DIEN_TU) — khi ảnh đã hiện dùng chung ở đầu
   // khối (hideImage=true) VÀ nội dung chỉ là "___" (GV không gõ số nữa, số thứ tự đã hiện qua
   // displayNumber) — ẩn luôn phần nội dung lặp, chỉ còn "{displayNumber}." gọn gàng.
-  const hideContentText = hideImage && isBlankOnlyContent(question.questionContent);
+  // WordBankPreview bên dưới tự render questionContent làm chính văn bản tương tác (mirror
+  // QuestionPreview#WORD_BANK câu đơn lẻ) — hiện lại nguyên văn ở đây sẽ bị lặp cả đoạn 2 lần.
+  const hideContentText = isWordBankRow || (hideImage && isBlankOnlyContent(question.questionContent));
 
   return (
     <div className="py-2.5 space-y-2">
-      <span className="text-sm font-bold text-slate-800">
+      <span className="text-sm font-normal text-slate-800">
         {displayNumber}.{!hideContentText && <> {renderRichText(question.questionContent)}</>}
       </span>
 
@@ -317,6 +396,24 @@ function GridQuestionRowPreview({
       )}
 
       {isSpeakingRow && <SpeakingInputPreview />}
+
+      {isWordBankRow && (
+        <WordBankPreview
+          content={question.questionContent}
+          wordPool={
+            question.structuredContent!.inputMode === "text"
+              ? (question.structuredContent!.wordBankOptions ?? [])
+              : (question.structuredContent!.wordBankOptions ?? question.structuredContent!.blanks!)
+          }
+          inputMode={question.structuredContent!.inputMode}
+          formMode={question.structuredContent!.format === "form"}
+          instruction={sectionInstruction ?? (question.structuredContent!.format === "form" ? question.referencePassage : null)}
+        />
+      )}
+
+      {isSentenceBuildingRow && (
+        <SentenceBuildingPreview chunkPool={question.structuredContent!.chunks!} chunkOrder={question.structuredContent!.chunkOrder} />
+      )}
     </div>
   );
 }

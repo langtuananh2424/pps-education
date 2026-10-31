@@ -168,7 +168,7 @@ Chỉ in khi lượt giao bài **có gắn key grammar** (mã tra trong `KeyGram
 - **Key grammar Chưa đạt → Language bị trần:** dùng đúng 0 lần → tối đa 40%; dùng đúng 1 lần → tối đa 50% (điểm thấp hơn thì giữ nguyên). Đạt thì không đổi điểm.
 - **Chưa đạt → câu thứ hai bắt buộc yêu cầu học sinh viết lại bài**, dùng đúng ít nhất 2 lần cấu trúc được giao.
 - **Không gợi ý cách sửa** trong nhận xét key grammar: không câu mẫu, không phiên bản viết lại, không nói câu nào nên đổi thành gì.
-- Trong mục 1: dùng đúng key grammar → `{{kg|…}}` (xanh, thay cho `{{ok|…}}`); dùng sai → `{{gr2|…}}` (đỏ).
+- Trong mục 1: dùng đúng key grammar → `{{kg|…}}` (xanh, thay cho `{{ok|…}}`); dùng sai → `{{gr1|…}}` (vàng; chỉ `{{gr2|…}}` khi đoạn đó khó hiểu).
 
 Các neo ở §6 không gắn key grammar nên chỉ có phần nhận xét chung.
 
@@ -184,7 +184,7 @@ Các neo ở §6 không gắn key grammar nên chỉ có phần nhận xét chun
 
 Hậu tố mức độ: `1` = nhẹ, người đọc vẫn hiểu ngay → **vàng**; `2` = nặng, làm sai nghĩa hoặc người đọc phải đoán → **đỏ**.
 
-Ví dụ: `She {{gr2|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
+Ví dụ: `She {{gr1|go}} to school and {{sp1|recieve}} a prize. {{ok|Although it was raining}}, she was happy.`
 
 Chỉ đánh dấu **vị trí**: không viết từ/câu đúng, không thêm mũi tên, không ghi chú trong ngoặc.
 

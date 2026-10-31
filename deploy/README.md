@@ -565,6 +565,101 @@ Set `NINE_ROUTER_API_KEY`/`NINE_ROUTER_MODEL`/`NINE_ROUTER_STT_MODEL`/
 `NINE_ROUTER_AUDIO_MODEL` trong `.env` mỗi stack theo combo đã tạo (xem
 `.env.example` gốc repo, mục 9Router, để biết ý nghĩa từng biến).
 
+## 5b. Dịch vụ chấm phát âm (pps-speaking-engine)
+
+Chấm phát âm của Speaking (UC-23b) có thể dùng GOPT thay Azure. Phần suy luận (Kaldi GOP + GOPT + wav2vec2 IPA) chạy ở **một container
+dùng chung** cho staging, production và các ứng dụng khác (PPS Speaking Lab, ứng dụng sau này), repo riêng
+[pps-speaking-engine](https://github.com/langtuananh2424/pps-speaking-engine). Backend chỉ GỌI nó khi `PRONUNCIATION_PROVIDER=gopt`;
+mặc định vẫn là Azure nên chưa có engine thì mọi thứ chạy như cũ.
+
+**Mạng.** Engine nằm trong mạng bridge tên cố định `speaking-engine-net`; backend staging và production cùng nối mạng này (ngoài `internal`)
+và gọi `http://speaking-engine:8100`. Compose của backend khai báo mạng là `external`, và CD (`cd-staging.yml`, `cd-production.yml`) tạo
+mạng idempotent trước khi `up`, nên deploy backend không phụ thuộc engine đã chạy hay chưa. Cổng 8100 của engine chỉ publish vào
+`127.0.0.1` của server (cho ứng dụng chạy trên host), không ra ngoài.
+
+**Dựng engine** (một lần, trên server):
+
+```bash
+git clone https://github.com/langtuananh2424/pps-speaking-engine.git ~/pps-speaking-engine && cd ~/pps-speaking-engine
+docker network inspect speaking-engine-net >/dev/null 2>&1 || docker network create speaking-engine-net
+cp .env.example .env    # điền ENGINE_TOKENS: mỗi ứng dụng một token (pps-staging, pps-production, lab, ...)
+docker compose up -d --build   # lần đầu build Kaldi khoảng 40 phút với BUILD_JOBS=10
+```
+
+**Bật cho một môi trường.** Trong `/opt/pps-education/<staging|production>/.env` đặt:
+
+```
+PRONUNCIATION_PROVIDER=gopt
+PRONUNCIATION_ENGINE_TOKEN=<token của đúng môi trường trong ENGINE_TOKENS>
+```
+
+rồi `docker compose up -d --no-deps backend`. `PRONUNCIATION_ENGINE_URL` mặc định đã là `http://speaking-engine:8100`.
+Quay lại Azure: đặt `PRONUNCIATION_PROVIDER=azure` (hoặc bỏ dòng) rồi `up -d` lại. Engine lỗi giữa chừng thì backend tự thử Azure rồi 9Router.
+
+**Phiên âm dự phòng bằng Whisper cục bộ.** Engine còn có Whisper (`large-v3-turbo`, CPU) ở `/v1/transcribe`. Khi Groq lỗi hoặc chưa cấu hình, bước phiên âm của
+Speaking thử Whisper của engine trước, rồi mới rơi về 9Router. Chậm hơn Groq nhiều (hạn 120 giây, `PRONUNCIATION_ENGINE_TRANSCRIBE_TIMEOUT_SECONDS`) nhưng không
+đưa âm thanh ra ngoài. Đường lui này chỉ cần engine đã cấu hình (`PRONUNCIATION_ENGINE_TOKEN`), **không phụ thuộc `PRONUNCIATION_PROVIDER`**, nên bật cả khi điểm phát âm
+vẫn là Azure. Tắt bằng `PRONUNCIATION_ENGINE_WHISPER_FALLBACK=false`. Bài phiên âm bằng Whisper có cảnh báo cho giáo viên và `audit.sources.transcription = engine-whisper`.
+
+**Tài nguyên.** Engine giới hạn 12 CPU và 12 GB RAM (`ENGINE_CPUS`, `ENGINE_MEMORY`; luồng PyTorch `OMP_NUM_THREADS=6`, Whisper `WHISPER_THREADS=8`),
+mỗi lần chỉ chấm `MAX_CONCURRENT=2` bài, bài thừa xếp hàng; Whisper có hàng riêng, từng bài một. Đo ngày 2026-10-30 (máy rảnh): bài 9 giây khoảng 2 giây,
+30 giây khoảng 5 giây, 60 giây khoảng 10 giây (chỉ chấm phát âm, chưa gồm nhận dạng và Claude). Staging và production **dùng chung** một engine, nên test nặng
+trên staging làm chậm production (chưa có hạn mức theo từng token).
+
+**Giới hạn audio.** `/v1/analyze` nhận tối đa 130 giây (`MAX_AUDIO_SECONDS` của engine, nâng từ 90 giây ngày 30/10/2026 cho audio tối đa 120 giây của khối 8), `/v1/transcribe` tối đa 300 giây; quá thì engine trả HTTP 413. Backend coi 413 như
+engine không chấm được (log "audio quá dài") và rơi về Azure, KHÔNG làm mở ngắt mạch. Lý do: RAM của wav2vec2 tăng nhanh theo độ dài (120 giây khoảng 3 GB mỗi bài;
+hai bài 120 giây cùng lúc đỉnh ~6,3 GiB, kèm Whisper ~8,5 GiB, nên engine cần giới hạn RAM 12 GB; 300 giây làm container 8 GB hết RAM). Bài nói tự do dài hơn 130 giây vì vậy luôn chấm bằng Azure cho tới khi có cắt đoạn.
+
+**Ngắt mạch.** Engine treo còn tệ hơn engine chết (mỗi lời gọi chờ hết timeout, mặc định 150 giây), nên client ngừng gọi sau `PRONUNCIATION_ENGINE_BREAKER_FAILURES=3` lỗi liên tiếp
+(không kết nối được, timeout, HTTP 5xx, phản hồi hỏng) trong `PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS=60` giây; trong lúc đó bài chấm rơi thẳng về Azure/9Router, hết
+thời gian thì cho đúng một lời gọi thăm dò. Phản hồi 4xx (sai token, 413) nghĩa là engine còn sống nên không tính. `/v1/analyze` và `/v1/transcribe` có mạch riêng.
+Dấu hiệu trong log: "tạm ngừng gọi /v1/analyze". Đặt `PRONUNCIATION_ENGINE_BREAKER_FAILURES=0` để tắt.
+
+**Trang chỉnh tham số bộ chấm (Quản trị hệ thống, Cấu hình chấm phát âm, đường dẫn `/system-admin/pps-config`).** Chỉnh các tham số của PPS Hybrid v2
+(điểm âm vị, điểm từ, trần và hệ số theo trạng thái Whisper, trôi chảy, điểm câu và chốt chặn, điều chỉnh theo khối; các tham số nói tự do hiện chưa có tác dụng vì
+`SpontaneousScorer` không được gọi) mà không cần deploy:
+
+- **Quyền:** xem cần `system.settings.view`; sửa, lưu, khôi phục, nhập cần `system.settings.manage` (chỉ SYS_ADMIN, như Cài đặt hệ thống).
+- **Cách lưu:** bảng `pps_scoring_config` (V225) chỉ giữ các tham số KHÁC mặc định; giá trị mặc định và khoảng cho phép nằm trong mã (`PpsConfig`, sinh từ `pps_config.py` của lab). Lưu là
+  lưu TOÀN BỘ cấu hình đang hiện trên trang: tham số không đổi về mặc định. Backend kiểm tra lại (khoảng cho phép, các nhóm trọng số cộng bằng 1, `phone.top` > `phone.floor`,
+  ngắt dài > ngắt ngắn) và từ chối kèm tên tham số sai.
+- **Hiệu lực:** ngay với các bài chấm sau khi lưu (bài đang chấm dở giữ bản cũ). Khi chạy nhiều bản backend, bản kia nạp lại sau tối đa 60 giây (`app.pps-config.refresh-ms`).
+  Backend khởi động nạp cấu hình từ DB; cấu hình hỏng chỉ ghi cảnh báo và dùng mặc định.
+- **Xuất, nhập JSON:** xuất ra file `{"config": {...}}` nhập lại được; nhập chỉ điền vào biểu mẫu, phải bấm Lưu mới có hiệu lực.
+- **Lịch sử:** mỗi lần lưu có thay đổi ghi người sửa, giờ, ghi chú, giá trị trước và sau (50 lần gần nhất trên trang). **Khôi phục mặc định** cũng được ghi lại.
+- Chỉnh điểm ở đây ảnh hưởng điểm học viên khi `PRONUNCIATION_PROVIDER=gopt`; nên thử trên staging và so với điểm giáo viên trước khi đổi ở production.
+
+**Quay lại Azure (rollback).** Key và cấu hình Azure (`AZURE_SPEECH_*`) vẫn nằm trong `.env` của staging và production nên không cần dựng lại gì:
+
+1. Sửa `/opt/pps-education/<môi trường>/.env`: `PRONUNCIATION_PROVIDER=azure` (hoặc xoá dòng). File thuộc user `deploy`, cần `sudo`.
+2. `cd /opt/pps-education/<môi trường> && docker compose up -d --no-deps backend` (tạo lại container mới nhận biến môi trường).
+3. Kiểm tra: log bài chấm kế tiếp ghi `audit.gradedBy` có `+azure` (không còn `+gopt`).
+
+Không cần dừng engine. Whisper dự phòng (`PRONUNCIATION_ENGINE_WHISPER_FALLBACK`) độc lập với `PRONUNCIATION_PROVIDER`, tắt riêng nếu muốn.
+
+**Lưu ý release 2026-10-30 (hàng đợi Clip phản xạ trên production).** `.env` production đã có `REFLEX_QUEUE_ENABLED=true`, nhưng `docker-compose.yml` production trên server
+(bản 22/10) chưa truyền biến này vào container nên hàng đợi đang TẮT ở production (staging bật từ 29/10: làn nói 2 luồng, làn viết 3 luồng, mặc định
+`REFLEX_QUEUE_SPEAKING_CONCURRENCY=2`, `REFLEX_QUEUE_WRITING_CONCURRENCY=3`). Khi CD chép compose mới lên và tạo lại container, hàng đợi tự BẬT ở production: kết quả chấm Clip
+phản xạ đến sau (bất đồng bộ) thay vì ngay trong request. Sau release cần theo dõi các bài Clip phản xạ đầu tiên.
+
+**Chấm theo lab: phần nào đã dùng, phần nào cố ý không nối** (quyết định 2026-10-30).
+
+- *Đã dùng:* bộ chấm phát âm PPS Hybrid v2 (`GoptPronunciationService` + `PpsHybridScorer`, đã khớp lab bằng golden test). Điểm của nó là điểm tiêu chí `P` của Reflex (`overallScore`, gồm cả trôi chảy và ngữ điệu tính từ mốc thời gian từ). Câu có bài viết Bước 1 chấm theo chế độ `writing_merged` của lab (ghép bài viết với lời nói, từ đọc lệch bị chặn trần).
+- *Cố ý không nối:* chấm nói tự do 4 trụ cột (`SpontaneousScorer`: P 30%, F 25%, GV 25%, TR 20%, Haiku chấm GV và TR). Mọi câu nói của pps-education, có hay không có bước Viết, đã đi qua hệ chấm Reflex v3 do người đào tạo hiệu chuẩn (bộ tiêu chí theo khối và dạng đề: `FC, LR, GRA, P` hoặc `GV, DM, P`, cổng chặn C1/C2/C3, các trần điểm, rubric riêng). Nối 4 trụ cột vào sẽ tạo điểm thứ hai cạnh tranh hoặc thay điểm Reflex.
+- *Ánh xạ khi cần so sánh hai hệ:* P ↔ `P`; F (trôi chảy theo mốc thời gian) ↔ một phần của `P` và `FC` (Reflex đưa Claude số liệu đo tiếng nói: thời lượng, giây có tiếng, ngắt dài nhất); GV ↔ `GV`, `LR`, `GRA`; TR ↔ `DM` và cổng lạc đề; bộ lọc quá ngắn, sai ngôn ngữ ↔ cổng `minWords` và C1/C2/C3.
+- `SpontaneousScorer` và `SpontaneousLlmService` vẫn nằm trong mã (đã có golden test với lab) nhưng không được gọi. Nếu sau này muốn dùng thì quyết định lại: chỉ tham khảo hay thay điểm, và phải được người đào tạo xác nhận.
+
+**Giới hạn đã biết.** Ghi lại để không quên khi nâng cấp:
+
+- Điểm GOPT chưa hiệu chỉnh với giáo viên; ngưỡng "Mispronunciation" (điểm từ dưới 6/10) mới là ước lượng; lớp 9 tính như lớp 7 (v2 mới hiệu chuẩn lớp 6 đến 8). Thang điểm khác Azure
+  nên điểm học viên có thể lệch; phát âm hiện chỉ để tham khảo khi mở khoá (`REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION=false`).
+- Kaldi và GOPT huấn luyện trên giọng bản ngữ (Librispeech); audio điện thoại nhiễu của học viên Việt có thể bị chấm khắt khe hơn. Mới so khớp IPA với lab trên 9 bài mẫu thật;
+  `espeak-ng` trong image (1.51) khác máy lab (1.52).
+- Từ ngoài từ điển (tên riêng, từ lạ) được đoán bằng G2P; bảng sửa `gop/overrides.txt` nằm trong image nên sửa phải build lại engine.
+- Whisper cục bộ chạy CPU nên chậm: khoảng 32 giây cho 60 giây audio (5 phút audio mất khoảng 4 phút), vượt timeout 120 giây của backend với audio khoảng 3 phút trở lên.
+- Một container engine duy nhất: engine chết thì chấm rơi về Azure/9Router (không mất bài), bài đang chấm dở bị mất và chấm lại theo đường dự phòng. RAM tối đa 12 GB: hai bài 120 giây
+  cộng Whisper cùng lúc có thể chạm giới hạn rồi bị kill.
+
 ## 6. Quản trị từ xa trong LAN
 
 1. Đặt IP LAN tĩnh cho server qua DHCP reservation trên router (theo MAC).

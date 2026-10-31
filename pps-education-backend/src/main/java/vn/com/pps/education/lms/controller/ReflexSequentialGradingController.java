@@ -1,6 +1,8 @@
 package vn.com.pps.education.lms.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -64,5 +66,25 @@ public class ReflexSequentialGradingController {
     public ResponseEntity<List<ReflexQuestionProgressResponse>> listMyProgress(@PathVariable Long assignmentId,
                                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reflexSequentialGradingService.listMyProgress(assignmentId, actor.userId()));
+    }
+
+    /**
+     * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — xem Javadoc
+     * {@link ReflexSequentialGradingService#downloadSpeakingAudio}. FE vẫn phát audio qua thẻ
+     * {@code <audio src>} trỏ thẳng audioUrl (R2) như cũ — endpoint này CHỈ phục vụ vẽ dạng sóng âm
+     * (Web Audio API cần fetch() đọc byte, R2 public-base-url không bật CORS cho việc đó).
+     */
+    @GetMapping("/api/review-video-questions/{questionId}/reflex-progress/speaking-audio")
+    public ResponseEntity<byte[]> downloadSpeakingAudio(@PathVariable Long questionId,
+                                                          @RequestParam Long assignmentId,
+                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        var file = reflexSequentialGradingService.downloadSpeakingAudio(questionId, assignmentId, actor.userId());
+        MediaType mediaType;
+        try {
+            mediaType = MediaType.parseMediaType(file.contentType() == null ? "audio/webm" : file.contentType());
+        } catch (Exception e) {
+            mediaType = MediaType.parseMediaType("audio/webm");
+        }
+        return ResponseEntity.ok().contentType(mediaType).header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600").body(file.bytes());
     }
 }

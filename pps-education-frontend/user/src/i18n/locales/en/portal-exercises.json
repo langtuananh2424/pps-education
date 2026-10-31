@@ -210,11 +210,15 @@
     "gradingOverlay": {
       "title": "Grading your answer...",
       "writingDescription": "AI is grading the grammar of your answer — please wait a moment.",
-      "speakingDescription": "AI is listening to and grading your answer (this can take about 10-20 seconds) — please wait a moment."
+      "speakingDescription": "AI is listening to and grading your answer (this can take about 10-20 seconds) — please wait a moment.",
+      "stageTranscribing": "Transcribing your voice...",
+      "stageGrading": "Grading content & pronunciation..."
     },
     "micAccessError": "Couldn't access the microphone — check your browser permissions and try again.",
     "questionsLoadError": "Couldn't load the question list.",
     "submitError": "Grading failed — please try again.",
+    "gradingStillPending": "Your answer is still being graded — please wait a moment, then reload the page to see the result.",
+    "gradingFailedTeacher": "We couldn't grade this automatically. Your attempt was not used up and your teacher will grade it — please carry on with the next part.",
     "notAssignedError": "This video hasn't been assigned to you as homework — you can't submit.",
     "micPermissionError": "Microphone access is required — please allow microphone access (the lock icon in your address bar) and try again.",
     "loadingQuestions": "Loading questions...",
@@ -244,8 +248,15 @@
       "label": "Question {{index}}",
       "passed": "Passed",
       "notPassedExhausted": "Not passed — out of attempts",
+      "speakingNotPassedExhausted": "Speaking not passed — out of attempts",
+      "writingSpeakingNotPassedExhausted": "Writing and speaking not passed — out of attempts",
+      "passedWritingNot": "Passed (speaking) · writing not passed",
       "locked": "Locked",
-      "waitingForYou": "Waiting for you — tap to continue"
+      "waitingForYou": "Waiting for you — tap to continue",
+      "speakingRedo": "Speaking not passed — tap to redo",
+      "speakingNotPassed": "Speaking not passed — redo after the video ends",
+      "speakingGrading": "Grading your speaking…",
+      "speakingSubmitted": "Speaking submitted"
     },
     "writingStage": {
       "title": "Step 1 · Write your answer",
@@ -285,6 +296,7 @@
       "quietWarning": "Your recording sounds quiet — try speaking louder and clearer for a more accurate AI grade. You can tap \"Re-record\" or still submit this one.",
       "unclearWordTooltip": "Unclear word",
       "criteriaScoresLabel": "Score by criteria",
+      "pronunciationWordsLabel": "Pronunciation by word (tap a word for detail)",
       "transcriptLabel": "Transcript (errors boxed in red)",
       "retryButton": "Record again",
       "attemptCount": "Recorded {{count}}/{{max}} time(s)",
@@ -297,6 +309,10 @@
       },
       "exhaustedPopup": {
         "heading": "Out of attempts for recording — this question was not passed, moving on"
+      },
+      "queuedPopup": {
+        "heading": "Speaking submitted",
+        "body": "Speaking submitted. Your speaking scores will show after you finish all the questions."
       }
     },
     "submittedSuccess": "You've completed every question!",

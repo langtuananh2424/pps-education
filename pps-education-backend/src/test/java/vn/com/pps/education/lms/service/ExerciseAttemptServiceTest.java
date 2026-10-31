@@ -205,6 +205,34 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(ExerciseNotAvailableException.class);
     }
 
+    /** V223: thời gian làm thực (ẩn) — mỗi lần gửi bị chặn bởi thời gian thực trôi qua, không thổi phồng được. */
+    @Test
+    void recordActiveTime_capsCreditedSecondsByRealElapsedTime() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+
+        exerciseAttemptService.recordActiveTime(attempt.id(), 600, studentUser.getId());
+
+        // Vừa mở xong (≈0s trôi qua) mà đòi cộng 600s -> chỉ được tối đa vài giây dung sai.
+        int credited = exerciseAttemptRepository.findById(attempt.id()).orElseThrow().getActiveSeconds();
+        assertThat(credited).isBetween(1, 5);
+    }
+
+    /** V223: lượt đã nộp thì bỏ qua êm, không cộng thêm. */
+    @Test
+    void recordActiveTime_ignoredAfterSubmit() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        answerCorrectly(attempt.id(), mc);
+        exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        exerciseAttemptService.recordActiveTime(attempt.id(), 30, studentUser.getId());
+
+        assertThat(exerciseAttemptRepository.findById(attempt.id()).orElseThrow().getActiveSeconds()).isZero();
+    }
+
     @Test
     void submitAttempt_UC24_A3_allMultipleChoiceFullyGradesImmediately() {
         QuestionResponse mc1 = createMcQuestion();
@@ -411,6 +439,38 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(submittedSecond.passed()).isTrue();
     }
 
+    /**
+     * Bổ sung 2026-10-28 (đã xác nhận với người dùng) — bài Writing (ESSAY) chưa đạt rồi bấm "Làm lại"
+     * phải GIỮ nguyên bài viết cũ làm bản nháp (không khoá, sửa trực tiếp được), không bắt viết lại từ đầu.
+     */
+    @Test
+    void startAttempt_UC24_boSung_prefillsPreviousEssayTextOnRetake() {
+        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
+                        null, null, new BigDecimal("2.0"), null, null, null, null),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        exerciseAttemptService.saveAnswer(first.id(),
+                new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null, null), studentUser.getId());
+        exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
+
+        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+
+        StudentAnswer draft = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), essay.id()).orElseThrow();
+        assertThat(draft.getAnswerText()).isEqualTo("Bài làm của em...");
+        assertThat(draft.isCarriedOverFromPreviousAttempt()).isFalse();
+        exerciseAttemptService.saveAnswer(second.id(),
+                new SaveAnswerRequest(essay.id(), "Bài làm của em đã sửa.", null, null, null), studentUser.getId());
+    }
+
     /** V177 — chặn ở Backend, không chỉ ẩn nút ở FE. */
     @Test
     void saveAnswer_UC24_A2_rejectsEditingCarriedOverAnswer() {
@@ -469,11 +529,12 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     /**
      * V177 — ESSAY/SPEAKING chấm tay/AI không có cờ correct tin cậy (xem Javadoc
-     * ExerciseAttemptService#toResponse(StudentAnswer)) nên KHÔNG được carry-forward dù đã trả lời ở
-     * lượt trước — luôn phải nộp lại ở mọi lượt làm lại.
+     * ExerciseAttemptService#toResponse(StudentAnswer)) nên KHÔNG được carry-forward KHOÁ dù đã trả lời ở
+     * lượt trước — luôn phải nộp lại ở mọi lượt làm lại. Sửa 2026-10-28: riêng ESSAY vẫn được mang NỘI
+     * DUNG bài viết cũ sang làm bản nháp KHÔNG khoá (học sinh sửa trên bài cũ, không phải viết lại).
      */
     @Test
-    void startAttempt_UC24_A2_doesNotCarryOverManuallyGradedEssayAnswer() {
+    void startAttempt_UC24_A2_doesNotLockManuallyGradedEssayAnswerOnRetake() {
         QuestionResponse mc = createMcQuestion();
         QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
                 new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
@@ -497,7 +558,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
         ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
 
-        assertThat(studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), essay.id())).isEmpty();
+        StudentAnswer essayDraft = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), essay.id()).orElseThrow();
+        assertThat(essayDraft.isCarriedOverFromPreviousAttempt()).isFalse();
+        assertThat(essayDraft.getAnswerText()).isEqualTo("Bài làm của em...");
         assertThat(studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), mc.id())).isEmpty();
     }
 
@@ -786,6 +849,57 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThat(submitted.status()).isEqualTo("FULLY_GRADED");
+        assertThat(submitted.totalScore()).isEqualByComparingTo("0");
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isCorrect()).isFalse();
+    }
+
+    /**
+     * Bổ sung 2026-10-29 (đã xác nhận với người dùng — fix bug thật: ô "blanks" của WORD_BANK liệt kê
+     * nhiều phương án phân tách "/" (VD "fifteen dollars / $15 / 15 dollars") bị so khớp NGUYÊN VĂN
+     * cả chuỗi thay vì tách "/" như FILL_IN_BLANK đã làm — học sinh gõ đúng 1 trong các phương án vẫn
+     * bị chấm sai). Khớp BẤT KỲ phương án nào trong "blanks" là ĐÚNG, tương tự
+     * {@link ExerciseAttemptServiceTest#submitAttempt_MainFlow_wordBankGradesCorrectOrderedAnswers}.
+     */
+    @Test
+    void submitAttempt_UC27_boSung_wordBankAcceptsAnySlashSeparatedVariantPerBlank() {
+        QuestionResponse wordBank = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("WORD_BANK", "LISTENING", "EASY",
+                        "How much does it cost to register? ___",
+                        null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("blanks", List.of("fifteen dollars / $15 / 15 dollars")), null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(wordBank), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("$15")), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.status()).isEqualTo("FULLY_GRADED");
+        assertThat(submitted.totalScore()).isEqualByComparingTo("1.0");
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isCorrect()).isTrue();
+    }
+
+    /** Bổ sung 2026-10-29 — vẫn chấm SAI khi không khớp phương án nào trong danh sách "/" đã soạn. */
+    @Test
+    void submitAttempt_UC27_boSung_wordBankRejectsAnswerNotMatchingAnySlashVariant() {
+        QuestionResponse wordBank = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("WORD_BANK", "LISTENING", "EASY",
+                        "How much does it cost to register? ___",
+                        null, null, null, null, null,
+                        new BigDecimal("1.0"), null, null,
+                        Map.of("blanks", List.of("fifteen dollars / $15 / 15 dollars")), null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(wordBank), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("15")), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
         assertThat(submitted.totalScore()).isEqualByComparingTo("0");
         StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
         assertThat(answer.isCorrect()).isFalse();
