@@ -1,0 +1,61 @@
+{
+  "ppsConfigPage": {
+    "title": "Pronunciation scoring settings",
+    "description": "Parameters of the PPS Hybrid v2 pronunciation scorer (GOPT + wav2vec2). Saved changes apply immediately to later gradings, no deploy needed. Parameters you do not change keep the spec default.",
+    "loadError": "Could not load the pronunciation scoring settings.",
+    "lastUpdated": "Last edited by {{name}} at {{time}}",
+    "neverUpdated": "Never edited: using the spec defaults.",
+    "summary": {
+      "changed": "{{count}} parameters differ from default",
+      "allDefault": "Everything is default",
+      "unsaved": "{{count}} unsaved changes"
+    },
+    "noteLabel": "Change note (optional)",
+    "notePlaceholder": "Example: stricter ending-sound penalty after teacher feedback",
+    "actions": {
+      "save": "Save settings",
+      "saving": "Saving...",
+      "discard": "Discard changes",
+      "resetAll": "Restore defaults",
+      "export": "Export JSON",
+      "import": "Import JSON",
+      "history": "History",
+      "resetField": "Set to default"
+    },
+    "saved": "Pronunciation scoring settings saved. Later gradings use the new settings.",
+    "resetDone": "Everything restored to the defaults.",
+    "resetConfirm": "Restore every parameter to the spec default? Current edits are replaced (they stay visible in the history).",
+    "saveErrorDefault": "Could not save the settings.",
+    "field": {
+      "default": "Default: {{value}}",
+      "range": "From {{min}} to {{max}}",
+      "changedBadge": "Not default",
+      "unsavedBadge": "Unsaved"
+    },
+    "errors": {
+      "notNumber": "Must be a number.",
+      "range": "Must be between {{min}} and {{max}}.",
+      "weightSum": "{{name}} must add up to 1 (now {{sum}}).",
+      "topFloor": "\"GOPT score counted as full marks\" must be higher than \"GOPT score counted as wrong\".",
+      "pauseOrder": "\"Long pause\" must be longer than \"Short pause\"."
+    },
+    "weightGroup": {
+      "utterance_weights": "Total weights sum",
+      "spontaneous_weights": "Spontaneous speaking weights sum"
+    },
+    "importFile": {
+      "invalidJson": "The file is not valid JSON.",
+      "unknownKeys": "The file has parameters that do not exist: {{keys}}.",
+      "notNumberKeys": "These parameters are not numbers: {{keys}}.",
+      "done": "Imported {{count}} parameters from the file. Not saved yet: review, then click Save settings. Parameters missing from the file are set to default."
+    },
+    "history": {
+      "title": "Settings history",
+      "loading": "Loading...",
+      "empty": "No edits yet.",
+      "loadError": "Could not load the history.",
+      "noChange": "(no difference from default)",
+      "default": "default"
+    }
+  }
+}

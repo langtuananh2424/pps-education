@@ -19,7 +19,7 @@ import Button from "@/components/ui/Button";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
-import { formatDateTime } from "@/lib/i18nFormat";
+import { formatActiveDuration, formatDateTime } from "@/lib/i18nFormat";
 import DatePicker from "@/components/ui/DatePicker";
 import Time24Input from "@/components/ui/Time24Input";
 import Modal from "@/components/ui/Modal";
@@ -306,6 +306,7 @@ export default function BatchStatsDetailPage() {
                     <Th className="text-center">{t("exerciseDetail.table.percent")}</Th>
                     <Th className="text-center">{t("exerciseDetail.table.completed")}</Th>
                     <Th className="text-center">{t("exerciseDetail.table.attemptCount")}</Th>
+                    <Th className="text-center">{t("exerciseDetail.table.activeTime")}</Th>
                     <Th />
                   </tr>
                 </thead>
@@ -330,6 +331,9 @@ export default function BatchStatsDetailPage() {
                         )}
                       </Td>
                       <Td className="text-center">{s.numberOfAttempts ?? "—"}</Td>
+                      <Td className="text-center whitespace-nowrap" title={s.startedAt ? `${formatDateTime(s.startedAt, i18n.language)}${s.submittedAt ? ` → ${formatDateTime(s.submittedAt, i18n.language)}` : ""}` : undefined}>
+                        {s.startedAt && s.activeSeconds ? formatActiveDuration(s.activeSeconds) : "—"}
+                      </Td>
                       <Td className="text-center">
                         {s.status !== "CHUA_LAM" && (
                           <button

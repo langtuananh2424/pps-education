@@ -97,5 +97,16 @@ public interface QuestionRowParser {
              * QuestionImportService#resolveDisplayNumberOverride.
              */
             String displayNumberOverride
-    ) {}
+    ) {
+        /**
+         * Bản sao với "URL Audio"/"URL Hình ảnh" đã chuẩn hoá (xem {@link ImportMediaUrlResolver}) — các
+         * field còn lại giữ nguyên.
+         */
+        public ParsedQuestionRow withMediaUrls(String newAudioUrl, String newImageUrl) {
+            return new ParsedQuestionRow(rowNumber, sheetLabel, kind, difficulty, content,
+                    choiceA, choiceB, choiceC, choiceD, correctAnswer, newAudioUrl, newImageUrl,
+                    referencePassage, defaultPoints, explanation, tags, instruction,
+                    choiceE, choiceF, choiceG, choiceH, choiceI, choiceJ, skill, displayNumberOverride);
+        }
+    }
 }

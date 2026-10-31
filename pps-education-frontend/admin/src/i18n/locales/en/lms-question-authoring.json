@@ -525,6 +525,22 @@
       "closeButton": "Close"
     }
   },
+  "bulkUpload": {
+    "title": "Bulk upload images/audio",
+    "description": "Pick many files at once; they are uploaded and returned as relative paths to paste into the image/audio columns of the import Excel.",
+    "chooseFiles": "Choose files…",
+    "uploading": "Uploading {{done}}/{{total}}…",
+    "failed": "Upload failed",
+    "tooManyFiles": "Over {{max}} files per batch — pick the rest again.",
+    "unsupportedType": "Only images or audio are accepted.",
+    "tooLarge": "Exceeds {{maxMb}}MB.",
+    "csvHeaderName": "Original file name",
+    "csvHeaderPath": "Relative path",
+    "downloadCsv": "Download CSV",
+    "close": "Close",
+    "summary": "{{ok}}/{{total}} files uploaded",
+    "open": "Bulk upload"
+  },
   "assignPage": {
     "statusLabels": {
       "DRAFT": "Draft",

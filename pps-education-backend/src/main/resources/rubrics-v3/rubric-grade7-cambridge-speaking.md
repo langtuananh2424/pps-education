@@ -17,9 +17,9 @@
 |-|-|-|-|
 |**C1 — Lạc đề / vô nghĩa**|Không trả lời câu hỏi, nói đùa, ghép từ không tạo thông điệp|**Phần lớn bài** không liên quan tới nội dung mô tả ảnh được gửi kèm (kể cả khi câu cú trôi chảy), nói đùa, ghép từ không tạo thông điệp|**DM trần 20%**|
 |**C2 — Không nghe ra**|>25% số từ là `[?]`/lằng nhằng/phát âm sai không nhận ra|như SHORT|**P trần 40%**. >50% → **P trần 20%**|
-|**C3 — Quá ngắn**|<15 từ tiếng Anh nhận ra được|<18 từ tiếng Anh nhận ra được|**DM và P trần 40%**|
+|**C3 — Quá ngắn**|≤5 từ tiếng Anh nhận ra được|<10 từ tiếng Anh nhận ra được|**DM và P trần 40%**|
 |**C4 — Dừng quá lâu**|Im lặng dài nhất ≥3 giây|như cột trái|**DM trần 70%**. ≥5 giây → **50%**|
-||<5 từ|<12 từ|**0%**|
+||<5 từ|<5 từ|**0%**|
 
 Không có cổng "đọc thuộc": nói trôi chảy, đều nhịp **không bị trừ điểm vì nghi đọc thuộc**.
 
@@ -36,7 +36,7 @@ Không có cổng "đọc thuộc": nói trôi chảy, đều nhịp **không b�
 |#|Checkpoint|SHORT: 1 / 0,5 / 0|PICTURE: 1 / 0,5 / 0|
 |-|-|-|-|
 |D1|Câu mở đầu. **Phải là câu hoàn chỉnh** (§B.10): cụm không có động từ ("At home.", "In the park.") → 0. Câu **thiếu chủ ngữ** kiểu "In the picture have a park", "Here have many people" cũng → 0 (dịch thẳng từ *có* trong tiếng Việt)|Trả lời thẳng trọng tâm câu hỏi / vòng vo 1 câu rồi mới trúng / không trả lời trúng|Nêu **tổng quan** ảnh — ít nhất hai trong ba yếu tố *nơi chốn / có ai / đang làm gì* / chỉ nêu một yếu tố / không nêu tổng quan, vào thẳng chi tiết lẻ|
-|D2|Số từ tiếng Anh nhận ra được. **PICTURE khối 7 theo chuẩn AREA/AEE cơ bản: 4 câu ngắn đúng là đạt** — không đòi bài PET Task 2 đầy đủ của người lớn|≥35 / 20–34 / <20|≥35 / 18–34 / <18|
+|D2|Số từ tiếng Anh nhận ra được. **PICTURE khối 7 theo chuẩn AREA/AEE cơ bản: 4 câu ngắn đúng là đạt** — không đòi bài PET Task 2 đầy đủ của người lớn|≥10 / 6–9 / ≤5|≥15 / 10–14 / <10|
 |D3|SHORT: số lần **mở rộng ý** (§B.12). PICTURE: số **thuộc tính hoặc phỏng đoán** gắn vào một đối tượng đã nêu — màu sắc, số lượng, kích thước, trang phục, thời tiết, cảm xúc, hoặc suy đoán (*maybe…*, *I think…*, *it looks like…*)|≥2 / 1 / 0|≥2 / 1 / 0|
 |D4|Số phương tiện liên kết **khác nhau** dùng đúng chức năng (§B.13). **PICTURE tính thêm nhóm vị trí**: on the left, on the right, in the middle, behind, next to, in front of, at the back|≥3 / 2 / ≤1|≥2 / 1 / 0|
 |D5|Khoảng im lặng dài nhất, số ý bị lặp nguyên si, **và số chỗ ngập ngừng** (từ đệm `um`/`uh`/`na`, nói vấp, tự sửa — đếm trong transcript; ≥4 chỗ → ô này tối đa 0,5; ≥7 chỗ → 0)|≤3 giây và 0 ý lặp / 4–6 giây hoặc 1 ý lặp / >6 giây hoặc ≥2 ý lặp|≤4 giây và ≤1 ý lặp / 5–7 giây hoặc 2 ý lặp / >7 giây hoặc ≥3 ý lặp|
@@ -61,12 +61,7 @@ Phải liệt kê từng thuộc tính/phỏng đoán rồi mới đếm; số �
 > 2. Tách danh sách đó thành: **mất âm cuối** (`produc`, `fren`, `chip`) và **thay âm** (`Zis` = /ð/→/z/, `wis` = /θ/→/s/).
 > 3. **Nghe audio**: chỗ nào người nghe phải căng tai hoặc đoán mới hiểu — dù transcript ghi đúng chính tả — cũng cộng vào danh sách.
 >
-> **Trần theo bằng chứng (áp cho cả tiêu chí Phát âm, sau khi tính checkpoint):**
-> - ≥2 từ lệch → Phát âm **tối đa 80%**
-> - ≥4 từ lệch → **tối đa 60%**
-> - ≥6 từ lệch → **tối đa 40%**
->
-> Ghi trần này vào `cap_percent` của tiêu chí Phát âm. **Bài có từ ghi theo âm trong transcript thì không bao giờ được 100% Phát âm.**
+> **KHÔNG tự áp trần theo số từ lệch** (23/10/2026 — bỏ mốc ≥2/≥4/≥6 → 80/60/40%: chỉ 1–2 từ lấp lửng đổi phe là P nhảy 20–40 điểm giữa các lượt chấm). Hệ thống tự đếm từ ghi khác chính tả trong transcript và trừ **5% mỗi từ** sau khi tính checkpoint. Bạn vẫn liệt kê đủ danh sách vào `counting_notes` và chấm P1–P5 theo bảng; **không** hạ `cap_percent` của Phát âm vì số từ lệch.
 |#|Checkpoint|SHORT: 1 / 0,5 / 0|PICTURE: 1 / 0,5 / 0|
 |-|-|-|-|
 |P1|Tỷ lệ **từ nội dung** nhận ra ngay. **Từ trong `suspect_words` (lệch nhưng nhận ra) TÍNH LÀ NHẬN RA.** **Mẫu số chỉ gồm từ nội dung** (danh từ, động từ chính, tính từ, trạng từ — §B.11): **không** tính từ chức năng (a, the, and, is, I, my, to, at, when, not, very…), tên riêng, con số. Từ ghi đúng chính tả nhưng lệch với bài viết (§A.4b) **cũng không tính là nhận ra**. **Mọi từ viết sai chính tả trong transcript (tink, fren, lai, ham…) KHÔNG tính là nhận ra**; `[?]` và chuỗi lằng nhằng cũng không tính. **Chỉ tính từ tiếng Anh**: không tính từ tiếng Việt, từ đệm (um/uh/ờ) và `(...Ns)`.|≥90% / 75–89% / <75%|như SHORT|
@@ -100,14 +95,14 @@ Chỉ dùng để kiểm tra chéo, **không chép vào đầu ra**. Vector = ch
 > After school I usually go home and have a snack. Then I do my homework because my mom wants me to finish it early. If I have free time, I play badminton with my neighbour, and sometimes we go to the park together.
 - D2: ~45 từ. D3: lý do (because…), điều kiện – chi tiết (if…) → 2. D4: and, then, because, if (sometimes là trạng từ tần suất, không tính). D5: không dừng dài.
 
-**Neo DM 70% · P 40% — DM [1,0.5,0.5,1,0.5] · P [0.5,0,1,0,0.5]**
+**Neo DM 80% · P 40% — DM [1,1,0.5,1,0.5] · P [0.5,0,1,0,0.5]**
 > After school I go hôm. Um I eat um cake and watch TV. Then I do homework, bicause my teacher give (...4s) many homework. Sometime I I play game wis my bra-dơ.
-- D1: trả lời thẳng → 1. D2: ~30 từ → 0,5. D3: chỉ 1 lý do → 0,5. D4: and, then, because = 3 (sometimes không tính) → 1. D5: dừng 4 giây → 0,5.
+- D1: trả lời thẳng → 1. D2: ~30 từ (≥10) → 1. D3: chỉ 1 lý do → 0,5. D4: and, then, because = 3 (sometimes không tính) → 1. D5: dừng 4 giây → 0,5.
 - P1: hôm, bicause, wis, bra-dơ = 4/30 → 87% → 0,5. P2: "sometimes", "games", "because" thiếu âm cuối → <60% → 0. P3: after, homework, teacher, brother đúng → 1. P4: hôm, wis, bra-dơ = 3 → 0. P5: có nhấn từ khoá nhưng giọng khá đều → 0,5.
 
-**Neo DM 30% · P 0% — DM [1,0,0,0,0.5] · P [0,0,0,0,0]**
+**Neo DM 50% · P 0% — DM [1,1,0,0,0.5] · P [0,0,0,0,0]**
 > Um (...3s) after school I go hôm. Um I ăn cơm. (...5s) Watch ti-vi. Um play phôn.
-- C3: ~10 từ tiếng Anh → trần 40%. D1: "I go home" trả lời thẳng → 1. D2: <20 từ → 0. D3: 0. D4: không có phương tiện liên kết → 0. D5: dừng 5 giây → 0,5.
+- C3: ~10 từ tiếng Anh (>5) → không chạm. D1: "I go home" trả lời thẳng → 1. D2: ~10 từ (≥10) → 1. D3: 0. D4: không có phương tiện liên kết → 0. D5: dừng 5 giây → 0,5.
 - P1: hôm, ti-vi, phôn = 3/10 → 70% → 0. P2: <60% → 0. P3: <65% → 0. P4: 3 từ → 0. P5: đều đều → 0.
 
 **Neo 0%:** im lặng, chỉ nói tiếng Việt, hoặc <5 từ tiếng Anh nhận ra được.
@@ -123,10 +118,10 @@ Chỉ dùng để kiểm tra chéo, **không chép vào đầu ra**. Vector = ch
 - D4: on the left, in the middle, behind (nhóm vị trí); and, so, because (thêm ý / kết quả / lý do) = 6 (≥2) → 1.
 - D5: không dừng dài, không lặp, không ngập ngừng → 1.
 
-**Neo DM 70% · P 60% — DM [0.5,0.5,1,1,0.5] · P [0.5,0.5,0.5,1,0.5]**
+**Neo DM 80% · P 60% — DM [0.5,1,1,1,0.5] · P [0.5,0.5,0.5,1,0.5]**
 > In the picture I see a family. Um two children play ball. The adult sit on a mat and eat sanwich. (...5s) Behind them many tree. Um the wedder is sunny. Um I I think good.
 - D1: chỉ nêu **một** yếu tố (có ai — *a family*), không nói nơi chốn cũng không nói đang làm gì → 0,5.
-- D2: 32 từ tiếng Anh (18–34) → 0,5.
+- D2: 32 từ tiếng Anh (≥15) → 1.
 - D3: **many** tree (số lượng), **sunny** (thời tiết) = 2 (≥2) → 1. *"two children play ball"*, *"they eat"* là hành động trần → không tính; *"I think good"* không gắn vào đối tượng nào → không tính.
 - D4: behind (vị trí), and (thêm ý) = 2 (≥2) → 1.
 - D5: dừng 5 giây (5–7 giây) → 0,5; 3 chỗ ngập ngừng, chưa chạm mốc ≥4.
@@ -135,14 +130,14 @@ Chỉ dùng để kiểm tra chéo, **không chép vào đầu ra**. Vector = ch
 - P3: từ ≥2 âm tiết = picture, family, children, adult, behind, many, wedder, sunny, sanwich = 9 từ, sai 2 → 78% (65–84%) → 0,5.
 - P4: sanwich, wedder = 2 lượt (≤2) → 1. P5: có nhấn từ khoá, giọng khá đều → 0,5.
 
-**Neo DM 30% · P 40% — DM [1,0,0,0,0.5] · P [1,0.5,0.5,0.5,0]**
+**Neo DM 50% · P 60% — DM [1,1,0,0,0.5] · P [1,0.5,0.5,1,0]**
 > Um (...4s) In the pak I see family. Um children. (...5s) Play ball. Um cây. Tree. Um they eat. (...4s) Sunny. Um one man sit. Um good.
-- C3: 17 từ tiếng Anh nhận ra được (<18) → **DM và P trần 40%**.
-- D1: "In the pak I see family" là câu hoàn chỉnh, có nơi chốn + có ai → 1. D2: <18 từ → 0.
+- C3: 17 từ tiếng Anh nhận ra được (≥10) → không chạm.
+- D1: "In the pak I see family" là câu hoàn chỉnh, có nơi chốn + có ai → 1. D2: 17 từ (≥15) → 1.
 - D3: "Sunny" đứng một mình, không nằm trong mệnh đề có động từ → không tính → 0. D4: 0.
-- D5: dừng 5 giây, 1 ý lặp (*cây* / *Tree*) → 0,5; 6 chỗ ngập ngừng cũng đã chặn ô này ở 0,5. **DM = 1,5/5 = 30%** (dưới trần 40%, giữ nguyên).
+- D5: dừng 5 giây, 1 ý lặp (*cây* / *Tree*) → 0,5; 6 chỗ ngập ngừng cũng đã chặn ô này ở 0,5. **DM = 2,5/5 = 50%**.
 - P1: mẫu số từ nội dung = pak, see, family, children, play, ball, tree, eat, sunny, man, sit, good = 12 (*cây* là tiếng Việt, *one* là con số → không tính). Sai: *pak* → 11/12 = 92% (≥90%) → 1.
-- P2, P3: ít trường hợp → §B.8 → 0,5. P4: *pak* = 1 lượt (≤2 → 1), nhưng bài chạm C3 nên §B.9 áp trần 0,5 → 0,5. P5: đều đều → 0.
-- **P = 2,5/5 = 50% → áp trần C3 → 40%.**
+- P2, P3: ít trường hợp → §B.8 → 0,5. P4: *pak* = 1 lượt (≤2) → 1. P5: đều đều → 0.
+- **P = 3/5 = 60%.**
 
 **Neo 0%:** im lặng, chỉ nói tiếng Việt, hoặc <12 từ tiếng Anh nhận ra được.

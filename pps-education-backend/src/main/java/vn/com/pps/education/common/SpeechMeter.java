@@ -1,6 +1,8 @@
 package vn.com.pps.education.common;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -22,6 +24,9 @@ import java.util.Optional;
  * vẫn không tách nổi, không còn tin được "số khung vượt ngưỡng" nữa — chỉ còn dám khẳng định có/không
  * tiếng nói qua biên độ đỉnh đơn thuần, nhường quyền quyết cho lượt phiên âm (nghe được thì chấm, không
  * thì transcript rỗng — không tự kết luận "im lặng" khi thực ra không đo được).
+ *
+ * Cập nhật 23/10/2026 (bản bàn giao Gemini 3.8) — hạ sàn đỉnh {@link #MIN_SPEECH_PEAK} và thêm
+ * {@link #trimEdgeBlips} (bỏ tiếng động lẻ ở đầu/cuối bài trước khi đo khoảng dừng) — xem Javadoc từng hằng/method.
  */
 public final class SpeechMeter {
 
@@ -30,8 +35,17 @@ public final class SpeechMeter {
 
     /** Khung phân tích 20 ms. */
     private static final double FRAME_SEC = 0.02;
-    /** Khoảng nghỉ ≥ 1,5 giây không tính vào thời gian nói (spanSec). */
+    /** Khoảng nghỉ ≥ 1,5 giây không tính vào thời gian nói (spanSec); cũng là mốc tách đoạn của {@link #trimEdgeBlips}. */
     private static final int GAP_FRAMES = (int) Math.round(1.5 / FRAME_SEC);
+    /** {@link #trimEdgeBlips}: đoạn rìa cách phần còn lại ≥5 giây mới coi là tách biệt đủ xa để xét bỏ. */
+    private static final int FAR_FRAMES = (int) Math.round(5.0 / FRAME_SEC);
+    /**
+     * Sàn đỉnh tín hiệu để coi là "có tiếng nói". 23/10/2026 (bản bàn giao Gemini 3.8): hạ 0,01 → 0,004 —
+     * mic yếu trên LMS (khối 8, video-phan-xa-10) ghi lời nói thật ở đỉnh 0,006–0,008 (≈ −43 dBFS), tín/tạp
+     * 3,3–5,3, bị kết "không có tiếng nói" → transcript bị xoá → 0 điểm oan, trong khi lượt phiên âm vẫn
+     * nghe ra trọn câu. Im lặng số thật có đỉnh ≈ 0; ồn nền không lời thì lượt phiên âm tự trả rỗng.
+     */
+    private static final double MIN_SPEECH_PEAK = 0.004;
     /** Tín/tạp (tỉ số peak/noise, tuyến tính) dưới mốc này (~9,5 dB) là "không tách nổi tiếng nói khỏi nền". */
     private static final double LOW_SNR_RATIO = 3.0;
     /** Lọc còn dải giọng nói (one-pole 250 Hz cao / 3500 Hz thấp) — dự phòng khi toàn dải không tách nổi. */
@@ -177,13 +191,15 @@ public final class SpeechMeter {
         // trần: peak*0.6 = 0 sẽ kéo threshold xuống 0 và biến mọi khung im lặng thành "voiced" (0 >= 0).
         double threshold = Math.min(Math.max(Math.max(noise * 3, peak * 0.12), 0.008), peak > 0 ? peak * 0.6 : Double.MAX_VALUE);
 
-        int[] voicedIdx = new int[n];
-        int voiced = 0;
+        int[] rawVoicedIdx = new int[n];
+        int rawVoiced = 0;
         for (int i = 0; i < n; i++) {
             if (rms[i] >= threshold) {
-                voicedIdx[voiced++] = i;
+                rawVoicedIdx[rawVoiced++] = i;
             }
         }
+        int[] voicedIdx = trimEdgeBlips(Arrays.copyOf(rawVoicedIdx, rawVoiced));
+        int voiced = voicedIdx.length;
 
         double spanSec = 0;
         double longestPauseSec = 0;
@@ -206,7 +222,57 @@ public final class SpeechMeter {
         // Tín/tạp quá thấp thì phép đo KHÔNG phân biệt được "im lặng" với "không tách nổi" — gộp hai thứ đó
         // làm một là chặn nhầm học sinh, nên khi đó chỉ còn dám khẳng định có/không tiếng nói qua biên độ
         // đỉnh, nhường quyền quyết "có nói gì không" cho lượt phiên âm (nó nghe được thì chấm, không thì rỗng).
-        boolean hasSpeech = lowSnr ? peak >= 0.01 : (voiced * FRAME_SEC >= 0.6 && peak >= 0.01);
+        boolean hasSpeech = lowSnr ? peak >= MIN_SPEECH_PEAK : (voiced * FRAME_SEC >= 0.6 && peak >= MIN_SPEECH_PEAK);
         return Optional.of(new Measurement(durationSec, voiced * FRAME_SEC, spanSec, longestPauseSec, peak, noise, hasSpeech));
+    }
+
+    /**
+     * Bỏ tiếng động lẻ ở đầu/cuối bài trước khi đo khoảng dừng (mirror {@code trimEdgeBlips} của
+     * {@code audio.js}, bổ sung 22/10/2026). Bản ghi LMS khối 8 ("public spaces"): học sinh nói 1–11,6
+     * giây rồi im; tiếng bấm dừng ghi âm ở 22–24,4 giây bị tính là "tiếng nói tiếp", nên im lặng CUỐI bài
+     * thành khoảng dừng 10,5 giây GIỮA bài → trần Trôi chảy 50%, trong khi transcript không có chữ nào ở
+     * đó. Đoạn rìa bị bỏ khi: ≤3 khung (tiếng click), hoặc <30 khung (0,6 giây) VÀ thưa (<35% khung có
+     * tiếng) VÀ cách phần còn lại ≥5 giây. Điều kiện ≥5 giây là bắt buộc: lời nói NHỎ cũng thưa, nên phải
+     * đủ xa phần còn lại mới coi là tiếng động rời, không phải một lần ngập ngừng.
+     */
+    static int[] trimEdgeBlips(int[] idx) {
+        if (idx.length == 0) {
+            return idx;
+        }
+        List<List<Integer>> segs = new ArrayList<>();
+        for (int i : idx) {
+            List<Integer> last = segs.isEmpty() ? null : segs.get(segs.size() - 1);
+            if (last != null && i - last.get(last.size() - 1) < GAP_FRAMES) {
+                last.add(i);
+            } else {
+                List<Integer> seg = new ArrayList<>();
+                seg.add(i);
+                segs.add(seg);
+            }
+        }
+        while (segs.size() > 1 && isBlip(segs.get(segs.size() - 1),
+                segs.get(segs.size() - 1).get(0) - last(segs.get(segs.size() - 2)))) {
+            segs.remove(segs.size() - 1);
+        }
+        while (segs.size() > 1 && isBlip(segs.get(0), segs.get(1).get(0) - last(segs.get(0)))) {
+            segs.remove(0);
+        }
+        List<Integer> flat = new ArrayList<>();
+        for (List<Integer> seg : segs) {
+            flat.addAll(seg);
+        }
+        return flat.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    private static int last(List<Integer> seg) {
+        return seg.get(seg.size() - 1);
+    }
+
+    private static boolean isBlip(List<Integer> seg, int gapToNeighbor) {
+        if (seg.size() <= 3) {
+            return true;
+        }
+        int span = last(seg) - seg.get(0) + 1;
+        return seg.size() < 30 && gapToNeighbor >= FAR_FRAMES && (double) seg.size() / span < 0.35;
     }
 }

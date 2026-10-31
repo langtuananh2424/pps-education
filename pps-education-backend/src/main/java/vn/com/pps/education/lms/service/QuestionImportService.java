@@ -164,8 +164,9 @@ public class QuestionImportService {
      * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — "Nghe trắc nghiệm nhiều đáp án" (IELTS Listening
      * "Choose TWO letters A-E"): 1 audio + N đáp án đúng cùng lúc. Dùng questionType MULTIPLE_ANSWER (đã có
      * sẵn, không migration), "Đáp án đúng" là các chữ cái phân tách bằng dấu | (VD "B|D"), chấm từng phần —
-     * xem ExerciseAttemptService#multipleAnswerPartialScore. Import chỉ có cột Đáp án A-D nên tối đa 4 lựa
-     * chọn; đề 5 lựa chọn (A-E) soạn bằng form tay (cho tới 8 lựa chọn).
+     * xem ExerciseAttemptService#multipleAnswerPartialScore. Import đọc tới 8 lựa chọn (Đáp án A-H, bổ
+     * sung 2026-10-23 — tái dùng cột choiceE-H đã có sẵn cho DOC_HIEU_NOI_DAP_AN, trước đó chỉ A-D); đề
+     * nhiều hơn 8 lựa chọn vẫn phải soạn bằng form tay.
      */
     private static final String KIND_LISTENING_MULTIPLE_ANSWER = "NGHE_NHIEU_DAP_AN";
 
@@ -183,19 +184,22 @@ public class QuestionImportService {
     private final QuestionBankService questionBankService;
     private final UserRepository userRepository;
     private final List<QuestionRowParser> parsers;
+    private final ImportMediaUrlResolver mediaUrlResolver;
 
     public QuestionImportService(ImportJobRepository importJobRepository,
                                   QuestionBankRepository questionBankRepository,
                                   ExamRepository examRepository,
                                   QuestionBankService questionBankService,
                                   UserRepository userRepository,
-                                  List<QuestionRowParser> parsers) {
+                                  List<QuestionRowParser> parsers,
+                                  ImportMediaUrlResolver mediaUrlResolver) {
         this.importJobRepository = importJobRepository;
         this.questionBankRepository = questionBankRepository;
         this.examRepository = examRepository;
         this.questionBankService = questionBankService;
         this.userRepository = userRepository;
         this.parsers = parsers;
+        this.mediaUrlResolver = mediaUrlResolver;
     }
 
     /**
@@ -269,6 +273,10 @@ public class QuestionImportService {
             try (InputStream inputStream = file.getInputStream()) {
                 parsedRows = parser.parse(inputStream);
             }
+            // Đường dẫn tương đối trong "URL Audio"/"URL Hình ảnh" → link đầy đủ theo môi trường (xem ImportMediaUrlResolver).
+            parsedRows = parsedRows.stream()
+                    .map(r -> r.withMediaUrls(mediaUrlResolver.resolveAudio(r.audioUrl()), mediaUrlResolver.resolveImage(r.imageUrl())))
+                    .toList();
 
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
@@ -717,8 +725,14 @@ public class QuestionImportService {
         return skill;
     }
 
+    // Bổ sung 2026-10-29 (đã xác nhận với người dùng) — fix gap thật: KIND_FORM_COMPLETION
+    // (NGHE_PHIEU_THONG_TIN) bị bỏ sót khỏi tập này dù đi qua đúng mapToRequest()/computeAutoGroupKeys()
+    // như các kind nghe khác — khiến 1 bài IELTS Listening Section chuẩn (VD Q1-6 "điền phiếu thông tin"
+    // + Q7-8 "NGHE_NHIEU_DAP_AN" ngay sau) dù GV điền ĐÚNG CÙNG 1 "URL Audio" ở cả 2 dòng vẫn luôn bị
+    // tách 2 nhóm riêng (2 audio player, không gộp được) vì kênh audio bị ép null cho KIND_FORM_COMPLETION
+    // ở computeAutoGroupKeys (audio = AUDIO_GROUPABLE_KINDS.contains(kind) ? ... : null).
     private static final Set<String> AUDIO_GROUPABLE_KINDS = Set.of("TRAC_NGHIEM_VOICE", "NGHE_DIEN_TU", "NGHE_NOP_AUDIO", "NGHE_CHON_HINH",
-            KIND_LISTENING_MULTIPLE_ANSWER);
+            KIND_LISTENING_MULTIPLE_ANSWER, KIND_FORM_COMPLETION);
     /**
      * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — kênh gộp nhóm THỨ 3 (cạnh đoạn văn/audio ở
      * trên), riêng cho ANH_TRAC_NGHIEM: nhiều dòng LIÊN TIẾP cùng "URL Hình ảnh" (VD 4 câu matching cùng
@@ -1661,12 +1675,24 @@ public class QuestionImportService {
     /**
      * {@code multiAnswer=true} (NGHE_NHIEU_DAP_AN, bổ sung 2026-10-19): "Đáp án đúng" là danh sách chữ
      * cái phân tách bằng dấu | (VD "B|D"), cần ít nhất 2 đáp án đúng khác nhau và nhỏ hơn tổng số lựa chọn.
+     *
+     * Bổ sung 2026-10-23 (đã xác nhận với người dùng — fix gap thật) — multiAnswer giờ đọc thêm Đáp án
+     * E-H (tối đa 8 lựa chọn, tái dùng ĐÚNG 4 cột choiceE-H đã có sẵn cho DOC_HIEU_NOI_DAP_AN, không
+     * thêm cột mới) thay vì chỉ A-D như trước — GV gặp câu nghe thật có 5+ lựa chọn trước đây phải thoát
+     * ra soạn tay (QuestionEditorForm.tsx, tới 8 lựa chọn), giờ import thẳng được qua Excel. KHÔNG áp
+     * dụng cho nhánh single-answer (TRAC_NGHIEM/TRAC_NGHIEM_VOICE, multiAnswer=false) — giữ nguyên A-D
+     * như cũ, không mở rộng phạm vi ngoài yêu cầu.
      */
     private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row, boolean multiAnswer) {
         // Arrays.asList (KHÔNG dùng List.of) vì choiceC/D có thể null khi câu chỉ có 2 đáp án —
         // List.of ném NullPointerException (không message) ngay khi gặp phần tử null.
-        List<String> raw = Arrays.asList(blankToNull(row.choiceA()), blankToNull(row.choiceB()),
-                blankToNull(row.choiceC()), blankToNull(row.choiceD()));
+        List<String> raw = multiAnswer
+                ? Arrays.asList(blankToNull(row.choiceA()), blankToNull(row.choiceB()),
+                        blankToNull(row.choiceC()), blankToNull(row.choiceD()),
+                        blankToNull(row.choiceE()), blankToNull(row.choiceF()),
+                        blankToNull(row.choiceG()), blankToNull(row.choiceH()))
+                : Arrays.asList(blankToNull(row.choiceA()), blankToNull(row.choiceB()),
+                        blankToNull(row.choiceC()), blankToNull(row.choiceD()));
         int count = 0;
         while (count < raw.size() && raw.get(count) != null) {
             count++;
@@ -1678,9 +1704,9 @@ public class QuestionImportService {
             }
         }
         if (count < 2) {
-            throw new IllegalArgumentException("Câu trắc nghiệm cần ít nhất 2 đáp án (Đáp án A và B) — Đáp án C/D là tùy chọn, thêm nếu câu có nhiều hơn 2 lựa chọn.");
+            throw new IllegalArgumentException("Câu trắc nghiệm cần ít nhất 2 đáp án (Đáp án A và B) — Đáp án C trở đi là tùy chọn, thêm nếu câu có nhiều hơn 2 lựa chọn.");
         }
-        String allowedLetters = "ABCD".substring(0, count);
+        String allowedLetters = "ABCDEFGH".substring(0, count);
         Set<String> correctLetters;
         if (multiAnswer) {
             correctLetters = new LinkedHashSet<>();

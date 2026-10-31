@@ -56,6 +56,13 @@ public record ReflexQuestionProgressResponse(
         String speakingHint,
         /** V178 — % từng tiêu chí rubric, tách riêng khỏi {@code speakingFeedback}. */
         List<CriteriaScoreItem> speakingCriteriaScores,
+        /**
+         * Bổ sung 2026-10-22 (đã xác nhận với người dùng) — chi tiết phát âm TỪNG TỪ/ÂM VỊ do Azure Pronunciation
+         * Assessment chấm (chỉ có khi lượt nói đi qua pipeline trực tiếp Groq+Claude+Azure, xem
+         * {@link vn.com.pps.education.lms.service.AiGradingFallbackService}) — NULL khi lượt nói chấm bằng luồng
+         * cũ (9Router/Gemini, không có chi tiết này) hoặc Azure lỗi. FE dùng để vẽ bảng phiên âm IPA.
+         */
+        List<PronunciationWordDetail> speakingPronunciationWords,
         boolean speakingPassed,
         int speakingAttemptCount,
         /** true khi CẢ 2 bước đã đạt THẬT (điểm >= ngưỡng) — KHÁC {@code questionFinalized} (xem field đó). */
@@ -83,6 +90,10 @@ public record ReflexQuestionProgressResponse(
          * vì hết lượt bước nói cũng phải cho qua câu, dù câu đó coi là KHÔNG đạt ({@code questionPassed=false}).
          */
         boolean questionFinalized,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        /** V222 — trạng thái chấm AI bước viết: NONE/PENDING/GRADED/FAILED/REJECTED. PENDING = đang chờ hàng đợi, FE hỏi lại đến khi khác PENDING. */
+        String writingGradingStatus,
+        /** V222 — như {@code writingGradingStatus}, cho bước nói. */
+        String speakingGradingStatus
 ) {
 }

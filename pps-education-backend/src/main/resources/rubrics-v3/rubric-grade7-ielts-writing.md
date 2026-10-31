@@ -35,7 +35,7 @@
 
 |#|Checkpoint|SHORT: 1 / 0,5 / 0|PART2: 1 / 0,5 / 0|
 |-|-|-|-|
-|R1|Tỷ lệ động từ chính có chủ ngữ chia đúng thì và dạng|≥85% **và** ≥3 động từ có chủ ngữ / 60–84% (với ≥3 động từ) / <60%, **hoặc chỉ có 0–2 động từ có chủ ngữ — kể cả khi chia đúng hết (→ 0, không phải 0,5)**|như SHORT|
+|R1|Tỷ lệ động từ chính có chủ ngữ chia đúng thì và dạng. **23/10/2026: mốc 1 hạ từ 85% xuống 80%** — một lỗi hoà hợp trên 5–6 động từ ("it help me", "play sport make me") đã bị trừ ở R5, không được kéo R1 tụt bậc (dữ liệu thật khối 7: GV thầy cô 90–95, GRA hệ thống 60–70). **Bài NÓI: thêm/bớt -s/-ed ở động từ là lỗi chia động từ, không phải lỗi phát âm**|≥80% **và** ≥3 động từ có chủ ngữ / 60–79% (với ≥3 động từ) / <60%, **hoặc chỉ có 0–2 động từ có chủ ngữ — kể cả khi chia đúng hết (→ 0, không phải 0,5)**|như SHORT|
 |R2|Số câu phức có mệnh đề phụ đúng (*because / when / if / although / that / who*)|≥2 / 1 / 0|như SHORT — khối 7 **không** bị đòi thêm câu phức chỉ vì bài dài hơn (khung AREA/AEE)|
 |R3|Số lỗi mạo từ / giới từ / từ hạn định (*a, the, many, much*)|0 / 1–2 / ≥3|0–1 / 2–3 / ≥4|
 |R4|Số câu thiếu chủ ngữ / thiếu *to be* / thiếu trợ động từ|0 / 1 / ≥2|0 / 1–2 / ≥3|

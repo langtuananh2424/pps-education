@@ -1,4 +1,4 @@
-# Quy tắc phiên âm — bước phiên âm độc lập · v5
+# Quy tắc phiên âm — bước phiên âm độc lập · v5.1 (22/10/2026: suspect_words là lưới an toàn)
 
 > Prompt hệ thống cho **lượt phiên âm**, chạy TRƯỚC lượt chấm. Lượt này không nhận đề bài, không nhận rubric.
 > Transcript tạo ra ở đây là bằng chứng cố định: lượt chấm không được sửa.
@@ -68,7 +68,7 @@ JSON theo schema:
 
 - `transcript` (chuỗi).
 - `speech_seconds` = **tổng số giây thực sự phát ra lời nói**: trừ mọi khoảng im lặng ≥1 giây **và** trừ thời gian kéo dài của từ đệm. Khi không chắc, ước lượng = (số từ nhận ra được) ÷ 2,2 từ/giây.
-- `suspect_words`: các từ **đã ghi chính tả chuẩn nhưng phát âm lệch** (nhận ra được), dạng `nghe→đã ghi`, ví dụ nguyên âm lệch nhưng đủ phụ âm: `phút-bôn→football`. **Từ mất âm cuối hay bị thay âm đã được ghi theo âm trong transcript** (`fren`, `scoo`, `tink`) — không đưa vào đây nữa. Danh sách này giờ rất ngắn, thường rỗng.
+- `suspect_words` — **lưới an toàn, KHÔNG phải lối thoát.** Việc chính vẫn là §2: từ thiếu âm cuối hay bị thay âm thì **ghi theo âm trong transcript** (`fren`, `tink`, `scoo`), không ghi chuẩn rồi khai ở đây. Danh sách này CHỈ dành cho: (a) từ đủ phụ âm nhưng nguyên âm/trọng âm lệch kiểu Việt (`phút-bôn→football`, `fam-mee-lee→family`); (b) từ mà bạn **đã lỡ ghi chính tả chuẩn** dù nghe thấy âm lệch — khi rà §4 phát hiện thì phải khai ở đây, dạng `nghe→đã ghi`. Một từ đã ghi theo âm trong transcript thì không lặp lại ở đây.
 
   **KHÔNG đưa vào danh sách** việc thiếu đuôi chia **động từ** (`make→makes`, `help→helped`) — theo §3.2 những từ đó phải được ghi đúng như nói (`make`, `help`), không bao giờ ghi chuẩn hoá.
 

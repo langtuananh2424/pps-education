@@ -163,6 +163,28 @@ public class WritingAiGradingService {
      *                      rubric cũ (legacy) bị bỏ qua — chưa hỗ trợ Key Grammar ngoài rubric "v3".
      */
     public GradeResult grade(String essayText, String taskPrompt, Curriculum curriculum, List<String> keyGrammarIds) {
+        return grade(essayText, taskPrompt, curriculum, keyGrammarIds, null);
+    }
+
+    /**
+     * Overload CHỈ dùng cho spike (2026-10-22, đã xác nhận với người dùng — {@code SpeakingAiGradingTestService},
+     * đánh giá khả thi chuyển khỏi 9Router) — cho phép thay nguồn gọi AI của bước v3 bằng 1 hàm tự truyền
+     * vào, để so sánh model khác (VD Claude gọi thẳng, không qua 9Router) TRÊN CÙNG rubric/prompt thật
+     * ({@link WritingV3PromptBuilder}) và CÙNG logic hậu kiểm thật ({@link WritingV3Scoring#enforceScore})
+     * — tránh viết lại ~150 dòng parse markdown phức tạp ở nơi khác, dễ lệch so với luồng chính thức và vi
+     * phạm {@code .claude/rules/business-fidelity.md}. {@code aiCallerOverride == null} (mọi caller nghiệp
+     * vụ thật, qua overload 4-tham-số ở trên) giữ NGUYÊN hành vi cũ — gọi {@link NineRouterAiClient} như
+     * trước, KHÔNG đổi gì ở luồng production. Đường rubric legacy (không phải v3) CHƯA hỗ trợ override —
+     * trả {@code null} nếu bị gọi với override trên rubric legacy, vì mục tiêu spike là so sánh trên đúng
+     * rubric v3 thật mới nhất.
+     *
+     * @param aiCallerOverride {@code BiFunction(systemPrompt, userPrompt) -> ChatResult}; finishReason
+     *                         trả về có thể luôn là {@code "stop"} nếu caller không đo được — hàm hậu kiểm
+     *                         vẫn tự phát hiện "dở dang" qua nội dung thiếu mục ({@code isTruncated}), nên
+     *                         không bắt buộc caller map finish_reason thật của provider khác.
+     */
+    public GradeResult grade(String essayText, String taskPrompt, Curriculum curriculum, List<String> keyGrammarIds,
+                              java.util.function.BiFunction<String, String, NineRouterAiClient.ChatResult> aiCallerOverride) {
         if (essayText == null || essayText.isBlank()) {
             return null;
         }
@@ -171,9 +193,9 @@ public class WritingAiGradingService {
             return null;
         }
         if (!rubric.startsWith(RUBRIC_V3_MARKER)) {
-            return gradeLegacy(essayText, rubric);
+            return aiCallerOverride == null ? gradeLegacy(essayText, rubric) : null;
         }
-        return gradeV3(essayText, taskPrompt, curriculum, keyGrammarIds);
+        return gradeV3(essayText, taskPrompt, curriculum, keyGrammarIds, aiCallerOverride);
     }
 
     private GradeResult gradeLegacy(String essayText, String rubric) {
@@ -192,7 +214,8 @@ public class WritingAiGradingService {
         }
     }
 
-    private GradeResult gradeV3(String essayText, String taskPrompt, Curriculum curriculum, List<String> keyGrammarIds) {
+    private GradeResult gradeV3(String essayText, String taskPrompt, Curriculum curriculum, List<String> keyGrammarIds,
+                                 java.util.function.BiFunction<String, String, NineRouterAiClient.ChatResult> aiCallerOverride) {
         WritingV3Grade grade = WritingV3Grade.forGradeTrack(curriculum.getGradeLevel(), curriculum.getTrack());
         if (grade == null) {
             log.warn("WritingAiGradingService: rubric v3 tồn tại nhưng chưa xác định được mã khối (gradeLevel={}, track={}) — rơi lại hàng chờ chấm tay.",
@@ -208,7 +231,9 @@ public class WritingAiGradingService {
         double lengthPercent = WritingV3Scoring.measureLength(grade, taskPrompt, essayText).percent();
 
         for (int attempt = 1; attempt <= MAX_ATTEMPTS_TOTAL; attempt++) {
-            NineRouterAiClient.ChatResult result = nineRouterAiClient.chatWithFinishReason(system, user, writingModel);
+            NineRouterAiClient.ChatResult result = aiCallerOverride != null
+                    ? aiCallerOverride.apply(system, user)
+                    : nineRouterAiClient.chatWithFinishReason(system, user, writingModel);
             if (result == null || result.content() == null || result.content().isBlank()) {
                 log.warn("WritingAiGradingService: 9Router chấm (v3) thất bại, rơi lại hàng chờ chấm tay.");
                 // V192 — token vẫn tốn nếu 9Router trả response rỗng (result != null), không để mất chi phí.

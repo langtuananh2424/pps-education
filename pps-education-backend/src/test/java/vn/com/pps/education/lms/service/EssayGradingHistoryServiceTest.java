@@ -23,6 +23,10 @@ import vn.com.pps.education.lms.repository.ExerciseQuestionRepository;
 import vn.com.pps.education.lms.repository.StudentAnswerGradingRepository;
 import vn.com.pps.education.lms.repository.StudentAnswerRepository;
 
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import vn.com.pps.education.student.domain.Student;
+
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -192,5 +196,43 @@ class EssayGradingHistoryServiceTest {
 
         assertThatThrownBy(() -> service.getStudentEssayHistory(ASSIGNMENT_ID, STUDENT_ID, ACTOR_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void exportAssignmentEssays_UC41_MainFlow_rowHasAiAndTeacherColumnsWithOfficialTeacherScore() throws Exception {
+        when(exerciseAssignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.of(assignment));
+        User studentUser = new User();
+        studentUser.setFullName("Nguyễn An");
+        Student student = new Student();
+        student.setStudentCode("HS001");
+        student.setUser(studentUser);
+        attempt.setStudent(student);
+        Exercise exercise = assignment.getExercise();
+        exercise.setTitle("Writing 1");
+        exercise.setCode("W1");
+        when(exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberAsc(ASSIGNMENT_ID)).thenReturn(List.of(attempt));
+        StudentAnswer answer = essayAnswer(100L);
+        when(studentAnswerRepository.findByExerciseAttemptIdIn(any())).thenReturn(List.of(answer));
+        StudentAnswerGrading human = grading(2L, answer, StudentAnswerGrading.GradingSource.HUMAN, "8", true);
+        human.setFeedback("Tốt hơn AI");
+        StudentAnswerGrading ai = grading(1L, answer, StudentAnswerGrading.GradingSource.AI, "5", false);
+        ai.setFeedback("Sai chia động từ");
+        when(studentAnswerGradingRepository.findHistoryByStudentAnswerIds(any())).thenReturn(List.of(human, ai));
+        ExerciseQuestion eq = new ExerciseQuestion();
+        eq.setQuestion(question);
+        eq.setDisplayOrder(1);
+        when(exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(8L)).thenReturn(List.of(eq));
+
+        byte[] xlsx = service.exportAssignmentEssays(ASSIGNMENT_ID, ACTOR_ID);
+
+        try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(xlsx))) {
+            var row = wb.getSheetAt(0).getRow(1);
+            assertThat(row.getCell(0).toString()).isEqualTo("HS001");
+            assertThat(row.getCell(6).toString()).isEqualTo("I goes to school");
+            assertThat(row.getCell(9).toString()).isEqualTo("Giáo viên");
+            assertThat(row.getCell(11).toString()).isEqualTo("Sai chia động từ");
+            assertThat(row.getCell(14).toString()).isEqualTo("Tốt hơn AI");
+        }
+        verify(aiSecondGradingService).requireAssignedTeacher(CLASS_ID, ACTOR_ID);
     }
 }

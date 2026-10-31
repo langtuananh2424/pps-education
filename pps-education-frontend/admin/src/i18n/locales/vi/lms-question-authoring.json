@@ -525,6 +525,22 @@
       "closeButton": "Đóng"
     }
   },
+  "bulkUpload": {
+    "title": "Upload hàng loạt ảnh/âm thanh",
+    "description": "Chọn nhiều file cùng lúc, hệ thống upload và trả về đường dẫn tương đối để dán vào cột ảnh/âm thanh của file Excel import.",
+    "chooseFiles": "Chọn file…",
+    "uploading": "Đang upload {{done}}/{{total}}…",
+    "failed": "Upload thất bại",
+    "tooManyFiles": "Quá {{max}} file mỗi lượt — hãy chọn lại phần còn lại.",
+    "unsupportedType": "Chỉ nhận ảnh hoặc âm thanh.",
+    "tooLarge": "Vượt quá {{maxMb}}MB.",
+    "csvHeaderName": "Tên file gốc",
+    "csvHeaderPath": "Đường dẫn tương đối",
+    "downloadCsv": "Tải CSV",
+    "close": "Đóng",
+    "summary": "Thành công {{ok}}/{{total}} file",
+    "open": "Upload hàng loạt"
+  },
   "assignPage": {
     "statusLabels": {
       "DRAFT": "Nháp",

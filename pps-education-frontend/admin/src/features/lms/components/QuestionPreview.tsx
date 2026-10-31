@@ -168,7 +168,7 @@ export function SpeakingInputPreview() {
  * trống đổi thành <input> gõ tay thay vì <select> — xem đúng lý do KHÔNG fallback wordPool=blanks
  * cho chế độ gõ tay ở TakeExerciseModal#WordBankBlock (tránh lộ sẵn đáp án trong hộp tham khảo).
  */
-function WordBankPreview({
+export function WordBankPreview({
   content,
   wordPool,
   inputMode = "select",
@@ -236,7 +236,7 @@ function WordBankPreview({
     <div className="space-y-2">
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-14 — tăng cỡ chữ dòng hướng dẫn (trước
        * đây text-xs quá nhỏ so với phần nội dung chính text-sm/base/lg, khó đọc khi xem trước thật). */}
-      {instruction && <p className="text-sm sm:text-base italic text-slate-500">{renderRichText(instruction)}</p>}
+      {instruction && <p className="text-sm sm:text-base italic font-bold text-slate-500">{renderRichText(instruction)}</p>}
       {title && <p className="text-sm font-black text-slate-800 text-center">{renderRichText(title)}</p>}
       {/*
        * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — hộp từ hiện NGAY TRÊN câu hỏi
@@ -265,7 +265,7 @@ function WordBankPreview({
           </table>
         </div>
       )}
-      <p className={`text-sm ${formMode ? "font-medium whitespace-pre-line" : "font-bold"} text-slate-800 leading-8`}>
+      <p className={`text-sm font-normal text-slate-800 leading-8 ${formMode ? "whitespace-pre-line" : ""}`}>
         {parts.map((part, idx) => (
           <React.Fragment key={idx}>
             {renderRichText(part)}
@@ -301,7 +301,7 @@ function WordBankPreview({
 }
 
 /** Mirror TakeExerciseModal#SentenceBuildingBlock (chạm từng khối theo thứ tự, không lưu lại). */
-function SentenceBuildingPreview({ chunkPool, chunkOrder }: { chunkPool: string[]; chunkOrder?: string[] }) {
+export function SentenceBuildingPreview({ chunkPool, chunkOrder }: { chunkPool: string[]; chunkOrder?: string[] }) {
   const { t } = useTranslation("lms-question-authoring");
   const shuffled = React.useMemo(() => {
     const arr = chunkPool.map((text, idx) => ({ text, idx }));
@@ -390,9 +390,9 @@ export function QuestionPreview({
          * render ngay bên dưới với <select>/<input> thật), hiện lại nguyên văn ở đây gây lặp cả đoạn 2
          * lần. Ẩn span nội dung cho riêng WORD_BANK, chỉ giữ số thứ tự.
          */}
-        <p className="text-sm font-bold text-slate-800">
+        <p className="text-sm font-normal text-slate-800">
           {question.questionType !== "WORD_BANK" && !question.groupKey && question.structuredContent?.instruction && (
-            <span className="block text-sm italic font-normal text-slate-500 whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
+            <span className="block text-sm italic font-bold text-slate-500 whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
           )}
           <span className="block text-slate-400 text-sm uppercase tracking-wider mb-1">
             {t("studentPreviewModal.questionNumberPrefix", { number: displayNumber })}

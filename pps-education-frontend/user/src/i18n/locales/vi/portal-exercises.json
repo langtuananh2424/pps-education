@@ -210,11 +210,15 @@
     "gradingOverlay": {
       "title": "Đang chấm bài...",
       "writingDescription": "AI đang chấm ngữ pháp câu trả lời của bạn, vui lòng đợi trong giây lát.",
-      "speakingDescription": "AI đang nghe và chấm câu trả lời của bạn (có thể mất khoảng 10-20 giây), vui lòng đợi trong giây lát."
+      "speakingDescription": "AI đang nghe và chấm câu trả lời của bạn (có thể mất khoảng 10-20 giây), vui lòng đợi trong giây lát.",
+      "stageTranscribing": "Đang nhận diện giọng nói...",
+      "stageGrading": "Đang chấm nội dung & phát âm..."
     },
     "micAccessError": "Không truy cập được microphone — kiểm tra quyền trình duyệt rồi thử lại.",
     "questionsLoadError": "Không tải được danh sách câu hỏi.",
     "submitError": "Chấm bài thất bại — thử lại.",
+    "gradingStillPending": "Bài đang được chấm nhưng chưa xong — vui lòng đợi một lát rồi tải lại trang để xem kết quả.",
+    "gradingFailedTeacher": "Hệ thống chưa chấm tự động được bài này. Lượt nộp của bạn không bị trừ, giáo viên sẽ chấm giúp — bạn cứ làm tiếp phần sau.",
     "notAssignedError": "Video này chưa được giao thành BTVN cho bạn — không thể nộp bài.",
     "micPermissionError": "Cần cấp quyền micro để làm bài — vui lòng cho phép truy cập microphone (biểu tượng khóa trên thanh địa chỉ) rồi bấm lại.",
     "loadingQuestions": "Đang tải câu hỏi...",
@@ -244,8 +248,15 @@
       "label": "Câu hỏi {{index}}",
       "passed": "Đã đạt",
       "notPassedExhausted": "Chưa đạt — hết lượt",
+      "speakingNotPassedExhausted": "Nói chưa đạt — hết lượt",
+      "writingSpeakingNotPassedExhausted": "Viết và nói chưa đạt — hết lượt",
+      "passedWritingNot": "Đã đạt (nói) · viết chưa đạt",
       "locked": "Chưa mở",
-      "waitingForYou": "Đang chờ bạn — bấm để tiếp tục"
+      "waitingForYou": "Đang chờ bạn — bấm để tiếp tục",
+      "speakingRedo": "Điểm nói chưa đạt — bấm để làm lại",
+      "speakingNotPassed": "Điểm nói chưa đạt — làm lại sau khi hết video",
+      "speakingGrading": "Đang chấm bài nói…",
+      "speakingSubmitted": "Đã nộp bài nói"
     },
     "writingStage": {
       "title": "Bước 1 · Viết câu trả lời",
@@ -285,6 +296,7 @@
       "quietWarning": "Bản ghi hơi nhỏ — hãy thử nói to và rõ hơn để AI chấm chính xác hơn. Bạn có thể bấm \"Ghi âm lại\" hoặc vẫn nộp bài này.",
       "unclearWordTooltip": "Không rõ từ",
       "criteriaScoresLabel": "Điểm theo từng tiêu chí",
+      "pronunciationWordsLabel": "Phát âm từng từ (chạm vào từ để xem chi tiết)",
       "transcriptLabel": "Bài nói đã chuyển thành chữ (phần lỗi được đóng khung đỏ)",
       "retryButton": "Ghi âm lại",
       "attemptCount": "Đã ghi âm {{count}}/{{max}} lần",
@@ -297,6 +309,10 @@
       },
       "exhaustedPopup": {
         "heading": "Hết lượt ghi âm — câu này chưa đạt, chuyển câu tiếp theo"
+      },
+      "queuedPopup": {
+        "heading": "Đã nộp bài nói",
+        "body": "Đã nộp bài nói. Điểm bài nói sẽ hiện sau khi bạn làm hết các câu."
       }
     },
     "submittedSuccess": "Bạn đã hoàn thành tất cả câu hỏi!",

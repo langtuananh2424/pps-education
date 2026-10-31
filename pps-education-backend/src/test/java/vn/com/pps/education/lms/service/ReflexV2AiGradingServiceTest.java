@@ -175,11 +175,15 @@ class ReflexV2AiGradingServiceTest {
     }
 
     /**
-     * Nói khác bài viết: một lỗi không bị phạt hai lần — trần theo lỗi đã tô (10%) không đạp xuyên sàn (40%).
-     * Dùng từ / từ loại vẫn đỏ nhưng KHÔNG phải lỗi đỏ ngữ pháp nên không tính vào trần 60% (29/9).
+     * Nói khác bài viết, nhiều lỗi vàng (không phải lỗi đỏ ngữ pháp, 29/9) — sàn Bước 1 (40%, nửa điểm 80%
+     * làm tròn xuống bội 5) vẫn đúng. TRƯỚC 20/10/2026 (bản bàn giao Gemini 3.8): trần theo lỗi đã tô (7 lỗi
+     * vàng → trần 30%) từng đạp xuyên sàn, phải có {@code applyGrammarFloor} khôi phục lại, để lại 2 ghi chú
+     * ("lỗi đã tô" + "sàn") trong {@code caps}. TỪ 20/10/2026: Ngữ pháp được MIỄN trần theo lỗi đã tô hoàn
+     * toàn — {@code regradeGrammar} tự áp đúng sàn ngay từ đầu, không còn gì để {@code applyGrammarFloor}
+     * phải sửa, nên {@code caps} không còn mục "GV" nào — giữ test để xác nhận không hồi quy về hành vi cũ.
      */
     @Test
-    void gradeSpeaking_UC23b_A_manyErrorsCapDoesNotPushGrammarBelowStep1Floor() {
+    void gradeSpeaking_UC23b_A_grammarExemptFromOwnErrorCap_step1FloorStillApplies() {
         String highlights = "[" + highlight("favourite", "thi_dong_tu") + "," + highlight("sport", "thi_dong_tu") + ","
                 + highlight("football", "mao_tu") + "," + highlight("play", "gioi_tu") + "," + highlight("friends", "so_it_so_nhieu") + ","
                 + highlight("weekend", "dung_tu") + "," + highlight("with", "tu_loai") + "]";
@@ -192,7 +196,7 @@ class ReflexV2AiGradingServiceTest {
         assertThat(result.criteria().get(0).percent()).isEqualTo(40);
         @SuppressWarnings("unchecked")
         Map<String, List<String>> caps = (Map<String, List<String>>) result.audit().get("caps");
-        assertThat(caps.get("GV")).anyMatch(n -> n.contains("lỗi đã tô")).anyMatch(n -> n.contains("sàn"));
+        assertThat(caps).doesNotContainKey("GV");   // không còn trần theo lỗi đã tô nào áp cho Ngữ pháp
         assertThat(result.audit()).containsEntry("spokenRedCount", 0);
     }
 

@@ -9,6 +9,8 @@ import vn.com.pps.education.common.ReflexV2Task;
 import vn.com.pps.education.lms.domain.AiGradingTokenUsage;
 import vn.com.pps.education.academic.domain.ClassEnrollment;
 import vn.com.pps.education.academic.domain.Curriculum;
+import vn.com.pps.education.lms.domain.ReflexGradingJob;
+import vn.com.pps.education.lms.domain.ReflexGradingStatus;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgress;
 import vn.com.pps.education.lms.domain.ReflexQuestionProgressHistory;
 import vn.com.pps.education.lms.domain.ReviewVideo;
@@ -72,11 +74,39 @@ class ReflexSequentialGradingServiceTest {
     private final ReflexWritingGrammarAiGradingService writingGradingService = mock(ReflexWritingGrammarAiGradingService.class);
     private final ReflexSpeakingContentAiGradingService speakingGradingService = mock(ReflexSpeakingContentAiGradingService.class);
 
+    /**
+     * Bổ sung 2026-10-22 — AiGradingFallbackService thật (không mock), nhưng {@code directPipelineEnabled}
+     * là field {@code @Value} KHÔNG được Spring nạp khi dựng bằng {@code new} thuần trong unit test, nên
+     * giữ giá trị mặc định Java của {@code boolean} là {@code false} — đúng ý "tắt mặc định", khiến mọi
+     * lệnh gọi rơi thẳng qua {@code reflexV2GradingService} mock như test đã viết từ trước, KHÔNG cần sửa
+     * lại các stub/verify hiện có. 5 dependency còn lại chỉ mock cho đủ constructor, không bao giờ được gọi
+     * tới khi cờ tắt.
+     */
+    private final WritingAiGradingService writingAiGradingServiceForFallback = mock(WritingAiGradingService.class);
+    private final ReflexV2Prompts reflexV2PromptsForFallback = mock(ReflexV2Prompts.class);
+    private final ClaudeAiClient claudeAiClient = mock(ClaudeAiClient.class);
+    private final GroqSpeechClient groqSpeechClient = mock(GroqSpeechClient.class);
+    private final AzurePronunciationClient azurePronunciationClient = mock(AzurePronunciationClient.class);
+    private final AudioTranscoder audioTranscoderForFallback = mock(AudioTranscoder.class);
+    private final AiGradingFallbackService aiGradingFallbackService = new AiGradingFallbackService(
+            writingAiGradingServiceForFallback, reflexV2GradingService, reflexV2PromptsForFallback, claudeAiClient,
+            groqSpeechClient, azurePronunciationClient, audioTranscoderForFallback);
+
     private final ReflexSequentialGradingService service = new ReflexSequentialGradingService(
             questionRepository, assignmentRepository, progressRepository, historyRepository, enrollmentRepository,
             studentRepository, mediaStorageService, writingGradingService,
-            speakingGradingService, reflexV2GradingService, tokenUsageRecorder,
+            speakingGradingService, reflexV2GradingService, aiGradingFallbackService, tokenUsageRecorder,
+            ReflexQueueSettings.disabled(), mock(GradingJobQueue.class),
             mock(org.springframework.transaction.PlatformTransactionManager.class));
+
+    private final GradingJobQueue jobQueue = mock(GradingJobQueue.class);
+    /** Cùng các mock, nhưng bật hàng đợi (V222) — max 5 lần thử. */
+    private final ReflexSequentialGradingService queueService = new ReflexSequentialGradingService(
+            questionRepository, assignmentRepository, progressRepository, historyRepository, enrollmentRepository,
+            studentRepository, mediaStorageService, writingGradingService,
+            speakingGradingService, reflexV2GradingService, aiGradingFallbackService, tokenUsageRecorder,
+            new ReflexQueueSettings(true, 3, 2, 1000, 5, new int[]{5, 10, 20, 40, 60}, new int[]{10, 30, 60, 60, 60}, 300),
+            jobQueue, mock(org.springframework.transaction.PlatformTransactionManager.class));
 
     private final AiTokenUsage transcriptionUsage =
             new AiTokenUsage("gemini-3.6-flash-medium", true, 5200, 0, 310, 900, 6100);
@@ -292,6 +322,37 @@ class ReflexSequentialGradingServiceTest {
         assertThat(third.questionFinalized()).isTrue();
     }
 
+    /** Câu PART2 (không có bước Viết) ghi âm lần đầu: chưa có dòng tiến trình → phải lưu dòng trước khi tăng lượt, không báo "hết lượt". */
+    @Test
+    void submitSpokenAnswer_UC23b_part2FirstRecording_createsRowAndDoesNotReportExhausted() {
+        Fixture f = legacySpeakingFixture();
+        when(f.question().getQuestionFormat()).thenReturn(vn.com.pps.education.common.ReflexQuestionFormat.PART2);
+        when(progressRepository.findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(QUESTION_ID, STUDENT_ID, ASSIGNMENT_ID))
+                .thenReturn(Optional.empty(), Optional.of(f.progress()));
+        when(speakingGradingService.grade(any(), any(), any(), any())).thenReturn(
+                new ReflexSpeakingContentAiGradingService.GradeResult("transcript", List.of(), 50, "feedback", null));
+
+        ReflexQuestionProgressResponse response = service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+
+        verify(progressRepository, times(2)).save(any()); // tạo dòng + ghi kết quả
+        assertThat(response.speakingAttemptCount()).isEqualTo(1);
+    }
+
+    /** Alternate Flow — AI lỗi đã hoàn lượt (FAILED, 0/3): học sinh vẫn được ghi âm lại, không báo "hết lượt". */
+    @Test
+    void submitSpokenAnswer_UC23b_A_aiFailedRefunded_allowsResubmission() {
+        Fixture f = legacySpeakingFixture();
+        f.progress().setSpeakingGradingStatus(ReflexGradingStatus.FAILED);
+        f.progress().setSpeakingAttemptCount(0);
+        when(speakingGradingService.grade(any(), any(), any(), any())).thenReturn(
+                new ReflexSpeakingContentAiGradingService.GradeResult("transcript", List.of(), 50, "feedback", null));
+
+        ReflexQuestionProgressResponse response = service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+
+        assertThat(response.speakingAttemptCount()).isEqualTo(1);
+        assertThat(f.progress().getSpeakingGradingStatus()).isNotEqualTo(ReflexGradingStatus.FAILED);
+    }
+
     /** Alternate Flow — đã hết lượt bước NÓI (xem test trên): nộp lần thứ 4 phải bị từ chối. */
     @Test
     void submitSpokenAnswer_UC23b_A_speakingAlreadyExhausted_rejectsFurtherResubmission() {
@@ -347,8 +408,167 @@ class ReflexSequentialGradingServiceTest {
         assertThat(response.writingExhausted()).isTrue();
         assertThat(response.speakingPassed()).isTrue();
         assertThat(response.speakingExhausted()).isFalse();
-        assertThat(response.questionPassed()).isFalse();
+        // Đổi 2026-10-28 (người dùng quyết định): nói đạt thì câu đạt, dù viết hết lượt chưa đạt.
+        assertThat(response.questionPassed()).isTrue();
         assertThat(response.questionFinalized()).isTrue();
+    }
+
+    // ===================== Hàng đợi chấm AI (V222) =====================
+
+    private ReflexGradingJob runningJob(ReflexGradingJob.Lane lane, int attemptNumber, int tryCount) {
+        ReflexGradingJob job = new ReflexGradingJob();
+        job.setId(7L);
+        job.setProgressId(PROGRESS_ID);
+        job.setLane(lane);
+        job.setAttemptNumber(attemptNumber);
+        job.setTryCount(tryCount);
+        job.setStatus(ReflexGradingJob.Status.RUNNING);
+        when(jobQueue.find(7L)).thenReturn(Optional.of(job));
+        return job;
+    }
+
+    /** Main Flow (hàng đợi) — nộp bài viết chỉ ghi + xếp job, KHÔNG gọi AI trong request. */
+    @Test
+    void submitWrittenAnswer_UC23b_Queue_enqueuesWithoutCallingAi() {
+        Fixture f = writingFixture();
+
+        ReflexQuestionProgressResponse response = queueService.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer", ACTOR_USER_ID);
+
+        assertThat(response.writingGradingStatus()).isEqualTo("PENDING");
+        assertThat(response.writingPassed()).isFalse();
+        assertThat(response.writingUnlocked()).isFalse();
+        assertThat(f.progress().getWritingAttemptCount()).isEqualTo(1);
+        verify(jobQueue).enqueue(PROGRESS_ID, ReflexGradingJob.Lane.WRITING, 1, null);
+        verify(writingGradingService, never()).grade(any(), any(), any());
+        verify(historyRepository, never()).save(any());
+    }
+
+    /** Alternate Flow — đang PENDING thì không cho nộp lại (tránh đốt lượt trong lúc chờ chấm). */
+    @Test
+    void submitWrittenAnswer_UC23b_Queue_pendingBlocksResubmission() {
+        Fixture f = writingFixture();
+        f.progress().setWritingGradingStatus(ReflexGradingStatus.PENDING);
+
+        assertThatThrownBy(() -> queueService.submitWrittenAnswer(QUESTION_ID, ASSIGNMENT_ID, "answer", ACTOR_USER_ID))
+                .isInstanceOf(RetakeNotAllowedException.class);
+        verify(jobQueue, never()).enqueue(any(), any(), org.mockito.ArgumentMatchers.anyInt(), any());
+    }
+
+    /** Main Flow — worker chấm xong: ghi điểm, lịch sử, GRADED, đóng job DONE. */
+    @Test
+    void processQueuedJob_UC23b_Queue_writingGraded() {
+        Fixture f = writingFixture();
+        f.progress().setWritingGradingStatus(ReflexGradingStatus.PENDING);
+        f.progress().setWritingAttemptCount(1);
+        f.progress().setAnswerText("answer");
+        runningJob(ReflexGradingJob.Lane.WRITING, 1, 1);
+        when(progressRepository.findById(PROGRESS_ID)).thenReturn(Optional.of(f.progress()));
+        when(writingGradingService.grade(any(), any(), any()))
+                .thenReturn(new ReflexWritingGrammarAiGradingService.GradeResult(85, "marked", null, null, null));
+
+        queueService.processQueuedJob(7L);
+
+        assertThat(f.progress().getWritingGradingStatus()).isEqualTo(ReflexGradingStatus.GRADED);
+        assertThat(f.progress().getWritingScore()).isEqualByComparingTo("85");
+        verify(historyRepository).save(any());
+        verify(jobQueue).close(7L, ReflexGradingJob.Status.DONE, null);
+    }
+
+    /** Alternate Flow — AI null nhưng còn lượt thử: hẹn thử lại, bước vẫn PENDING, lượt nộp KHÔNG bị trừ thêm/hoàn. */
+    @Test
+    void processQueuedJob_UC23b_Queue_aiNullRetriesWithoutConsumingAttempt() {
+        Fixture f = writingFixture();
+        f.progress().setWritingGradingStatus(ReflexGradingStatus.PENDING);
+        f.progress().setWritingAttemptCount(1);
+        f.progress().setAnswerText("answer");
+        runningJob(ReflexGradingJob.Lane.WRITING, 1, 2);
+        when(progressRepository.findById(PROGRESS_ID)).thenReturn(Optional.of(f.progress()));
+        when(writingGradingService.grade(any(), any(), any())).thenReturn(null);
+
+        queueService.processQueuedJob(7L);
+
+        verify(jobQueue).scheduleRetry(eq(7L), any());
+        verify(jobQueue, never()).close(any(), any(), any());
+        assertThat(f.progress().getWritingGradingStatus()).isEqualTo(ReflexGradingStatus.PENDING);
+        assertThat(f.progress().getWritingAttemptCount()).isEqualTo(1);
+    }
+
+    /** Alternate Flow — hết 5 lần thử: FAILED, hoàn lượt, mở khoá bước nói (giáo viên chấm tay sau). */
+    @Test
+    void processQueuedJob_UC23b_Queue_aiFailsAfterMaxTriesRefundsAttemptAndFlagsForTeacher() {
+        Fixture f = writingFixture();
+        f.progress().setWritingGradingStatus(ReflexGradingStatus.PENDING);
+        f.progress().setWritingAttemptCount(1);
+        f.progress().setAnswerText("answer");
+        runningJob(ReflexGradingJob.Lane.WRITING, 1, 5);
+        when(progressRepository.findById(PROGRESS_ID)).thenReturn(Optional.of(f.progress()));
+        when(writingGradingService.grade(any(), any(), any())).thenReturn(null);
+
+        queueService.processQueuedJob(7L);
+
+        assertThat(f.progress().getWritingGradingStatus()).isEqualTo(ReflexGradingStatus.FAILED);
+        assertThat(f.progress().getWritingAttemptCount()).isZero();
+        assertThat(f.progress().getWritingScore()).isNull();
+        verify(jobQueue).close(eq(7L), eq(ReflexGradingJob.Status.FAILED), any());
+        verify(historyRepository, never()).save(any());
+        // bước nói được mở khoá dù chưa có điểm viết
+        when(progressRepository.findByReviewVideoAssignmentIdAndStudentId(ASSIGNMENT_ID, STUDENT_ID)).thenReturn(List.of(f.progress()));
+        assertThat(queueService.listMyProgress(ASSIGNMENT_ID, ACTOR_USER_ID).get(0).writingUnlocked()).isTrue();
+    }
+
+    /** Alternate Flow — job của lượt nộp cũ (bản ghi đã sang lượt khác) bị bỏ, không gọi AI. */
+    @Test
+    void processQueuedJob_UC23b_Queue_staleJobIsClosedWithoutCallingAi() {
+        Fixture f = writingFixture();
+        f.progress().setWritingGradingStatus(ReflexGradingStatus.PENDING);
+        f.progress().setWritingAttemptCount(2);
+        runningJob(ReflexGradingJob.Lane.WRITING, 1, 1);
+        when(progressRepository.findById(PROGRESS_ID)).thenReturn(Optional.of(f.progress()));
+
+        queueService.processQueuedJob(7L);
+
+        verify(writingGradingService, never()).grade(any(), any(), any());
+        verify(jobQueue).close(eq(7L), eq(ReflexGradingJob.Status.DONE), any());
+    }
+
+    /** Alternate Flow — bản ghi bị từ chối: REJECTED, KHÔNG thử lại, vẫn tính lượt. */
+    @Test
+    void processQueuedJob_UC23b_Queue_speakingRejectedIsNotRetriedAndKeepsAttempt() {
+        Fixture f = legacySpeakingFixture();
+        f.progress().setSpeakingGradingStatus(ReflexGradingStatus.PENDING);
+        f.progress().setSpeakingAttemptCount(1);
+        f.progress().setAudioUrl(AUDIO_URL);
+        runningJob(ReflexGradingJob.Lane.SPEAKING, 1, 1);
+        when(progressRepository.findById(PROGRESS_ID)).thenReturn(Optional.of(f.progress()));
+        when(speakingGradingService.grade(any(), any(), any(), any()))
+                .thenThrow(new ReflexAudioRejectedException("Bản ghi không đọc được"));
+
+        queueService.processQueuedJob(7L);
+
+        assertThat(f.progress().getSpeakingGradingStatus()).isEqualTo(ReflexGradingStatus.REJECTED);
+        assertThat(f.progress().getSpeakingAttemptCount()).isEqualTo(1);
+        assertThat(f.progress().getSpeakingFeedback()).isEqualTo("Bản ghi không đọc được");
+        verify(jobQueue).close(7L, ReflexGradingJob.Status.REJECTED, "Bản ghi không đọc được");
+        verify(jobQueue, never()).scheduleRetry(any(), any());
+    }
+
+    /** Bước nói đang PENDING không được trả điểm/transcript của lần nộp TRƯỚC (FE từng hiện nhầm như kết quả bài vừa nộp). */
+    @Test
+    void submitSpokenAnswer_UC23b_Queue_pendingResponseHidesPreviousAttemptResult() {
+        Fixture f = legacySpeakingFixture();
+        f.progress().setSpeakingScore(BigDecimal.valueOf(50));
+        f.progress().setSpeakingFeedback("old feedback");
+        f.progress().setSpeakingTranscript("old transcript");
+        f.progress().setSpeakingAttemptCount(1);
+
+        ReflexQuestionProgressResponse response = queueService.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, null, ACTOR_USER_ID);
+
+        assertThat(response.speakingGradingStatus()).isEqualTo("PENDING");
+        assertThat(response.speakingScorePercent()).isNull();
+        assertThat(response.speakingFeedback()).isNull();
+        assertThat(response.speakingTranscript()).isNull();
+        assertThat(response.speakingAttemptCount()).isEqualTo(2);
+        verify(jobQueue).enqueue(PROGRESS_ID, ReflexGradingJob.Lane.SPEAKING, 2, null);
     }
 
     private record Fixture(ReviewVideoQuestion question, ReviewVideoAssignment assignment, Student student,

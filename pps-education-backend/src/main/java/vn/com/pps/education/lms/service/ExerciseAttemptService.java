@@ -90,6 +90,9 @@ import java.util.stream.Collectors;
 @Service
 public class ExerciseAttemptService {
 
+    /** Trần số giây cộng thêm cho mỗi lần client gửi active-time (client gửi mỗi ~15s). */
+    private static final int MAX_ACTIVE_PING_SECONDS = 120;
+
     private final ExerciseAttemptRepository exerciseAttemptRepository;
     private final ExerciseAttemptHistoryRepository exerciseAttemptHistoryRepository;
     private final StudentAnswerRepository studentAnswerRepository;
@@ -101,7 +104,7 @@ public class ExerciseAttemptService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final StudentAnswerGradingRepository studentAnswerGradingRepository;
-    private final WritingAiGradingService writingAiGradingService;
+    private final AiGradingFallbackService aiGradingFallbackService;
     private final AiGradingTokenUsageRecorder tokenUsageRecorder;
     private final TransactionTemplate tx;
 
@@ -126,7 +129,7 @@ public class ExerciseAttemptService {
                                    StudentRepository studentRepository,
                                    UserRepository userRepository,
                                    StudentAnswerGradingRepository studentAnswerGradingRepository,
-                                   WritingAiGradingService writingAiGradingService,
+                                   AiGradingFallbackService aiGradingFallbackService,
                                    AiGradingTokenUsageRecorder tokenUsageRecorder,
                                    PlatformTransactionManager transactionManager) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
@@ -140,7 +143,7 @@ public class ExerciseAttemptService {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.studentAnswerGradingRepository = studentAnswerGradingRepository;
-        this.writingAiGradingService = writingAiGradingService;
+        this.aiGradingFallbackService = aiGradingFallbackService;
         this.tokenUsageRecorder = tokenUsageRecorder;
         this.tx = new TransactionTemplate(transactionManager);
     }
@@ -275,6 +278,23 @@ public class ExerciseAttemptService {
                         draft.setAutoGradable(previousAnswer.isAutoGradable());
                         studentAnswerRepository.save(draft);
                     });
+            // Bổ sung 2026-10-28 (đã xác nhận với người dùng — học sinh bấm "Làm lại" sau khi AI chấm bài
+            // Writing chưa đạt thì bài viết cũ bị mất, phải viết lại từ đầu) — câu ESSAY mang NỘI DUNG
+            // bài viết lượt trước sang làm bản nháp ban đầu của lượt mới (KHÔNG khoá, carriedOver=false,
+            // sửa trực tiếp trên bài cũ được). Không copy điểm/nhận xét chấm — lượt mới chấm lại từ đầu qua
+            // đúng pipeline sẵn có.
+            previousAnswers.stream()
+                    .filter(a -> !a.isAutoGradable()
+                            && a.getQuestion().getQuestionType() == Question.QuestionType.ESSAY
+                            && a.getAnswerText() != null && !a.getAnswerText().isBlank())
+                    .forEach(previousAnswer -> {
+                        StudentAnswer draft = new StudentAnswer();
+                        draft.setExerciseAttempt(newAttempt);
+                        draft.setQuestion(previousAnswer.getQuestion());
+                        draft.setAnswerText(previousAnswer.getAnswerText());
+                        draft.setAutoGradable(false);
+                        studentAnswerRepository.save(draft);
+                    });
         }
 
         writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.CREATED);
@@ -351,7 +371,9 @@ public class ExerciseAttemptService {
             List<EssayAiJob> jobs = tx.execute(status -> prepareSubmit(attemptId, actorUserId, now));
             Map<Long, WritingAiGradingService.GradeResult> aiResults = new LinkedHashMap<>();
             for (EssayAiJob job : jobs) {
-                aiResults.put(job.answerId(), writingAiGradingService.grade(job.essayText(), job.taskPrompt(),
+                // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — qua AiGradingFallbackService, đồng nhất
+                // với gradeEssayWithAi (nhánh không precompute) — xem Javadoc AiGradingFallbackService.
+                aiResults.put(job.answerId(), aiGradingFallbackService.gradeEssayWithFallback(job.essayText(), job.taskPrompt(),
                         job.curriculum(), job.keyGrammar()));
             }
             return tx.execute(status -> {
@@ -548,9 +570,12 @@ public class ExerciseAttemptService {
         // câu hỏi (Question.keyGrammar), không phải Bài — xem Javadoc Question#keyGrammar lý do đổi so
         // với thiết kế trước đó (gắn Bài): người dùng muốn Key Grammar đi cùng đúng đề bài tự luận cụ thể,
         // sửa ở modal "Sửa câu hỏi" thay vì "Sửa Bài".
+        // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — nhánh gọi AI mới (không có trong precomputedAiResults)
+        // qua AiGradingFallbackService: thử Claude trực tiếp trước (chỉ khi app.ai-grading.claude-direct.enabled=true),
+        // lỗi thì tự rơi về 9Router — KHÔNG đổi hành vi khi cờ tắt (mặc định).
         WritingAiGradingService.GradeResult result = precomputedAiResults != null && precomputedAiResults.containsKey(answer.getId())
                 ? precomputedAiResults.get(answer.getId())
-                : writingAiGradingService.grade(answer.getAnswerText(),
+                : aiGradingFallbackService.gradeEssayWithFallback(answer.getAnswerText(),
                         answer.getQuestion().getContent(), exercise.getExam().getCurriculum(), answer.getQuestion().getKeyGrammar());
         tokenUsageRecorder.record(AiGradingTokenUsage.Step.ESSAY, "chat", null, result == null ? null : result.usage(),
                 answer.getExerciseAttempt().getStudent(), null, null);
@@ -653,6 +678,30 @@ public class ExerciseAttemptService {
         attempt = exerciseAttemptRepository.save(attempt);
         writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
         return toResponse(attempt);
+    }
+
+    /**
+     * V223 (bổ sung ngoài SDD gốc, đã yêu cầu 2026-10-26) — cộng dồn thời gian làm bài thực (ẩn với học sinh).
+     * Client gửi định kỳ số giây vừa ở trên màn hình làm bài (tab hiện + focus). Server KHÔNG tin tuyệt đối:
+     * mỗi lần chỉ cộng tối đa min(seconds, MAX_ACTIVE_PING_SECONDS, thời gian thực trôi qua kể từ lần gửi
+     * trước — hoặc từ startedAt nếu là lần đầu) nên gửi dồn/sửa request không thổi phồng được số liệu.
+     * Chỉ ghi khi lượt còn IN_PROGRESS (lượt đã nộp thì bỏ qua êm, không báo lỗi để không làm phiền client
+     * gửi nốt lần cuối sau khi nộp). Không tham gia điểm/ngưỡng đạt.
+     */
+    @Transactional
+    public void recordActiveTime(Long attemptId, int seconds, Long actorUserId) {
+        ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
+        if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS || seconds <= 0) {
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime since = attempt.getLastActivePingAt() != null ? attempt.getLastActivePingAt() : attempt.getStartedAt();
+        // +2s dung sai lệch đồng hồ/độ trễ mạng giữa 2 lần gửi.
+        long elapsed = Math.max(0, java.time.Duration.between(since, now).getSeconds()) + 2;
+        int credited = (int) Math.min(Math.min(seconds, MAX_ACTIVE_PING_SECONDS), elapsed);
+        attempt.setActiveSeconds(attempt.getActiveSeconds() + credited);
+        attempt.setLastActivePingAt(now);
+        exerciseAttemptRepository.save(attempt);
     }
 
     /** package-private static: tái dùng ở ExerciseReportService (FR-ACA-07) để không lệch công thức làm tròn. */
@@ -861,7 +910,9 @@ public class ExerciseAttemptService {
     /**
      * WORD_BANK/SENTENCE_BUILDING (V85, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-08-04): so khớp elementwise (case-insensitive + trim), ĐÚNG thứ tự — student phải chọn
-     * đúng thứ tự (khớp key "blanks"/"chunks" trong Question.structuredContent).
+     * đúng thứ tự (khớp key "blanks"/"chunks" trong Question.structuredContent). Từ 2026-10-29 (đã
+     * xác nhận với người dùng): riêng key "blanks" (WORD_BANK, KHÔNG phải "chunks" của
+     * SENTENCE_BUILDING), mỗi ô nhận NHIỀU phương án phân tách "/" — xem {@link #blankMatches}.
      */
     private boolean structuredAnswerMatches(Question question, String key, List<String> given) {
         if (given == null || question.getStructuredContent() == null) {
@@ -874,14 +925,37 @@ public class ExerciseAttemptService {
         if (!(raw instanceof List<?> correctList) || correctList.size() != given.size()) {
             return false;
         }
+        boolean isBlanksKey = "blanks".equals(key);
         for (int i = 0; i < correctList.size(); i++) {
             String correct = String.valueOf(correctList.get(i));
             String submitted = given.get(i);
-            if (submitted == null || !correct.trim().equalsIgnoreCase(submitted.trim())) {
+            boolean matched = isBlanksKey
+                    ? blankMatches(correct, submitted)
+                    : submitted != null && correct.trim().equalsIgnoreCase(submitted.trim());
+            if (!matched) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Bổ sung 2026-10-29 (đã xác nhận với người dùng) — áp dụng cho key "blanks" (WORD_BANK, không
+     * phải dạng "form" đã có {@link FormAnswerMatcher} riêng): đáp án đúng 1 ô có thể liệt kê NHIỀU
+     * phương án phân tách "/" (VD "fifteen dollars / $15 / 15 dollars"), mirror
+     * {@link #parseAcceptedAnswers} đang dùng cho FILL_IN_BLANK — khớp ÍT NHẤT 1 phương án là đúng.
+     * Ô đáp án đúng để trống (hợp lệ, VD "không cần mạo từ") chỉ khớp khi học sinh cũng để trống.
+     */
+    private static boolean blankMatches(String correct, String submitted) {
+        if (submitted == null) {
+            return false;
+        }
+        String strippedGiven = stripTrailingPunctuation(submitted);
+        if (correct == null || correct.isBlank()) {
+            return strippedGiven.isEmpty();
+        }
+        return parseAcceptedAnswers(correct).stream()
+                .anyMatch(variant -> stripTrailingPunctuation(variant).equalsIgnoreCase(strippedGiven));
     }
 
     /**
@@ -903,7 +977,7 @@ public class ExerciseAttemptService {
         for (int i = 0; i < correctList.size(); i++) {
             String correct = String.valueOf(correctList.get(i));
             String submitted = i < given.size() ? given.get(i) : null;
-            if (submitted != null && correct.trim().equalsIgnoreCase(submitted.trim())) {
+            if (blankMatches(correct, submitted)) {
                 result.add(submitted);
                 anyCorrect = true;
             } else {
@@ -995,7 +1069,7 @@ public class ExerciseAttemptService {
         for (int i = 0; i < total; i++) {
             String correct = String.valueOf(correctList.get(i));
             String submitted = i < given.size() ? given.get(i) : null;
-            if (submitted != null && correct.trim().equalsIgnoreCase(submitted.trim())) {
+            if (blankMatches(correct, submitted)) {
                 matched++;
             }
         }

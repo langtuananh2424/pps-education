@@ -193,12 +193,34 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Chấm AI trực tiếp (Claude Haiku + Groq Whisper + Azure Speech), 9Router chỉ là fallback - xem
+      # application.yml app.ai-grading.claude-direct. Mặc định TẮT. Thiếu 1 trong 3 key thì luồng nói tự rơi về 9Router.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
+      PRONUNCIATION_PROVIDER: ${PRONUNCIATION_PROVIDER:-azure}
+      PRONUNCIATION_ENGINE_URL: ${PRONUNCIATION_ENGINE_URL:-http://speaking-engine:8100}
+      PRONUNCIATION_ENGINE_TOKEN: ${PRONUNCIATION_ENGINE_TOKEN:-}
+      PRONUNCIATION_ENGINE_BREAKER_FAILURES: ${PRONUNCIATION_ENGINE_BREAKER_FAILURES:-3}
+      PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS: ${PRONUNCIATION_ENGINE_BREAKER_COOLDOWN_SECONDS:-60}
+      CLAUDE_DIRECT_ENABLED: ${CLAUDE_DIRECT_ENABLED:-false}
+      CLAUDE_DIRECT_MODEL: ${CLAUDE_DIRECT_MODEL:-claude-haiku-5-5}
+      CLAUDE_DIRECT_TIMEOUT_SECONDS: ${CLAUDE_DIRECT_TIMEOUT_SECONDS:-150}
+      GROQ_DIRECT_TIMEOUT_SECONDS: ${GROQ_DIRECT_TIMEOUT_SECONDS:-60}
+      AZURE_DIRECT_TIMEOUT_SECONDS: ${AZURE_DIRECT_TIMEOUT_SECONDS:-60}
+      AZURE_DIRECT_MAX_CHUNK_SECONDS: ${AZURE_DIRECT_MAX_CHUNK_SECONDS:-50}
+      DIRECT_AI_MAX_ATTEMPTS: ${DIRECT_AI_MAX_ATTEMPTS:-3}
+      DIRECT_AI_RETRY_DELAY_MS: ${DIRECT_AI_RETRY_DELAY_MS:-1000}
+      DIRECT_AI_TOTAL_BUDGET_SECONDS: ${DIRECT_AI_TOTAL_BUDGET_SECONDS:-60}
       NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-http://host.docker.internal:20128/v1}
       NINE_ROUTER_API_KEY: ${NINE_ROUTER_API_KEY:-}
       NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
       NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
       NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
       # Luồng chấm Speaking v2 (Khối 6-7, UC-23b) - mặc định TẮT, xem application.yml app.ai-grading.reflex-v2.
+      REFLEX_QUEUE_ENABLED: ${REFLEX_QUEUE_ENABLED:-false}
+      REFLEX_QUEUE_WRITING_CONCURRENCY: ${REFLEX_QUEUE_WRITING_CONCURRENCY:-3}
+      REFLEX_QUEUE_SPEAKING_CONCURRENCY: ${REFLEX_QUEUE_SPEAKING_CONCURRENCY:-2}
       REFLEX_V2_ENABLED: ${REFLEX_V2_ENABLED:-false}
       REFLEX_V2_MODEL: ${REFLEX_V2_MODEL:-ag/gemini-3.6-flash-medium}
       REFLEX_V2_EXPECTED_MODEL_CONTAINS: ${REFLEX_V2_EXPECTED_MODEL_CONTAINS:-}
@@ -221,9 +243,15 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-    networks: [internal]
+    # speaking-engine: dịch vụ chấm phát âm (Kaldi GOP + GOPT) dùng chung cho staging, production và các ứng dụng khác, chạy ở stack
+    # riêng (repo pps-speaking-engine). Backend chỉ GỌI NÓ khi PRONUNCIATION_PROVIDER=gopt; mạng này luôn được nối để bật gopt không phải
+    # tạo lại container. Mạng do CD tạo idempotent trước khi `up` (xem cd-*.yml) nên deploy không phụ thuộc engine đã chạy hay chưa.
+    networks: [internal, speaking-engine]
 
 networks:
+  speaking-engine:
+    name: speaking-engine-net
+    external: true
   internal:
     driver: bridge
     ipam:

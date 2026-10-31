@@ -89,6 +89,53 @@ class SpeechMeterTest {
         assertThat(m.hasSpeech()).isTrue();
     }
 
+    /** segments như {@link #wav}, nhưng biên độ sóng tuỳ chỉnh — dùng để dựng tín hiệu đỉnh thấp (mic yếu). */
+    private static byte[] wavAmplitude(short amplitude, double... segments) {
+        ByteArrayOutputStream pcm = new ByteArrayOutputStream();
+        for (double seg : segments) {
+            int n = (int) Math.round(Math.abs(seg) * RATE);
+            for (int i = 0; i < n; i++) {
+                short v = seg > 0 ? (short) (amplitude * Math.sin(2 * Math.PI * 440 * i / RATE)) : 0;
+                pcm.write(v & 0xFF);
+                pcm.write((v >> 8) & 0xFF);
+            }
+        }
+        byte[] data = pcm.toByteArray();
+        ByteBuffer h = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN);
+        h.put("RIFF".getBytes()).putInt(36 + data.length).put("WAVE".getBytes());
+        h.put("fmt ".getBytes()).putInt(16).putShort((short) 1).putShort((short) 1).putInt(RATE).putInt(RATE * 2)
+                .putShort((short) 2).putShort((short) 16);
+        h.put("data".getBytes()).putInt(data.length);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(h.array(), 0, 44);
+        out.write(data, 0, data.length);
+        return out.toByteArray();
+    }
+
+    /**
+     * 23/10/2026 (bản bàn giao Gemini 3.8) — hạ sàn đỉnh {@code MIN_SPEECH_PEAK} 0,01 → 0,004: mic yếu trên
+     * LMS (Khối 8) ghi lời nói thật ở đỉnh 0,006–0,008, bị kết "không có tiếng nói" oan. Biên độ 280/32768
+     * cho RMS đỉnh ≈ 0,006 — nằm GIỮA 0,004 và 0,01 (mô phỏng đúng ca thật).
+     */
+    @Test
+    void weakMicSignal_peakBetween004And01_nowReportsHasSpeech() {
+        SpeechMeter.Measurement m = SpeechMeter.measure(wavAmplitude((short) 280, -1, 2, -1)).orElseThrow();
+        assertThat(m.peak()).isBetween(0.004, 0.01);
+        assertThat(m.hasSpeech()).isTrue();
+    }
+
+    /**
+     * 22/10/2026 (bản bàn giao Gemini 3.8) — {@code trimEdgeBlips}: tiếng bấm dừng ghi âm ngắn (≤3 khung) ở
+     * CUỐI bài, cách đoạn nói thật bằng một quãng im lặng dài, không còn bị tính là "tiếng nói tiếp theo" —
+     * trước đây quãng im lặng đó (8 giây) bị tính nhầm thành khoảng dừng GIỮA bài, kéo trần Trôi chảy xuống.
+     */
+    @Test
+    void trailingClickAfterLongSilence_isTrimmed_doesNotInflateLongestPause() {
+        // 1s nói thật | 8s im lặng | tiếng click 2 khung (~0,04s) ở cuối bài.
+        SpeechMeter.Measurement m = SpeechMeter.measure(wav(1, -8, 0.04)).orElseThrow();
+        assertThat(m.longestPauseSec()).isLessThan(1.0);
+    }
+
     @Test
     void quietHissBelowSpeechThreshold_correctlyReportsNoSpeech() {
         // Biên độ rất nhỏ (peak < 0.01) nhưng vẫn liên tục/đồng nhất — không phải tiếng nói, không được báo có.

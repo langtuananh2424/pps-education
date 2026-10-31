@@ -76,6 +76,8 @@ jobs:
       - name: Pull staging-latest + restart container (chạy trực tiếp trên server)
         run: |
           cd /opt/pps-education/staging
+          # Mạng dùng chung với dịch vụ chấm phát âm (compose khai báo external); tạo idempotent để deploy không phụ thuộc engine đã chạy.
+          docker network inspect speaking-engine-net >/dev/null 2>&1 || docker network create speaking-engine-net
           docker compose pull backend
           docker compose up -d --no-deps backend
           docker image prune -f

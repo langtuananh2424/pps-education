@@ -11,8 +11,13 @@ import React from "react";
  *
  * Thứ tự alternation BẮT BUỘC `**` trước `*` — nếu đảo ngược, `*nghiêng*` sẽ "ăn" mất 1 nửa của
  * `**đậm**` liền kề do cùng dùng ký tự `*`.
+ *
+ * `__gạch chân__` dùng lookbehind/lookahead (?<!_)/(?!_) để chỉ khớp ĐÚNG 2 dấu `_` liên tiếp —
+ * tránh nuốt nhầm ký hiệu chỗ trống cloze `(1)___` (3 dấu `_`) trong `reference_passage`, vốn gây
+ * gạch chân tràn lan từ chỗ trống này sang chỗ trống kế tiếp (phát hiện 2026-10-29, đã xác nhận
+ * với người dùng). Mirror admin/src/lib/richText.tsx.
  */
-const RICH_TEXT_PATTERN = /(\*\*[^*]+\*\*|\*[^*]+\*|__[^_]+__)/g;
+const RICH_TEXT_PATTERN = /(\*\*[^*]+\*\*|\*[^*]+\*|(?<!_)__(?!_)[^_]+(?<!_)__(?!_))/g;
 
 export function renderRichText(text: string | null | undefined): React.ReactNode {
   if (!text) return text;

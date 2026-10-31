@@ -14,6 +14,9 @@ import java.util.regex.Pattern;
  * {@code splitAudit} trong {@code tham-khao/index.html} (gói {@code bo-cham-writing-K6-K9}, cập nhật tới
  * vòng hiệu chuẩn 15 — bản 25/09/2026: trần lạc đề, trần thiếu độ dài theo nhóm tiêu chí, trần bài mỏng do máy
  * áp, trần Language khối 6 theo tỉ lệ động từ sai, errorCap theo mật độ cho cả khối 6, đề cho sẵn câu mở đầu).
+ * Bổ sung tiếp vòng 17 (30/10/2026, Khối 7-8 IELTS): trần "phát triển lệch"/"chỉ có lý do" (Task Response/
+ * Achievement), trần CC không từ nối + K_level (sàn/trần Lexical Resource) + mật độ lỗi có trọng số/trần
+ * "hiểu được" (Grammatical Range & Accuracy) — 3 quy tắc sau CHỈ Khối 7 IELTS, rubric các khối khác chưa có.
  * {@code HUONG_DAN_TICH_HOP.md}: "khi tài liệu và mã tham chiếu khác nhau, mã tham chiếu là
  * chuẩn" — file này bám {@code index.html}, không bám mô tả văn xuôi.
  *
@@ -431,6 +434,72 @@ public final class WritingV3Scoring {
             thinCap = grade.thinContentCapPercent();
         }
 
+        // ===================== Vòng 17 (gói bo-cham-writing-K6-K9, cập nhật 30/10/2026) =====================
+        // Trần "phát triển lệch" + "chỉ có lý do" — CHỈ Khối 7 IELTS (g7) và Khối 8 IELTS (g8), áp cho hàng
+        // Task Response / Achievement (= contentCriterion của 2 khối này). "Ý có bằng chứng (a)/(b)/(c)" đếm
+        // trong số "Ý được phát triển" bao nhiêu ý có bằng chứng THẬT (số/tên riêng/sự việc) — bài chỉ có lý
+        // do (loại d) vẫn coi là chưa đủ bằng chứng.
+        boolean isG7OrG8Ielts = "g7".equals(grade.code()) || "g8".equals(grade.code());
+        Integer trCap = null;
+        String trNote = "";
+        if (isG7OrG8Ielts) {
+            Matcher developedM = Pattern.compile("Ý được phát triển\\s*:\\s*\\**\\s*(\\d+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(audit);
+            Matcher rTotalM = Pattern.compile("R_total\\s*:\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(audit);
+            Integer developed = developedM.find() ? Integer.parseInt(developedM.group(1)) : null;
+            Integer rTotal = rTotalM.find() ? Integer.parseInt(rTotalM.group(1)) : null;
+            if (developed != null && rTotal != null && rTotal > 0) {
+                double ratio = developed / (double) rTotal;
+                if (ratio <= 1.0 / 3) {
+                    trCap = 60;
+                    trNote = developed + "/" + rTotal + " ý được phát triển (≤ 1/3 yêu cầu của đề) → tối đa 60%";
+                } else if (ratio < 1) {
+                    trCap = 80;
+                    trNote = developed + "/" + rTotal + " ý được phát triển (chưa đủ số yêu cầu của đề) → tối đa 80%";
+                }
+            }
+            if (developed != null && developed > 0) {
+                Matcher evM = Pattern.compile("Ý có bằng chứng \\(a\\)/\\(b\\)/\\(c\\)\\s*:\\s*\\**\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(audit);
+                if (evM.find() && Integer.parseInt(evM.group(1)) == 0 && (trCap == null || 80 < trCap)) {
+                    trCap = 80;
+                    trNote = "mọi ý phát triển chỉ có bằng chứng loại (d) lý do/hệ quả, không ví dụ/con số/tên riêng/sự việc → tối đa 80%";
+                }
+            }
+        }
+        // K_level (trần + sàn Lexical Resource), trần CC không từ nối, mật độ lỗi có trọng số + trần "hiểu
+        // được" cho Grammatical Range & Accuracy — CHỈ Khối 7 IELTS (g7); các khối khác chưa có quy tắc này.
+        boolean isG7Ielts = "g7".equals(grade.code());
+        Double g7WeightedGraErrors = null;
+        Integer graSevereSentenceCap = null;
+        Integer ccConnectorCap = null;
+        Integer lrLevelCap = null;
+        boolean lrFloorEligible = false;
+        if (isG7Ielts) {
+            Matcher lightM = Pattern.compile("nhẹ \\(gr1\\+pu1[^)]*\\)\\s*:\\s*\\**\\s*(\\d+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(audit);
+            Matcher severeM = Pattern.compile("nặng \\(gr2\\+pu2[^)]*\\)\\s*:\\s*\\**\\s*(\\d+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(audit);
+            if (lightM.find() && severeM.find()) {
+                g7WeightedGraErrors = Integer.parseInt(lightM.group(1)) * 0.5 + Integer.parseInt(severeM.group(1));
+            }
+            Matcher sentM = Pattern.compile("Số câu có lỗi NẶNG[^:]*:\\s*\\**\\s*(\\d+)\\s*/\\s*(\\d+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(audit);
+            if (sentM.find()) {
+                int totalSentences = Integer.parseInt(sentM.group(2));
+                if (totalSentences > 0) {
+                    double severeRatio = Integer.parseInt(sentM.group(1)) / (double) totalSentences;
+                    graSevereSentenceCap = severeRatio > 0.5 ? Integer.valueOf(20) : severeRatio >= 0.25 ? Integer.valueOf(40) : null;
+                }
+            }
+            Matcher connM = Pattern.compile("Từ nối đúng\\s*:\\s*\\**\\s*(\\d+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(audit);
+            if (connM.find() && Integer.parseInt(connM.group(1)) == 0) {
+                ccConnectorCap = 50;
+            }
+            Matcher klM = Pattern.compile("K_level\\s*:\\s*\\**\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(audit);
+            if (klM.find()) {
+                int kLevel = Integer.parseInt(klM.group(1));
+                lrLevelCap = kLevel == 0 ? Integer.valueOf(40) : kLevel <= 2 ? Integer.valueOf(60) : null;
+            }
+            // Sàn LR 40% chỉ áp khi bài trả lời đủ đề (không bị trần lạc đề) và không bị trần thiếu độ dài (G1).
+            lrFloorEligible = topicCap == null && lenCaps == null;
+        }
+
         for (String name : grade.rows()) {
             CheckpointMatch line = findCheckpointLine(audit, name);
             if (line == null) {
@@ -450,14 +519,44 @@ public final class WritingV3Scoring {
             }
 
             int fin = hasCap ? Math.min(cp, modelFinal) : cp;
-            var errFn = ERR_OF.get(name);
-            if (errFn != null && nWords >= 0) {
-                int e = errFn.apply(errs);
-                int ec = errorCap(e, nWords, isG6);
+            // Grammatical Range & Accuracy ở Khối 7 IELTS dùng mật độ lỗi CÓ TRỌNG SỐ (vòng 17: nhẹ 0.5,
+            // nặng 1) thay cho đếm thô gr+pu — tra CHUNG bảng errorCap, chỉ đổi số lỗi đưa vào tra bảng.
+            if ("Grammatical Range & Accuracy".equals(name) && isG7Ielts && g7WeightedGraErrors != null && nWords >= 0) {
+                int ec = errorCap((int) Math.round(g7WeightedGraErrors), nWords, isG6);
                 if (ec < fin) {
-                    fixes.add(name + ": trần " + e + " lỗi / " + nWords + " từ → " + ec + "%");
+                    fixes.add(name + ": trần mật độ lỗi có trọng số " + g7WeightedGraErrors + " / " + nWords + " từ (vòng 17) → " + ec + "%");
                     fin = ec;
                 }
+            } else {
+                var errFn = ERR_OF.get(name);
+                if (errFn != null && nWords >= 0) {
+                    int e = errFn.apply(errs);
+                    int ec = errorCap(e, nWords, isG6);
+                    if (ec < fin) {
+                        fixes.add(name + ": trần " + e + " lỗi / " + nWords + " từ → " + ec + "%");
+                        fin = ec;
+                    }
+                }
+            }
+            // Vòng 17 — trần "phát triển lệch"/"chỉ có lý do" (Task Response/Achievement, Khối 7-8 IELTS).
+            if (trCap != null && name.equals(grade.contentCriterion()) && trCap < fin) {
+                fixes.add(name + ": " + trNote + " (vòng 17)");
+                fin = trCap;
+            }
+            // Vòng 17 — trần "hiểu được" theo tỉ lệ câu có lỗi nặng (Grammatical Range & Accuracy, Khối 7 IELTS).
+            if ("Grammatical Range & Accuracy".equals(name) && graSevereSentenceCap != null && graSevereSentenceCap < fin) {
+                fixes.add(name + ": nhiều câu có lỗi nặng (vòng 17) → tối đa " + graSevereSentenceCap + "%");
+                fin = graSevereSentenceCap;
+            }
+            // Vòng 17 — trần Coherence & Cohesion khi không có từ nối đúng nào (Khối 7 IELTS).
+            if ("Coherence & Cohesion".equals(name) && ccConnectorCap != null && ccConnectorCap < fin) {
+                fixes.add(name + ": không có từ nối đúng nào (vòng 17) → tối đa " + ccConnectorCap + "%");
+                fin = ccConnectorCap;
+            }
+            // Vòng 17 — trần Lexical Resource theo K_level (Khối 7 IELTS).
+            if ("Lexical Resource".equals(name) && lrLevelCap != null && lrLevelCap < fin) {
+                fixes.add(name + ": K_level thấp (vòng 17) → tối đa " + lrLevelCap + "%");
+                fin = lrLevelCap;
             }
             // Trần lạc đề áp cho MỌI tiêu chí, kể cả các hàng ngôn ngữ.
             if (topicCap != null && topicCap < fin) {
@@ -483,6 +582,17 @@ public final class WritingV3Scoring {
             }
             finals.put(name, fin);
             if (fin != modelFinal) {
+                changed = true;
+            }
+        }
+
+        // Vòng 17 — sàn Lexical Resource 40% (Khối 7 IELTS): trả lời đủ đề (không bị trần lạc đề) và không
+        // bị trần thiếu độ dài (G1) thì vốn từ ít nhất đã đủ truyền đạt nội dung, không được chấm dưới 40%.
+        if (isG7Ielts && lrFloorEligible) {
+            Integer lr = finals.get("Lexical Resource");
+            if (lr != null && lr < 40) {
+                fixes.add("Lexical Resource: trả lời đủ đề, không bị trần độ dài (vòng 17) → sàn tối thiểu 40%");
+                finals.put("Lexical Resource", 40);
                 changed = true;
             }
         }

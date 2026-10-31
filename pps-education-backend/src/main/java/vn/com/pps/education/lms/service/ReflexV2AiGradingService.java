@@ -134,12 +134,26 @@ public class ReflexV2AiGradingService {
     // ===================== Bước 1: chấm bài viết =====================
 
     public WritingResult gradeWriting(ReflexV2Task task, String question, String text) {
+        return gradeWriting(task, question, text, null);
+    }
+
+    /**
+     * Overload CHỈ dùng cho spike (2026-10-22, đã xác nhận với người dùng — {@code SpeakingAiGradingTestService},
+     * đánh giá khả thi chuyển khỏi 9Router cho ĐÚNG luồng Viết câu ngắn → Nói, KHÔNG phải Essay UC-40/41) —
+     * cho phép thay nguồn gọi AI bằng 1 hàm tự truyền vào, để so sánh model khác (VD Claude gọi thẳng)
+     * TRÊN CÙNG prompt/rubric v2-v3 thật ({@link ReflexV2Prompts}) và CÙNG logic hậu kiểm checkpoint thật
+     * ({@link ReflexV2Scoring}). {@code aiCallerOverride == null} (mọi caller nghiệp vụ thật, qua overload
+     * 3-tham-số ở trên) giữ NGUYÊN hành vi cũ — gọi {@link NineRouterAiClient} như trước.
+     */
+    public WritingResult gradeWriting(ReflexV2Task task, String question, String text,
+                                       java.util.function.BiFunction<String, String, NineRouterAiClient.AiJsonResponse> aiCallerOverride) {
         if (text == null || text.isBlank()) {
             return null;
         }
-        NineRouterAiClient.AiJsonResponse response = nineRouterAiClient.chatJson(
-                prompts.writingSystem(task), prompts.writingUser(question, text), model,
-                prompts.gradingSchema(task.writingCriteria()));
+        NineRouterAiClient.AiJsonResponse response = aiCallerOverride != null
+                ? aiCallerOverride.apply(prompts.writingSystem(task), prompts.writingUser(question, text))
+                : nineRouterAiClient.chatJson(prompts.writingSystem(task), prompts.writingUser(question, text), model,
+                        prompts.gradingSchema(task.writingCriteria()));
         if (response == null) {
             log.warn("ReflexV2AiGradingService: 9Router chấm bài viết thất bại.");
             return null;
@@ -150,8 +164,14 @@ public class ReflexV2AiGradingService {
             int redCount = ReflexV2Scoring.countRed(highlights);
             ReflexV2Scoring.ScoreSet scored = ReflexV2Scoring.applyRedCap(task.grammarCode(),
                     ReflexV2Scoring.computeScores(task, task.writingCriteria(), data), redCount);
-            List<ReflexV2Scoring.CriterionScore> capped = ReflexV2Scoring.applyErrorCaps(
-                    task, scored.criteria(), highlights, ReflexV2Scoring.ErrorEvidence.NONE);
+            // 20/10/2026 (bản bàn giao Gemini 3.8) — BỎ applyErrorCaps ở bài viết: trần theo lỗi đã tô phạt
+            // HAI LẦN (checkpoint đã đếm đúng lỗi đó, trần lại trừ thêm không theo độ dài bài) — xem Javadoc
+            // ReflexV2Scoring#applyErrorCaps. Trần ≥2 lỗi đỏ (applyRedCap, quy tắc chung §C) vẫn giữ.
+            List<ReflexV2Scoring.CriterionScore> capped = scored.criteria();
+            // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — cổng "Lạc đề" trước đây chỉ hiện thông báo
+            // (buildGateNote), KHÔNG có trần % thật — điểm phụ thuộc hoàn toàn AI tự giác. Giờ ép trần tất
+            // định theo đúng rubric (xem Javadoc ReflexV2Scoring#applyWritingOffTopicCap).
+            capped = ReflexV2Scoring.applyWritingOffTopicCap(task, capped, scored.gates());
             int grammarPercent = capped.stream()
                     .filter(c -> c.code().equals(task.grammarCode())).mapToInt(ReflexV2Scoring.CriterionScore::percent)
                     .findFirst().orElse(0);
@@ -211,6 +231,7 @@ public class ReflexV2AiGradingService {
         double aiLongestPause;
         boolean audioQualityInsufficient;
         int wordAuditRows;
+        List<String> wordAudit = new ArrayList<>();
         List<String> suspectWords = new ArrayList<>();
         try {
             JsonNode t = parseJson(transcription.content());
@@ -219,6 +240,11 @@ public class ReflexV2AiGradingService {
             aiLongestPause = t.path("longest_pause_seconds").asDouble(0);
             audioQualityInsufficient = t.path("audio_quality_insufficient").asBoolean(false);
             wordAuditRows = t.path("word_audit").size();
+            for (JsonNode w : t.path("word_audit")) {
+                if (!w.asText("").isBlank()) {
+                    wordAudit.add(w.asText());
+                }
+            }
             for (JsonNode w : t.path("suspect_words")) {
                 if (suspectWords.size() < MAX_SUSPECT_WORDS && !w.asText("").isBlank()) {
                     suspectWords.add(w.asText().trim());
@@ -260,6 +286,15 @@ public class ReflexV2AiGradingService {
         ReflexV2Scoring.Readback readbackRaw = ReflexV2Scoring.writtenVsSpoken(anchor.text(), transcript);
         List<String> deviantWords = readbackRaw == null ? List.of() : readbackRaw.words();
 
+        // Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) — bằng chứng Phát âm theo từng từ, cấp trần mềm thay
+        // mốc cứng cũ (xem Javadoc ReflexV2Scoring#parseWordAudit). Tính trên transcript ĐÃ lọc bịa/không có
+        // tiếng nói, KHÔNG gate theo noSpeech (giống readback/lexical) — bài không nói gì tự ra spelledCount=0.
+        ReflexV2Scoring.WordAudit wordAuditEvidence = ReflexV2Scoring.parseWordAudit(wordAudit, transcript);
+        if (!wordAuditEvidence.usable() && !transcript.isBlank()) {
+            log.warn("ReflexV2AiGradingService: word_audit phủ {}% số từ — không đủ để áp trần mềm Phát âm.",
+                    Math.round(wordAuditEvidence.coverage() * 100));
+        }
+
         // ---- Lượt B: chấm bài nói trên transcript cố định (chấm lại CẢ Ngữ pháp, xem Javadoc lớp) ----
         String grammar = task.grammarCode();
         List<String> gradedCodes = task.criteria();
@@ -299,17 +334,21 @@ public class ReflexV2AiGradingService {
                 }
             }
             double spokenSec = measured.map(m -> m.spanSec() > 0 ? m.spanSec() : m.speechSec()).orElse(0.0);
-            ReflexV2Scoring.LexicalEvidence lexical = noSpeech ? null : ReflexV2Scoring.lexicalCeiling(transcript, task.lexicalSeconds());
+            ReflexV2Scoring.LexicalEvidence lexical = noSpeech ? null
+                    : ReflexV2Scoring.lexicalCeiling(transcript, task.lexicalSeconds(), task.lexicalLowRung());
             ReflexV2Scoring.FluencyEvidence fluency = noSpeech ? null : ReflexV2Scoring.fluencyCeiling(transcript, longestPause);
             ReflexV2Scoring.LengthEvidence length = ReflexV2Scoring.lengthGate(task, transcript, spokenSec);
             ReflexV2Scoring.Readback readback = noSpeech ? null : readbackRaw;
             List<ReflexV2Scoring.CriterionScore> capped = ReflexV2Scoring.applyGrammarFloor(grammar,
                     ReflexV2Scoring.applyErrorCaps(task, raw, highlights,
-                            new ReflexV2Scoring.ErrorEvidence(lexical, fluency, length, readback)));
+                            new ReflexV2Scoring.ErrorEvidence(lexical, fluency, length, readback, wordAuditEvidence)));
             if (keepStep1Grammar) {
                 // Trần theo lỗi đã tô trên transcript không được đụng tới điểm đã giữ từ Bước 1.
                 capped = ReflexV2Scoring.keepGrammarFromStep1(grammar, capped, anchor.grammarPercent());
             }
+            // Bổ sung 2026-10-22 (đã xác nhận với người dùng) — cổng "Lạc đề" trước đây chỉ hiện thông báo,
+            // không có trần % thật — xem Javadoc ReflexV2Scoring#applySpeakingOffTopicCap.
+            capped = ReflexV2Scoring.applySpeakingOffTopicCap(task, capped, scored.gates());
             // Bản 1/10 — ép lưới 10 là BƯỚC CUỐI, sau mọi trần/sàn khác (xem Javadoc snapToGrid10).
             capped = ReflexV2Scoring.snapToGrid10(capped);
             // Quy trình phòng đào tạo 29/9: chỉ MỘT lượt phiên âm nên vài từ nghe nhầm có thể thành lỗi đỏ ngữ pháp
@@ -376,6 +415,45 @@ public class ReflexV2AiGradingService {
             log.warn("ReflexV2AiGradingService: parse kết quả chấm bài nói thất bại. {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Bổ sung 2026-10-23 (đã xác nhận với người dùng) — dự phòng RIÊNG từng bước cho
+     * {@link AiGradingFallbackService}: Groq lỗi thì chỉ bước phiên âm rơi về 9Router (Lượt A "phiên âm mù" y hệt
+     * {@link #gradeSpeaking}). Trả {@code null} nếu 9Router/parse lỗi.
+     */
+    public String transcribeBlind(byte[] audioForModel, String mimeForModel, double durationSec, SpeakingUsageSink usageSink) {
+        NineRouterAiClient.AiJsonResponse transcription = nineRouterAiClient.chatWithAudioJson(
+                prompts.transcriptionSystem(), prompts.transcriptionUser(durationSec), audioForModel, mimeForModel, model,
+                prompts.transcriptionSchema());
+        if (transcription == null) {
+            log.warn("ReflexV2AiGradingService: 9Router phiên âm (dự phòng Groq) thất bại.");
+            return null;
+        }
+        usageSink.record(AiGradingTokenUsage.Step.TRANSCRIPTION, transcription.usage());
+        try {
+            return parseJson(transcription.content()).path("transcript").asText("").trim();
+        } catch (IOException e) {
+            log.warn("ReflexV2AiGradingService: parse phiên âm (dự phòng Groq) thất bại. {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Dự phòng RIÊNG cho bước chấm nội dung (Claude lỗi) và/hoặc điểm Phát âm (Azure lỗi): 9Router chấm trực tiếp trên
+     * audio với prompt/schema y hệt Lượt B của {@link #gradeSpeaking}. Trả JSON thô của AI, caller tự parse/ghép điểm.
+     * {@code null} nếu 9Router lỗi.
+     */
+    public NineRouterAiClient.AiJsonResponse gradeSpeakingOnAudio(ReflexV2Task task, String systemPrompt, String userPrompt,
+                                                                   byte[] audioForModel, String mimeForModel, SpeakingUsageSink usageSink) {
+        NineRouterAiClient.AiJsonResponse graded = nineRouterAiClient.chatWithAudioJson(systemPrompt, userPrompt,
+                audioForModel, mimeForModel, model, prompts.gradingSchema(task.criteria()));
+        if (graded == null) {
+            log.warn("ReflexV2AiGradingService: 9Router chấm nói (dự phòng) thất bại.");
+            return null;
+        }
+        usageSink.record(AiGradingTokenUsage.Step.SPEAKING, graded.usage());
+        return graded;
     }
 
     // ===================== Câu đã sửa (V141) =====================
