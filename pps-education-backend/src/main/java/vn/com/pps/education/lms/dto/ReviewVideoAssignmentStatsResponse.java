@@ -16,6 +16,8 @@ public record ReviewVideoAssignmentStatsResponse(
         Long reviewVideoSetId,
         String reviewVideoSetCode,
         String reviewVideoSetTitle,
+        /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-11-02) — tên Unit chứa Bộ này, lấy qua set.subTopic.unit — mirror ExerciseAssignmentStatsResponse#unitTitle. NULL khi Bộ chưa phân loại vào cấu trúc Sách/Unit/SubTopic. Dùng để FE nhóm các dòng thống kê theo Unit ở UC-66. */
+        String unitTitle,
         ReviewVideoSet.VideoType videoType,
         /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — dùng lọc GV Việt Nam/nước ngoài ở UC-66. */
         ReviewVideoSet.TeacherType teacherType,
