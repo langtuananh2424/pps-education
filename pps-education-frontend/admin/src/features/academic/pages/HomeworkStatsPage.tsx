@@ -225,13 +225,35 @@ export default function HomeworkStatsPage() {
 
   const hasActiveFilters = searchQuery.trim() !== "" || dateFilter !== "" || teacherTypeFilter !== null;
 
+  /**
+   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-11-02) — nhóm các dòng theo Unit (qua
+   * data.unitTitle, lấy từ exercise.exam.subTopic.unit / reviewVideoSet.subTopic.unit) để GV dễ kiểm
+   * soát khi 1 lớp có nhiều BTVN. Giữ nguyên thứ tự theo ngày giao (mới nhất trước) đã có từ `rows` —
+   * chỉ gom các dòng CÙNG Unit lại gần nhau (nhóm Unit nào có dòng mới nhất thì hiện trước), không
+   * sắp xếp lại trong nội bộ từng nhóm. NULL (Exam/Bộ chưa phân loại vào cấu trúc Sách/Unit/SubTopic)
+   * gom vào 1 nhóm riêng "Chưa phân loại Unit".
+   */
+  const { unitGroupedRows, unitCounts } = useMemo(() => {
+    const groups = new Map<string | null, HomeworkRow[]>();
+    for (const r of filteredRows) {
+      const key = r.data.unitTitle ?? null;
+      const list = groups.get(key);
+      if (list) list.push(r);
+      else groups.set(key, [r]);
+    }
+    const counts = new Map<string | null, number>();
+    groups.forEach((list, key) => counts.set(key, list.length));
+    return { unitGroupedRows: Array.from(groups.values()).flat(), unitCounts: counts };
+  }, [filteredRows]);
+
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — phân trang phía client (mirror
   // ExerciseAssignPage.tsx — backend GET .../stats chưa hỗ trợ phân trang server-side). Về trang 1 mỗi
   // khi đổi bộ lọc để không kẹt ở 1 trang rỗng sau khi lọc ra ít kết quả hơn.
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   useEffect(() => setPage(0), [searchQuery, dateFilter, teacherTypeFilter, rows]);
-  const pageRows = filteredRows.slice(page * pageSize, (page + 1) * pageSize);
+  const pageRows = unitGroupedRows.slice(page * pageSize, (page + 1) * pageSize);
+  const unitKeyOf = (r: HomeworkRow) => r.data.unitTitle ?? null;
 
   return (
     <div className="space-y-6">
@@ -330,11 +352,30 @@ export default function HomeworkStatsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {pageRows.map((r) =>
-                  r.kind === "exercise" ? (
+                {pageRows.map((r, idx) => {
+                  const unitKey = unitKeyOf(r);
+                  const showUnitHeader = idx === 0 || unitKeyOf(pageRows[idx - 1]) !== unitKey;
+                  const fragmentKey =
+                    r.kind === "exercise"
+                      ? r.data.batchMembers != null
+                        ? `batch-${r.data.homeworkBatchId}`
+                        : `exercise-${r.data.assignmentId}`
+                      : `review-video-${r.data.assignmentId}`;
+                  return (
+                    <React.Fragment key={fragmentKey}>
+                      {showUnitHeader && (
+                        <tr className="bg-brand-50/50">
+                          <Td colSpan={8} className="py-2 font-bold text-[13px] text-brand-700">
+                            {unitKey ?? t("list.unitGroup.none")}{" "}
+                            <span className="font-normal text-slate-400">
+                              ({t("list.unitGroup.countSuffix", { count: unitCounts.get(unitKey) ?? 0 })})
+                            </span>
+                          </Td>
+                        </tr>
+                      )}
+                      {r.kind === "exercise" ? (
                     r.data.batchMembers != null ? (
                       <BatchGroupRows
-                        key={`batch-${r.data.homeworkBatchId}`}
                         data={r.data}
                         expanded={expandedBatchIds.has(r.data.homeworkBatchId as number)}
                         onToggle={() =>
@@ -352,7 +393,7 @@ export default function HomeworkStatsPage() {
                         navigate={navigate}
                       />
                     ) : (
-                    <tr key={`exercise-${r.data.assignmentId}`}>
+                    <tr>
                       <Td className="font-semibold text-slate-900">
                         {r.data.exerciseTitle} <span className="text-slate-400 font-mono text-[12px]">({r.data.exerciseCode})</span>
                       </Td>
@@ -384,7 +425,7 @@ export default function HomeworkStatsPage() {
                     </tr>
                     )
                   ) : (
-                    <tr key={`review-video-${r.data.assignmentId}`}>
+                    <tr>
                       <Td className="font-semibold text-slate-900">
                         {r.data.reviewVideoSetTitle} <span className="text-slate-400 font-mono text-[12px]">({r.data.reviewVideoSetCode})</span>
                       </Td>
@@ -412,8 +453,10 @@ export default function HomeworkStatsPage() {
                         </Button>
                       </Td>
                     </tr>
-                  )
-                )}
+                  )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </TableContainer>
             <Pagination

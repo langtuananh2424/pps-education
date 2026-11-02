@@ -64,6 +64,10 @@
     "dateFilterPlaceholder": "Filter by assigned date...",
     "clearFilters": "Clear filters",
     "noDueDate": "No due date",
+    "unitGroup": {
+      "none": "Uncategorized",
+      "countSuffix": "{{count}} assignments"
+    },
     "emptyNoRows": {
       "title": "No homework yet",
       "description": "This class hasn't been assigned any homework yet."
