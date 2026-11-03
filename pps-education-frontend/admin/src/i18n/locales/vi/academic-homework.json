@@ -64,6 +64,10 @@
     "dateFilterPlaceholder": "Lọc theo ngày giao...",
     "clearFilters": "Xoá lọc",
     "noDueDate": "Không có hạn",
+    "unitGroup": {
+      "none": "Chưa phân loại Unit",
+      "countSuffix": "{{count}} BTVN"
+    },
     "emptyNoRows": {
       "title": "Chưa có BTVN nào",
       "description": "Lớp này chưa được giao BTVN nào."

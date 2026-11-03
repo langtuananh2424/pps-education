@@ -166,6 +166,7 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStatsResponse(
                 first.getId(), firstExercise.getId(), firstExercise.getCode(),
                 firstExercise.getExam().getTitle() + " – " + skillCategoryLabel(firstExercise.getSkillCategory()) + " (" + group.size() + " bài)",
+                firstExercise.getExam().getSubTopic() == null ? null : firstExercise.getExam().getSubTopic().getUnit().getTitle(),
                 firstExercise.getExerciseType().name(), firstExercise.getExam().getTeacherType().name(),
                 first.getAvailableFrom(), first.getDueAt(), first.isLateSubmissionAllowed(), first.getLateSubmissionDeadline(),
                 allCompleted ? "COMPLETED" : "ACTIVE",
@@ -432,6 +433,7 @@ public class ExerciseReportService {
 
         return new ExerciseAssignmentStatsResponse(
                 assignment.getId(), exercise.getId(), exercise.getCode(), exercise.getTitle(),
+                exercise.getExam().getSubTopic() == null ? null : exercise.getExam().getSubTopic().getUnit().getTitle(),
                 exercise.getExerciseType().name(), exercise.getExam().getTeacherType().name(),
                 assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(), assignment.getLateSubmissionDeadline(),
                 assignment.getStatus().name(), totalStudents, completedCount,

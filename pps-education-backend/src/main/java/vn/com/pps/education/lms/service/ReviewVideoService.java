@@ -1609,7 +1609,9 @@ public class ReviewVideoService {
         int completionPercent = totalStudents == 0 ? 0 : completedCount * 100 / totalStudents;
 
         return new ReviewVideoAssignmentStatsResponse(
-                assignment.getId(), set.getId(), set.getCode(), set.getTitle(), set.getVideoType(), set.getTeacherType(),
+                assignment.getId(), set.getId(), set.getCode(), set.getTitle(),
+                set.getSubTopic() == null ? null : set.getSubTopic().getUnit().getTitle(),
+                set.getVideoType(), set.getTeacherType(),
                 assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(), assignment.getLateSubmissionDeadline(),
                 assignment.getStatus(), totalStudents, completedCount, completionPercent, passedCount, passRatePercent);
     }

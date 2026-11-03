@@ -1130,6 +1130,8 @@ export interface ReviewVideoAssignmentStatsResponse {
   reviewVideoSetId: number;
   reviewVideoSetCode: string;
   reviewVideoSetTitle: string;
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-11-02) — tên Unit chứa Bộ này, NULL khi chưa phân loại vào cấu trúc Sách/Unit/SubTopic. Dùng để FE nhóm các dòng thống kê theo Unit ở UC-66. */
+  unitTitle: string | null;
   videoType: ReviewVideoType;
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — dùng lọc GV Việt Nam/nước ngoài ở UC-66. */
   teacherType: ReviewVideoTeacherType;
