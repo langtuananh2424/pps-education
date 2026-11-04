@@ -109,6 +109,7 @@
       "completed": "Completed",
       "attemptCount": "Attempts",
       "activeTime": "Time spent",
+      "activeTimeTooltip": "Total across {{count}} attempt(s), retakes included · first started {{startedAt}}",
       "violation": "Violation",
       "viewDetailTitle": "View details"
     },
