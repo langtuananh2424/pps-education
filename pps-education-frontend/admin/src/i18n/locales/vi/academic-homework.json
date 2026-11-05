@@ -109,6 +109,7 @@
       "completed": "Đã hoàn thành",
       "attemptCount": "Số lần làm",
       "activeTime": "Thời gian làm",
+      "activeTimeTooltip": "Tổng thời gian của {{count}} lượt làm (kể cả làm lại) · bắt đầu lần đầu {{startedAt}}",
       "violation": "Vi phạm",
       "viewDetailTitle": "Xem chi tiết"
     },
