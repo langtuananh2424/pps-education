@@ -1849,6 +1849,8 @@ export interface ExerciseAssignmentStatsResponse {
   exerciseId: number;
   exerciseCode: string;
   exerciseTitle: string;
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-11-02) — tên Unit chứa Bài này, NULL khi chưa phân loại vào cấu trúc Sách/Unit/SubTopic. Dùng để FE nhóm các dòng thống kê theo Unit ở UC-66. */
+  unitTitle: string | null;
   exerciseType: "SELF_PRACTICE" | "ASSIGNED" | "MOCK_TEST" | "SKILL_PRACTICE";
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — lấy qua Đề cha (exam.teacherType). */
   teacherType: "VIETNAMESE" | "FOREIGN";

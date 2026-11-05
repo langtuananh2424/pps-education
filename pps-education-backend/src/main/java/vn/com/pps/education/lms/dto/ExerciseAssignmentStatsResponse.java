@@ -9,6 +9,8 @@ public record ExerciseAssignmentStatsResponse(
         Long exerciseId,
         String exerciseCode,
         String exerciseTitle,
+        /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-11-02) — tên Unit chứa Đề (Exam) của Bài này, lấy qua exercise.exam.subTopic.unit — mirror ExamResponse#unitTitle. NULL khi Exam chưa phân loại vào cấu trúc Sách/Unit/SubTopic. Dùng để FE nhóm các dòng thống kê theo Unit ở UC-66. */
+        String unitTitle,
         String exerciseType,
         /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — lấy qua Đề cha (exercise.exam.teacherType), Exercise không tự có field này. Dùng lọc GV Việt Nam/nước ngoài ở UC-66. */
         String teacherType,

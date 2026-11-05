@@ -1130,6 +1130,8 @@ export interface ReviewVideoAssignmentStatsResponse {
   reviewVideoSetId: number;
   reviewVideoSetCode: string;
   reviewVideoSetTitle: string;
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-11-02) — tên Unit chứa Bộ này, NULL khi chưa phân loại vào cấu trúc Sách/Unit/SubTopic. Dùng để FE nhóm các dòng thống kê theo Unit ở UC-66. */
+  unitTitle: string | null;
   videoType: ReviewVideoType;
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — dùng lọc GV Việt Nam/nước ngoài ở UC-66. */
   teacherType: ReviewVideoTeacherType;
@@ -1183,6 +1185,8 @@ export interface ReviewVideoAssignmentStudentRow {
   lateSubmission: boolean;
   /** V198 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — REFLEX: lần ghi âm gần nhất của ít nhất 1 câu cần giáo viên soát điểm Ngữ pháp. Luôn false với CONNECTION. */
   grammarReviewRequired: boolean;
+  /** Tổng thời gian làm bài (giây) — cộng các phiên làm bài, null = chưa có dữ liệu. */
+  timeSpentSeconds: number | null;
 }
 
 export interface ReviewVideoAssignmentStudentStatsResponse {

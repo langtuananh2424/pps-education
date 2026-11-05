@@ -40,6 +40,9 @@ public interface ReviewVideoWatchSessionRepository extends JpaRepository<ReviewV
     /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — đếm TOÀN BỘ lượt đã có (kể cả chưa qualified) TRƯỚC lượt mới, dùng tính slotIndex theo chu kỳ modulo M. */
     int countByReviewVideoIdAndStudentIdAndArchivedAtIsNull(Long reviewVideoId, Long studentId);
 
+    /** Thống kê thời gian làm bài theo lần giao (ReviewVideoReportService#sumSittingSeconds). */
+    List<ReviewVideoWatchSession> findByReviewVideoAssignmentId(Long reviewVideoAssignmentId);
+
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa video" (xem ReviewVideoService#deleteVideo): đã có học sinh xem thì không cho xóa. */
     boolean existsByReviewVideoId(Long reviewVideoId);
 

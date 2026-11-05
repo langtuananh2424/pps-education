@@ -209,7 +209,7 @@ export default function ExerciseStudentPreviewModal({ exercise, onClose }: Exerc
         <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
           {blocks.map((block, i) =>
             block.type === "grid" ? (
-              <GridQuestionGroupPreview key={block.groupKey} block={block} startNumber={startNumbers[i]} />
+              <GridQuestionGroupPreview key={block.groupKey} block={block} />
             ) : (
               <QuestionPreview key={block.question.id} question={block.question} displayNumber={startNumbers[i]} />
             )
@@ -221,7 +221,7 @@ export default function ExerciseStudentPreviewModal({ exercise, onClose }: Exerc
 }
 
 /** Mirror TakeExerciseModal#GridQuestionGroup — "Đọc hiểu — lưới" / "1 audio nhiều câu". */
-function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<RenderBlock, { type: "grid" }>; startNumber: number }) {
+function GridQuestionGroupPreview({ block }: { block: Extract<RenderBlock, { type: "grid" }> }) {
   const { t } = useTranslation("lms-question-authoring");
   // Bổ sung 2026-10-19 (đã xác nhận với người dùng — ANH_TRAC_NGHIEM/ANH_DIEN_TU): phân biệt với
   // isDistinctPictureMatchGrid bên dưới — ở ĐÂY cả nhóm dùng CHUNG ĐÚNG 1 ảnh (mirror
@@ -299,10 +299,10 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
        */}
       {isDistinctPictureMatchGrid ? (
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-          {block.questions.map((q, qIndex) => (
+          {block.questions.map((q) => (
             <div key={q.id} className="space-y-1.5">
               <img src={q.imageUrl ?? undefined} alt="" className="w-full aspect-square object-contain rounded-xl border border-slate-200 bg-white" />
-              <p className="text-center text-[12px] font-bold text-slate-400">{startNumber + qIndex}</p>
+              <p className="text-center text-[12px] font-bold text-slate-400">{q.displayOrder}</p>
               <input
                 placeholder={t("studentPreviewModal.answerPlaceholder")}
                 className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-xl text-center focus:outline-none"
@@ -312,7 +312,7 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {attachSectionInstructions(block.questions, block.instruction).map(({ question: q, sectionInstruction }, qIndex) => {
+          {attachSectionInstructions(block.questions, block.instruction).map(({ question: q, sectionInstruction }) => {
             // Fix bug thật 2026-10-29 (đã xác nhận với người dùng qua ảnh chụp) — câu WORD_BANK tự hiện
             // "Hướng dẫn" riêng qua prop `instruction` của WordBankPreview bên dưới (xem GridQuestionRowPreview),
             // nếu CŨNG hiện thêm đoạn <p> sectionInstruction ở đây thì "Hướng dẫn" bị lặp 2 LẦN cho câu
@@ -330,7 +330,7 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
                 )}
                 <GridQuestionRowPreview
                   question={q}
-                  displayNumber={startNumber + qIndex}
+                  displayNumber={q.displayOrder}
                   hideImage={isSharedImageGroup}
                   sectionInstruction={sectionInstruction}
                 />
