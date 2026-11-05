@@ -52,6 +52,11 @@ public record ReviewVideoAssignmentStudentStatsResponse(
              * ít nhất 1 câu cần giáo viên soát điểm Ngữ pháp (≥2 lỗi đỏ ngữ pháp ở nhánh chấm lại từ transcript —
              * lượt phiên âm có thể nghe nhầm). Luôn false cho CONNECTION.
              */
-            boolean grammarReviewRequired
+            boolean grammarReviewRequired,
+            /**
+             * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-11-04) — tổng thời gian làm bài (giây),
+             * xem ReviewVideoReportService#sumSittingSeconds. null = chưa có dữ liệu.
+             */
+            Integer timeSpentSeconds
     ) {}
 }

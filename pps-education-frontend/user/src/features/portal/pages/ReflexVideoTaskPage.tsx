@@ -10,6 +10,7 @@ import {
   getReflexRecordingConfig,
   listMyReflexProgress,
   listReviewVideoQuestions,
+  startReviewVideoWatchSession,
   submitReflexSpokenAnswer,
   submitReflexWrittenAnswer,
   waitForReflexGrading,
@@ -1647,6 +1648,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     }
     setRequestingMic(false);
     setStarted(true);
+    // Ghi mốc bắt đầu phiên làm bài cho thống kê "Thời gian làm bài" phía giáo viên — lỗi không chặn học sinh.
+    if (assignmentId != null) startReviewVideoWatchSession(video.id, assignmentId).catch(() => {});
   };
 
   const handleExit = () => {

@@ -25,7 +25,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
-import { formatDateTime } from "@/lib/i18nFormat";
+import { formatActiveDuration, formatDateTime } from "@/lib/i18nFormat";
 import DatePicker from "@/components/ui/DatePicker";
 import Time24Input from "@/components/ui/Time24Input";
 import Modal from "@/components/ui/Modal";
@@ -303,6 +303,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                     <Th>{t("shared.table.student")}</Th>
                     {isConnection && <Th className="text-center">{t("reviewVideoDetail.table.viewed")}</Th>}
                     <Th className="text-center">{t("reviewVideoDetail.table.completed")}</Th>
+                    <Th className="text-center">{t("reviewVideoDetail.table.timeSpent")}</Th>
                     {isConnection ? (
                       <>
                         <Th className="text-center">{t("reviewVideoDetail.table.quizScore")}</Th>
@@ -336,6 +337,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                           {s.completed ? t("reviewVideoDetail.table.completedBadge") : t("reviewVideoDetail.table.notCompletedBadge")}
                         </Badge>
                       </Td>
+                      <Td className="text-center tabular-nums">{s.timeSpentSeconds ? formatActiveDuration(s.timeSpentSeconds) : "—"}</Td>
                       {isConnection ? (
                         <>
                           <Td className="text-center">
