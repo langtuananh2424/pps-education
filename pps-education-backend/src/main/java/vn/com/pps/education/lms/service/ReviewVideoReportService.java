@@ -43,7 +43,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -534,6 +537,12 @@ public class ReviewVideoReportService {
         Map<Long, List<ReviewVideoConnectionQuestion>> questionsByVideoId = questions.stream()
                 .collect(Collectors.groupingBy(q -> q.getReviewVideo().getId()));
         Map<String, ReviewVideoConnectionAnswer> latestAnswerByStudentAndQuestion = latestConnectionAnswerByStudentAndQuestion(videoIds);
+        List<ReviewVideoWatchSession> sessions = reviewVideoWatchSessionRepository.findByReviewVideoAssignmentId(assignmentId);
+        Map<Long, List<OffsetDateTime>> quizDoneAtByStudentId = sessions.stream()
+                .filter(ws -> ws.getQuizCompletedAt() != null)
+                .collect(Collectors.groupingBy(ws -> ws.getStudent().getId(),
+                        Collectors.mapping(ReviewVideoWatchSession::getQuizCompletedAt, Collectors.toList())));
+        Map<Long, List<OffsetDateTime>> sittingStartsByStudentId = sittingStartsByStudentId(sessions);
 
         return scopedStudentIds.stream().map(studentId -> {
             ClassEnrollment enrollment = enrollmentByStudentId.get(studentId);
@@ -569,7 +578,8 @@ public class ReviewVideoReportService {
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
                     viewCount, requiredViewCount, allVideosCompleted,
                     correctCount, totalQuestions, allVideosPassed,
-                    null, null, null, null, false, false);
+                    null, null, null, null, false, false,
+                    sumSittingSeconds(sittingStartsByStudentId.get(studentId), quizDoneAtByStudentId.get(studentId)));
         }).filter(java.util.Objects::nonNull).toList();
     }
 
@@ -639,6 +649,13 @@ public class ReviewVideoReportService {
                         p -> p.getReviewVideoQuestion().getId() + ":" + p.getStudent().getId(),
                         p -> p,
                         (a, b) -> a));
+        Map<Long, List<OffsetDateTime>> sittingStartsByStudentId =
+                sittingStartsByStudentId(reviewVideoWatchSessionRepository.findByReviewVideoAssignmentId(assignmentId));
+        // Mỗi dòng lịch sử = 1 lần nộp viết/nói (ghi ngay sau khi AI chấm xong).
+        Map<Long, List<OffsetDateTime>> submittedAtByStudentId = reflexQuestionProgressHistoryRepository
+                .findByReviewVideoAssignmentIdOrderByStudentIdAscCreatedAtAsc(assignmentId).stream()
+                .collect(Collectors.groupingBy(h -> h.getStudent().getId(),
+                        Collectors.mapping(ReflexQuestionProgressHistory::getCreatedAt, Collectors.toList())));
         // V145 — "HOÀN THÀNH" của REFLEX cũng bị ảnh hưởng bởi cùng bug: dựa vào ReviewVideoProgress
         // (xem/nghe hết % thời lượng), NHƯNG luồng phát video REFLEX mới (ReflexVideoTaskPage.tsx,
         // "nhảy thẳng theo mốc câu hỏi") KHÔNG CÒN gọi API cập nhật ReviewVideoProgress nữa — cột này
@@ -715,11 +732,43 @@ public class ReviewVideoReportService {
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
                     viewCount, requiredViewCount, completed,
                     null, null, allQuestionsPassed,
-                    answered, totalReflexQuestions, averageScore, averageMaxScore, lateSubmission, grammarReviewRequired);
+                    answered, totalReflexQuestions, averageScore, averageMaxScore, lateSubmission, grammarReviewRequired,
+                    sumSittingSeconds(sittingStartsByStudentId.get(studentId), submittedAtByStudentId.get(studentId)));
         }).filter(java.util.Objects::nonNull).toList();
     }
 
     // ===================== Helpers =====================
+
+    private static Map<Long, List<OffsetDateTime>> sittingStartsByStudentId(List<ReviewVideoWatchSession> sessions) {
+        return sessions.stream().collect(Collectors.groupingBy(ws -> ws.getStudent().getId(),
+                Collectors.mapping(ReviewVideoWatchSession::getStartedAt, Collectors.toList())));
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-11-04) — thời gian làm bài = tổng các phiên
+     * làm bài; mỗi phiên (1 lượt bấm vào làm = 1 ReviewVideoWatchSession) kéo dài từ lúc bắt đầu tới lần
+     * nộp CUỐI CÙNG trước khi mở phiên kế tiếp. Phiên không nộp gì thì không tính (bỏ dở giữa chừng).
+     * null = chưa có phiên nào có lần nộp (chưa làm, hoặc dữ liệu REFLEX cũ trước khi ghi phiên).
+     * Tính cả lượt đã lưu trữ do "Làm lại từ đầu" (archivedAt, V215) — mục tiêu là tổng thời gian kể cả làm lại.
+     */
+    static Integer sumSittingSeconds(List<OffsetDateTime> sittingStarts, List<OffsetDateTime> submittedAts) {
+        if (sittingStarts == null || sittingStarts.isEmpty() || submittedAts == null || submittedAts.isEmpty()) return null;
+        List<OffsetDateTime> starts = new ArrayList<>(sittingStarts);
+        starts.sort(Comparator.naturalOrder());
+        long total = 0;
+        boolean any = false;
+        for (int i = 0; i < starts.size(); i++) {
+            OffsetDateTime start = starts.get(i);
+            OffsetDateTime next = i + 1 < starts.size() ? starts.get(i + 1) : null;
+            OffsetDateTime lastSubmit = submittedAts.stream()
+                    .filter(t -> !t.isBefore(start) && (next == null || t.isBefore(next)))
+                    .max(Comparator.naturalOrder()).orElse(null);
+            if (lastSubmit == null) continue;
+            total += Duration.between(start, lastSubmit).getSeconds();
+            any = true;
+        }
+        return any ? (int) Math.min(total, Integer.MAX_VALUE) : null;
+    }
 
     private List<Long> scopedStudentIdsFor(ReviewVideoAssignment assignment) {
         if (assignment.getTargetStudentIds() != null) return assignment.getTargetStudentIds();

@@ -109,6 +109,7 @@
       "completed": "Completed",
       "attemptCount": "Attempts",
       "activeTime": "Time spent",
+      "activeTimeTooltip": "Total across {{count}} attempt(s), retakes included · first started {{startedAt}}",
       "violation": "Violation",
       "viewDetailTitle": "View details"
     },
@@ -232,6 +233,7 @@
       "notGraded": "Not graded",
       "lateSubmission": "Late",
       "lateSubmissionBadge": "Late",
+      "timeSpent": "Time spent",
       "grammarReviewBadge": "Grammar review needed",
       "viewDetail": "View detail"
     },

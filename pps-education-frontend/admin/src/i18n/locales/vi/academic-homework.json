@@ -109,6 +109,7 @@
       "completed": "Đã hoàn thành",
       "attemptCount": "Số lần làm",
       "activeTime": "Thời gian làm",
+      "activeTimeTooltip": "Tổng thời gian của {{count}} lượt làm (kể cả làm lại) · bắt đầu lần đầu {{startedAt}}",
       "violation": "Vi phạm",
       "viewDetailTitle": "Xem chi tiết"
     },
@@ -232,6 +233,7 @@
       "notGraded": "Chưa chấm",
       "lateSubmission": "Nộp muộn",
       "lateSubmissionBadge": "Trễ hạn",
+      "timeSpent": "Thời gian làm bài",
       "grammarReviewBadge": "Cần soát ngữ pháp",
       "viewDetail": "Xem chi tiết"
     },

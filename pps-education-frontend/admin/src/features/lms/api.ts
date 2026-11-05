@@ -1185,6 +1185,8 @@ export interface ReviewVideoAssignmentStudentRow {
   lateSubmission: boolean;
   /** V198 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — REFLEX: lần ghi âm gần nhất của ít nhất 1 câu cần giáo viên soát điểm Ngữ pháp. Luôn false với CONNECTION. */
   grammarReviewRequired: boolean;
+  /** Tổng thời gian làm bài (giây) — cộng các phiên làm bài, null = chưa có dữ liệu. */
+  timeSpentSeconds: number | null;
 }
 
 export interface ReviewVideoAssignmentStudentStatsResponse {
