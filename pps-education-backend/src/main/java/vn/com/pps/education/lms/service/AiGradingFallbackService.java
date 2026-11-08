@@ -50,7 +50,6 @@ public class AiGradingFallbackService {
     /** Mirror {@link ReflexV2AiGradingService#MAX_WORDS_PER_SECOND} — không truy cập được (private), định nghĩa lại cùng giá trị đã thống nhất với người training. */
     private static final double MAX_WORDS_PER_SECOND = 3.5;
     private static final String MSG_AUDIO_UNREADABLE = "Không đọc được bản ghi âm này. Em hãy ghi âm lại câu trả lời.";
-    private static final String MSG_SPOKE_DIFFERENT = "Em đã nói khác với bài em đã viết. Hãy nói lại đúng câu trả lời em đã viết ở Bước 1.";
 
     private final WritingAiGradingService writingAiGradingService;
     private final ReflexV2AiGradingService reflexV2AiGradingService;
@@ -172,6 +171,11 @@ public class AiGradingFallbackService {
     }
 
     /** Điểm Phát âm: GOPT nếu được chọn (lỗi thì thử Azure), ngược lại Azure. Trả null/không có điểm nghĩa là cần dự phòng 9Router. */
+    private static boolean spokeDifferentFromWritten(String written, String transcript) {
+        return written != null && !written.isBlank() && !transcript.isEmpty()
+                && ReflexContentOverlap.contentOverlap(written, transcript) < ReflexContentOverlap.minOverlapFor(written);
+    }
+
     private AzurePronunciationClient.Result assessPronunciation(boolean useGopt, byte[] audioBytes, String mimeType, String transcript,
                                                                  GroqSpeechClient.TranscriptionResult transcription, int grade,
                                                                  String writtenText) {
@@ -323,13 +327,10 @@ public class AiGradingFallbackService {
                 throw new ReflexAudioRejectedException(MSG_AUDIO_UNREADABLE);
             }
         }
-        // Rào chắn 2: nói khác hẳn bài viết Bước 1.
-        if (anchor.text() != null && !anchor.text().isBlank() && !transcript.isEmpty()) {
-            double overlap = ReflexContentOverlap.contentOverlap(anchor.text(), transcript);
-            if (overlap < ReflexContentOverlap.minOverlapFor(anchor.text())) {
-                throw new ReflexAudioRejectedException(MSG_SPOKE_DIFFERENT);
-            }
-        }
+        // Đổi quy tắc 2026-11-08: nói khác bài viết Bước 1 không còn bị từ chối — vẫn chấm Speaking, lấy
+        // transcript Whisper làm văn bản tham chiếu (prompt, GOPT, so khớp/đọc lệch) thay cho bài viết.
+        // Ngữ pháp chấm lại từ transcript như nhánh nói-khác sẵn có; điểm Writing không đổi.
+        final String refText = spokeDifferentFromWritten(anchor.text(), transcript) ? transcript : anchor.text();
 
         // Bổ sung 2026-10-22 (đã xác nhận với người dùng, tối ưu độ trễ) — Claude (chấm nội dung) và Azure
         // (chấm phát âm) ĐỘC LẬP với nhau, cả 2 chỉ cần transcript Groq vừa có, KHÔNG cần kết quả của
@@ -337,7 +338,7 @@ public class AiGradingFallbackService {
         // (Groq+max(Claude,Azure)). KHÔNG đổi Azure sang unscripted để chạy song song với Groq — đã verify
         // unscripted kém tin cậy hẳn (xem Javadoc AzurePronunciationClient#assess), đánh đổi đó không đáng.
         String systemPrompt = reflexV2Prompts.speakingSystem(task);
-        String userPrompt = reflexV2Prompts.speakingUser(task, question, anchor.text() == null ? "" : anchor.text(),
+        String userPrompt = reflexV2Prompts.speakingUser(task, question, refText == null ? "" : refText,
                 transcript, List.of(), List.of(), durationSec, speechSec, longestPause);
         long parallelStartedAt = System.currentTimeMillis();
         java.util.concurrent.CompletableFuture<ClaudeSpeakingJson> claudeFuture = !claudeAiClient.isConfigured()
@@ -358,7 +359,7 @@ public class AiGradingFallbackService {
         java.util.concurrent.CompletableFuture<AzurePronunciationClient.Result> azureFuture = !useGopt && !azurePronunciationClient.isConfigured()
                 ? java.util.concurrent.CompletableFuture.completedFuture(null)
                 : java.util.concurrent.CompletableFuture.supplyAsync(() -> assessPronunciation(useGopt, audioBytes, mimeType, transcript,
-                        transcription, task.grade(), anchor.text()), AI_PARALLEL_EXECUTOR);
+                        transcription, task.grade(), refText), AI_PARALLEL_EXECUTOR);
         ClaudeSpeakingJson claudeResult = claudeFuture.join();
         AzurePronunciationClient.Result pronunciation = azureFuture.join();
         log.info("AiGradingFallbackService: Claude+Azure chạy song song xong sau {}ms.", System.currentTimeMillis() - parallelStartedAt);
@@ -434,7 +435,7 @@ public class AiGradingFallbackService {
                 : ReflexV2Scoring.lexicalCeiling(transcript, task.lexicalSeconds(), task.lexicalLowRung());
         ReflexV2Scoring.FluencyEvidence fluency = noSpeech ? null : ReflexV2Scoring.fluencyCeiling(transcript, longestPause);
         ReflexV2Scoring.LengthEvidence length = ReflexV2Scoring.lengthGate(task, transcript, spokenSec);
-        ReflexV2Scoring.Readback readback = noSpeech ? null : ReflexV2Scoring.writtenVsSpoken(anchor.text(), transcript);
+        ReflexV2Scoring.Readback readback = noSpeech ? null : ReflexV2Scoring.writtenVsSpoken(refText, transcript);
         List<ReflexV2Scoring.CriterionScore> capped = ReflexV2Scoring.applyGrammarFloor(grammarCode,
                 ReflexV2Scoring.applyErrorCaps(task, rawScores, highlights,
                         new ReflexV2Scoring.ErrorEvidence(lexical, fluency, length, readback)));
