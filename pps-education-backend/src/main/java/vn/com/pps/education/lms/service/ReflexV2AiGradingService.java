@@ -272,18 +272,21 @@ public class ReflexV2AiGradingService {
         }
         String transcript = (measured.isPresent() && !measured.get().hasSpeech()) ? "" : rawTranscript;
 
-        // Học sinh phải nói lại bài đã viết; nói khác hẳn → yêu cầu nói lại, không tốn lượt chấm.
+        // Đổi quy tắc 2026-11-08 (theo yêu cầu người dùng): nói khác bài viết KHÔNG còn bị từ chối — vẫn chấm
+        // Speaking, lấy transcript Whisper làm văn bản tham chiếu thay cho bài viết Bước 1 (nên không có từ
+        // "đọc lệch"; Ngữ pháp chấm lại từ transcript như nhánh nói-khác sẵn có). Điểm Writing không đổi.
         Double overlap = null;
+        String refText = anchor.text();
         if (anchor.text() != null && !transcript.isEmpty()) {
             overlap = ReflexContentOverlap.contentOverlap(anchor.text(), transcript);
             if (overlap < ReflexContentOverlap.minOverlapFor(anchor.text())) {
-                throw new ReflexAudioRejectedException(MSG_SPOKE_DIFFERENT);
+                refText = transcript;
             }
         }
 
         // So transcript với bài viết Bước 1 — phải tính TRƯỚC khi dựng prompt vì danh sách từ đọc lệch được đưa
         // vào lượt chấm để tô lỗi trong transcript.
-        ReflexV2Scoring.Readback readbackRaw = ReflexV2Scoring.writtenVsSpoken(anchor.text(), transcript);
+        ReflexV2Scoring.Readback readbackRaw = ReflexV2Scoring.writtenVsSpoken(refText, transcript);
         List<String> deviantWords = readbackRaw == null ? List.of() : readbackRaw.words();
 
         // Bổ sung 23/10/2026 (bản bàn giao Gemini 3.8) — bằng chứng Phát âm theo từng từ, cấp trần mềm thay
@@ -300,7 +303,7 @@ public class ReflexV2AiGradingService {
         List<String> gradedCodes = task.criteria();
         NineRouterAiClient.AiJsonResponse graded = nineRouterAiClient.chatWithAudioJson(
                 prompts.speakingSystem(task),
-                prompts.speakingUser(task, question, anchor.text() == null ? "" : anchor.text(),
+                prompts.speakingUser(task, question, refText == null ? "" : refText,
                         transcript, suspectWords, deviantWords, durationSec, speechSec, longestPause),
                 audioForModel, mimeForModel, model, prompts.gradingSchema(gradedCodes));
         if (graded == null) {
