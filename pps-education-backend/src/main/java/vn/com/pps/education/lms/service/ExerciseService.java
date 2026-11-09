@@ -107,6 +107,7 @@ public class ExerciseService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final ForcedListeningService forcedListeningService;
     /** V71: xem Javadoc tương tự ở ReviewVideoService — chạy riêng 1 giao dịch lồng khi thử tạo bản
      * giao, để race thua (bắt DataIntegrityViolationException) chỉ rollback đúng giao dịch con này. */
     private final TransactionTemplate requiresNewTransactionTemplate;
@@ -130,6 +131,7 @@ public class ExerciseService {
                             UserRepository userRepository,
                             NotificationService notificationService,
                             PermissionEvaluationService permissionEvaluationService,
+                            ForcedListeningService forcedListeningService,
                             PlatformTransactionManager transactionManager) {
         this.exerciseRepository = exerciseRepository;
         this.exerciseQuestionRepository = exerciseQuestionRepository;
@@ -146,6 +148,7 @@ public class ExerciseService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.forcedListeningService = forcedListeningService;
         this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
         this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -174,6 +177,14 @@ public class ExerciseService {
         if (request.passThresholdPercent() != null) {
             exercise.setPassThresholdPercent(request.passThresholdPercent());
         }
+        if (request.forcedListening()) {
+            // V226 (Nghe ép) — chỉ cho Bài nhóm kỹ năng LISTENING; cố định từ lúc tạo.
+            if (exercise.getSkillCategory() != Exercise.SkillCategory.LISTENING) {
+                throw new IllegalArgumentException("Nghe ép chỉ áp dụng cho Bài thuộc nhóm kỹ năng Nghe (LISTENING).");
+            }
+            exercise.setForcedListening(true);
+            applyTapescriptUnlock(exercise, request.tapescriptFirstUnlockAttempts(), request.tapescriptUnlockStep());
+        }
         exercise.setCreatedBy(actor);
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, List.of());
@@ -200,6 +211,9 @@ public class ExerciseService {
         exercise.setShowCorrectAnswers(request.showCorrectAnswers());
         if (request.passThresholdPercent() != null) {
             exercise.setPassThresholdPercent(request.passThresholdPercent());
+        }
+        if (exercise.isForcedListening()) {
+            applyTapescriptUnlock(exercise, request.tapescriptFirstUnlockAttempts(), request.tapescriptUnlockStep());
         }
         if (request.skillCategory() != null) {
             Exercise.SkillCategory newSkillCategory = Exercise.SkillCategory.valueOf(request.skillCategory());
@@ -230,6 +244,22 @@ public class ExerciseService {
         exerciseRepository.save(exercise);
     }
 
+    /** V226 (Nghe ép) — NULL = giữ nguyên (mặc định 3 và 2 từ DB); mỗi số phải ≥ 1. */
+    private static void applyTapescriptUnlock(Exercise exercise, Integer firstUnlockAttempts, Integer unlockStep) {
+        if (firstUnlockAttempts != null) {
+            if (firstUnlockAttempts < 1) {
+                throw new IllegalArgumentException("Số lượt chưa đạt để mở tapescript phải từ 1 trở lên.");
+            }
+            exercise.setTapescriptFirstUnlockAttempts(firstUnlockAttempts);
+        }
+        if (unlockStep != null) {
+            if (unlockStep < 1) {
+                throw new IllegalArgumentException("Số lượt chưa đạt để mở thêm 1 câu phải từ 1 trở lên.");
+            }
+            exercise.setTapescriptUnlockStep(unlockStep);
+        }
+    }
+
     /** Main Flow bước 1: gắn câu hỏi (từ ngân hàng hoặc vừa soạn) vào đề. */
     @Transactional
     public ExerciseQuestionResponse addQuestion(Long exerciseId, AddExerciseQuestionRequest request, Long actorUserId) {
@@ -252,6 +282,8 @@ public class ExerciseService {
         eq.setQuestion(question);
         eq.setDisplayOrder(request.displayOrder());
         eq.setPoints(request.points());
+        // V226 (Nghe ép) — bài tập con chứa câu; null với Bài thường (ném lỗi nếu truyền sectionId cho Bài thường).
+        eq.setSection(forcedListeningService.resolveSectionForNewQuestion(exercise, request.sectionId(), question));
         eq = exerciseQuestionRepository.save(eq);
         return toResponse(eq);
     }
@@ -407,6 +439,7 @@ public class ExerciseService {
     @Transactional
     public ExerciseResponse publishExercise(Long id, Long actorUserId) {
         Exercise exercise = getExerciseOrThrow(id);
+        forcedListeningService.validateForPublish(exercise);
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id));
@@ -727,7 +760,8 @@ public class ExerciseService {
                 e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
                 e.getCreatedBy().getId(), hasEssayOrSpeaking,
                 e.getExam().getSubTopic() == null ? null : e.getExam().getSubTopic().getUnit().getTitle(),
-                e.getExam().getSubTopic() == null ? null : e.getExam().getSubTopic().getTitle());
+                e.getExam().getSubTopic() == null ? null : e.getExam().getSubTopic().getTitle(),
+                e.isForcedListening(), e.getTapescriptFirstUnlockAttempts(), e.getTapescriptUnlockStep());
     }
 
     private ExerciseQuestionResponse toResponse(ExerciseQuestion eq) {
@@ -749,7 +783,8 @@ public class ExerciseService {
                 eq.getDisplayOrder(), eq.getPoints(), choices,
                 question.getSkill() == null ? null : question.getSkill().name(),
                 question.getAudioUrl(), referencePassage,
-                shuffledStructuredContent(question), question.getGroupKey(), question.getImageUrl());
+                shuffledStructuredContent(question), question.getGroupKey(), question.getImageUrl(),
+                eq.getSection() == null ? null : eq.getSection().getId());
     }
 
     /**

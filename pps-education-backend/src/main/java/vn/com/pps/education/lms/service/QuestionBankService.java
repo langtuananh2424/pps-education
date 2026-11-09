@@ -196,6 +196,7 @@ public class QuestionBankService {
         question.setAudioUrl(request.audioUrl());
         question.setImageUrl(request.imageUrl());
         question.setReferencePassage(request.referencePassage());
+        question.setTapescript(request.tapescript() == null || request.tapescript().isBlank() ? null : request.tapescript().trim());
         question.setExplanation(request.explanation());
         question.setCorrectAnswerText(request.correctAnswerText());
         question.setStructuredContent(request.structuredContent());
@@ -246,6 +247,9 @@ public class QuestionBankService {
         question.setAudioUrl(request.audioUrl());
         question.setImageUrl(request.imageUrl());
         question.setReferencePassage(request.referencePassage());
+        if (request.tapescript() != null) {
+            question.setTapescript(request.tapescript().isBlank() ? null : request.tapescript().trim());
+        }
         question.setExplanation(request.explanation());
         question.setCorrectAnswerText(request.correctAnswerText());
         question.setStructuredContent(request.structuredContent());
@@ -515,7 +519,7 @@ public class QuestionBankService {
                 q.getContent(), q.getAudioUrl(), q.getImageUrl(), q.getReferencePassage(), q.getExplanation(),
                 q.getCorrectAnswerText(),
                 q.getDefaultPoints(), q.getTags(), q.getStatus().name(), q.getCreatedBy().getId(), choices,
-                q.getStructuredContent(), q.getGroupKey(), q.getKeyGrammar(), q.getDisplayNumberOverride());
+                q.getStructuredContent(), q.getGroupKey(), q.getKeyGrammar(), q.getDisplayNumberOverride(), q.getTapescript());
     }
 
     private QuestionChoiceResponse toResponse(QuestionChoice c) {

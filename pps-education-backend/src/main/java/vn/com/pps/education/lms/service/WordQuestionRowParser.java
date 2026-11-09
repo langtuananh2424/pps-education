@@ -142,6 +142,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
         String instruction;
         String skill;
         String displayNumberOverride;
+        String tapescript;
         String lastField = "content";
 
         MutableRow(int blockNumber) {
@@ -162,6 +163,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
                 case "instruction" -> instruction = value;
                 case "skill" -> skill = value;
                 case "displayNumberOverride" -> displayNumberOverride = value;
+                case "tapescript" -> tapescript = value;
                 default -> { }
             }
         }
@@ -174,6 +176,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
                 case "referencePassage" -> referencePassage = referencePassage == null ? extra : referencePassage + "\n" + extra;
                 case "instruction" -> instruction = instruction == null ? extra : instruction + "\n" + extra;
                 case "skill" -> skill = skill == null ? extra : skill + " " + extra;
+                case "tapescript" -> tapescript = tapescript == null ? extra : tapescript + "\n" + extra;
                 case "choiceA" -> choiceA = choiceA == null ? extra : choiceA + " " + extra;
                 case "choiceB" -> choiceB = choiceB == null ? extra : choiceB + " " + extra;
                 case "choiceC" -> choiceC = choiceC == null ? extra : choiceC + " " + extra;
@@ -191,7 +194,7 @@ public class WordQuestionRowParser implements QuestionRowParser {
         ParsedQuestionRow toParsedRow() {
             return new ParsedQuestionRow(blockNumber, null, kind, difficulty, content, choiceA, choiceB, choiceC, choiceD,
                     correctAnswer, audioUrl, imageUrl, referencePassage, defaultPoints, explanation, tags, instruction,
-                    choiceE, choiceF, choiceG, choiceH, choiceI, choiceJ, skill, displayNumberOverride);
+                    choiceE, choiceF, choiceG, choiceH, choiceI, choiceJ, skill, displayNumberOverride, tapescript);
         }
     }
 }

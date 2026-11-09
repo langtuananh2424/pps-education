@@ -2317,6 +2317,110 @@ UC-40: Soạn & giao đề kiểm tra
 >    tapescript hay bất kỳ đâu khác trong hệ thống --- ngoài phạm vi bổ
 >    sung V94, cần thiết kế riêng (chọn nhà cung cấp/API) nếu muốn thêm.
 
+> **Bổ sung V226 (2026-11-09, đã xác nhận với người dùng) --- Phương pháp
+> "Nghe ép" (UC-40 soạn/giao, UC-24/UC-27 làm bài):** dạng Bài nghe mới,
+> hiện dùng ôn đội tuyển IELTS. Học sinh nghe 1 audio, làm n bài tập con
+> (thường 4, tối đa 12, hiện hết trên 1 trang), nộp 1 lượt; mỗi bài tập con
+> được chấm riêng (VD 8/10) và so với mức cần đạt của chính nó. Bài nào chưa
+> đạt phải làm lại cho tới khi đạt --- "ép" = không được bỏ qua bài khó; đạt
+> đủ MỌI bài tập con mới hoàn thành. Luồng Bài nghe cũ (V94, gợi ý
+> tapescript theo số lần nghe hết audio) giữ nguyên cho Bài không bật chế độ
+> này.
+>
+> **Cấu trúc & soạn Bài (UC-40):**
+> 1. Bật bằng `exercises.forced_listening = TRUE` (chỉ khi
+>    `skill_category=LISTENING`, cố định từ lúc tạo, không sửa được sau đó
+>    --- mirror `exercise_type`/`skill_category`). 2 cấu hình riêng từng Bài:
+>    `tapescript_first_unlock_attempts` (mặc định **3**) và
+>    `tapescript_unlock_step` (mặc định **2**).
+> 2. Bài có 1..12 bài tập con (`exercise_sections`), mỗi bài có
+>    `pass_threshold_percent` riêng (NULL = dùng `exercises.pass_threshold_percent`).
+>    Mỗi câu hỏi thuộc ĐÚNG 1 bài tập con (`exercise_questions.section_id`,
+>    bắt buộc với Bài nghe ép). Chỉ cho gắn câu **tự chấm** (trắc nghiệm,
+>    nhiều đáp án, điền từ, xếp từ) --- không ESSAY/SPEAKING. Chỉ sửa cấu trúc
+>    khi Bài còn `DRAFT`. Nghe ép chỉ cần 1 audio cho cả Bài; mọi bài tập con
+>    dùng chung.
+> 3. Mỗi câu có tapescript RIÊNG (`questions.tapescript`, nhập tay hoặc cột
+>    `tapescript` của file import Excel câu hỏi). Nghe ép KHÔNG dùng
+>    `referencePassage` của cả nhóm làm gợi ý.
+> 4. Mức cần đạt tính qua `PassThresholdResolver` (đầu vào: bài tập con +
+>    học sinh). Hiện chỉ đọc cột (`section` rồi `exercise`); thiết kế để SAU
+>    NÀY thay bằng mức theo level học sinh suy từ điểm kiểm tra các kỳ mà
+>    không sửa service chấm --- phần level CHƯA làm trong V226.
+>
+> **Main Flow học sinh (UC-24/UC-27):**
+> 1. Mở Bài, `startAttempt` mở lượt mới; mọi bài tập con hiện trên 1 trang,
+>    audio nghe tự do không giới hạn số lần.
+> 2. Học sinh làm các bài, bấm nộp 1 lần (`submitAttempt`); các câu tự chấm
+>    ngay.
+> 3. Hệ thống tính điểm % từng bài tập con đang mở (tổng điểm câu trong bài)
+>    và cập nhật `exercise_section_results`: `latest_score_percent` (lượt
+>    gần nhất, để hiển thị), `passed` (một khi đạt thì giữ đạt, không bị
+>    tụt dù lượt sau thấp hơn), `best_score_percent` và
+>    `failed_attempts_count`. `best_score_percent` CHỈ có giá trị từ lần ĐẠT
+>    đầu tiên (NULL trước đó): các lượt chưa đạt không được tính; sau khi
+>    đạt, chỉ lượt làm lại có điểm ≥ mức cần đạt và cao hơn mới nâng
+>    `best_score_percent` (xem A2).
+> 4. Học sinh nhận bảng điểm từng bài + mức cần đạt + số lượt chưa đạt của
+>    bài. KHÔNG hiện câu nào sai/đúng, KHÔNG hiện đáp án đúng (xem A3, A5).
+>
+> **Alternate Flow:**
+> - **A1 --- bài chưa đạt:** `startAttempt` lượt kế tiếp mang NGUYÊN các bài
+>    đã đạt (mọi câu, kể cả câu sai --- khác V177 mang theo từng câu) sang
+>    lượt mới, đánh `carried_over_from_previous_attempt=true` và khoá không
+>    cho sửa; bài chưa đạt mở lại TOÀN BỘ câu (kể cả câu đã đúng ở lượt
+>    trước), không mang đáp án cũ. `allow_retake`/`max_attempts` KHÔNG áp
+>    dụng cho Bài nghe ép --- không giới hạn số lượt.
+> - **A2 --- làm lại bài đã đạt (tự nguyện):** `startAttempt` nhận thêm
+>    `reopenSectionIds`; các bài đó mở lại TOÀN BỘ câu như làm mới (không
+>    mang đáp án cũ), thay vì mang sang. Kết quả lượt làm lại: điểm < mức
+>    cần đạt → KHÔNG tính, `passed`/`best_score_percent` giữ nguyên; điểm ≥
+>    mức cần đạt và cao hơn `best_score_percent` → nâng `best_score_percent`
+>    lên điểm đó (điểm đạt tối đa = điểm cao nhất trong các lượt ĐẠT). Lượt
+>    làm lại KHÔNG tăng `failed_attempts_count` (chỉ lượt của bài chưa đạt
+>    mới tính).
+> - **A3 --- mở dần tapescript:** `failed_attempts_count` (f) = số lượt nộp
+>    mà bài đó mở lại, CHƯA từng đạt, có trả lời ít nhất 1 câu và điểm < mức
+>    cần đạt. **Nộp trắng** (bài không trả lời câu nào) KHÔNG tính là lượt
+>    chưa đạt.
+>    Số câu được mở N = 0 nếu f < `first`; ngược lại `(f - first) / step + 1`
+>    (chia nguyên). Mặc định 3 và 2: f=1..2 → chưa mở gì (chỉ hiện điểm +
+>    số lượt còn lại tới ngưỡng); f=3 → 1 câu; f=5 → 2 câu; f=7 → 3 câu.
+>    Câu được mở = các câu SAI (có trả lời nhưng sai) của lượt nộp mới nhất
+>    của bài, theo `display_order`, lấy lần lượt cho tới khi tập câu đã mở
+>    đủ N câu. **Câu bỏ trống không bao giờ được mở.** Câu đã mở được lưu
+>    (`exercise_section_results.unlocked_question_ids`) và xem được vĩnh
+>    viễn, kể cả khi lượt sau trả lời đúng câu đó. Học sinh chỉ biết câu nào
+>    sai khi câu đó đã mở (không dò được bằng nộp thử), và chỉ xem tapescript
+>    của ĐÚNG câu đó, không xem cả bài. Xem được cả sau khi đã nộp (khác V94
+>    chỉ cho xem lúc `IN_PROGRESS`).
+> - **A4 --- thống kê lượt xem:** mỗi lần học sinh THỰC SỰ mở tapescript 1
+>    câu (đóng rồi mở lại tính thêm 1 lượt) ghi 1 dòng bất biến vào
+>    `listening_hint_events` (bảng có sẵn từ V94, không đổi cấu trúc) ---
+>    `ExerciseReportService` tổng hợp như V94 cho giáo viên.
+> - **A5 --- hoàn thành & đáp án:** `exercise_attempts.passed = TRUE` khi
+>    MỌI bài tập con đều `passed` (các luồng đang đọc `attempt.passed` ---
+>    tiến độ BTVN, cảnh báo hạn nộp --- không phải đổi). Điểm tổng hiển thị
+>    = trung bình % `best_score_percent` của các bài (trọng số bằng nhau).
+>    Đáp án đúng chỉ lộ khi mọi bài đã đạt và `show_correct_answers=TRUE`;
+>    trước đó response lượt làm KHÔNG chứa `is_correct`/đáp án đúng của
+>    các câu thuộc Bài nghe ép. Khi mọi bài đã đạt, học sinh phải chủ động
+>    bấm "Xem đáp án" (FE xác nhận trước, mirror V152
+>    `ExerciseAttemptService#revealAnswersAndClose`, đặt
+>    `exercise_attempts.answers_revealed_early=TRUE` trên lượt gần nhất):
+>    sau khi xem, KHÔNG được làm lại nữa (`startAttempt` bị từ chối, kể cả
+>    A2) --- không hoàn tác được. Nếu `show_correct_answers=FALSE` thì không
+>    có nút xem đáp án và học sinh vẫn làm lại tự nguyện (A2) được.
+>
+> **API:** `GET/POST/PUT/DELETE /api/exercises/{id}/sections...` (soạn bài
+> tập con, quyền như soạn Bài); `GET /api/attempts/{id}/section-results`
+> (bảng điểm + câu đã được mở, KHÔNG gồm nội dung tapescript);
+> `POST /api/attempts/{id}/tapescripts/{questionId}/views` (trả tapescript
+> của câu đã mở và ghi `listening_hint_events`; 4xx nếu câu chưa mở). Endpoint
+> V94 `listening-hint`/`listening-plays` trả lỗi với Bài nghe ép.
+> Migration: `V226__forced_listening.sql` (xem
+> `docs/sdd-groups/09-lms-and-portal.md` mục i-bis-2).
+
 > **Bổ sung V136 (2026-08-21, đã xác nhận với người dùng) --- phân loại
 > "Bài" theo nhóm kỹ năng (bước 4 Main Flow, cùng lúc chọn Loại Bài):**
 > thêm cột `exercises.skill_category` (`READING`/`WRITING`/`VOCAB_GRAMMAR`,

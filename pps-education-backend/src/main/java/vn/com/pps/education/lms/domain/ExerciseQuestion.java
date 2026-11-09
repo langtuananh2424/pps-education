@@ -25,6 +25,11 @@ public class ExerciseQuestion {
     @JoinColumn(name = "question_id", nullable = false)
     private Question question;
 
+    /** V226 — bài tập con chứa câu này; NULL với Bài thường, bắt buộc với Bài "Nghe ép" (validate ở Service). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "section_id")
+    private ExerciseSection section;
+
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
 

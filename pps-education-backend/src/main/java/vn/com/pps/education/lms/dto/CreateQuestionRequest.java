@@ -43,5 +43,17 @@ public record CreateQuestionRequest(
          * — xem Javadoc {@code Question.displayNumberOverride}. {@code null} = giữ nguyên hành vi tự
          * đếm tuần tự cũ.
          */
-        Integer displayNumberOverride
-) {}
+        Integer displayNumberOverride,
+        /** V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — lời thoại RIÊNG của câu, xem Javadoc {@code Question.tapescript}. */
+        String tapescript
+) {
+    /** Giữ chữ ký cũ (không tapescript) cho các nơi tạo câu hỏi hiện có (import theo dạng khác, test). */
+    public CreateQuestionRequest(Long questionBankId, String questionType, String skill, String difficulty, String content,
+                                  String audioUrl, String imageUrl, String referencePassage, String explanation,
+                                  String correctAnswerText, BigDecimal defaultPoints, List<String> tags,
+                                  List<QuestionChoiceRequest> choices, Map<String, Object> structuredContent,
+                                  String groupKey, Integer displayNumberOverride) {
+        this(questionBankId, questionType, skill, difficulty, content, audioUrl, imageUrl, referencePassage, explanation,
+                correctAnswerText, defaultPoints, tags, choices, structuredContent, groupKey, displayNumberOverride, null);
+    }
+}

@@ -77,6 +77,8 @@
     "voicePictureChoiceHint": "Students will listen to this audio file then pick one of the pictures above.",
     "optionalAudioLabel": "Attach listening audio (optional) — adding audio automatically tags this question with the Listening skill",
     "referencePassageLabel": "Title / Reference passage",
+    "tapescriptLabel": "Tapescript (this question's own transcript, used by forced listening)",
+    "tapescriptPlaceholder": "The part of the audio this question refers to. Students see it only once this question unlocks after enough failed attempts.",
     "referencePassagePlaceholder": "Title or passage shown above this whole question group (e.g. the exercise's name in the book)...",
     "optionalAudioTranscriptFillInBlankHint": "No audio: this text is shown as a shared title/passage above the whole question group in the student's exercise.",
     "wordBankSectionTitle": "Word bank — correct answers in blank order",
@@ -400,6 +402,21 @@
   },
   "assignModal": {
     "modalTitle": "Compose new exercise",
+    "forcedListening": {
+      "title": "Sections (forced listening)",
+      "hint": "Up to {{max}} sections. Pick the section to attach questions to; each question belongs to exactly one.",
+      "sectionMeta": "pass mark {{percent}}% · {{count}} question(s)",
+      "deleteTitle": "Delete section (only when it has no questions)",
+      "titlePlaceholder": "Section name, e.g. Part 1",
+      "thresholdPlaceholder": "Pass mark % (optional)",
+      "add": "Add section",
+      "pickSectionHint": "Pick or create a section before composing or importing questions.",
+      "errors": {
+        "titleRequired": "Enter a section name.",
+        "createFailed": "Could not create the section.",
+        "deleteFailed": "Could not delete the section."
+      }
+    },
     "infoStep": {
       "codeLabel": "Exercise code *",
       "totalPointsLabel": "Total points *",
@@ -417,6 +434,10 @@
       "showCorrectAnswersCheckbox": "Show correct answers after submission (multiple choice section)",
       "allowRetakeCheckbox": "Allow retakes",
       "maxAttemptsLabel": "Maximum attempts",
+      "forcedListeningCheckbox": "Forced listening (split into sections, redo until passed)",
+      "forcedListeningHint": "Each section is graded separately with its own pass mark. After the number of failed attempts below, the tapescript of one wrong question unlocks, then one more for each further step.",
+      "firstUnlockLabel": "Failed attempts before the first wrong question's tapescript unlocks",
+      "unlockStepLabel": "Further failed attempts per additional unlock",
       "submit": "Create exercise — continue to attach questions",
       "errors": {
         "requiredFields": "Please fill in the exercise code, title, and total points.",

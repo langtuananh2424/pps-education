@@ -33,5 +33,7 @@ public record QuestionResponse(
          * — xem Javadoc {@code Question.displayNumberOverride}. {@code null} = giữ nguyên hành vi tự
          * đếm tuần tự cũ khi gắn câu hỏi này vào 1 Bài (xem CreateAndAssignExerciseModal.tsx).
          */
-        Integer displayNumberOverride
+        Integer displayNumberOverride,
+        /** V226 (Nghe ép) — chỉ trả cho người soạn (API ngân hàng câu hỏi); học sinh KHÔNG bao giờ nhận field này. */
+        String tapescript
 ) {}

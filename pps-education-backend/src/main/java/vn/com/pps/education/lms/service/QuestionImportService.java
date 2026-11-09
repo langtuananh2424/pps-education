@@ -1119,7 +1119,7 @@ public class QuestionImportService {
 
         return new CreateQuestionRequest(bankId, questionType, skill, difficulty, row.content().trim(),
                 audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, structuredContent, autoGroupKey,
-                resolveDisplayNumberOverride(row));
+                resolveDisplayNumberOverride(row), blankToNull(row.tapescript()));
     }
 
     /**
