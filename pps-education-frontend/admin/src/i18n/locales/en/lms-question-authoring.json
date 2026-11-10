@@ -410,11 +410,17 @@
       "titlePlaceholder": "Section name, e.g. Part 1",
       "thresholdPlaceholder": "Pass mark % (optional)",
       "add": "Add section",
+      "importButton": "Import forced-listening Excel",
+      "importing": "Importing...",
+      "templateButton": "Download template",
+      "importHint": "Dedicated file: one question per row; the Section column creates sections and attaches questions to them.",
+      "importDone": "Created {{sections}} new section(s) and attached {{questions}} question(s).",
       "pickSectionHint": "Pick or create a section before composing or importing questions.",
       "errors": {
         "titleRequired": "Enter a section name.",
         "createFailed": "Could not create the section.",
-        "deleteFailed": "Could not delete the section."
+        "deleteFailed": "Could not delete the section.",
+        "importFailed": "Import failed."
       }
     },
     "infoStep": {

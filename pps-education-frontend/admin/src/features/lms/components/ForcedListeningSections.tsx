@@ -1,11 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Download, Trash2, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
-import { ExerciseResponse, ExerciseSectionResponse, createExerciseSection, deleteExerciseSection, listExerciseSections } from "../api";
+import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
+import {
+  ExerciseResponse,
+  ExerciseSectionResponse,
+  createExerciseSection,
+  deleteExerciseSection,
+  importForcedListening,
+  listExerciseSections
+} from "../api";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
+
+/** Tiêu đề cột PHẢI khớp ForcedListeningImportService (backend) — file mẫu riêng cho Nghe ép. */
+const IMPORT_HEADERS = ["Bài tập con", "Mức đạt %", "Loại câu hỏi", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng", "URL Audio", "Tapescript", "Điểm", "Giải thích"];
+const IMPORT_SAMPLES = [
+  ["Part 1", "70", "TRAC_NGHIEM", "What does the speaker say?", "a library", "a hospital", "a school", "a shop", "B", "https://.../part1.mp3", "Lời thoại của đoạn nghe ứng với câu này", "1", ""],
+  ["Part 1", "", "NHIEU_DAP_AN", "Which TWO reasons are given?", "to meet a friend", "to learn more", "to buy something", "to have fun", "B|D", "https://.../part1.mp3", "", "2", ""],
+  ["Part 2", "50", "DIEN_TU", "The meeting starts at ___.", "", "", "", "", "9 am/9:00", "https://.../part2.mp3", "", "1", ""]
+];
 
 /** Khớp ForcedListeningService.MAX_SECTIONS (backend) — mô tả nghiệp vụ: thường 4, tối đa 12 bài tập con/Bài. */
 const MAX_SECTIONS = 12;
@@ -19,18 +35,24 @@ export default function ForcedListeningSections({
   exercise,
   selectedSectionId,
   onSelect,
-  onError
+  onError,
+  onImported
 }: {
   exercise: ExerciseResponse;
   selectedSectionId: number | null;
   onSelect: (sectionId: number | null) => void;
   onError: (message: string | null) => void;
+  /** Gọi sau khi import thành công để cha tải lại danh sách câu hỏi đã gắn. */
+  onImported: () => void;
 }) {
   const { t } = useTranslation("lms-question-authoring");
   const [sections, setSections] = useState<ExerciseSectionResponse[]>([]);
   const [title, setTitle] = useState("");
   const [threshold, setThreshold] = useState("");
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
 
   const reload = useCallback(() => {
     listExerciseSections(exercise.id)
@@ -69,6 +91,28 @@ export default function ForcedListeningSections({
     }
   };
 
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    onError(null);
+    setImportMessage(null);
+    setImportErrors([]);
+    setImporting(true);
+    try {
+      const res = await importForcedListening(exercise.id, file);
+      if (res.errors.length > 0) {
+        setImportErrors(res.errors);
+        return;
+      }
+      setImportMessage(t("assignModal.forcedListening.importDone", { sections: res.createdSections, questions: res.createdQuestions }));
+      reload();
+      onImported();
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : t("assignModal.forcedListening.errors.importFailed"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleDelete = async (section: ExerciseSectionResponse) => {
     onError(null);
     try {
@@ -86,6 +130,39 @@ export default function ForcedListeningSections({
         <p className="text-[13px] font-bold text-sky-900">{t("assignModal.forcedListening.title")}</p>
         <p className="text-[12px] text-slate-500">{t("assignModal.forcedListening.hint", { max: MAX_SECTIONS })}</p>
       </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex items-center gap-1.5 text-[13px] font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-50">
+          <Upload size={14} />
+          {importing ? t("assignModal.forcedListening.importing") : t("assignModal.forcedListening.importButton")}
+          <input
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            disabled={importing}
+            onChange={(e) => {
+              handleImportFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => downloadBlob(buildXlsxTemplateBlob(IMPORT_HEADERS, IMPORT_SAMPLES), "mau-nghe-ep.xlsx")}
+          className="inline-flex items-center gap-1.5 text-[13px] font-bold text-sky-700 hover:underline"
+        >
+          <Download size={14} /> {t("assignModal.forcedListening.templateButton")}
+        </button>
+        <span className="text-[12px] text-slate-500">{t("assignModal.forcedListening.importHint")}</span>
+      </div>
+      {importMessage && <p className="text-[13px] font-bold text-emerald-700">{importMessage}</p>}
+      {importErrors.length > 0 && (
+        <ul className="text-[13px] text-red-600 list-disc pl-5 max-h-32 overflow-y-auto">
+          {importErrors.map((msg) => (
+            <li key={msg}>{msg}</li>
+          ))}
+        </ul>
+      )}
 
       {sections.length > 0 && (
         <ul className="space-y-1">

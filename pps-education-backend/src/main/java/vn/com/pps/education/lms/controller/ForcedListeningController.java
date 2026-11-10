@@ -10,11 +10,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.lms.dto.ExerciseSectionRequest;
 import vn.com.pps.education.lms.dto.ExerciseSectionResponse;
+import vn.com.pps.education.lms.dto.ForcedListeningImportResponse;
 import vn.com.pps.education.lms.dto.SectionResultsResponse;
 import vn.com.pps.education.lms.dto.TapescriptViewResponse;
+import vn.com.pps.education.lms.service.ForcedListeningImportService;
 import vn.com.pps.education.lms.service.ForcedListeningService;
 import vn.com.pps.education.security.AuthenticatedUser;
 
@@ -25,9 +29,20 @@ import java.util.List;
 public class ForcedListeningController {
 
     private final ForcedListeningService forcedListeningService;
+    private final ForcedListeningImportService forcedListeningImportService;
 
-    public ForcedListeningController(ForcedListeningService forcedListeningService) {
+    public ForcedListeningController(ForcedListeningService forcedListeningService,
+                                     ForcedListeningImportService forcedListeningImportService) {
         this.forcedListeningService = forcedListeningService;
+        this.forcedListeningImportService = forcedListeningImportService;
+    }
+
+    /** Import Excel riêng cho Bài Nghe ép — xem Javadoc ForcedListeningImportService. */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @PostMapping(value = "/api/exercises/{id}/forced-listening/import", consumes = "multipart/form-data")
+    public ResponseEntity<ForcedListeningImportResponse> importExcel(@PathVariable Long id, @RequestParam("file") MultipartFile file,
+                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(forcedListeningImportService.importExcel(id, file, actor.userId()));
     }
 
     @GetMapping("/api/exercises/{id}/sections")

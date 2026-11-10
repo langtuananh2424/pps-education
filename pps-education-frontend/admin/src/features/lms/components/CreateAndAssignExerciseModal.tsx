@@ -481,6 +481,8 @@ export function ExerciseQuestionsStep({
   // (khác existingCount/existingPoints chỉ là số liệu tổng hợp), dùng để gom nhóm nghe cũ cho
   // ListeningGroupBuilder — xem buildListeningGroups/existingListeningGroups bên dưới.
   const [existingQuestions, setExistingQuestions] = useState<ExerciseQuestionResponse[]>([]);
+  // V226 (Nghe ép) — tăng sau khi import Excel riêng (câu hỏi được gắn thẳng ở backend) để tải lại danh sách.
+  const [reloadKey, setReloadKey] = useState(0);
   // Câu hỏi vừa soạn xong TRONG PHIÊN đang mở (trước khi đóng modal) qua các composite builder — cũng
   // cần gộp vào existingListeningGroups để GV có thể "thêm câu vào nhóm vừa tạo" ngay trong 1 phiên,
   // không phải đóng modal rồi mở lại mới thấy nhóm.
@@ -494,7 +496,7 @@ export function ExerciseQuestionsStep({
         setExistingQuestions(res);
       })
       .catch(() => undefined);
-  }, [exercise.id]);
+  }, [exercise.id, reloadKey]);
 
   const existingListeningGroups = React.useMemo(
     () =>
@@ -661,7 +663,7 @@ export function ExerciseQuestionsStep({
       )} */}
 
       {exercise.forcedListening && (
-        <ForcedListeningSections exercise={exercise} selectedSectionId={targetSectionId} onSelect={setTargetSectionId} onError={onError} />
+        <ForcedListeningSections exercise={exercise} selectedSectionId={targetSectionId} onSelect={setTargetSectionId} onError={onError} onImported={() => setReloadKey((k) => k + 1)} />
       )}
 
       {sectionReady && (

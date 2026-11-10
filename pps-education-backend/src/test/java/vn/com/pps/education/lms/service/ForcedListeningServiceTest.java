@@ -68,6 +68,7 @@ class ForcedListeningServiceTest extends AbstractIntegrationTest {
 
     @Autowired private ExerciseAttemptService exerciseAttemptService;
     @Autowired private ForcedListeningService forcedListeningService;
+    @Autowired private ForcedListeningImportService forcedListeningImportService;
     @Autowired private ListeningHintService listeningHintService;
     @Autowired private ExamQuestionService examQuestionService;
     @Autowired private ExerciseService exerciseService;
@@ -364,6 +365,84 @@ class ForcedListeningServiceTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> forcedListeningService.createSection(draft.id(), new ExerciseSectionRequest("Part 13", null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ===================== Import Excel riêng cho Nghe ép =====================
+
+    private static final String[] IMPORT_HEADER = {"Bài tập con", "Mức đạt %", "Loại câu hỏi", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C",
+            "Đáp án D", "Đáp án đúng", "URL Audio", "Tapescript", "Điểm"};
+
+    @Test
+    void importExcel_UC40_V226_createsSectionsQuestionsTapescriptAndSharedAudioGroup() throws Exception {
+        ExerciseResponse draft = forcedExercise(new BigDecimal("4"));
+        org.springframework.mock.web.MockMultipartFile file = xlsx(
+                new String[]{"Part 1", "60", "TRAC_NGHIEM", "Q1", "a", "b", "c", "d", "B", "https://x/a.mp3", "Lời thoại 1", "1"},
+                new String[]{"Part 1", "", "NHIEU_DAP_AN", "Q2", "a", "b", "c", "d", "B|D", "https://x/a.mp3", "", "2"},
+                new String[]{"Part 2", "", "DIEN_TU", "Q3", "", "", "", "", "go/goes", "https://x/b.mp3", "", "1"});
+
+        var result = forcedListeningImportService.importExcel(draft.id(), file, teacher.getId());
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(result.createdSections()).isEqualTo(2);
+        assertThat(result.createdQuestions()).isEqualTo(3);
+        var sections = forcedListeningService.listSections(draft.id());
+        assertThat(sections).extracting(s -> s.title()).containsExactly("Part 1", "Part 2");
+        assertThat(sections.get(0).passThresholdPercent()).isEqualByComparingTo("60");
+        assertThat(sections.get(0).questionCount()).isEqualTo(2);
+        var questions = exerciseService.listQuestions(draft.id(), teacher.getId());
+        assertThat(questions).extracting(q -> q.questionType()).containsExactly("MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "FILL_IN_BLANK");
+        assertThat(questions.get(0).groupKey()).isNotNull().isEqualTo(questions.get(1).groupKey());
+        assertThat(questions.get(2).groupKey()).isNull();
+        Question first = questionRepository.findById(questions.get(0).questionId()).orElseThrow();
+        assertThat(first.getTapescript()).isEqualTo("Lời thoại 1");
+    }
+
+    @Test
+    void importExcel_UC40_V226_rejectsAllRowsWhenAnyRowInvalid() throws Exception {
+        ExerciseResponse draft = forcedExercise(new BigDecimal("4"));
+        org.springframework.mock.web.MockMultipartFile file = xlsx(
+                new String[]{"Part 1", "", "TRAC_NGHIEM", "Q1", "a", "b", "", "", "B", "", "", "1"},
+                new String[]{"Part 1", "", "TRAC_NGHIEM", "Q2", "a", "b", "", "", "C", "", "", "1"});
+
+        var result = forcedListeningImportService.importExcel(draft.id(), file, teacher.getId());
+
+        assertThat(result.errors()).hasSize(1).first().asString().contains("Dòng 3");
+        assertThat(forcedListeningService.listSections(draft.id())).isEmpty();
+        assertThat(exerciseService.listQuestions(draft.id(), teacher.getId())).isEmpty();
+    }
+
+    @Test
+    void importExcel_UC40_V226_reusesExistingSectionByTitle() throws Exception {
+        ExerciseResponse draft = forcedExercise(new BigDecimal("4"));
+        forcedListeningService.createSection(draft.id(), new ExerciseSectionRequest("Part 1", null, new BigDecimal("80")));
+
+        var result = forcedListeningImportService.importExcel(draft.id(), xlsx(
+                new String[]{"part 1", "", "TRAC_NGHIEM", "Q1", "a", "b", "", "", "A", "", "", "1"}), teacher.getId());
+
+        assertThat(result.createdSections()).isZero();
+        assertThat(forcedListeningService.listSections(draft.id())).singleElement().satisfies(s -> {
+            assertThat(s.passThresholdPercent()).isEqualByComparingTo("80");
+            assertThat(s.questionCount()).isEqualTo(1);
+        });
+    }
+
+    private static org.springframework.mock.web.MockMultipartFile xlsx(String[]... dataRows) throws java.io.IOException {
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            org.apache.poi.ss.usermodel.Sheet sheet = wb.createSheet("Nghe ép");
+            java.util.List<String[]> all = new java.util.ArrayList<>();
+            all.add(IMPORT_HEADER);
+            all.addAll(java.util.Arrays.asList(dataRows));
+            for (int r = 0; r < all.size(); r++) {
+                org.apache.poi.ss.usermodel.Row row = sheet.createRow(r);
+                for (int c = 0; c < all.get(r).length; c++) {
+                    row.createCell(c).setCellValue(all.get(r)[c]);
+                }
+            }
+            wb.write(out);
+            return new org.springframework.mock.web.MockMultipartFile("file", "nghe-ep.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
     }
 
     // ===================== Helpers =====================

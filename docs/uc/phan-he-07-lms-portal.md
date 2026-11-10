@@ -2418,6 +2418,22 @@ UC-40: Soạn & giao đề kiểm tra
 > `POST /api/attempts/{id}/tapescripts/{questionId}/views` (trả tapescript
 > của câu đã mở và ghi `listening_hint_events`; 4xx nếu câu chưa mở). Endpoint
 > V94 `listening-hint`/`listening-plays` trả lỗi với Bài nghe ép.
+> **Import Excel riêng cho Nghe ép (bổ sung 2026-11-10, đã xác nhận với người
+> dùng — KHÔNG dùng chung file mẫu import câu hỏi):**
+> `POST /api/exercises/{id}/forced-listening/import` (multipart, quyền
+> `lms.exercise.update`, `ForcedListeningImportService`). Vào Bài Nghe ép ĐÃ
+> TẠO còn `DRAFT`. 1 sheet, mỗi dòng 1 câu; cột bắt buộc "Bài tập con", "Loại
+> câu hỏi", "Nội dung", "Đáp án đúng"; tùy chọn "Mức đạt %" (chỉ áp cho bài tập
+> con MỚI), "Đáp án A-F", "URL Audio", "Tapescript", "Điểm" (mặc định 1), "Giải
+> thích". Dạng: `TRAC_NGHIEM` (1 đáp án đúng, vd `B`), `NHIEU_DAP_AN` (từ 2 đáp
+> án, vd `B|D`), `DIEN_TU` (đáp án chữ, nhiều phương án ngăn bằng `/`). Bài tập
+> con tạo theo tên (không phân biệt hoa thường, trùng tên bài đã có thì dùng
+> lại); dòng LIÊN TIẾP cùng bài tập con + cùng "URL Audio" gộp 1 `groupKey`.
+> All-or-nothing: có lỗi ở bất kỳ dòng nào thì không tạo gì, trả danh sách lỗi
+> kèm số dòng. Tạo câu và gắn câu đi qua đúng `ExamQuestionService` /
+> `ExerciseService#addQuestion` (cùng kiểm tổng điểm, tối đa 12 bài tập con).
+> File mẫu tạo ở FE (admin, khung "Bài tập con").
+>
 > Migration: `V226__forced_listening.sql` (xem
 > `docs/sdd-groups/09-lms-and-portal.md` mục i-bis-2).
 

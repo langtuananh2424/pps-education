@@ -834,6 +834,19 @@ export interface AddExerciseQuestionRequest {
   sectionId?: number;
 }
 
+/** V226 (Nghe ép) — kết quả import Excel riêng; có errors thì KHÔNG tạo gì (mỗi lỗi ghi số dòng). */
+export interface ForcedListeningImportResponse {
+  createdSections: number;
+  createdQuestions: number;
+  errors: string[];
+}
+
+export function importForcedListening(exerciseId: number, file: File): Promise<ForcedListeningImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ForcedListeningImportResponse>(`/exercises/${exerciseId}/forced-listening/import`, { method: "POST", body: formData });
+}
+
 // ===================== Nghe ép: bài tập con (V226, bổ sung ngoài SDD gốc, xác nhận 2026-11-09) =====================
 
 export interface ExerciseSectionResponse {

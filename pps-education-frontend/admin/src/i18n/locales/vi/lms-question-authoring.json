@@ -410,11 +410,17 @@
       "titlePlaceholder": "Tên bài tập con, ví dụ Part 1",
       "thresholdPlaceholder": "Mức đạt % (tùy chọn)",
       "add": "Thêm bài tập con",
+      "importButton": "Import Excel Nghe ép",
+      "importing": "Đang import...",
+      "templateButton": "Tải file mẫu",
+      "importHint": "File riêng cho Nghe ép: mỗi dòng 1 câu, cột Bài tập con tự tạo bài và gắn câu vào đúng bài.",
+      "importDone": "Đã tạo {{sections}} bài tập con mới và gắn {{questions}} câu hỏi.",
       "pickSectionHint": "Chọn hoặc tạo một bài tập con trước khi soạn hay nhập câu hỏi.",
       "errors": {
         "titleRequired": "Nhập tên bài tập con.",
         "createFailed": "Tạo bài tập con thất bại.",
-        "deleteFailed": "Xóa bài tập con thất bại."
+        "deleteFailed": "Xóa bài tập con thất bại.",
+        "importFailed": "Import thất bại."
       }
     },
     "infoStep": {
