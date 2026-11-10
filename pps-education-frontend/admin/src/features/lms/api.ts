@@ -161,6 +161,8 @@ export interface CreateQuestionRequest {
   structuredContent?: QuestionStructuredContent;
   /** V78 — dạng "Đọc hiểu — lưới": nhiều câu MULTIPLE_CHOICE cùng groupKey gộp hiển thị 1 referencePassage. */
   groupKey?: string;
+  /** V226 (Nghe ép) — lời thoại RIÊNG của câu, mở dần cho học sinh theo số lượt chưa đạt của bài tập con. */
+  tapescript?: string;
 }
 
 export interface QuestionResponse {
@@ -195,6 +197,8 @@ export interface QuestionResponse {
    * câu hỏi này vào 1 Bài (xem CreateAndAssignExerciseModal.tsx).
    */
   displayNumberOverride: number | null;
+  /** V226 (Nghe ép) — lời thoại RIÊNG của câu (chỉ người soạn thấy, học sinh chỉ nhận qua API tapescript khi câu đã mở). */
+  tapescript: string | null;
 }
 
 /** Key Grammar — 1 mã cấu trúc khả dụng để chọn, nguồn cho dropdown ở modal "Sửa câu hỏi". */
@@ -271,6 +275,8 @@ export interface UpdateQuestionRequest {
    * null/rỗng = xoá Key Grammar khỏi câu hỏi này. Chỉ áp dụng được khi questionType=ESSAY.
    */
   keyGrammarIds?: string[] | null;
+  /** V226 (Nghe ép) — không truyền = giữ nguyên tapescript hiện có; chuỗi rỗng = xoá. */
+  tapescript?: string;
 }
 
 /**
@@ -736,6 +742,12 @@ export interface CreateExerciseRequest {
   /** V89/V100 — không truyền = dùng mặc định hệ thống (70%, exercises.pass_threshold_percent). */
   passThresholdPercent?: number;
   skillCategory?: ExerciseSkillCategory;
+  /** V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — chỉ hợp lệ khi skillCategory=LISTENING, cố định từ lúc tạo. */
+  forcedListening?: boolean;
+  /** V226 — số lượt chưa đạt của 1 bài tập con để mở tapescript câu sai đầu tiên (mặc định 3). */
+  tapescriptFirstUnlockAttempts?: number;
+  /** V226 — cứ thêm bấy nhiêu lượt chưa đạt thì mở thêm 1 câu (mặc định 2). */
+  tapescriptUnlockStep?: number;
 }
 
 export interface ExerciseResponse {
@@ -765,6 +777,10 @@ export interface ExerciseResponse {
   createdBy: number;
   /** true nếu đề có ít nhất 1 câu ESSAY/SPEAKING — cần chấm tay ở UC-41 sau khi học sinh nộp. */
   hasEssayOrSpeaking: boolean;
+  /** V226 (Nghe ép) — Bài chia thành các bài tập con (ExerciseSectionResponse), xem listExerciseSections. */
+  forcedListening: boolean;
+  tapescriptFirstUnlockAttempts: number;
+  tapescriptUnlockStep: number;
 }
 
 export function createExercise(request: CreateExerciseRequest): Promise<ExerciseResponse> {
@@ -787,6 +803,9 @@ export interface UpdateExerciseRequest {
    * trị khác hiện tại). Không truyền = giữ nguyên.
    */
   skillCategory?: ExerciseSkillCategory;
+  /** V226 (Nghe ép) — không truyền = giữ nguyên; chỉ có nghĩa với Bài forcedListening. */
+  tapescriptFirstUnlockAttempts?: number;
+  tapescriptUnlockStep?: number;
 }
 
 export function updateExercise(id: number, request: UpdateExerciseRequest): Promise<ExerciseResponse> {
@@ -811,6 +830,59 @@ export interface AddExerciseQuestionRequest {
   questionId: number;
   displayOrder: number;
   points: number;
+  /** V226 (Nghe ép) — bắt buộc với Bài forcedListening, phải bỏ trống với Bài thường. */
+  sectionId?: number;
+}
+
+/** V226 (Nghe ép) — kết quả import Excel riêng; có errors thì KHÔNG tạo gì (mỗi lỗi ghi số dòng). */
+export interface ForcedListeningImportResponse {
+  createdSections: number;
+  createdQuestions: number;
+  errors: string[];
+}
+
+export function importForcedListening(exerciseId: number, file: File): Promise<ForcedListeningImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ForcedListeningImportResponse>(`/exercises/${exerciseId}/forced-listening/import`, { method: "POST", body: formData });
+}
+
+// ===================== Nghe ép: bài tập con (V226, bổ sung ngoài SDD gốc, xác nhận 2026-11-09) =====================
+
+export interface ExerciseSectionResponse {
+  id: number;
+  exerciseId: number;
+  title: string;
+  displayOrder: number;
+  /** null = dùng mức cần đạt của Bài. */
+  passThresholdPercent: number | null;
+  effectivePassThresholdPercent: number;
+  questionCount: number;
+}
+
+export interface ExerciseSectionRequest {
+  title: string;
+  displayOrder?: number;
+  /** 0.01-100, bỏ trống = dùng mức của Bài. */
+  passThresholdPercent?: number;
+}
+
+export function listExerciseSections(exerciseId: number): Promise<ExerciseSectionResponse[]> {
+  return apiRequest<ExerciseSectionResponse[]>(`/exercises/${exerciseId}/sections`);
+}
+
+/** Chỉ tạo/sửa/xoá được khi Bài còn DRAFT (backend tự chặn 400). Tối đa 12 bài tập con/Bài. */
+export function createExerciseSection(exerciseId: number, request: ExerciseSectionRequest): Promise<ExerciseSectionResponse> {
+  return apiRequest<ExerciseSectionResponse>(`/exercises/${exerciseId}/sections`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateExerciseSection(exerciseId: number, sectionId: number, request: ExerciseSectionRequest): Promise<ExerciseSectionResponse> {
+  return apiRequest<ExerciseSectionResponse>(`/exercises/${exerciseId}/sections/${sectionId}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** Chỉ xoá được bài tập con đã hết câu hỏi. */
+export function deleteExerciseSection(exerciseId: number, sectionId: number): Promise<void> {
+  return apiRequest<void>(`/exercises/${exerciseId}/sections/${sectionId}`, { method: "DELETE" });
 }
 
 /** Khớp backend ExerciseQuestionChoiceResponse — KHÔNG kèm isCorrect (endpoint dùng chung với học sinh, xem Javadoc backend). */
@@ -844,6 +916,8 @@ export interface ExerciseQuestionResponse {
   groupKey: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — ảnh minh họa (ESSAY/WORD_BANK/SENTENCE_BUILDING), backend luôn trả kèm nhưng type khai báo trước đây thiếu field này (mirror portal/src/features/portal/api.ts). */
   imageUrl: string | null;
+  /** V226 (Nghe ép) — bài tập con chứa câu này, null với Bài thường. */
+  sectionId: number | null;
 }
 
 export function addExerciseQuestion(exerciseId: number, request: AddExerciseQuestionRequest): Promise<ExerciseQuestionResponse> {
@@ -1185,6 +1259,8 @@ export interface ReviewVideoAssignmentStudentRow {
   lateSubmission: boolean;
   /** V198 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — REFLEX: lần ghi âm gần nhất của ít nhất 1 câu cần giáo viên soát điểm Ngữ pháp. Luôn false với CONNECTION. */
   grammarReviewRequired: boolean;
+  /** Tổng thời gian làm bài (giây) — cộng các phiên làm bài, null = chưa có dữ liệu. */
+  timeSpentSeconds: number | null;
 }
 
 export interface ReviewVideoAssignmentStudentStatsResponse {

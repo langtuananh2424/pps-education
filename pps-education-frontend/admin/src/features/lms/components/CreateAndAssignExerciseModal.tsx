@@ -25,6 +25,7 @@ import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
 import ListeningGroupBuilder, { ExistingListeningGroup, ListeningSubKind } from "./ListeningGroupBuilder";
 import ClozeQuestionBuilder from "./ClozeQuestionBuilder";
+import ForcedListeningSections from "./ForcedListeningSections";
 import FillInBlankGroupBuilder, { ExistingFillInBlankGroup } from "./FillInBlankGroupBuilder";
 import {
   ComposeSubMode,
@@ -246,6 +247,10 @@ function ExerciseInfoStep({
    * Exercise.timeLimitMinutes đã có sẵn từ trước nhưng chưa từng có ô nhập ở đây — học sinh xem đếm
    * ngược ở TakeExerciseModal.tsx (Cổng Học viên), tự nộp bài khi hết giờ. */
   const [timeLimitMinutes, setTimeLimitMinutes] = useState("");
+  // V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — chỉ chọn được khi Nhóm kỹ năng là Nghe; cố định từ lúc tạo.
+  const [forcedListening, setForcedListening] = useState(false);
+  const [tapescriptFirstUnlockAttempts, setTapescriptFirstUnlockAttempts] = useState("3");
+  const [tapescriptUnlockStep, setTapescriptUnlockStep] = useState("2");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -272,7 +277,14 @@ function ExerciseInfoStep({
         showCorrectAnswers,
         passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined,
         timeLimitMinutes: timeLimitMinutes ? Number(timeLimitMinutes) : undefined,
-        skillCategory: skillCategory || undefined
+        skillCategory: skillCategory || undefined,
+        ...(forcedListening && skillCategory === "LISTENING"
+          ? {
+              forcedListening: true,
+              tapescriptFirstUnlockAttempts: Number(tapescriptFirstUnlockAttempts) || 3,
+              tapescriptUnlockStep: Number(tapescriptUnlockStep) || 2
+            }
+          : {})
       });
       onCreated(created);
     } catch (err) {
@@ -315,6 +327,27 @@ function ExerciseInfoStep({
             )}
           </Select>
         </div>
+        {skillCategory === "LISTENING" && (
+          <div className="col-span-2 space-y-2">
+            <label className="flex items-center gap-1.5 text-[13px] font-bold text-slate-600">
+              <input type="checkbox" checked={forcedListening} onChange={(e) => setForcedListening(e.target.checked)} />
+              {t("assignModal.infoStep.forcedListeningCheckbox")}
+            </label>
+            {forcedListening && (
+              <div className="grid grid-cols-2 gap-3">
+                <p className="col-span-2 text-[12px] text-slate-500">{t("assignModal.infoStep.forcedListeningHint")}</p>
+                <div>
+                  <label className={labelClass}>{t("assignModal.infoStep.firstUnlockLabel")}</label>
+                  <input type="number" min={1} value={tapescriptFirstUnlockAttempts} onChange={(e) => setTapescriptFirstUnlockAttempts(e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>{t("assignModal.infoStep.unlockStepLabel")}</label>
+                  <input type="number" min={1} value={tapescriptUnlockStep} onChange={(e) => setTapescriptUnlockStep(e.target.value)} className={inputClass} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="col-span-2">
           <label className={labelClass}>{t("assignModal.infoStep.passThresholdLabel")}</label>
           <input
@@ -448,6 +481,8 @@ export function ExerciseQuestionsStep({
   // (khác existingCount/existingPoints chỉ là số liệu tổng hợp), dùng để gom nhóm nghe cũ cho
   // ListeningGroupBuilder — xem buildListeningGroups/existingListeningGroups bên dưới.
   const [existingQuestions, setExistingQuestions] = useState<ExerciseQuestionResponse[]>([]);
+  // V226 (Nghe ép) — tăng sau khi import Excel riêng (câu hỏi được gắn thẳng ở backend) để tải lại danh sách.
+  const [reloadKey, setReloadKey] = useState(0);
   // Câu hỏi vừa soạn xong TRONG PHIÊN đang mở (trước khi đóng modal) qua các composite builder — cũng
   // cần gộp vào existingListeningGroups để GV có thể "thêm câu vào nhóm vừa tạo" ngay trong 1 phiên,
   // không phải đóng modal rồi mở lại mới thấy nhóm.
@@ -461,7 +496,7 @@ export function ExerciseQuestionsStep({
         setExistingQuestions(res);
       })
       .catch(() => undefined);
-  }, [exercise.id]);
+  }, [exercise.id, reloadKey]);
 
   const existingListeningGroups = React.useMemo(
     () =>
@@ -514,6 +549,11 @@ export function ExerciseQuestionsStep({
   // câu hỏi) — không thể "bỏ chọn" được nữa, chỉ có thể gỡ lại ở trang Soạn & giao đề.
   const [attached, setAttached] = useState<AttachedQuestion[]>([]);
   const [composeFormKey, setComposeFormKey] = useState(0);
+  // V226 (Nghe ép) — bài tập con đang gắn câu hỏi vào; Bài thường không dùng. Chưa chọn thì chưa cho soạn/import
+  // (câu hỏi sẽ được tạo vào ngân hàng nhưng không gắn được vào Bài).
+  const [targetSectionId, setTargetSectionId] = useState<number | null>(null);
+  const sectionId = exercise.forcedListening ? (targetSectionId ?? undefined) : undefined;
+  const sectionReady = !exercise.forcedListening || targetSectionId != null;
 
   const handleComposeCreated = async (question: QuestionResponse) => {
     onError(null);
@@ -523,7 +563,7 @@ export function ExerciseQuestionsStep({
       // ưu tiên dùng số GV đã ghi đè lúc soạn/import câu hỏi (khớp số in sẵn trong ảnh/sơ đồ sách gốc),
       // rơi về đếm tuần tự cũ khi không có — xem Javadoc Question.displayNumberOverride.
       const displayOrder = question.displayNumberOverride ?? existingCount + attached.length + 1;
-      const eq = await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder, points });
+      const eq = await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder, points, sectionId });
       setAttached((prev) => [...prev, { exerciseQuestionId: eq.id, content: question.content, points: eq.points }]);
       setComposeFormKey((k) => k + 1); // remount QuestionEditorForm rỗng để soạn tiếp câu khác
     } catch (err) {
@@ -544,7 +584,7 @@ export function ExerciseQuestionsStep({
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-20 — V218, mirror handleComposeCreated.
         order = q.displayNumberOverride ?? order + 1;
         const points = q.defaultPoints ?? 0;
-        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points });
+        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points, sectionId });
         newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
@@ -567,7 +607,7 @@ export function ExerciseQuestionsStep({
         order = q.displayNumberOverride ?? order + 1;
         // onImported chỉ được QuestionImportPanel gọi SAU khi xác nhận lưu thật (id luôn có) — id chỉ
         // null ở bước xem trước (preview), không đi qua đường này. Xem QuestionImportPanel.tsx.
-        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id!, displayOrder: order, points: q.defaultPoints });
+        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id!, displayOrder: order, points: q.defaultPoints, sectionId });
         newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
@@ -622,6 +662,12 @@ export function ExerciseQuestionsStep({
         </p>
       )} */}
 
+      {exercise.forcedListening && (
+        <ForcedListeningSections exercise={exercise} selectedSectionId={targetSectionId} onSelect={setTargetSectionId} onError={onError} onImported={() => setReloadKey((k) => k + 1)} />
+      )}
+
+      {sectionReady && (
+      <>
       <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
         {availableModes.map((m) => (
           <button
@@ -701,6 +747,8 @@ export function ExerciseQuestionsStep({
           teacherType={teacherType}
           onImported={handleImportCompleted}
         />
+      )}
+      </>
       )}
 
       {attached.length > 0 && (

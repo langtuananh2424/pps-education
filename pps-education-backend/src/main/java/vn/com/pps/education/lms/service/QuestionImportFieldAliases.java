@@ -78,7 +78,10 @@ final class QuestionImportFieldAliases {
             // đè" (xem Javadoc QuestionRowParser.ParsedQuestionRow#displayNumberOverride).
             Map.entry("so thu tu hien thi", "displayNumberOverride"), Map.entry("display number", "displayNumberOverride"),
             Map.entry("so thu tu", "displayNumberOverride"), Map.entry("display number override", "displayNumberOverride"),
-            Map.entry("so ghi de", "displayNumberOverride")
+            Map.entry("so ghi de", "displayNumberOverride"),
+
+            // V226 (Nghe ép) — lời thoại RIÊNG của câu; "transcript" đã là alias của referencePassage nên KHÔNG dùng ở đây.
+            Map.entry("tapescript", "tapescript"), Map.entry("tape script", "tapescript"), Map.entry("loi thoai", "tapescript")
     );
 
     /** Trả về tên field nội bộ ({@code ParsedQuestionRow}) khớp với 1 header/nhãn, hoặc null nếu không nhận diện được. */

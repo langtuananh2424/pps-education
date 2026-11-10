@@ -106,6 +106,7 @@ public class ExerciseAttemptService {
     private final StudentAnswerGradingRepository studentAnswerGradingRepository;
     private final AiGradingFallbackService aiGradingFallbackService;
     private final AiGradingTokenUsageRecorder tokenUsageRecorder;
+    private final ForcedListeningService forcedListeningService;
     private final TransactionTemplate tx;
 
     /**
@@ -114,7 +115,8 @@ public class ExerciseAttemptService {
      */
     private final Set<Long> submitsInFlight = ConcurrentHashMap.newKeySet();
 
-    private static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
+    /** Package-private: ForcedListeningService dùng để giới hạn câu hỏi của Bài Nghe ép ở dạng tự chấm. */
+    static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
             Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE,
             Question.QuestionType.FILL_IN_BLANK, Question.QuestionType.WORD_BANK, Question.QuestionType.SENTENCE_BUILDING);
 
@@ -131,6 +133,7 @@ public class ExerciseAttemptService {
                                    StudentAnswerGradingRepository studentAnswerGradingRepository,
                                    AiGradingFallbackService aiGradingFallbackService,
                                    AiGradingTokenUsageRecorder tokenUsageRecorder,
+                                   ForcedListeningService forcedListeningService,
                                    PlatformTransactionManager transactionManager) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.exerciseAttemptHistoryRepository = exerciseAttemptHistoryRepository;
@@ -145,6 +148,7 @@ public class ExerciseAttemptService {
         this.studentAnswerGradingRepository = studentAnswerGradingRepository;
         this.aiGradingFallbackService = aiGradingFallbackService;
         this.tokenUsageRecorder = tokenUsageRecorder;
+        this.forcedListeningService = forcedListeningService;
         this.tx = new TransactionTemplate(transactionManager);
     }
 
@@ -166,6 +170,17 @@ public class ExerciseAttemptService {
      */
     @Transactional
     public ExerciseAttemptResponse startAttempt(Long exerciseId, Long assignmentId, Long actorUserId) {
+        return startAttempt(exerciseId, assignmentId, null, actorUserId);
+    }
+
+    /**
+     * V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — {@code reopenSectionIds}: các bài tập con ĐÃ ĐẠT
+     * mà học sinh muốn làm lại tự nguyện (Alternate Flow A2); chỉ có nghĩa với Bài Nghe ép. Bài Nghe ép KHÔNG
+     * áp dụng allowRetake/maxAttempts (không giới hạn lượt) và mang NGUYÊN BÀI đã đạt (không phải từng câu
+     * đúng như V177) sang lượt mới — xem {@link ForcedListeningService#carryOverPassedSections}.
+     */
+    @Transactional
+    public ExerciseAttemptResponse startAttempt(Long exerciseId, Long assignmentId, List<Long> reopenSectionIds, Long actorUserId) {
         Student student = studentOrThrow(actorUserId);
         Exercise exercise = exerciseOrThrow(exerciseId);
         if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
@@ -190,10 +205,10 @@ public class ExerciseAttemptService {
         int attemptNumber = (int) previousAttempts + 1;
         ExerciseAttempt lastAttempt = null;
         if (previousAttempts > 0) {
-            if (!exercise.isAllowRetake()) {
+            if (!exercise.isForcedListening() && !exercise.isAllowRetake()) {
                 throw new RetakeNotAllowedException("error.retakeNotAllowed.notAllowed", new Object[]{}, "Đề này không cho phép làm lại.");
             }
-            if (exercise.getMaxAttempts() != null && attemptNumber > exercise.getMaxAttempts()) {
+            if (!exercise.isForcedListening() && exercise.getMaxAttempts() != null && attemptNumber > exercise.getMaxAttempts()) {
                 throw new RetakeNotAllowedException("error.retakeNotAllowed.maxAttemptsReached", new Object[]{exercise.getMaxAttempts()}, "Đề này đã hết lượt làm (tối đa " + exercise.getMaxAttempts() + ").");
             }
             // V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — hết hạn nộp + bản
@@ -236,7 +251,9 @@ public class ExerciseAttemptService {
         // (không chỉ cờ đúng/sai) để gradeAndFinalize chấm lại lượt mới theo ĐÚNG 1 pipeline
         // isAnswerCorrect() sẵn có — không cần thêm nhánh xử lý điểm riêng cho câu carry-forward.
         // saveAnswer() chặn sửa lên các câu này ở phía Backend (không chỉ ẩn nút ở FE).
-        if (lastAttempt != null) {
+        if (lastAttempt != null && exercise.isForcedListening()) {
+            forcedListeningService.carryOverPassedSections(attempt, lastAttempt, reopenSectionIds);
+        } else if (lastAttempt != null) {
             ExerciseAttempt newAttempt = attempt;
             List<StudentAnswer> previousAnswers = studentAnswerRepository.findByExerciseAttemptId(lastAttempt.getId());
             previousAnswers.stream()
@@ -518,6 +535,11 @@ public class ExerciseAttemptService {
             studentAnswerRepository.save(answer);
         }
 
+        // V226 (Nghe ép) — ghi điểm/đạt/lượt chưa đạt/tapescript mở của từng bài tập con ĐANG MỞ.
+        if (attempt.getExercise().isForcedListening()) {
+            forcedListeningService.recordSubmit(attempt, answers, exerciseQuestions);
+        }
+
         // V138 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22): ESSAY thuộc Bài
         // Exercise.skillCategory=WRITING được AI chấm NGAY lúc nộp bài (thay UC-41 chờ GV thủ công CHỈ
         // cho riêng nhóm Bài này) — ghi StudentAnswerGrading trực tiếp tại đây (KHÔNG gọi
@@ -643,8 +665,14 @@ public class ExerciseAttemptService {
             return attempt;
         }
         Exercise exercise = attempt.getExercise();
-        BigDecimal percentage = percentageOf(attempt.getTotalScore(), exercise.getTotalPoints());
-        boolean passed = percentage != null && percentage.compareTo(exercise.getPassThresholdPercent()) >= 0;
+        boolean passed;
+        if (exercise.isForcedListening()) {
+            // V226 — Nghe ép: đạt khi MỌI bài tập con đạt (mức cần đạt tính riêng từng bài), không theo % cả lượt.
+            passed = forcedListeningService.allSectionsPassed(attempt);
+        } else {
+            BigDecimal percentage = percentageOf(attempt.getTotalScore(), exercise.getTotalPoints());
+            passed = percentage != null && percentage.compareTo(exercise.getPassThresholdPercent()) >= 0;
+        }
         attempt.setPassed(passed);
         return exerciseAttemptRepository.save(attempt);
     }
@@ -673,6 +701,9 @@ public class ExerciseAttemptService {
         if (attempt.isAnswersRevealedEarly()) {
             throw new AttemptNotEditableException("error.attemptNotEditable.alreadyRevealedEarly", new Object[]{},
                     "Lượt làm bài này đã được đóng sớm để xem đáp án từ trước.");
+        }
+        if (attempt.getExercise().isForcedListening()) {
+            forcedListeningService.requireCanReveal(attempt);
         }
         attempt.setAnswersRevealedEarly(true);
         attempt = exerciseAttemptRepository.save(attempt);
@@ -1170,8 +1201,8 @@ public class ExerciseAttemptService {
         boolean canStartNewAttempt = assignment.getStatus() == ExerciseAssignment.Status.ACTIVE
                 && !assignment.getAvailableFrom().isAfter(OffsetDateTime.now())
                 && (latest == null || latest.getStatus() != ExerciseAttempt.Status.IN_PROGRESS)
-                && (myAttempts.isEmpty() || exercise.isAllowRetake())
-                && (exercise.getMaxAttempts() == null || myAttempts.size() < exercise.getMaxAttempts())
+                && (exercise.isForcedListening() || myAttempts.isEmpty() || exercise.isAllowRetake())
+                && (exercise.isForcedListening() || exercise.getMaxAttempts() == null || myAttempts.size() < exercise.getMaxAttempts())
                 && !retakeBlockedByDeadline
                 && !revealedEarly;
         return new AssignedExerciseResponse(
@@ -1207,6 +1238,12 @@ public class ExerciseAttemptService {
         // và tự nguyện đóng lượt sớm (xem revealAnswersAndClose) — không cần đợi tới lượt cuối cùng nữa.
         if (revealAnswer && a.isAutoGradable() && exercise.getMaxAttempts() != null) {
             revealAnswer = attempt.getAttemptNumber() >= exercise.getMaxAttempts() || attempt.isAnswersRevealedEarly();
+        }
+        // V226 (Nghe ép) — đúng/sai từng câu và đáp án đúng CHỈ lộ sau khi học sinh chủ động "Xem đáp án" (đã
+        // đạt mọi bài, xem revealAnswersAndClose); trước đó chỉ có điểm từng bài tập con + tapescript đã mở.
+        boolean hideVerdict = exercise.isForcedListening() && !attempt.isAnswersRevealedEarly();
+        if (hideVerdict) {
+            revealAnswer = false;
         }
         List<Long> correctChoiceIds = null;
         String correctAnswerText = null;
@@ -1251,7 +1288,8 @@ public class ExerciseAttemptService {
         }
         return new StudentAnswerResponse(
                 a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
-                a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
+                a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(),
+                hideVerdict ? null : a.getAutoScore(), hideVerdict ? null : a.getCorrect(),
                 correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent,
                 gradingScore, gradingMaxScore, gradingFeedback, gradingSource, gradingMarkedAnswer, gradingCriteriaScores,
                 gradingKeyGrammar, a.isCarriedOverFromPreviousAttempt());

@@ -128,6 +128,11 @@ public class ListeningHintService {
     }
 
     private Question requireListeningQuestionInAttempt(ExerciseAttempt attempt, Long questionId) {
+        // V226 (Nghe ép) — Bài Nghe ép mở tapescript theo số lượt chưa đạt (ForcedListeningService), không theo số lần nghe.
+        if (attempt.getExercise().isForcedListening()) {
+            throw new ResourceNotFoundException("error.listeningHint.forcedListening", new Object[]{attempt.getExercise().getId()},
+                    "Bài id=" + attempt.getExercise().getId() + " là Bài Nghe ép — tapescript mở theo số lượt chưa đạt của từng bài tập con.");
+        }
         if (!exerciseQuestionRepository.existsByExerciseIdAndQuestionId(attempt.getExercise().getId(), questionId)) {
             throw new ResourceNotFoundException("error.listeningHint.questionNotInExercise",
                     new Object[]{questionId, attempt.getExercise().getId()},

@@ -220,15 +220,21 @@ public class ExerciseReportService {
         List<Map<Long, ExerciseAttempt>> attemptMapsByAssignment = attemptMapsByAssignment(group);
         BigDecimal totalPointsOfBatch = totalPointsOfBatch(group);
         int memberCount = group.size();
-        List<Map<Long, Integer>> attemptCountMapsByAssignment = group.stream()
-                .map(a -> exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberDesc(a.getId()).stream()
+        List<List<ExerciseAttempt>> allAttemptsByAssignment = group.stream()
+                .map(a -> exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberDesc(a.getId()))
+                .toList();
+        List<Map<Long, Integer>> attemptCountMapsByAssignment = allAttemptsByAssignment.stream()
+                .map(list -> list.stream()
                         .collect(Collectors.groupingBy(at -> at.getStudent().getId(),
                                 Collectors.collectingAndThen(Collectors.toList(), List::size))))
                 .toList();
+        Map<Long, TimeTotals> timeTotalsByStudent = timeTotalsByStudent(
+                allAttemptsByAssignment.stream().flatMap(List::stream).toList());
 
         List<ExerciseAssignmentStudentStatsResponse.StudentRow> rows = roster.stream()
                 .map(enrollment -> toBatchStudentRow(enrollment.getStudent(), attemptMapsByAssignment,
-                        attemptCountMapsByAssignment, memberCount, totalPointsOfBatch))
+                        attemptCountMapsByAssignment, memberCount, totalPointsOfBatch,
+                        timeTotalsByStudent.get(enrollment.getStudent().getId())))
                 .toList();
 
         return new ExerciseAssignmentStudentStatsResponse(header, rows);
@@ -239,7 +245,8 @@ public class ExerciseReportService {
             List<Map<Long, ExerciseAttempt>> attemptMapsByAssignment,
             List<Map<Long, Integer>> attemptCountMapsByAssignment,
             int memberCount,
-            BigDecimal totalPointsOfBatch) {
+            BigDecimal totalPointsOfBatch,
+            TimeTotals timeTotals) {
         Long studentId = student.getId();
         List<ExerciseAttempt> presentAttempts = new java.util.ArrayList<>();
         for (Map<Long, ExerciseAttempt> m : attemptMapsByAssignment) {
@@ -298,8 +305,8 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                 studentId, student.getStudentCode(), student.getUser().getFullName(),
                 status, totalScore, totalPointsOfBatch, percentage, passed, submittedAt, null, null, numberOfAttempts,
-                presentAttempts.stream().map(ExerciseAttempt::getStartedAt).min(java.time.OffsetDateTime::compareTo).orElse(null),
-                presentAttempts.stream().mapToInt(ExerciseAttempt::getActiveSeconds).sum());
+                timeTotals == null ? null : timeTotals.firstStartedAt(),
+                timeTotals == null ? null : timeTotals.activeSeconds());
     }
 
     @Transactional(readOnly = true)
@@ -316,8 +323,12 @@ public class ExerciseReportService {
         Map<Long, Integer> numberOfAttemptsByStudent = allAttempts.stream()
                 .collect(Collectors.groupingBy(a -> a.getStudent().getId(), Collectors.collectingAndThen(Collectors.toList(), list -> list.size())));
 
+        Map<Long, TimeTotals> timeTotalsByStudent = timeTotalsByStudent(allAttempts);
+
         List<ExerciseAssignmentStudentStatsResponse.StudentRow> rows = roster.stream()
-                .map(enrollment -> toStudentRow(enrollment.getStudent(), attemptByStudent.get(enrollment.getStudent().getId()), assignment.getExercise(), numberOfAttemptsByStudent.getOrDefault(enrollment.getStudent().getId(), 0)))
+                .map(enrollment -> toStudentRow(enrollment.getStudent(), attemptByStudent.get(enrollment.getStudent().getId()), assignment.getExercise(),
+                        numberOfAttemptsByStudent.getOrDefault(enrollment.getStudent().getId(), 0),
+                        timeTotalsByStudent.get(enrollment.getStudent().getId())))
                 .toList();
 
         return new ExerciseAssignmentStudentStatsResponse(toAssignmentStats(assignment, roster), rows);
@@ -360,7 +371,7 @@ public class ExerciseReportService {
         ExerciseAssignmentStatsResponse header = stats.assignment();
 
         List<String> headers = List.of("Mã học sinh", "Họ tên", "Trạng thái", "Điểm", "Tổng điểm", "Phần trăm (%)", "Đạt",
-                "Bắt đầu lúc", "Nộp lúc", "Thời gian làm thực (phút)");
+                "Bắt đầu lần đầu lúc", "Nộp lúc", "Tổng thời gian làm thực, mọi lượt (phút)");
         List<List<Object>> rows = stats.students().stream()
                 .map(s -> List.<Object>of(
                         s.studentCode(),
@@ -392,7 +403,7 @@ public class ExerciseReportService {
         ExerciseAssignmentStatsResponse header = stats.assignment();
 
         List<String> headers = List.of("Mã học sinh", "Họ tên", "Trạng thái", "Điểm", "Tổng điểm", "Phần trăm (%)", "Đạt",
-                "Bắt đầu lúc", "Nộp lúc", "Thời gian làm thực (phút)");
+                "Bắt đầu lần đầu lúc", "Nộp lúc", "Tổng thời gian làm thực, mọi lượt (phút)");
         List<List<Object>> rows = stats.students().stream()
                 .map(s -> List.<Object>of(
                         s.studentCode(),
@@ -441,7 +452,23 @@ public class ExerciseReportService {
                 assignment.getHomeworkBatch() == null ? null : assignment.getHomeworkBatch().getId(), null);
     }
 
-    private ExerciseAssignmentStudentStatsResponse.StudentRow toStudentRow(Student student, ExerciseAttempt latest, Exercise exercise, int numberOfAttempts) {
+    /** Lúc bắt đầu lượt ĐẦU TIÊN + tổng số giây làm thực của MỌI lượt (kể cả làm lại) của 1 học sinh. */
+    record TimeTotals(java.time.OffsetDateTime firstStartedAt, int activeSeconds) {}
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã yêu cầu 2026-11-04 — cột "Thời gian làm" ở Thống kê BTVN phải là TỔNG thời gian
+     * học sinh đã bỏ ra cho bài (cộng mọi lượt, kể cả làm lại), không chỉ lượt đang hiện điểm. Lượt làm trước khi có
+     * V223 có active_seconds = 0 nên không đóng góp gì vào tổng.
+     */
+    static Map<Long, TimeTotals> timeTotalsByStudent(List<ExerciseAttempt> attempts) {
+        return attempts.stream().collect(Collectors.groupingBy(a -> a.getStudent().getId(),
+                Collectors.collectingAndThen(Collectors.toList(), list -> new TimeTotals(
+                        list.stream().map(ExerciseAttempt::getStartedAt).min(java.time.OffsetDateTime::compareTo).orElse(null),
+                        list.stream().mapToInt(ExerciseAttempt::getActiveSeconds).sum()))));
+    }
+
+    private ExerciseAssignmentStudentStatsResponse.StudentRow toStudentRow(Student student, ExerciseAttempt latest, Exercise exercise,
+                                                                           int numberOfAttempts, TimeTotals timeTotals) {
         if (latest == null) {
             return new ExerciseAssignmentStudentStatsResponse.StudentRow(
                     student.getId(), student.getStudentCode(), student.getUser().getFullName(),
@@ -461,7 +488,8 @@ public class ExerciseReportService {
                 student.getId(), student.getStudentCode(), student.getUser().getFullName(),
                 status, latest.getTotalScore(), exercise.getTotalPoints(), percentage,
                 latest.getPassed(), latest.getSubmittedAt(), latest.getAttemptNumber(), latest.getId(), numberOfAttempts,
-                latest.getStartedAt(), latest.getActiveSeconds());
+                timeTotals == null ? latest.getStartedAt() : timeTotals.firstStartedAt(),
+                timeTotals == null ? latest.getActiveSeconds() : timeTotals.activeSeconds());
     }
 
     private ExerciseAssignmentQuestionStatsResponse.QuestionRow toQuestionRow(ExerciseQuestion eq, List<StudentAnswer> answers,

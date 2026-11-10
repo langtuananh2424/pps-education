@@ -61,18 +61,18 @@ class ReflexV2AiGradingServiceTest {
     }
 
     @Test
-    void gradeSpeaking_UC23b_spokeDifferent_recordsTranscriptionUsageThenRejects() {
+    void gradeSpeaking_UC23b_spokeCompletelyDifferent_stillGradesOnWhisperTranscript() {
         when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
-                .thenReturn(transcriptionResponse("Yesterday elephants danced beautifully under purple mountains"));
+                .thenReturn(transcriptionResponse("Yesterday elephants danced beautifully under purple mountains"))
+                .thenReturn(gradingResponse("[]", 0, 1));
 
-        assertThatThrownBy(() -> grade())
-                .isInstanceOf(ReflexAudioRejectedException.class)
-                .hasMessage(ReflexV2AiGradingService.MSG_SPOKE_DIFFERENT);
+        ReflexV2AiGradingService.SpeakingResult result = grade();
 
-        verify(sink, times(1)).record(AiGradingTokenUsage.Step.TRANSCRIPTION, transcriptionUsage);
-        verifyNoMoreInteractions(sink);
-        // Bị từ chối ngay sau Lượt A — KHÔNG được gọi tiếp Lượt B (chấm).
-        verify(aiClient, times(1)).chatWithAudioJson(any(), any(), any(), any(), any(), any());
+        // Không còn bị từ chối: vẫn gọi Lượt B và ghi cả 2 lượt dùng token.
+        assertThat(result).isNotNull();
+        verify(sink).record(AiGradingTokenUsage.Step.TRANSCRIPTION, transcriptionUsage);
+        verify(sink).record(AiGradingTokenUsage.Step.SPEAKING, gradingUsage);
+        verify(aiClient, times(2)).chatWithAudioJson(any(), any(), any(), any(), any(), any());
     }
 
     @Test
