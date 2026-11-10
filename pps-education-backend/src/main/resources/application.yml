@@ -283,6 +283,8 @@ app:
       enabled: ${CLAUDE_DIRECT_ENABLED:false}
       model: ${CLAUDE_DIRECT_MODEL:claude-haiku-5-5}
       timeout-seconds: ${CLAUDE_DIRECT_TIMEOUT_SECONDS:150}
+      # Mức effort của Haiku (output_config.effort): low | medium | high. Đặt rỗng để không gửi.
+      effort: ${CLAUDE_DIRECT_EFFORT:low}
     # Bổ sung 2026-10-23 (đã xác nhận với người dùng) - số lần gọi tối đa cho MỖI bước gọi thẳng trước khi rơi về
     # 9Router. Claude: lỗi HTTP, nội dung rỗng, JSON hỏng/thiếu mục đều thử lại (AiGradingFallbackService#withRetries,
     # nghỉ k x direct-retry-delay-ms giữa các lần). Groq/Azure: chỉ lỗi tạm thời (kết nối, HTTP 408/429/5xx - xem

@@ -95,6 +95,22 @@ public class Exercise extends BaseAuditEntity {
     @Column(name = "pass_threshold_percent", nullable = false, precision = 5, scale = 2)
     private BigDecimal passThresholdPercent = new BigDecimal("70.00");
 
+    /**
+     * V226 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-09) — Bài "Nghe ép": chia thành các
+     * bài tập con ({@link ExerciseSection}), mỗi bài chấm riêng, chưa đạt phải làm lại. Xem
+     * ForcedListeningService và mục "Bổ sung V226" trong docs/uc/phan-he-07-lms-portal.md.
+     */
+    @Column(name = "forced_listening", nullable = false)
+    private boolean forcedListening = false;
+
+    /** V226 — số lượt chưa đạt của 1 bài tập con để mở tapescript câu sai đầu tiên (mặc định 3). */
+    @Column(name = "tapescript_first_unlock_attempts", nullable = false)
+    private int tapescriptFirstUnlockAttempts = 3;
+
+    /** V226 — cứ thêm bấy nhiêu lượt chưa đạt thì mở thêm 1 câu (mặc định 2). */
+    @Column(name = "tapescript_unlock_step", nullable = false)
+    private int tapescriptUnlockStep = 2;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.DRAFT;

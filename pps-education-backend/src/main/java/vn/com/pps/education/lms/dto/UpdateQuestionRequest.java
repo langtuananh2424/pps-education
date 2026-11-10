@@ -35,5 +35,14 @@ public record UpdateQuestionRequest(
          * nguyên") — NULL/rỗng = xoá Key Grammar khỏi câu hỏi này. Chỉ áp dụng được khi questionType =
          * ESSAY, server tự bỏ qua nếu không.
          */
-        List<String> keyGrammarIds
-) {}
+        List<String> keyGrammarIds,
+        /** V226 (Nghe ép) — NULL = giữ nguyên tapescript hiện có; chuỗi rỗng = xoá. */
+        String tapescript
+) {
+    public UpdateQuestionRequest(String content, String audioUrl, String imageUrl, String referencePassage, String explanation,
+                                  String correctAnswerText, Map<String, Object> structuredContent, BigDecimal defaultPoints,
+                                  List<String> tags, List<QuestionChoiceRequest> choices, String status, List<String> keyGrammarIds) {
+        this(content, audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, structuredContent,
+                defaultPoints, tags, choices, status, keyGrammarIds, null);
+    }
+}

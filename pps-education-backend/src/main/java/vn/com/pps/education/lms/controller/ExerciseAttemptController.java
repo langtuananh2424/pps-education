@@ -50,8 +50,9 @@ public class ExerciseAttemptController {
     @PostMapping("/api/exercises/{exerciseId}/attempts")
     public ResponseEntity<ExerciseAttemptResponse> startAttempt(@PathVariable Long exerciseId,
                                                                   @RequestParam Long assignmentId,
+                                                                  @RequestParam(required = false) List<Long> reopenSectionIds,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(exerciseAttemptService.startAttempt(exerciseId, assignmentId, actor.userId()));
+        return ResponseEntity.ok(exerciseAttemptService.startAttempt(exerciseId, assignmentId, reopenSectionIds, actor.userId()));
     }
 
     @GetMapping("/api/exercises/{exerciseId}/attempts")

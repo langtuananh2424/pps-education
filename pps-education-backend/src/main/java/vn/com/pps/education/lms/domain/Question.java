@@ -67,6 +67,10 @@ public class Question {
     @Column(name = "reference_passage", columnDefinition = "TEXT")
     private String referencePassage;
 
+    /** V226 — lời thoại RIÊNG của câu cho Bài "Nghe ép" (khác referencePassage dùng chung cả nhóm). Không bao giờ trả cho học sinh trừ qua ForcedListeningService#viewTapescript. */
+    @Column(name = "tapescript", columnDefinition = "TEXT")
+    private String tapescript;
+
     @Column(columnDefinition = "TEXT")
     private String explanation;
 

@@ -12,10 +12,12 @@ import {
   ExerciseQuestionResponse,
   ListeningHintResponse,
   ListeningPlayProgressResponse,
+  SectionResultsResponse,
   StudentAnswerResponse,
   getAttempt,
   getExercise,
   getListeningHint,
+  getSectionResults,
   listExerciseQuestions,
   listAnswers,
   recordActiveTime,
@@ -30,6 +32,7 @@ import {
 import { useActiveTimeTracker } from "../hooks/useActiveTimeTracker";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
+import ForcedListeningPanel from "./ForcedListeningPanel";
 import MonitoringBadge from "./MonitoringBadge";
 import { ScoreSticker } from "./ScoreSticker";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
@@ -182,6 +185,8 @@ function MarkedEssayLegend({ t }: { t: (key: string) => string }) {
  * TRƯỚC) — chỉ bổ sung thêm 2 điều kiện allowRetake/maxAttempts tính lại tươi mỗi lần gọi.
  */
 export function canRetakeExercise(item: AssignedExerciseResponse, meta: ExerciseMetaResponse, attempt: ExerciseAttemptResponse): boolean {
+  // V226 (Nghe ép) — không giới hạn số lượt (allowRetake/maxAttempts không áp dụng), BE đã tính sẵn trong item.canStartNewAttempt.
+  if (meta.forcedListening) return item.canStartNewAttempt;
   return item.canStartNewAttempt && meta.allowRetake && (meta.maxAttempts == null || attempt.attemptNumber < meta.maxAttempts);
 }
 
@@ -515,11 +520,12 @@ export function isLockedCarriedOver(answer: StudentAnswerResponse | undefined): 
 }
 
 /** V177 — chỉ báo nhỏ cạnh câu đã khoá vì carry-forward, khác hẳn LockedAnswerBanner (đó là "chưa được XEM đáp án"). */
-function CarriedOverBadge() {
+function CarriedOverBadge({ forced }: { forced?: boolean }) {
   const { t } = useTranslation("portal-exercises");
   return (
     <span className="inline-flex items-center gap-1 text-[13px] font-extrabold text-teal-deep bg-teal/10 border border-teal/20 px-2 py-0.5 rounded-full">
-      <Lock size={10} /> {t("takeExercise.carriedOverBadge")}
+      {/* V226 (Nghe ép) — bài đã đạt được mang NGUYÊN BÀI sang (kể cả câu sai), không được nói "đã đúng". */}
+      <Lock size={10} /> {forced ? t("forcedListening.lockedPassed") : t("takeExercise.carriedOverBadge")}
     </span>
   );
 }
@@ -577,6 +583,10 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
    * bộ này ghi đè ngay để ẩn nút "Xem đáp án"/"Làm lại" đúng lúc mà không cần chờ đóng modal rồi mở lại.
    */
   const [justClosedEarly, setJustClosedEarly] = useState(false);
+  // V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — bảng điểm từng bài tập con; chỉ tải khi Bài là Nghe ép.
+  const [sectionResults, setSectionResults] = useState<SectionResultsResponse | null>(null);
+  const forced = exerciseMeta?.forcedListening === true;
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   /**
    * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24 A1: lượt làm CÒN
@@ -600,7 +610,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
    * hiện thông báo khóa đáp án cho tới khi có dữ liệu chắc chắn.
    */
   const attemptsRemainingBeforeAnswer =
-    exerciseMeta?.maxAttempts != null && attempt != null ? Math.max(0, exerciseMeta.maxAttempts - attempt.attemptNumber) : null;
+    !forced && exerciseMeta?.maxAttempts != null && attempt != null ? Math.max(0, exerciseMeta.maxAttempts - attempt.attemptNumber) : null;
   /**
    * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24/A4, UC-27/A2: lượt làm
    * gần nhất đã ĐẠT nhưng đáp án vẫn còn bị khoá (còn lượt làm lại, chưa tới lượt cuối) — cho học sinh
@@ -616,12 +626,19 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     attempt.status === "FULLY_GRADED" &&
     attempt.passed === true &&
     exerciseMeta != null &&
-    exerciseMeta.maxAttempts != null &&
-    canRetakeExercise(item, exerciseMeta, attempt);
+    (forced
+      ? sectionResults?.canRevealAnswers === true
+      : exerciseMeta.maxAttempts != null && canRetakeExercise(item, exerciseMeta, attempt));
 
   const loadAnswers = (attemptId: number) => {
     listAnswers(attemptId)
       .then((res) => setAnswersByQuestion(new Map(res.map((a) => [a.questionId, a]))))
+      .catch(() => undefined);
+  };
+
+  const loadSectionResults = (attemptId: number) => {
+    getSectionResults(attemptId)
+      .then((res) => setSectionResults(res))
       .catch(() => undefined);
   };
 
@@ -658,6 +675,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       setAttempt(attemptRes);
       setQuestions([...questionRes].sort((a, b) => a.displayOrder - b.displayOrder));
       loadAnswers(attemptRes.id);
+      if (meta.forcedListening) loadSectionResults(attemptRes.id);
     };
 
     load()
@@ -737,7 +755,8 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
 
   /** Gọi khi audio của 1 câu hỏi Nghe phát tới cuối (sự kiện `ended`) — im lặng bỏ qua lỗi mạng, không chặn học sinh nghe/làm bài tiếp. */
   const handleListeningEnded = async (q: ExerciseQuestionResponse) => {
-    if (!attempt || readOnly) return;
+    // Nghe ép không đếm lượt nghe (nghe tự do), tapescript mở theo lượt chưa đạt — không gọi API V94.
+    if (!attempt || readOnly || forced) return;
     try {
       const res = await recordListeningPlay(attempt.id, q.questionId);
       setListeningProgress((prev) => new Map(prev).set(listeningKeyOf(q), res));
@@ -787,6 +806,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       textSaves.reset();
       setAttempt(updated);
       loadAnswers(updated.id);
+      if (forced) loadSectionResults(updated.id);
       setJustSubmitted(true);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.submitError")));
@@ -807,16 +827,17 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
    * carriedOverFromPreviousAttempt để khoá lại, xem isLockedCarriedOver), chỉ còn câu sai/chưa trả lời
    * là thật sự trống.
    */
-  const handleRetake = async () => {
+  const handleRetake = async (reopenSectionIds?: number[]) => {
     setError(null);
     setLoading(true);
     try {
-      const fresh = await startAttempt(item.exerciseId, item.assignmentId);
+      const fresh = await startAttempt(item.exerciseId, item.assignmentId, reopenSectionIds);
       setAttempt(fresh);
       setTextDraft({});
       textSaves.reset();
       setJustSubmitted(false);
       loadAnswers(fresh.id);
+      if (forced) loadSectionResults(fresh.id);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
     } finally {
@@ -837,6 +858,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       await revealAndCloseAttempt(attempt.id);
       setJustClosedEarly(true);
       loadAnswers(attempt.id);
+      if (forced) loadSectionResults(attempt.id);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
     } finally {
@@ -870,6 +892,26 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasActiveAttempt, timeLimitRemainingMs]);
+
+  // V226 (Nghe ép) — nộp xong cuộn lên bảng điểm từng bài (thay cho popup kết quả chung của Bài thường).
+  useEffect(() => {
+    if (forced && justSubmitted && sectionResults) panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [forced, justSubmitted, sectionResults]);
+
+  // V226 (Nghe ép) — chia câu hỏi theo bài tập con (gộp nhóm audio TRONG từng bài), mỗi bài có 1 tiêu đề.
+  const blockEntries: { block: RenderBlock; sectionTitle: string | null }[] = (() => {
+    if (!forced) return groupQuestionsByGroupKey(questions).map((block) => ({ block, sectionTitle: null }));
+    const bySection = new Map<number | null, ExerciseQuestionResponse[]>();
+    for (const q of questions) bySection.set(q.sectionId, [...(bySection.get(q.sectionId) ?? []), q]);
+    let number = 0;
+    return [...bySection.entries()].flatMap(([sectionId, sectionQuestions]) => {
+      number += 1;
+      const title = sectionResults?.sections.find((sec) => sec.sectionId === sectionId)?.title ?? t("forcedListening.sectionFallback", { number });
+      return groupQuestionsByGroupKey(sectionQuestions).map((block, i) => ({ block, sectionTitle: i === 0 ? title : null }));
+    });
+  })();
+  const canReopenSection =
+    forced && readOnly && !justClosedEarly && attempt != null && exerciseMeta != null && canRetakeExercise(item, exerciseMeta, attempt) && sectionResults?.answersRevealed !== true;
 
   return (
     // Lớp phủ toàn màn hình (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — thay cho
@@ -933,7 +975,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       {/* Popup kết quả sau khi nộp bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06.
           Chỉ hiện đúng 1 lần ngay sau khi bấm "Nộp bài" (justSubmitted), không hiện lại khi mở xem
           lại 1 lượt đã nộp từ trước. */}
-      {justSubmitted && attempt && (
+      {justSubmitted && attempt && !forced && (
         <SubmitResultPopup
           attempt={attempt}
           exerciseTitle={item.title}
@@ -1001,7 +1043,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                 trong cùng phiên) — xem handleRetake. */}
             {readOnly && attempt && exerciseMeta && canRetakeExercise(item, exerciseMeta, attempt) && !justClosedEarly && (
               <button
-                onClick={handleRetake}
+                onClick={() => handleRetake()}
                 disabled={loading}
                 className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal/10 hover:bg-teal/20 text-teal-deep border border-teal/20 text-xs font-extrabold transition-colors disabled:opacity-60"
               >
@@ -1103,6 +1145,19 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
         <div className="max-w-2xl lg:max-w-3xl w-full mx-auto p-4 sm:p-6 space-y-5">
           {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
+          {forced && sectionResults && attempt && !loading && (
+            <div ref={panelRef}>
+              <ForcedListeningPanel
+                attemptId={attempt.id}
+                results={sectionResults}
+                questions={questions}
+                canReopen={canReopenSection}
+                busy={loading}
+                onReopen={(sectionId) => handleRetake([sectionId])}
+              />
+            </div>
+          )}
+
           {loading ? (
             <p className="text-xs text-muted font-bold flex items-center gap-2">
               <Loader2 size={14} className="animate-spin" /> {t("takeExercise.loadingExam")}
@@ -1110,8 +1165,10 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
           ) : questions.length === 0 ? (
             <p className="text-xs text-muted font-bold italic">{t("takeExercise.noQuestions")}</p>
           ) : (
-            groupQuestionsByGroupKey(questions).map((block) =>
-              block.type === "grid" ? (
+            blockEntries.map(({ block, sectionTitle }) => (
+              <React.Fragment key={block.type === "grid" ? `g-${block.groupKey}` : `q-${block.question.id}`}>
+                {sectionTitle && <h4 className="text-base font-black text-ink pt-2 border-t border-line/60">{sectionTitle}</h4>}
+                {block.type === "grid" ? (
                 <GridQuestionGroup
                   key={block.groupKey}
                   block={block}
@@ -1127,7 +1184,8 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   onStructuredDraft={(questionId, values) => textSaves.noteStructuredDraft(questionId, values)}
                   onAudioUpload={handleAudioAnswer}
                   onFilePickerOpen={suppressForFilePicker}
-                  attemptId={attempt?.id}
+                  attemptId={forced ? undefined : attempt?.id}
+                  forcedListening={forced}
                   listeningProgress={listeningProgress}
                   onListeningEnded={handleListeningEnded}
                 />
@@ -1147,12 +1205,14 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   onStructuredDraft={(values) => textSaves.noteStructuredDraft(block.question.questionId, values)}
                   onAudioUpload={(file) => handleAudioAnswer(block.question.questionId, file)}
                   onFilePickerOpen={suppressForFilePicker}
-                  attemptId={attempt?.id}
+                  attemptId={forced ? undefined : attempt?.id}
+                  forcedListening={forced}
                   listeningProgress={listeningProgress}
                   onListeningEnded={handleListeningEnded}
                 />
-              )
-            )
+                )}
+              </React.Fragment>
+            ))
           )}
         </div>
       </div>
@@ -1310,6 +1370,7 @@ export function QuestionBlock({
   onAudioUpload,
   onFilePickerOpen,
   attemptId,
+  forcedListening,
   listeningProgress,
   onListeningEnded
 }: {
@@ -1330,6 +1391,8 @@ export function QuestionBlock({
   onAudioUpload: (file: File) => void;
   onFilePickerOpen: () => void;
   attemptId: number | undefined;
+  /** V226 (Nghe ép) — đổi nhãn khoá của câu mang sang từ lượt trước (cả bài đã đạt, không phải 'đã đúng'). */
+  forcedListening?: boolean;
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
@@ -1410,7 +1473,7 @@ export function QuestionBlock({
         </div>
       </div>
 
-      {isLockedCarriedOver(answer) && <CarriedOverBadge />}
+      {isLockedCarriedOver(answer) && <CarriedOverBadge forced={forcedListening} />}
 
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
@@ -2234,6 +2297,7 @@ export function GridQuestionGroup({
   onAudioUpload,
   onFilePickerOpen,
   attemptId,
+  forcedListening,
   listeningProgress,
   onListeningEnded
 }: {
@@ -2253,6 +2317,8 @@ export function GridQuestionGroup({
   onAudioUpload: (questionId: number, file: File) => void;
   onFilePickerOpen: () => void;
   attemptId: number | undefined;
+  /** V226 (Nghe ép) — đổi nhãn khoá của câu mang sang từ lượt trước (cả bài đã đạt, không phải 'đã đúng'). */
+  forcedListening?: boolean;
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
@@ -2390,7 +2456,7 @@ export function GridQuestionGroup({
                   placeholder={t("takeExercise.question.answerPlaceholder")}
                   className="w-full bg-sky-2 border border-line/70 text-sm sm:text-base p-2 rounded-xl text-center focus:outline-none disabled:opacity-70"
                 />
-                {isLockedCarriedOver(answer) && <CarriedOverBadge />}
+                {isLockedCarriedOver(answer) && <CarriedOverBadge forced={forcedListening} />}
                 {showFeedback && (
                   <div
                     className={`flex items-center justify-center gap-1 text-[10px] sm:text-xs font-bold text-center ${
@@ -2449,7 +2515,7 @@ export function GridQuestionGroup({
                 <span className="text-base sm:text-base lg:text-lg font-normal text-ink flex-1 min-w-[160px]">
                   {startNumber != null ? startNumber + qIndex : q.displayOrder}.{!hideContentText && <> {renderRichText(q.questionContent)}</>}
                 </span>
-                {isLockedCarriedOver(answer) && <CarriedOverBadge />}
+                {isLockedCarriedOver(answer) && <CarriedOverBadge forced={forcedListening} />}
               </div>
 
               {/*

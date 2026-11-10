@@ -1110,6 +1110,10 @@ export interface ExerciseMetaResponse {
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-22) — thời gian làm bài tính từ lúc mở
    * bài (ExerciseAttempt.startedAt), khác hạn nộp (dueAt). NULL = không giới hạn. */
   timeLimitMinutes: number | null;
+  /** V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — Bài chia thành các bài tập con, mỗi bài chấm riêng, chưa đạt phải làm lại. */
+  forcedListening: boolean;
+  tapescriptFirstUnlockAttempts: number;
+  tapescriptUnlockStep: number;
 }
 
 export function getExercise(exerciseId: number): Promise<ExerciseMetaResponse> {
@@ -1172,6 +1176,8 @@ export interface ExerciseQuestionResponse {
   groupKey: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa dùng cho ESSAY/WORD_BANK/SENTENCE_BUILDING. */
   imageUrl: string | null;
+  /** V226 (Nghe ép) — bài tập con chứa câu này, NULL với Bài thường. */
+  sectionId: number | null;
 }
 
 export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuestionResponse[]> {
@@ -1199,8 +1205,10 @@ export interface ExerciseAttemptResponse {
 }
 
 /** Main Flow bước 1: mở lượt làm mới — LUÔN tạo attempt mới (không tự resume), chỉ gọi khi thật sự chưa có attempt nào hoặc muốn làm lại. */
-export function startAttempt(exerciseId: number, assignmentId: number): Promise<ExerciseAttemptResponse> {
-  return apiRequest<ExerciseAttemptResponse>(`/exercises/${exerciseId}/attempts?assignmentId=${assignmentId}`, { method: "POST" });
+export function startAttempt(exerciseId: number, assignmentId: number, reopenSectionIds?: number[]): Promise<ExerciseAttemptResponse> {
+  // V226 (Nghe ép) — reopenSectionIds: các bài tập con ĐÃ ĐẠT muốn làm lại tự nguyện.
+  const reopen = reopenSectionIds && reopenSectionIds.length > 0 ? `&reopenSectionIds=${reopenSectionIds.join(",")}` : "";
+  return apiRequest<ExerciseAttemptResponse>(`/exercises/${exerciseId}/attempts?assignmentId=${assignmentId}${reopen}`, { method: "POST" });
 }
 
 export function getAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
@@ -1383,6 +1391,42 @@ export function recordListeningPlay(attemptId: number, questionId: number): Prom
 /** Chỉ gọi khi hintUnlocked=true (từ recordListeningPlay) — gọi thành công sẽ được backend ghi 1 lượt dùng gợi ý để thống kê. */
 export function getListeningHint(attemptId: number, questionId: number): Promise<ListeningHintResponse> {
   return apiRequest<ListeningHintResponse>(`/attempts/${attemptId}/listening-hint?questionId=${questionId}`);
+}
+
+// ===================== Nghe ép (V226, bổ sung ngoài SDD gốc, xác nhận 2026-11-09) =====================
+
+/** Kết quả 1 bài tập con. CỐ TÌNH không có câu nào đúng/sai — chỉ biết câu sai khi tapescript câu đó đã mở (unlockedQuestionIds). */
+export interface SectionResultResponse {
+  sectionId: number;
+  title: string;
+  displayOrder: number;
+  passThresholdPercent: number;
+  passed: boolean;
+  latestScorePercent: number | null;
+  /** NULL đến khi đạt lần đầu; sau đó là điểm đạt cao nhất. */
+  bestScorePercent: number | null;
+  failedAttemptsCount: number;
+  /** NULL khi bài đã đạt. */
+  attemptsUntilNextTapescript: number | null;
+  unlockedQuestionIds: number[];
+}
+
+export interface SectionResultsResponse {
+  sections: SectionResultResponse[];
+  allPassed: boolean;
+  /** Trung bình cộng điểm cao nhất các bài — chỉ có khi mọi bài đã đạt. */
+  overallPercent: number | null;
+  canRevealAnswers: boolean;
+  answersRevealed: boolean;
+}
+
+export function getSectionResults(attemptId: number): Promise<SectionResultsResponse> {
+  return apiRequest<SectionResultsResponse>(`/attempts/${attemptId}/section-results`);
+}
+
+/** Mỗi lần gọi thành công BE ghi 1 lượt xem (thống kê giáo viên) — chỉ gọi khi học sinh thật sự mở lời thoại. */
+export function viewTapescript(attemptId: number, questionId: number): Promise<{ questionId: number; tapescript: string | null }> {
+  return apiRequest<{ questionId: number; tapescript: string | null }>(`/attempts/${attemptId}/tapescripts/${questionId}/views`, { method: "POST" });
 }
 
 /**
