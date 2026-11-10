@@ -51,6 +51,22 @@ public class ClaudeAiClient {
     @Value("${app.ai-grading.claude-direct.timeout-seconds:150}")
     private int requestTimeoutSeconds;
 
+    /** Mức effort gửi qua {@code output_config.effort}; để trống = không gửi (API tự mặc định). */
+    @Value("${app.ai-grading.claude-direct.effort:low}")
+    private String effort;
+
+    private void applyEffort(ObjectNode payload) {
+        if (effort != null && !effort.isBlank()) {
+            payload.putObject("output_config").put("effort", effort.trim());
+        }
+        // Log đúng giá trị trong payload sắp gửi (response của Anthropic không echo effort) để đối chiếu cấu hình thực tế.
+        log.info("ClaudeAiClient request: model={} thinking={} effort={} maxTokens={}",
+                payload.path("model").asText("?"),
+                payload.path("thinking").path("type").asText("?"),
+                payload.path("output_config").path("effort").asText("(không gửi)"),
+                payload.path("max_tokens").asInt());
+    }
+
     /** Ngân sách cho JSON ngắn (điểm + feedback 1-2 câu) — xem {@link #chatJson(String, String, String)}. */
     public static final int MAX_TOKENS_SHORT = 2048;
     /** Ngân sách cho output dài (markdown đánh dấu lỗi + bảng điểm + mục kiểm đếm của rubric v3) — xem Javadoc lớp. */
@@ -127,6 +143,7 @@ public class ClaudeAiClient {
             payload.put("model", model);
             payload.put("max_tokens", MAX_TOKENS_SHORT);
             payload.putObject("thinking").put("type", "disabled");
+            applyEffort(payload);
             payload.put("system", systemPrompt);
             ObjectNode userMsg = payload.putArray("messages").addObject();
             userMsg.put("role", "user");
@@ -177,6 +194,7 @@ public class ClaudeAiClient {
         payload.put("model", model);
         payload.put("max_tokens", maxTokens);
         payload.putObject("thinking").put("type", "disabled");
+        applyEffort(payload);
         ArrayNode systemBlocks = payload.putArray("system");
         ObjectNode systemBlock = systemBlocks.addObject();
         systemBlock.put("type", "text");
