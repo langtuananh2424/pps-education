@@ -364,10 +364,10 @@ export default function HomeworkStatsPage() {
                   return (
                     <React.Fragment key={fragmentKey}>
                       {showUnitHeader && (
-                        <tr className="bg-brand-50/50">
-                          <Td colSpan={8} className="py-2 font-bold text-[13px] text-brand-700">
+                        <tr className={`bg-brand-100/70 ${idx > 0 ? "border-t-2 border-brand-300" : ""}`}>
+                          <Td colSpan={8} className="py-2.5 font-bold text-[13px] text-brand-800 uppercase tracking-wide">
                             {unitKey ?? t("list.unitGroup.none")}{" "}
-                            <span className="font-normal text-slate-400">
+                            <span className="font-normal normal-case text-brand-600/70">
                               ({t("list.unitGroup.countSuffix", { count: unitCounts.get(unitKey) ?? 0 })})
                             </span>
                           </Td>
