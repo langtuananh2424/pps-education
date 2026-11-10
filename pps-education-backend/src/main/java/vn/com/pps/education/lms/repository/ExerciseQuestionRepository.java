@@ -9,4 +9,5 @@ public interface ExerciseQuestionRepository extends JpaRepository<ExerciseQuesti
     List<ExerciseQuestion> findByExerciseIdOrderByDisplayOrder(Long exerciseId);
     boolean existsByExerciseIdAndQuestionId(Long exerciseId, Long questionId);
     long countByExerciseId(Long exerciseId);
+    long countBySectionId(Long sectionId);
 }

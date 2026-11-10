@@ -30,8 +30,22 @@ public record CreateExerciseRequest(
          * sửa lại qua UpdateExerciseRequest nhưng CHỈ khi Bài chưa có câu hỏi (xem
          * ExerciseService#updateExercise) — xem Javadoc Exercise.SkillCategory.
          */
-        String skillCategory
+        String skillCategory,
+        /** V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — chỉ hợp lệ khi skillCategory=LISTENING, cố định từ lúc tạo. */
+        boolean forcedListening,
+        /** V226 — NULL = mặc định 3 (số lượt chưa đạt để mở tapescript câu sai đầu tiên). */
+        Integer tapescriptFirstUnlockAttempts,
+        /** V226 — NULL = mặc định 2 (cứ thêm bấy nhiêu lượt chưa đạt thì mở thêm 1 câu). */
+        Integer tapescriptUnlockStep
 ) {
+    public CreateExerciseRequest(String code, String title, Long examId, Long subjectId, String exerciseType,
+                                  BigDecimal totalPoints, Integer timeLimitMinutes, boolean allowRetake,
+                                  Integer maxAttempts, boolean showCorrectAnswers, BigDecimal passThresholdPercent,
+                                  String skillCategory) {
+        this(code, title, examId, subjectId, exerciseType, totalPoints, timeLimitMinutes, allowRetake,
+                maxAttempts, showCorrectAnswers, passThresholdPercent, skillCategory, false, null, null);
+    }
+
     public CreateExerciseRequest(String code, String title, Long examId, Long subjectId, String exerciseType,
                                   BigDecimal totalPoints, Integer timeLimitMinutes, boolean allowRetake,
                                   Integer maxAttempts, boolean showCorrectAnswers) {

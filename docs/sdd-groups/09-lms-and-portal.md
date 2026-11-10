@@ -1555,6 +1555,55 @@ KHÔNG PHẢI số lượt làm sai/nộp bài thất bại — xem Javadoc
 `ListeningHintService`. Không có Từ điển (dictionary) tích hợp — chưa
 tồn tại ở bất kỳ đâu trong hệ thống tại thời điểm viết tài liệu này.
 
+i-bis-2) Nghe ép --- bài tập con, kết quả từng bài, tapescript theo câu
+(V226, 2026-11-09, bổ sung ngoài SDD gốc, đã xác nhận với người dùng ---
+xem mục "Bổ sung V226" trong `docs/uc/phan-he-07-lms-portal.md`)
+
+Cột mới trên bảng có sẵn:
+
+| Bảng | Cột | Kiểu | Ràng buộc | Ghi chú |
+| --- | --- | --- | --- | --- |
+| exercises | forced_listening | BOOLEAN | NOT NULL, DEFAULT FALSE | Bật chế độ Nghe ép; chỉ hợp lệ khi `skill_category='LISTENING'` |
+| exercises | tapescript_first_unlock_attempts | INT | NOT NULL, DEFAULT 3, CHECK ≥ 1 | Số lượt chưa đạt để mở tapescript câu sai đầu tiên |
+| exercises | tapescript_unlock_step | INT | NOT NULL, DEFAULT 2, CHECK ≥ 1 | Cứ thêm bấy nhiêu lượt chưa đạt thì mở thêm 1 câu |
+| exercise_questions | section_id | BIGINT | NULL, FK → exercise_sections(id) | Bắt buộc (validate ở Service) với Bài `forced_listening`; NULL với Bài thường |
+| questions | tapescript | TEXT | NULL | Lời thoại RIÊNG của câu (khác `reference_passage` dùng chung cả nhóm) |
+
+Bảng exercise_sections --- Bài tập con của 1 Bài Nghe ép
+
+| Cột | Kiểu | Ràng buộc | Ghi chú |
+| --- | --- | --- | --- |
+| id | BIGSERIAL | PK | |
+| exercise_id | BIGINT | FK → exercises(id), NOT NULL | Tối đa 12 bài tập con/Bài (validate ở Service) |
+| title | VARCHAR(255) | NOT NULL | |
+| display_order | INT | NOT NULL | |
+| pass_threshold_percent | DECIMAL(5,2) | NULL | NULL = dùng `exercises.pass_threshold_percent` |
+| created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| | UNIQUE(exercise_id, display_order) | | |
+
+Bảng exercise_section_results --- Kết quả từng bài tập con theo học sinh
+
+| Cột | Kiểu | Ràng buộc | Ghi chú |
+| --- | --- | --- | --- |
+| id | BIGSERIAL | PK | |
+| exercise_assignment_id | BIGINT | FK → exercise_assignments(id), NOT NULL | Phạm vi theo lần giao, mirror cách đếm lượt của `startAttempt` |
+| student_id | BIGINT | FK → students(id), NOT NULL | |
+| exercise_section_id | BIGINT | FK → exercise_sections(id), NOT NULL | |
+| latest_score_percent | DECIMAL(5,2) | NULL | Lượt nộp gần nhất mà bài được mở (chỉ để hiển thị) |
+| best_score_percent | DECIMAL(5,2) | NULL | NULL đến khi ĐẠT lần đầu; sau đó = max các lượt có điểm ≥ mức cần đạt, không bao giờ giảm. Lượt chưa đạt không được tính |
+| passed | BOOLEAN | NOT NULL, DEFAULT FALSE | Một khi TRUE thì giữ TRUE |
+| failed_attempts_count | INT | NOT NULL, DEFAULT 0 | Số lượt nộp bài mở lại, chưa từng đạt, có trả lời ≥ 1 câu, điểm < mức cần đạt (nộp trắng không tính); dùng mở tapescript |
+| unlocked_question_ids | JSONB | NOT NULL, DEFAULT '[]' | Các câu đã được mở tapescript, giữ vĩnh viễn |
+| first_passed_at | TIMESTAMPTZ | NULL | |
+| created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| | UNIQUE(exercise_assignment_id, student_id, exercise_section_id) | | |
+
+`listening_hint_events` giữ nguyên cấu trúc, dùng lại để ghi lượt xem
+tapescript của Nghe ép. Cơ chế mở khoá của V94
+(`system_settings.lms.listening_hint_unlock_play_count`) KHÔNG áp dụng cho
+Bài nghe ép. Mức cần đạt theo level học sinh (từ điểm kiểm tra các kỳ)
+chưa có cột/bảng ở V226 --- sẽ bổ sung khi làm, qua `PassThresholdResolver`.
+
 i-ter) Bảng reflex_question_progress --- Video phản xạ V2, luồng tuần tự
 viết → AI chấm ngữ pháp → đạt → ghi âm → AI chấm nội dung → đạt (V139,
 2026-08-22, bổ sung ngoài SDD gốc, đã xác nhận với người dùng --- xem

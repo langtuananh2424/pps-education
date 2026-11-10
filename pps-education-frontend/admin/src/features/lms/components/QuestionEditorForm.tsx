@@ -133,7 +133,8 @@ const MOCK_BASE: Omit<ExerciseQuestionResponse, "questionType" | "questionConten
   questionId: 0,
   displayOrder: 1,
   points: 1,
-  groupKey: null
+  groupKey: null,
+  sectionId: null
 };
 const MOCK_PREVIEW_QUESTIONS: Record<UiQuestionKind, ExerciseQuestionResponse> = {
   MULTIPLE_CHOICE: { ...MOCK_BASE, questionType: "MULTIPLE_CHOICE", questionContent: "What is the capital of Vietnam?", choices: mockChoices(["Hà Nội", "Hồ Chí Minh", "Đà Nẵng", "Huế"]), skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
@@ -312,6 +313,8 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   // Trắc nghiệm Voice / Nghe & nộp audio: file audio + transcript (referencePassage).
   const [audioUrl, setAudioUrl] = useState(existingQuestion?.audioUrl ?? "");
   const [transcript, setTranscript] = useState(existingQuestion?.referencePassage ?? "");
+  // V226 (Nghe ép) — lời thoại RIÊNG của câu, mở dần cho học sinh theo số lượt chưa đạt (khác transcript ở trên).
+  const [tapescript, setTapescript] = useState(existingQuestion?.tapescript ?? "");
 
   // Điền từ: BE so khớp case-insensitive + trim khi tự chấm (V54). Hỗ trợ NHIỀU đáp án đúng cho
   // cùng 1 chỗ trống, phân tách bằng dấu "/" (VD "go/goes") — bổ sung ngoài SDD gốc, đã xác nhận
@@ -616,7 +619,9 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
           choices,
-          keyGrammarIds: kind === "ESSAY" ? (keyGrammarIds.length > 0 ? keyGrammarIds : null) : null
+          keyGrammarIds: kind === "ESSAY" ? (keyGrammarIds.length > 0 ? keyGrammarIds : null) : null,
+          // Chuỗi rỗng = xoá tapescript; undefined (kind không hiện ô này) = giữ nguyên.
+          tapescript: isVoiceOrListeningAudio ? tapescript.trim() : undefined
         };
         result = examId
           ? await updateExamQuestion(examId, existingQuestion.id, updateRequest)
@@ -640,7 +645,8 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           correctAnswerText:
             kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
-          choices
+          choices,
+          tapescript: isVoiceOrListeningAudio ? tapescript.trim() || undefined : undefined
         };
         if (examId) {
           result = await createExamQuestion(examId, request);
@@ -1399,6 +1405,19 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
               className={inputClass}
             />
           </div>
+        </div>
+      )}
+
+      {isVoiceOrListeningAudio && (
+        <div>
+          <label className={labelClass}>{t("questionEditorForm.tapescriptLabel")}</label>
+          <textarea
+            rows={3}
+            value={tapescript}
+            onChange={(e) => setTapescript(e.target.value)}
+            placeholder={t("questionEditorForm.tapescriptPlaceholder")}
+            className={inputClass}
+          />
         </div>
       )}
 

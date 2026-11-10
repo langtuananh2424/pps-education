@@ -93,8 +93,35 @@ erDiagram
         BIGSERIAL id PK
         BIGINT exercise_id FK
         BIGINT question_id FK
+        BIGINT section_id FK
         INT display_order
         DECIMAL points
+    }
+
+    exercises ||--o{ exercise_sections : "bai tap con (Nghe ep)"
+    exercise_sections ||--o{ exercise_questions : ""
+    exercise_sections ||--o{ exercise_section_results : "ket qua tung bai"
+    exercise_assignments ||--o{ exercise_section_results : ""
+    students ||--o{ exercise_section_results : ""
+
+    exercise_sections {
+        BIGSERIAL id PK
+        BIGINT exercise_id FK
+        VARCHAR title
+        INT display_order
+        DECIMAL pass_threshold_percent
+    }
+
+    exercise_section_results {
+        BIGSERIAL id PK
+        BIGINT exercise_assignment_id FK
+        BIGINT student_id FK
+        BIGINT exercise_section_id FK
+        DECIMAL latest_score_percent
+        DECIMAL best_score_percent
+        BOOLEAN passed
+        INT failed_attempts_count
+        JSONB unlocked_question_ids
     }
 
     exercise_assignments {

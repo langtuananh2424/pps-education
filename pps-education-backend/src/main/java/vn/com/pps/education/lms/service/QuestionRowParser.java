@@ -96,7 +96,13 @@ public interface QuestionRowParser {
              * tự đếm tuần tự cũ. Số nguyên thô CHƯA ép kiểu ở đây — xem
              * QuestionImportService#resolveDisplayNumberOverride.
              */
-            String displayNumberOverride
+            String displayNumberOverride,
+            /**
+             * V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — cột "Tapescript" (lời thoại RIÊNG của
+             * câu, mở dần theo số lượt chưa đạt của bài tập con), TÙY CHỌN. KHÁC cột "Transcript" (đã là
+             * alias của referencePassage). Chỉ QuestionImportService đường tạo câu đơn đọc cột này.
+             */
+            String tapescript
     ) {
         /**
          * Bản sao với "URL Audio"/"URL Hình ảnh" đã chuẩn hoá (xem {@link ImportMediaUrlResolver}) — các
@@ -106,7 +112,7 @@ public interface QuestionRowParser {
             return new ParsedQuestionRow(rowNumber, sheetLabel, kind, difficulty, content,
                     choiceA, choiceB, choiceC, choiceD, correctAnswer, newAudioUrl, newImageUrl,
                     referencePassage, defaultPoints, explanation, tags, instruction,
-                    choiceE, choiceF, choiceG, choiceH, choiceI, choiceJ, skill, displayNumberOverride);
+                    choiceE, choiceF, choiceG, choiceH, choiceI, choiceJ, skill, displayNumberOverride, tapescript);
         }
     }
 }
