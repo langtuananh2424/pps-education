@@ -276,7 +276,11 @@ public class ReflexV2AiGradingService {
         Double overlap = null;
         if (anchor.text() != null && !transcript.isEmpty()) {
             overlap = ReflexContentOverlap.contentOverlap(anchor.text(), transcript);
-            if (overlap < ReflexContentOverlap.minOverlapFor(anchor.text())) {
+            double minOverlap = ReflexContentOverlap.minOverlapFor(anchor.text());
+            if (overlap < minOverlap) {
+                // Lượt bị chặn không ghi audit — log lại để tra soát chặn oan (vd. AI phiên âm lệch từ nội dung duy nhất).
+                log.info("ReflexV2AiGradingService: chặn 'nói khác bài viết' — overlap={} < min={}; written=\"{}\"; transcript=\"{}\"",
+                        overlap, minOverlap, anchor.text(), transcript);
                 throw new ReflexAudioRejectedException(MSG_SPOKE_DIFFERENT);
             }
         }

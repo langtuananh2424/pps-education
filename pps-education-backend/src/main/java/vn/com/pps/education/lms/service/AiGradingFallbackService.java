@@ -326,7 +326,11 @@ public class AiGradingFallbackService {
         // Rào chắn 2: nói khác hẳn bài viết Bước 1.
         if (anchor.text() != null && !anchor.text().isBlank() && !transcript.isEmpty()) {
             double overlap = ReflexContentOverlap.contentOverlap(anchor.text(), transcript);
-            if (overlap < ReflexContentOverlap.minOverlapFor(anchor.text())) {
+            double minOverlap = ReflexContentOverlap.minOverlapFor(anchor.text());
+            if (overlap < minOverlap) {
+                // Lượt bị chặn không ghi audit — log lại để tra soát chặn oan (vd. AI phiên âm lệch từ nội dung duy nhất).
+                log.info("AiGradingFallbackService: chặn 'nói khác bài viết' — overlap={} < min={}; source={}; written=\"{}\"; transcript=\"{}\"",
+                        overlap, minOverlap, transcriptionSource, anchor.text(), transcript);
                 throw new ReflexAudioRejectedException(MSG_SPOKE_DIFFERENT);
             }
         }
