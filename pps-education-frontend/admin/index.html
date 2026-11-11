@@ -5,25 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PPS Education — Admin</title>
 
-    <!-- Chẩn đoán tạm (xem CLAUDE.md task trắng trang trên Safari/iOS 16.1) — bắt lỗi JS
-         không có error boundary nào bắt được và in thẳng lên trang thay vì màn hình trắng
-         im lặng. Chạy TRƯỚC script module chính nên bắt được cả lỗi lúc React mount. Gỡ bỏ
-         sau khi đã xác định được nguyên nhân thật. -->
-    <script>
-      function ppsShowDiagError(label, err) {
-        var msg = (err && (err.stack || err.message)) || String(err);
-        var el = document.createElement("pre");
-        el.style.cssText = "white-space:pre-wrap;padding:16px;font-size:14px;line-height:1.4;color:#000;background:#fff;position:fixed;inset:0;z-index:999999;overflow:auto;margin:0;";
-        el.textContent = label + ":\n" + msg;
-        document.body.appendChild(el);
-      }
-      window.addEventListener("error", function (e) {
-        ppsShowDiagError("LỖI JS", e.error || e.message);
-      });
-      window.addEventListener("unhandledrejection", function (e) {
-        ppsShowDiagError("LỖI PROMISE", e.reason);
-      });
-    </script>
+    <!-- Chẩn đoán tạm (xem CLAUDE.md task trắng trang trên Safari/iOS 16.1) — file ngoài
+         (không inline, vì CSP script-src không có 'unsafe-inline', xem
+         deploy/nginx/pps-security-headers.conf) để hợp lệ với 'self'. Gỡ bỏ sau khi đã xác
+         định được nguyên nhân thật. -->
+    <script src="/diag.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
