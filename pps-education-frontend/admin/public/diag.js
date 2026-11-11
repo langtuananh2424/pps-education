@@ -15,7 +15,18 @@
   window.addEventListener(
     "error",
     function (e) {
-      showDiagError(e.message && e.filename ? "LOI TAI RESOURCE/JS" : "LOI JS", e.error || e.message || e);
+      // Loi runtime JS (co e.error/e.message that) khac loi tai resource (script/css/img 404,
+      // chan boi mang/CSP...) - truong hop sau e.error/e.message rong, phai doc tu e.target.
+      if (e.error || e.message) {
+        showDiagError("LOI JS", e.error || e.message);
+        return;
+      }
+      var t = e.target;
+      if (t && (t.src || t.href)) {
+        showDiagError("LOI TAI RESOURCE", t.tagName + " -> " + (t.src || t.href));
+        return;
+      }
+      showDiagError("LOI KHONG RO (resource event)", e);
     },
     true
   );
