@@ -51,5 +51,9 @@ public record ExerciseResponse(
          * Unit/SubTopic khác nhau nên chỉ hiện examTitle dễ nhầm lẫn. NULL khi Exam chưa phân loại.
          */
         String unitTitle,
-        String subTopicTitle
+        String subTopicTitle,
+        /** V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — xem Javadoc Exercise#forcedListening. */
+        boolean forcedListening,
+        int tapescriptFirstUnlockAttempts,
+        int tapescriptUnlockStep
 ) {}

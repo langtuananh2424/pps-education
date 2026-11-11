@@ -39,5 +39,7 @@ public record ExerciseQuestionResponse(
         Map<String, Object> structuredContent,
         String groupKey,
         /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — trước đây câu hỏi có ảnh (ESSAY, và giờ WORD_BANK/SENTENCE_BUILDING) không hiện được ảnh cho học sinh vì thiếu field này. */
-        String imageUrl
+        String imageUrl,
+        /** V226 (Nghe ép) — bài tập con chứa câu này, NULL với Bài thường. */
+        Long sectionId
 ) {}

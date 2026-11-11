@@ -77,6 +77,8 @@
     "voicePictureChoiceHint": "Học sinh sẽ nghe file audio này rồi chọn 1 trong các hình bên trên.",
     "optionalAudioLabel": "Kèm audio nghe (tùy chọn) — có audio sẽ tự gắn nhãn kỹ năng Listening cho câu này",
     "referencePassageLabel": "Tiêu đề / Đoạn văn tham chiếu",
+    "tapescriptLabel": "Tapescript (lời thoại riêng của câu, dùng cho Nghe ép)",
+    "tapescriptPlaceholder": "Lời thoại của đoạn audio ứng với câu này. Học sinh chỉ xem được khi câu này được mở theo số lượt chưa đạt.",
     "referencePassagePlaceholder": "Tiêu đề hoặc đoạn văn hiển thị phía trên cả nhóm câu hỏi này (VD tên dạng bài trong sách)...",
     "optionalAudioTranscriptFillInBlankHint": "Không có audio: nội dung ô này hiển thị như tiêu đề/đoạn văn phía trên cả nhóm câu hỏi trong bài làm của học sinh.",
     "wordBankSectionTitle": "Hộp từ vựng — đáp án đúng theo thứ tự chỗ trống",
@@ -400,6 +402,27 @@
   },
   "assignModal": {
     "modalTitle": "Soạn Bài mới",
+    "forcedListening": {
+      "title": "Bài tập con (Nghe ép)",
+      "hint": "Tối đa {{max}} bài. Chọn bài tập con để gắn câu hỏi vào; mỗi câu thuộc đúng một bài.",
+      "sectionMeta": "cần đạt {{percent}}% · {{count}} câu",
+      "deleteTitle": "Xóa bài tập con (chỉ khi chưa có câu hỏi)",
+      "titlePlaceholder": "Tên bài tập con, ví dụ Part 1",
+      "thresholdPlaceholder": "Mức đạt % (tùy chọn)",
+      "add": "Thêm bài tập con",
+      "importButton": "Import Excel Nghe ép",
+      "importing": "Đang import...",
+      "templateButton": "Tải file mẫu",
+      "importHint": "File riêng cho Nghe ép: mỗi dòng 1 câu, cột Bài tập con tự tạo bài và gắn câu vào đúng bài.",
+      "importDone": "Đã tạo {{sections}} bài tập con mới và gắn {{questions}} câu hỏi.",
+      "pickSectionHint": "Chọn hoặc tạo một bài tập con trước khi soạn hay nhập câu hỏi.",
+      "errors": {
+        "titleRequired": "Nhập tên bài tập con.",
+        "createFailed": "Tạo bài tập con thất bại.",
+        "deleteFailed": "Xóa bài tập con thất bại.",
+        "importFailed": "Import thất bại."
+      }
+    },
     "infoStep": {
       "codeLabel": "Mã Bài *",
       "totalPointsLabel": "Tổng điểm *",
@@ -417,6 +440,10 @@
       "showCorrectAnswersCheckbox": "Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)",
       "allowRetakeCheckbox": "Cho phép làm lại",
       "maxAttemptsLabel": "Số lần làm tối đa",
+      "forcedListeningCheckbox": "Nghe ép (chia bài tập con, chưa đạt phải làm lại)",
+      "forcedListeningHint": "Mỗi bài tập con chấm riêng và có mức cần đạt riêng. Chưa đạt đủ số lượt dưới đây thì mở lời thoại một câu sai, rồi cứ thêm số lượt tiếp theo thì mở thêm một câu.",
+      "firstUnlockLabel": "Chưa đạt bao nhiêu lượt thì mở lời thoại câu sai đầu",
+      "unlockStepLabel": "Cứ thêm bao nhiêu lượt thì mở thêm một câu",
       "submit": "Tạo Bài — tiếp tục gắn câu hỏi",
       "errors": {
         "requiredFields": "Vui lòng điền Mã Bài, Tên Bài và Tổng điểm.",

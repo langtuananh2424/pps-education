@@ -28,5 +28,16 @@ public record CreateExamQuestionRequest(
         List<String> tags,
         @Valid List<QuestionChoiceRequest> choices,
         Map<String, Object> structuredContent,
-        String groupKey
-) {}
+        String groupKey,
+        /** V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — lời thoại RIÊNG của câu, xem Javadoc {@code Question.tapescript}. */
+        String tapescript
+) {
+    /** Giữ chữ ký cũ (không tapescript) cho các nơi tạo câu hỏi hiện có (test). */
+    public CreateExamQuestionRequest(String questionType, String skill, String difficulty, String content, String audioUrl,
+                                      String imageUrl, String referencePassage, String explanation, String correctAnswerText,
+                                      BigDecimal defaultPoints, List<String> tags, List<QuestionChoiceRequest> choices,
+                                      Map<String, Object> structuredContent, String groupKey) {
+        this(questionType, skill, difficulty, content, audioUrl, imageUrl, referencePassage, explanation, correctAnswerText,
+                defaultPoints, tags, choices, structuredContent, groupKey, null);
+    }
+}

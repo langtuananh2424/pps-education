@@ -58,7 +58,7 @@ public class ExamQuestionService {
                 exam.getQuestionBank().getId(), request.questionType(), request.skill(), request.difficulty(),
                 request.content(), request.audioUrl(), request.imageUrl(), request.referencePassage(),
                 request.explanation(), request.correctAnswerText(), request.defaultPoints(), request.tags(),
-                request.choices(), request.structuredContent(), request.groupKey(), null);
+                request.choices(), request.structuredContent(), request.groupKey(), null, request.tapescript());
         return questionBankService.createQuestionInBank(
                 exam.getQuestionBank(), resolved, actorUserId, false);
     }

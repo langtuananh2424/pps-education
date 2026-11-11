@@ -445,5 +445,28 @@
     "notPassed": "Chưa đạt",
     "viewDetails": "Xem chi tiết {{count}} bài",
     "hideDetails": "Ẩn chi tiết"
+  },
+  "forcedListening": {
+    "title": "Kết quả từng bài tập",
+    "intro": "Mỗi bài tập chấm riêng. Bài nào chưa đạt phải làm lại cho tới khi đạt, bài đã đạt được giữ nguyên.",
+    "sectionFallback": "Bài {{number}}",
+    "threshold": "Cần đạt {{percent}}%",
+    "passed": "Đã đạt",
+    "notPassed": "Chưa đạt",
+    "notAttempted": "Chưa nộp",
+    "bestScore": "Điểm cao nhất {{percent}}%",
+    "latestScore": "Lần gần nhất {{percent}}%",
+    "failedAttempts": "Đã chưa đạt {{count}} lượt",
+    "untilNextTapescript": "Còn {{count}} lượt chưa đạt nữa sẽ mở lời thoại của một câu sai.",
+    "overall": "Điểm tổng {{percent}}%",
+    "allPassed": "Bạn đã đạt tất cả các bài tập!",
+    "tapescriptTitle": "Lời thoại đã mở",
+    "viewTapescript": "Xem lời thoại câu {{number}}",
+    "hideTapescript": "Ẩn lời thoại câu {{number}}",
+    "tapescriptEmpty": "Câu này chưa có lời thoại.",
+    "tapescriptError": "Không mở được lời thoại, thử lại sau.",
+    "reopen": "Làm lại bài này",
+    "reopenHint": "Làm lại tự nguyện để lấy điểm cao hơn. Điểm đạt và điểm cao nhất không bị mất.",
+    "lockedPassed": "Bài đã đạt — được giữ nguyên"
   }
 }

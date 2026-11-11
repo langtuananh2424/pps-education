@@ -26,8 +26,19 @@ public record UpdateExerciseRequest(
          * skillCategory dùng để khóa loại câu hỏi (kind) được soạn — đổi khi đã có câu hỏi sẽ làm câu
          * hỏi cũ sai loại so với skillCategory mới. NULL = giữ nguyên giá trị hiện tại.
          */
-        String skillCategory
+        String skillCategory,
+        /** V226 (Nghe ép) — NULL = giữ nguyên. Chỉ có nghĩa với Bài forcedListening. */
+        Integer tapescriptFirstUnlockAttempts,
+        /** V226 (Nghe ép) — NULL = giữ nguyên. */
+        Integer tapescriptUnlockStep
 ) {
+    public UpdateExerciseRequest(String title, Long subjectId, BigDecimal totalPoints, boolean allowRetake,
+                                  Integer maxAttempts, boolean showCorrectAnswers, BigDecimal passThresholdPercent,
+                                  String skillCategory) {
+        this(title, subjectId, totalPoints, allowRetake, maxAttempts, showCorrectAnswers, passThresholdPercent,
+                skillCategory, null, null);
+    }
+
     public UpdateExerciseRequest(String title, Long subjectId, BigDecimal totalPoints, boolean allowRetake,
                                   Integer maxAttempts, boolean showCorrectAnswers) {
         this(title, subjectId, totalPoints, allowRetake, maxAttempts, showCorrectAnswers, null, null);

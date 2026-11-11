@@ -445,5 +445,28 @@
     "notPassed": "Not passed",
     "viewDetails": "View {{count}} exercises",
     "hideDetails": "Hide details"
+  },
+  "forcedListening": {
+    "title": "Results by section",
+    "intro": "Each section is graded separately. A section you haven't passed must be redone until you pass; passed sections are kept.",
+    "sectionFallback": "Section {{number}}",
+    "threshold": "Pass mark {{percent}}%",
+    "passed": "Passed",
+    "notPassed": "Not passed",
+    "notAttempted": "Not submitted",
+    "bestScore": "Best {{percent}}%",
+    "latestScore": "Latest {{percent}}%",
+    "failedAttempts": "Not passed {{count}} time(s)",
+    "untilNextTapescript": "{{count}} more unsuccessful attempt(s) will unlock the tapescript of one wrong question.",
+    "overall": "Overall {{percent}}%",
+    "allPassed": "You passed every section!",
+    "tapescriptTitle": "Unlocked tapescripts",
+    "viewTapescript": "View tapescript of question {{number}}",
+    "hideTapescript": "Hide tapescript of question {{number}}",
+    "tapescriptEmpty": "This question has no tapescript.",
+    "tapescriptError": "Could not open the tapescript, please try again.",
+    "reopen": "Redo this section",
+    "reopenHint": "A voluntary redo to get a higher score. Your pass and best score are never lost.",
+    "lockedPassed": "Passed section — kept as is"
   }
 }
