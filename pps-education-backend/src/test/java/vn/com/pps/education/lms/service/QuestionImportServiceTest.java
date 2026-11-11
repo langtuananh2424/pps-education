@@ -1050,6 +1050,57 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(saved.choices()).filteredOn(c -> c.isCorrect()).extracting(c -> c.choiceLabel()).containsExactlyInAnyOrder("B", "D");
     }
 
+    /** NGHE_NHIEU_DAP_AN 5 lựa chọn A-E ("Choose TWO letters, A-E" của IELTS): cột Đáp án E đọc được. */
+    @Test
+    void importQuestions_ngheNhieuDapAn_acceptsFiveChoicesWithColumnE() throws IOException {
+        byte[] file = buildExcelWithHeaders(
+                new String[]{"Loại câu hỏi", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án E",
+                        "Đáp án đúng", "URL Audio"},
+                new String[][]{{"NGHE_NHIEU_DAP_AN", "Which TWO things did Colin find satisfying?", "support", "preventing waste",
+                        "overcoming problems", "designs and colours", "3-D printing", "B|E", "https://example-r2.dev/p3.mp3"}});
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "ielts-5-lua-chon.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.successRows()).isEqualTo(1);
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.choices()).hasSize(5);
+        assertThat(saved.choices()).filteredOn(c -> c.isCorrect()).extracting(c -> c.choiceLabel()).containsExactlyInAnyOrder("B", "E");
+    }
+
+    /** NGHE_PHIEU_THONG_TIN + "URL Hình ảnh" (IELTS "Label the map"): ảnh dùng chung cho phiếu được lưu cùng audio. */
+    @Test
+    void importQuestions_formCompletion_keepsImageUrlAlongsideAudio() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"NGHE_PHIEU_THONG_TIN", null, "Farm shop: (16) ___\nDisabled entry: (17) ___", null, null, null, null,
+                        "G|C", "https://example-r2.dev/p2.mp3", "https://example-r2.dev/map.png", null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "label-map.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.successRows()).isEqualTo(1);
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.audioUrl()).isEqualTo("https://example-r2.dev/p2.mp3");
+        assertThat(saved.imageUrl()).isEqualTo("https://example-r2.dev/map.png");
+    }
+
+    /** Kind không lưu audio (TRAC_NGHIEM thường) mà điền "URL Audio" -> báo lỗi dòng thay vì mất audio lặng lẽ. */
+    @Test
+    void importQuestions_audioOnKindThatIgnoresAudio_isRejectedWithHint() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"TRAC_NGHIEM", null, "During the visit, members enjoyed", "a theme park", "a river trip", "a cheese factory", null, "B",
+                        "https://example-r2.dev/p2.mp3", null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "audio-bi-bo-qua.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("không lưu \"URL Audio\"").contains("TRAC_NGHIEM_VOICE");
+        assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
+    }
+
     /** NGHE_NHIEU_DAP_AN: chỉ 1 đáp án đúng, hoặc thiếu audio -> lỗi rõ ràng, không tạo câu hỏi. */
     @Test
     void importQuestions_ngheNhieuDapAn_rejectsSingleCorrectAnswerAndMissingAudio() throws IOException {

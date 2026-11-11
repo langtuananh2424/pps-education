@@ -64,6 +64,14 @@ nội dung với câu đã có trong ngân hàng cũng bị từ chối. File h�
 Cột URL Audio/URL Hình ảnh chứa **đường link đã upload sẵn** (qua Ngân hàng câu
 hỏi/API media upload) — không dán file vào Excel.
 
+**URL Audio chỉ được lưu ở các loại nghe:** `TRAC_NGHIEM_VOICE`, `NGHE_DIEN_TU`, `NGHE_CHON_HINH`,
+`NGHE_NOP_AUDIO`, `NGHE_PHIEU_THONG_TIN`, `NGHE_NHIEU_DAP_AN` (và `DIEN_TU_NHOM`). Điền URL Audio cho loại
+khác (VD `TRAC_NGHIEM` thường, `DOC_HIEU_NOI_DAP_AN`, `ANH_DIEN_TU`...) → dòng đó bị báo lỗi (trước đây audio
+bị bỏ qua lặng lẽ). Bài nghe dạng nối đáp án/gắn nhãn bản đồ bằng chữ cái: dùng `NGHE_PHIEU_THONG_TIN`
+(liệt kê lựa chọn A–H trong Nội dung, Đáp án đúng là các chữ cái `G|C|B`); `NGHE_PHIEU_THONG_TIN` nhận thêm
+**URL Hình ảnh** (ảnh bản đồ/sơ đồ dùng chung cho phiếu). `NGHE_NHIEU_DAP_AN` nhận tới 8 lựa chọn (cột
+Đáp án A–H).
+
 ---
 
 ## 2. Kỹ năng TỪ VỰNG – NGỮ PHÁP (`VOCAB_GRAMMAR`)
