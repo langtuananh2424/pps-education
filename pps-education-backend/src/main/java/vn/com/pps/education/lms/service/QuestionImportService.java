@@ -299,6 +299,7 @@ public class QuestionImportService {
             for (QuestionRowParser.ParsedQuestionRow row : parsedRows) {
                 try {
                     String kind = resolveKind(row, defaultKind);
+                    rejectIgnoredAudio(kind, row);
                     // DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_HIEU_NOI_DAP_AN/DOC_DIEN_TU là 4 kind mà 1 dòng tạo
                     // ra NHIỀU Question (mỗi hàm tự validate + pre-check trùng TRƯỚC KHI tạo bất kỳ câu
                     // nào, xem Javadoc từng hàm) — mọi kind khác vẫn 1 dòng = 1 Question như cũ.
@@ -598,7 +599,7 @@ public class QuestionImportService {
                 "A. to meet a friend", "B. to improve her knowledge", "C. to buy something", "D. to entertain her child",
                 "URL Audio: https://example-r2.dev/lms/questions/audio/mau-nghe-nhieu-dap-an.mp3",
                 "Đáp án đúng: B|D",
-                "Giải thích: Nhiều đáp án đúng phân tách bằng dấu | (VD: B|D), tối đa 4 lựa chọn A-D (đề có 5 lựa chọn A-E thì soạn bằng form tay). Chấm từng phần: mỗi đáp án đúng được 1/N điểm, chọn sai bị trừ 1/N.",
+                "Giải thích: Nhiều đáp án đúng phân tách bằng dấu | (VD: B|D), tối đa 8 lựa chọn A-H (câu có 5 lựa chọn trở lên thì điền thêm các cột Đáp án E-H). Chấm từng phần: mỗi đáp án đúng được 1/N điểm, chọn sai bị trừ 1/N.",
                 "---"));
         blocks.put(KIND_FORM_COMPLETION, List.of(
                 "[NGHE_PHIEU_THONG_TIN]",
@@ -740,6 +741,21 @@ public class QuestionImportService {
      * trước mỗi câu — xem Javadoc computeAutoGroupKeys().
      */
     private static final Set<String> IMAGE_GROUPABLE_KINDS = Set.of(KIND_IMAGE_CHOICE);
+
+    // Bổ sung ngoài SDD gốc (UC-40, phát hiện khi import đề IELTS Listening): các kind KHÔNG lưu audio —
+    // trước đây điền "URL Audio" cho chúng bị bỏ qua lặng lẽ (câu hỏi import xong mất tiếng, preview vẫn
+    // báo hợp lệ). Nay báo lỗi dòng để GV chuyển sang kind có audio (TRAC_NGHIEM_VOICE/NGHE_*).
+    private static final Set<String> AUDIO_IGNORED_KINDS = Set.of("TRAC_NGHIEM", "DIEN_TU", "TU_LUAN", "SPEAKING",
+            "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
+            KIND_GRID_GROUP, KIND_CLOZE_GROUP, KIND_MATCHING_GROUP, KIND_IMAGE_CHOICE, KIND_IMAGE_FILL_GROUP);
+
+    private void rejectIgnoredAudio(String kind, QuestionRowParser.ParsedQuestionRow row) {
+        if (AUDIO_IGNORED_KINDS.contains(kind) && !isBlank(row.audioUrl())) {
+            throw new IllegalArgumentException("Loại " + kind + " không lưu \"URL Audio\" (audio sẽ bị mất) — xóa cột URL Audio, "
+                    + "hoặc đổi sang loại có audio: TRAC_NGHIEM_VOICE (trắc nghiệm), NGHE_PHIEU_THONG_TIN (điền phiếu/nối đáp án bằng chữ cái), "
+                    + "NGHE_NHIEU_DAP_AN, NGHE_DIEN_TU.");
+        }
+    }
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — 2 tình huống cùng 1 bản chất
@@ -976,6 +992,9 @@ public class QuestionImportService {
                 throw new IllegalArgumentException("Nghe điền phiếu thông tin cần danh sách đáp án đúng theo thứ tự chỗ trống, phân tách bằng dấu | (mỗi ô nhiều đáp án thì phân tách bằng /).");
             }
             audioUrl = row.audioUrl().trim();
+            // Bổ sung ngoài SDD gốc (UC-40, IELTS Listening dạng "Label the map"): ảnh dùng chung cho phiếu
+            // (bản đồ/sơ đồ cần nhìn khi nghe) — trước đây cột "URL Hình ảnh" bị bỏ qua âm thầm ở loại này.
+            imageUrl = blankToNull(row.imageUrl());
             List<String> blanks = splitPipeKeepBlanks(row.correctAnswer());
             int blankMarkers = row.content().split("___", -1).length - 1;
             if (blankMarkers != blanks.size()) {
