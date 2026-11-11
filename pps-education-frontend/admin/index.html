@@ -4,15 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PPS Education — Admin</title>
-
-    <!-- Chẩn đoán tạm (xem CLAUDE.md task trắng trang trên Safari/iOS 16.1) — file ngoài
-         (không inline, vì CSP script-src không có 'unsafe-inline', xem
-         deploy/nginx/pps-security-headers.conf) để hợp lệ với 'self'. ?v= tăng dần mỗi lần sửa
-         diag.js — /diag.js cache-control max-age=14400 (location /assets/ KHÔNG áp cho file
-         này nhưng vẫn qua default location / không no-cache như index.html), đổi query ép tải
-         bản mới thay vì dùng cache browser cũ. Gỡ bỏ cả dòng này sau khi đã xác định nguyên
-         nhân thật. -->
-    <script src="/diag.js?v=4"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
