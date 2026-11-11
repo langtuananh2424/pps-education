@@ -8,9 +8,11 @@ import {
   ExerciseMetaResponse,
   ExerciseQuestionResponse,
   ListeningPlayProgressResponse,
+  SectionResultsResponse,
   StudentAnswerResponse,
   getAttempt,
   getExercise,
+  getSectionResults,
   listAnswers,
   listExerciseQuestions,
   notifyBatchIntegrityViolation,
@@ -23,7 +25,8 @@ import {
   uploadMedia
 } from "../api";
 import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
-import { GridQuestionGroup, QuestionBlock, canRetakeExercise, groupQuestionsByGroupKey, isLockedCarriedOver } from "./TakeExerciseModal";
+import { GridQuestionGroup, QuestionBlock, RenderBlock, canRetakeExercise, groupQuestionsByGroupKey, isLockedCarriedOver } from "./TakeExerciseModal";
+import ForcedListeningPanel from "./ForcedListeningPanel";
 import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 import { useActiveTimeTracker } from "../hooks/useActiveTimeTracker";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
@@ -99,6 +102,8 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   const [textDraft, setTextDraft] = useState<Record<number, string>>({});
   const textSaves = useTextAnswerSaves();
   const [listeningProgress, setListeningProgress] = useState<Map<string, ListeningPlayProgressResponse>>(new Map());
+  // V226 (Nghe ép) — bảng điểm từng bài tập con, key = exerciseId; chỉ có cho Bài Nghe ép trong Lô.
+  const [sectionResults, setSectionResults] = useState<Map<number, SectionResultsResponse>>(new Map());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,6 +154,25 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   const groupTitle = batchGroupTitle(t, items);
 
+  /** V226 (Nghe ép) — tải lại bảng điểm từng bài tập con của các Bài Nghe ép trong Lô (lỗi mạng thì giữ bản cũ). */
+  const reloadSectionResults = async (list: SubExercise[]) => {
+    const forcedSubs = list.filter((s) => s.meta.forcedListening);
+    if (forcedSubs.length === 0) return;
+    const fetched = await Promise.all(forcedSubs.map((s) => getSectionResults(s.attempt.id).catch(() => null)));
+    setSectionResults((prev) => {
+      const next = new Map(prev);
+      forcedSubs.forEach((s, i) => {
+        const res = fetched[i];
+        if (res) next.set(s.item.exerciseId, res);
+      });
+      return next;
+    });
+  };
+
+  /** Bài Nghe ép đã đạt hết mọi bài con thì không còn gì để làm lại (khác Bài thường: lượt trượt mới làm lại cả Bài). */
+  const canRetakeSub = (s: SubExercise) =>
+    canRetakeExercise(s.item, s.meta, s.attempt) && !(s.meta.forcedListening && sectionResults.get(s.item.exerciseId)?.allPassed === true);
+
   // Guard bằng ref — mirror TakeExerciseModal (startAttempt không idempotent, React StrictMode dev
   // double-invoke effect sẽ tạo 2 attempt trùng cho 1 lần mở nếu không chặn).
   const openedRef = useRef(false);
@@ -171,6 +195,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
       setSubs(loaded);
       const answerLists = await Promise.all(loaded.map((s) => listAnswers(s.attempt.id)));
       setAnswersByQuestion(new Map(answerLists.flat().map((a) => [a.questionId, a])));
+      await reloadSectionResults(loaded);
     };
 
     load()
@@ -282,14 +307,12 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
         })
       ]);
       const updatedAttempts = await Promise.all(toSubmit.map((s) => submitAttempt(s.attempt.id)));
-      setSubs((prev) =>
-        prev
-          ? prev.map((s) => {
-              const updated = updatedAttempts.find((u) => u.id === s.attempt.id);
-              return updated ? { ...s, attempt: updated } : s;
-            })
-          : prev
-      );
+      const nextSubs = subs.map((s) => {
+        const updated = updatedAttempts.find((u) => u.id === s.attempt.id);
+        return updated ? { ...s, attempt: updated } : s;
+      });
+      setSubs(nextSubs);
+      await reloadSectionResults(nextSubs);
       const answerLists = await Promise.all(toSubmit.map((s) => listAnswers(s.attempt.id)));
       setAnswersByQuestion((prev) => {
         const merged = new Map(prev);
@@ -360,7 +383,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     setError(null);
     try {
       const results = await Promise.allSettled(
-        subs.map((s) => (canRetakeExercise(s.item, s.meta, s.attempt) ? startAttempt(s.item.exerciseId, s.item.assignmentId) : Promise.resolve(null)))
+        subs.map((s) => (canRetakeSub(s) ? startAttempt(s.item.exerciseId, s.item.assignmentId) : Promise.resolve(null)))
       );
       const failedTitles: string[] = [];
       const refreshed = subs.map((s, i) => {
@@ -376,6 +399,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
       setSubs(refreshed);
       setTextDraft({});
       textSaves.reset();
+      await reloadSectionResults(refreshed);
       // V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — lượt mới không còn trống
       // hoàn toàn: BE đã carry-forward sẵn các câu ĐÃ ĐÚNG ở lượt trước (xem
       // ExerciseAttemptService#startAttempt) — phải tải lại đúng answers của lượt mới (listAnswers),
@@ -409,6 +433,35 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   };
 
   /**
+   * V226 (Nghe ép) — làm lại TỰ NGUYỆN 1 bài tập con đã đạt của 1 Bài Nghe ép trong Lô (mirror
+   * TakeExerciseModal#handleRetake([sectionId])): chỉ mở lượt mới cho đúng Bài đó, các Bài khác giữ nguyên.
+   */
+  const handleReopenSection = async (sub: SubExercise, sectionId: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fresh = await startAttempt(sub.item.exerciseId, sub.item.assignmentId, [sectionId]);
+      const nextSubs = (subs ?? []).map((s) => (s.item.exerciseId === sub.item.exerciseId ? { ...s, attempt: fresh } : s));
+      setSubs(nextSubs);
+      const answers = await listAnswers(fresh.id);
+      setAnswersByQuestion((prev) => {
+        const next = new Map(prev);
+        sub.questions.forEach((q) => next.delete(q.questionId));
+        answers.forEach((a) => next.set(a.questionId, a));
+        return next;
+      });
+      setTextDraft({});
+      textSaves.reset();
+      await reloadSectionResults(nextSubs);
+      setJustSubmitted(false);
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror TakeExerciseModal:
    * cả Lô ĐÃ ĐẠT (từng Bài trong Lô đều tự đạt ngưỡng riêng, không chỉ đạt % gộp) nhưng còn lượt làm
    * lại — học sinh tự nguyện dừng NGAY cả Lô để xem đáp án, đổi lại mất quyền làm lại. Đóng ĐỒNG THỜI
@@ -421,6 +474,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     try {
       await Promise.all(subs.map((s) => revealAndCloseAttempt(s.attempt.id)));
       setJustClosedEarly(true);
+      await reloadSectionResults(subs);
       const answerLists = await Promise.all(subs.map((s) => listAnswers(s.attempt.id)));
       setAnswersByQuestion((prev) => {
         const merged = new Map(prev);
@@ -459,13 +513,18 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
    * áp cho CẢ Lô: chỉ hiện khi không còn Bài nào đang dở (đã nộp/chấm xong hết) và còn ÍT NHẤT 1 Bài còn lượt.
    * Bổ sung 2026-09-13 (fix bug thật) — dùng canRetakeExercise thay vì chỉ item.canStartNewAttempt, xem
    * Javadoc handleRetakeBatch. */
-  const anyCanRetake = !hasActiveAttempt && !justClosedEarly && subs.some((s) => canRetakeExercise(s.item, s.meta, s.attempt));
+  const anyCanRetake = !hasActiveAttempt && !justClosedEarly && subs.some(canRetakeSub);
   /** V152 — xem Javadoc handleRevealAndClose. Bổ sung 2026-09-13 (fix bug thật) — dùng canRetakeExercise
    * thay vì chỉ item.canStartNewAttempt (mirror anyCanRetake/handleRetakeBatch): không có ý nghĩa "từ
    * bỏ lượt làm lại để xem đáp án sớm" nếu Bài đã thật sự hết lượt/không cho làm lại rồi. */
   const canRevealAndClose =
     !justClosedEarly &&
-    subs.every((s) => s.attempt.status === "FULLY_GRADED" && s.attempt.passed === true && s.meta.maxAttempts != null && canRetakeExercise(s.item, s.meta, s.attempt));
+    subs.every((s) =>
+      s.meta.forcedListening
+        ? // V226 (Nghe ép) — BE quyết định khi nào được xem đáp án (mọi bài tập con đạt), không dựa maxAttempts.
+          sectionResults.get(s.item.exerciseId)?.canRevealAnswers === true
+        : s.attempt.status === "FULLY_GRADED" && s.attempt.passed === true && s.meta.maxAttempts != null && canRetakeExercise(s.item, s.meta, s.attempt)
+    );
 
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col">
@@ -517,7 +576,9 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
         </div>
       )}
 
-      {justSubmitted && !stoppedByViolation && <BatchResultPopup subs={subs} groupTitle={groupTitle} onClose={() => setJustSubmitted(false)} />}
+      {justSubmitted && !stoppedByViolation && (
+        <BatchResultPopup subs={subs} groupTitle={groupTitle} sectionResults={sectionResults} onClose={() => setJustSubmitted(false)} />
+      )}
 
       {/* V152 — xác nhận trước khi TỰ NGUYỆN đóng cả Lô sớm để xem đáp án (không hoàn tác được). */}
       {confirmingRevealClose && (
@@ -650,7 +711,20 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
             const sectionReadOnly = sub.attempt.status !== "IN_PROGRESS" || isSubOverdueLocked(sub);
             const attemptsRemainingBeforeAnswer =
               sub.meta.maxAttempts != null ? Math.max(0, sub.meta.maxAttempts - sub.attempt.attemptNumber) : null;
-            const blocks = groupQuestionsByGroupKey(sub.questions);
+            const forced = sub.meta.forcedListening;
+            const results = sectionResults.get(sub.item.exerciseId);
+            // V226 (Nghe ép) — chia câu theo bài tập con (mỗi bài 1 tiêu đề, gộp audio TRONG từng bài), mirror TakeExerciseModal.
+            const entries: { block: RenderBlock; sectionTitle: string | null }[] = (() => {
+              if (!forced) return groupQuestionsByGroupKey(sub.questions).map((block) => ({ block, sectionTitle: null }));
+              const bySection = new Map<number | null, ExerciseQuestionResponse[]>();
+              for (const q of sub.questions) bySection.set(q.sectionId, [...(bySection.get(q.sectionId) ?? []), q]);
+              let number = 0;
+              return [...bySection.entries()].flatMap(([sectionId, sectionQuestions]) => {
+                number += 1;
+                const title = results?.sections.find((sec) => sec.sectionId === sectionId)?.title ?? t("forcedListening.sectionFallback", { number });
+                return groupQuestionsByGroupKey(sectionQuestions).map((block, i) => ({ block, sectionTitle: i === 0 ? title : null }));
+              });
+            })();
             let counter = 0;
             return (
               <div key={sub.item.exerciseId} className="space-y-3 lg:space-y-4">
@@ -672,14 +746,29 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                    * `shrink-0` + không có flex-wrap khiến dòng chữ dài bị đè/vỡ layout lên badge màu cam
                    * Ex.1 phía dưới.
                    */}
-                  {sectionReadOnly && !canRetakeExercise(sub.item, sub.meta, sub.attempt) && (
+                  {sectionReadOnly && !canRetakeSub(sub) && !sub.meta.forcedListening && (
                     <span className="w-full text-[10px] font-bold text-muted italic">{t("assignments.batch.retakeSkippedNote")}</span>
                   )}
                 </div>
-                {blocks.map((block) => {
+                {/* V226 (Nghe ép) — bảng điểm từng bài tập con (đạt/chưa đạt, mức đạt, lời thoại đã mở) + làm lại tự nguyện bài đã đạt. */}
+                {forced && results && (
+                  <ForcedListeningPanel
+                    attemptId={sub.attempt.id}
+                    results={results}
+                    questions={sub.questions}
+                    canReopen={sectionReadOnly && !justClosedEarly && canRetakeExercise(sub.item, sub.meta, sub.attempt) && results.answersRevealed !== true}
+                    busy={loading}
+                    onReopen={(sectionId) => handleReopenSection(sub, sectionId)}
+                  />
+                )}
+                {entries.map(({ block, sectionTitle }) => {
                   const startNumber = counter + 1;
                   counter += block.type === "grid" ? block.questions.length : 1;
-                  return block.type === "grid" ? (
+                  const heading = sectionTitle && <h4 className="text-base font-black text-ink pt-2 border-t border-line/60">{sectionTitle}</h4>;
+                  return (
+                    <React.Fragment key={block.type === "grid" ? `g-${block.groupKey}` : `q-${block.question.id}`}>
+                      {heading}
+                      {block.type === "grid" ? (
                     <GridQuestionGroup
                       key={block.groupKey}
                       block={block}
@@ -697,10 +786,11 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                       onAudioUpload={(qId, file) => handleAudioAnswer(sub.item.exerciseId, qId, file)}
                       onFilePickerOpen={() => undefined}
                       attemptId={sub.attempt.id}
+                      forcedListening={forced}
                       listeningProgress={listeningProgress}
                       onListeningEnded={(q) => handleListeningEnded(sub.item.exerciseId, q)}
                     />
-                  ) : (
+                      ) : (
                     <QuestionBlock
                       key={block.question.id}
                       question={block.question}
@@ -718,9 +808,12 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                       onAudioUpload={(file) => handleAudioAnswer(sub.item.exerciseId, block.question.questionId, file)}
                       onFilePickerOpen={() => undefined}
                       attemptId={sub.attempt.id}
+                      forcedListening={forced}
                       listeningProgress={listeningProgress}
                       onListeningEnded={(q) => handleListeningEnded(sub.item.exerciseId, q)}
                     />
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -783,13 +876,29 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 }
 
 /** Mirror SubmitResultPopup (TakeExerciseModal.tsx) nhưng cộng dồn cả N Bài — công thức % giống hệt HomeworkProgressService#grammarProgressLabel(List, Long) ở BE (tổng điểm/tổng điểm tối đa, ngưỡng 70%). */
-function BatchResultPopup({ subs, groupTitle, onClose }: { subs: SubExercise[]; groupTitle: string; onClose: () => void }) {
+function BatchResultPopup({
+  subs,
+  groupTitle,
+  sectionResults,
+  onClose
+}: {
+  subs: SubExercise[];
+  groupTitle: string;
+  sectionResults: Map<number, SectionResultsResponse>;
+  onClose: () => void;
+}) {
   const { t } = useTranslation("portal-exercises");
-  const totalScore = subs.reduce((sum, s) => sum + (s.attempt.totalScore ?? 0), 0);
-  const totalPoints = subs.reduce((sum, s) => sum + (s.item.exerciseTotalPoints ?? 0), 0);
+  // V226 (Nghe ép) — Bài Nghe ép KHÔNG cộng vào % gộp: mỗi bài tập con chấm riêng (mức đạt riêng), đạt khi
+  // mọi bài tập con đạt (BE tính: SectionResultsResponse.allPassed). Chỉ hiện % + đạt/chưa đạt từng bài con, không hiện đáp án.
+  const plainSubs = subs.filter((s) => !s.meta.forcedListening);
+  const totalScore = plainSubs.reduce((sum, s) => sum + (s.attempt.totalScore ?? 0), 0);
+  const totalPoints = plainSubs.reduce((sum, s) => sum + (s.item.exerciseTotalPoints ?? 0), 0);
   const allGraded = subs.every((s) => s.attempt.status === "FULLY_GRADED");
   const percentage = totalPoints > 0 ? Math.round((totalScore / totalPoints) * 10000) / 100 : null;
-  const passed = allGraded && percentage != null ? percentage >= 70 : null;
+  const plainPassed = plainSubs.length === 0 ? true : percentage != null && percentage >= 70;
+  const forcedPassed = subs.filter((s) => s.meta.forcedListening).every((s) => sectionResults.get(s.item.exerciseId)?.allPassed === true);
+  const passed = allGraded ? plainPassed && forcedPassed : null;
+  const showCombinedScore = plainSubs.length > 0;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[110]">
@@ -804,33 +913,60 @@ function BatchResultPopup({ subs, groupTitle, onClose }: { subs: SubExercise[]; 
           <>
             <PartyPopper size={40} className="text-teal mx-auto" />
             <h3 className="text-base font-black text-ink">{t("assignments.batch.summary.passedTitle", { title: groupTitle })}</h3>
-            <p className="text-xs font-bold text-teal-deep leading-relaxed">
-              {t("assignments.batch.summary.combinedScoreLabel", { score: totalScore, total: totalPoints, percentage: percentage ?? "—" })}
-            </p>
+            {showCombinedScore && (
+              <p className="text-xs font-bold text-teal-deep leading-relaxed">
+                {t("assignments.batch.summary.combinedScoreLabel", { score: totalScore, total: totalPoints, percentage: percentage ?? "—" })}
+              </p>
+            )}
           </>
         ) : (
           <>
             <RotateCcw size={40} className="text-coral mx-auto" />
             <h3 className="text-base font-black text-ink">{t("assignments.batch.summary.failedTitle", { title: groupTitle })}</h3>
-            <p className="text-xs font-bold text-coral leading-relaxed">
-              {t("assignments.batch.summary.combinedScoreLabel", { score: totalScore, total: totalPoints, percentage: percentage ?? "—" })}
-            </p>
+            {showCombinedScore && (
+              <p className="text-xs font-bold text-coral leading-relaxed">
+                {t("assignments.batch.summary.combinedScoreLabel", { score: totalScore, total: totalPoints, percentage: percentage ?? "—" })}
+              </p>
+            )}
           </>
         )}
 
         <div className="space-y-1.5 text-left bg-slate-50 rounded-xl p-3">
-          {subs.map((s) => (
-            <div key={s.item.exerciseId} className="flex items-center justify-between gap-2 text-xs font-bold text-ink">
-              <span className="truncate">{s.item.title}</span>
-              <span
-                className={`shrink-0 ${
-                  s.attempt.passed === true ? "text-teal-deep" : s.attempt.passed === false ? "text-coral" : "text-muted"
-                }`}
-              >
-                {s.attempt.percentage != null ? `${s.attempt.percentage}%` : t("assignments.attemptStatus.inProgress")}
-              </span>
-            </div>
-          ))}
+          {subs.map((s) => {
+            const results = s.meta.forcedListening ? sectionResults.get(s.item.exerciseId) : undefined;
+            if (results) {
+              // V226 (Nghe ép) — mỗi bài tập con 1 dòng: % lần làm gần nhất + đạt/chưa đạt (mức đạt riêng).
+              return (
+                <div key={s.item.exerciseId} className="space-y-1">
+                  <p className="text-xs font-extrabold text-ink truncate">{s.item.title}</p>
+                  {results.sections.map((sec) => (
+                    <div key={sec.sectionId} className="flex items-center justify-between gap-2 text-xs font-bold text-ink pl-3">
+                      <span className="truncate">
+                        {sec.title}
+                        <span className="text-muted font-bold"> · {t("forcedListening.threshold", { percent: sec.passThresholdPercent })}</span>
+                      </span>
+                      <span className={`shrink-0 ${sec.passed ? "text-teal-deep" : "text-coral"}`}>
+                        {sec.latestScorePercent != null ? `${sec.latestScorePercent}% · ` : ""}
+                        {sec.passed ? t("forcedListening.passed") : t("forcedListening.notPassed")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+            return (
+              <div key={s.item.exerciseId} className="flex items-center justify-between gap-2 text-xs font-bold text-ink">
+                <span className="truncate">{s.item.title}</span>
+                <span
+                  className={`shrink-0 ${
+                    s.attempt.passed === true ? "text-teal-deep" : s.attempt.passed === false ? "text-coral" : "text-muted"
+                  }`}
+                >
+                  {s.attempt.percentage != null ? `${s.attempt.percentage}%` : t("assignments.attemptStatus.inProgress")}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         <button onClick={onClose} className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl">
