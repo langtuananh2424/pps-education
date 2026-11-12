@@ -26,7 +26,7 @@ import {
 } from "../api";
 import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
 import { GridQuestionGroup, QuestionBlock, RenderBlock, canRetakeExercise, groupQuestionsByGroupKey, isLockedCarriedOver } from "./TakeExerciseModal";
-import ForcedListeningPanel from "./ForcedListeningPanel";
+import ForcedListeningPanel, { QuestionTapescript } from "./ForcedListeningPanel";
 import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 import { useActiveTimeTracker } from "../hooks/useActiveTimeTracker";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
@@ -713,6 +713,17 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
               sub.meta.maxAttempts != null ? Math.max(0, sub.meta.maxAttempts - sub.attempt.attemptNumber) : null;
             const forced = sub.meta.forcedListening;
             const results = sectionResults.get(sub.item.exerciseId);
+            const unlocked = new Set(results?.sections.flatMap((sec) => sec.unlockedQuestionIds) ?? []);
+            const tapescriptSlot = forced
+              ? (questionId: number, number: number, feedback?: React.ReactNode) =>
+                  unlocked.has(questionId) ? (
+                    <QuestionTapescript attemptId={sub.attempt.id} questionId={questionId} number={number}>
+                      {feedback}
+                    </QuestionTapescript>
+                  ) : (
+                    feedback
+                  )
+              : undefined;
             // V226 (Nghe ép) — chia câu theo bài tập con (mỗi bài 1 tiêu đề, gộp audio TRONG từng bài), mirror TakeExerciseModal.
             const entries: { block: RenderBlock; sectionTitle: string | null }[] = (() => {
               if (!forced) return groupQuestionsByGroupKey(sub.questions).map((block) => ({ block, sectionTitle: null }));
@@ -753,9 +764,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                 {/* V226 (Nghe ép) — bảng điểm từng bài tập con (đạt/chưa đạt, mức đạt, lời thoại đã mở) + làm lại tự nguyện bài đã đạt. */}
                 {forced && results && (
                   <ForcedListeningPanel
-                    attemptId={sub.attempt.id}
                     results={results}
-                    questions={sub.questions}
                     canReopen={sectionReadOnly && !justClosedEarly && canRetakeExercise(sub.item, sub.meta, sub.attempt) && results.answersRevealed !== true}
                     busy={loading}
                     onReopen={(sectionId) => handleReopenSection(sub, sectionId)}
@@ -787,6 +796,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                       onFilePickerOpen={() => undefined}
                       attemptId={sub.attempt.id}
                       forcedListening={forced}
+                      tapescriptSlot={tapescriptSlot}
                       listeningProgress={listeningProgress}
                       onListeningEnded={(q) => handleListeningEnded(sub.item.exerciseId, q)}
                     />
@@ -809,6 +819,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                       onFilePickerOpen={() => undefined}
                       attemptId={sub.attempt.id}
                       forcedListening={forced}
+                      tapescriptSlot={tapescriptSlot}
                       listeningProgress={listeningProgress}
                       onListeningEnded={(q) => handleListeningEnded(sub.item.exerciseId, q)}
                     />
