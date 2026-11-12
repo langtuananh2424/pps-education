@@ -1227,7 +1227,7 @@ public class ExerciseAttemptService {
         ExerciseAttempt attempt = a.getExerciseAttempt();
         Exercise exercise = attempt.getExercise();
         boolean revealAnswer = attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS
-                && exercise.isShowCorrectAnswers();
+                && (exercise.isShowCorrectAnswers() || exercise.isForcedListening()); // Nghe ép: đạt hết thì luôn được xem đáp án (2026-11-12)
         // UC-24/A4, UC-27/A2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
         // 2026-08-05): nếu Bài có giới hạn số lần làm lại (max_attempts khác
         // NULL), đáp án chỉ hiện từ lượt làm CUỐI CÙNG (attemptNumber ==
