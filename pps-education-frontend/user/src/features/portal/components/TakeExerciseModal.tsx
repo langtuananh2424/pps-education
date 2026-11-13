@@ -32,7 +32,7 @@ import {
 import { useActiveTimeTracker } from "../hooks/useActiveTimeTracker";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
-import ForcedListeningPanel from "./ForcedListeningPanel";
+import ForcedListeningPanel, { QuestionTapescript } from "./ForcedListeningPanel";
 import MonitoringBadge from "./MonitoringBadge";
 import { ScoreSticker } from "./ScoreSticker";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
@@ -910,6 +910,18 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       return groupQuestionsByGroupKey(sectionQuestions).map((block, i) => ({ block, sectionTitle: i === 0 ? title : null }));
     });
   })();
+  const unlockedTapescripts = new Set(sectionResults?.sections.flatMap((sec) => sec.unlockedQuestionIds) ?? []);
+  const tapescriptSlot =
+    forced && attempt
+      ? (questionId: number, number: number, feedback?: React.ReactNode) =>
+          unlockedTapescripts.has(questionId) ? (
+            <QuestionTapescript attemptId={attempt.id} questionId={questionId} number={number}>
+              {feedback}
+            </QuestionTapescript>
+          ) : (
+            feedback
+          )
+      : undefined;
   const canReopenSection =
     forced && readOnly && !justClosedEarly && attempt != null && exerciseMeta != null && canRetakeExercise(item, exerciseMeta, attempt) && sectionResults?.answersRevealed !== true;
 
@@ -1148,9 +1160,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
           {forced && sectionResults && attempt && !loading && (
             <div ref={panelRef}>
               <ForcedListeningPanel
-                attemptId={attempt.id}
                 results={sectionResults}
-                questions={questions}
                 canReopen={canReopenSection}
                 busy={loading}
                 onReopen={(sectionId) => handleRetake([sectionId])}
@@ -1186,6 +1196,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   onFilePickerOpen={suppressForFilePicker}
                   attemptId={forced ? undefined : attempt?.id}
                   forcedListening={forced}
+                  tapescriptSlot={tapescriptSlot}
                   listeningProgress={listeningProgress}
                   onListeningEnded={handleListeningEnded}
                 />
@@ -1207,6 +1218,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   onFilePickerOpen={suppressForFilePicker}
                   attemptId={forced ? undefined : attempt?.id}
                   forcedListening={forced}
+                  tapescriptSlot={tapescriptSlot}
                   listeningProgress={listeningProgress}
                   onListeningEnded={handleListeningEnded}
                 />
@@ -1371,6 +1383,7 @@ export function QuestionBlock({
   onFilePickerOpen,
   attemptId,
   forcedListening,
+  tapescriptSlot,
   listeningProgress,
   onListeningEnded
 }: {
@@ -1393,6 +1406,8 @@ export function QuestionBlock({
   attemptId: number | undefined;
   /** V226 (Nghe ép) — đổi nhãn khoá của câu mang sang từ lượt trước (cả bài đã đạt, không phải 'đã đúng'). */
   forcedListening?: boolean;
+  /** Nghe ép — lời thoại (tapescript) của từng câu; `feedback` (dòng Chính xác/Sai) nếu truyền thì nút nằm cùng hàng. Trả `feedback` nguyên vẹn khi câu chưa được mở. */
+  tapescriptSlot?: (questionId: number, number: number, feedback?: React.ReactNode) => React.ReactNode;
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
@@ -1636,16 +1651,20 @@ export function QuestionBlock({
             placeholder={t("takeExercise.question.answerPlaceholder")}
             className="w-full bg-sky-2 border border-line/70 text-sm sm:text-base lg:text-lg p-3 sm:p-4 rounded-xl focus:outline-none disabled:opacity-70"
           />
-          {isFillInBlank && showFeedback && (
-            <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
-              {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-              {notAnswered
-                ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
-                : answer?.isCorrect
-                  ? t("takeExercise.question.correct")
-                  : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
-            </div>
-          )}
+          {isFillInBlank &&
+            (() => {
+              const feedback = showFeedback && (
+                <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+                {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                {notAnswered
+                  ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
+                  : answer?.isCorrect
+                    ? t("takeExercise.question.correct")
+                    : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
+                </div>
+              );
+              return tapescriptSlot ? tapescriptSlot(question.questionId, displayNumber ?? question.displayOrder, feedback || undefined) : feedback;
+            })()}
         </div>
       )}
 
@@ -1778,6 +1797,8 @@ export function QuestionBlock({
       )}
 
       {answerLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}
+
+      {!isFillInBlank && tapescriptSlot?.(question.questionId, displayNumber ?? question.displayOrder)}
     </div>
   );
 }
@@ -2298,6 +2319,7 @@ export function GridQuestionGroup({
   onFilePickerOpen,
   attemptId,
   forcedListening,
+  tapescriptSlot,
   listeningProgress,
   onListeningEnded
 }: {
@@ -2319,6 +2341,8 @@ export function GridQuestionGroup({
   attemptId: number | undefined;
   /** V226 (Nghe ép) — đổi nhãn khoá của câu mang sang từ lượt trước (cả bài đã đạt, không phải 'đã đúng'). */
   forcedListening?: boolean;
+  /** Nghe ép — lời thoại (tapescript) của từng câu; `feedback` (dòng Chính xác/Sai) nếu truyền thì nút nằm cùng hàng. Trả `feedback` nguyên vẹn khi câu chưa được mở. */
+  tapescriptSlot?: (questionId: number, number: number, feedback?: React.ReactNode) => React.ReactNode;
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
@@ -2627,16 +2651,19 @@ export function GridQuestionGroup({
                     placeholder={t("takeExercise.question.answerPlaceholder")}
                     className="w-full bg-sky-2 border border-line/70 text-sm sm:text-base lg:text-lg p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
                   />
-                  {showFeedback && (
-                    <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+                  {(() => {
+                    const feedback = showFeedback && (
+                      <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
                       {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                       {notAnswered
                         ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
                         : answer?.isCorrect
                           ? t("takeExercise.question.correct")
                           : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
-                    </div>
-                  )}
+                      </div>
+                    );
+                    return tapescriptSlot ? tapescriptSlot(q.questionId, startNumber != null ? startNumber + qIndex : q.displayOrder, feedback || undefined) : feedback;
+                  })()}
                 </div>
               )}
 
@@ -2707,6 +2734,8 @@ export function GridQuestionGroup({
                         })}
                 </div>
               )}
+
+              {!isFillInBlankRow && tapescriptSlot?.(q.questionId, startNumber != null ? startNumber + qIndex : q.displayOrder)}
             </div>
             </React.Fragment>
           );
