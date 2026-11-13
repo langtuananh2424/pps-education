@@ -353,16 +353,12 @@ public class ForcedListeningService {
     }
 
     /**
-     * A5: chỉ cho "Xem đáp án" khi Bài là Nghe ép, cho xem đáp án ({@code show_correct_answers}), lượt đang xét
+     * A5: chỉ cho "Xem đáp án" khi Bài là Nghe ép (không phụ thuộc show_correct_answers), lượt đang xét
      * là lượt GẦN NHẤT của lần giao này (cờ khoá làm lại nằm trên lượt gần nhất — xem startAttempt) và mọi bài đã đạt.
      */
     @Transactional(readOnly = true)
     public void requireCanReveal(ExerciseAttempt attempt) {
         Exercise exercise = attempt.getExercise();
-        if (!exercise.isShowCorrectAnswers()) {
-            throw new AttemptNotEditableException("error.forcedListening.revealNotAllowed", new Object[]{},
-                    "Bài này không cho xem đáp án.");
-        }
         if (!isLatestAttempt(attempt)) {
             throw new AttemptNotEditableException("error.forcedListening.revealLatestOnly", new Object[]{},
                     "Chỉ xem đáp án được ở lượt làm gần nhất.");
@@ -390,6 +386,13 @@ public class ForcedListeningService {
                 .findByExerciseAssignmentIdAndStudentId(attempt.getExerciseAssignment().getId(), student.getId()).stream()
                 .collect(Collectors.toMap(r -> r.getExerciseSection().getId(), Function.identity(), (a, b) -> a));
 
+        boolean revealed = isRevealed(attempt);
+        // Đã đạt hết + xem đáp án: mở tapescript của TẤT CẢ câu (theo yêu cầu người dùng 2026-11-12).
+        Map<Long, List<Long>> questionIdsBySection = revealed
+                ? exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(exercise.getId()).stream()
+                        .filter(x -> x.getSection() != null)
+                        .collect(Collectors.groupingBy(x -> x.getSection().getId(), Collectors.mapping(x -> x.getQuestion().getId(), Collectors.toList())))
+                : Map.of();
         List<SectionResultResponse> sections = new ArrayList<>();
         for (ExerciseSection s : sectionRepository.findByExerciseIdOrderByDisplayOrder(exercise.getId())) {
             ExerciseSectionResult r = resultBySection.get(s.getId());
@@ -399,19 +402,22 @@ public class ForcedListeningService {
                     s.getId(), s.getTitle(), s.getDisplayOrder(), passThresholdResolver.thresholdFor(s, student), passed,
                     r == null ? null : r.getLatestScorePercent(), r == null ? null : r.getBestScorePercent(), failed,
                     passed ? null : attemptsUntilNextUnlock(failed, exercise.getTapescriptFirstUnlockAttempts(), exercise.getTapescriptUnlockStep()),
-                    r == null ? List.of() : List.copyOf(r.getUnlockedQuestionIds())));
+                    revealed ? questionIdsBySection.getOrDefault(s.getId(), List.of())
+                            : r == null ? List.of() : List.copyOf(r.getUnlockedQuestionIds())));
         }
         boolean allPassed = !sections.isEmpty() && sections.stream().allMatch(SectionResultResponse::passed);
         BigDecimal overall = allPassed
                 ? sections.stream().map(SectionResultResponse::bestScorePercent).reduce(BigDecimal.ZERO, BigDecimal::add)
                         .divide(BigDecimal.valueOf(sections.size()), 2, RoundingMode.HALF_UP)
                 : null;
-        ExerciseAttempt latest = exerciseAttemptRepository
-                .findByExerciseAssignmentIdAndStudentIdOrderByAttemptNumberDesc(attempt.getExerciseAssignment().getId(), student.getId())
-                .stream().findFirst().orElse(attempt);
-        boolean revealed = latest.isAnswersRevealedEarly();
         return new SectionResultsResponse(sections, allPassed, overall,
-                allPassed && exercise.isShowCorrectAnswers() && !revealed, revealed);
+                allPassed && !revealed, revealed);
+    }
+
+    private boolean isRevealed(ExerciseAttempt attempt) {
+        return exerciseAttemptRepository
+                .findByExerciseAssignmentIdAndStudentIdOrderByAttemptNumberDesc(attempt.getExerciseAssignment().getId(), attempt.getStudent().getId())
+                .stream().findFirst().orElse(attempt).isAnswersRevealedEarly();
     }
 
     /**
@@ -426,7 +432,7 @@ public class ForcedListeningService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.listeningHint.questionNotInExercise",
                         new Object[]{questionId, attempt.getExercise().getId()},
                         "Câu hỏi id=" + questionId + " không thuộc đề id=" + attempt.getExercise().getId()));
-        boolean unlocked = eq.getSection() != null && resultRepository
+        boolean unlocked = isRevealed(attempt) || eq.getSection() != null && resultRepository
                 .findByExerciseAssignmentIdAndStudentIdAndExerciseSectionId(attempt.getExerciseAssignment().getId(), attempt.getStudent().getId(), eq.getSection().getId())
                 .map(r -> r.getUnlockedQuestionIds().contains(questionId)).orElse(false);
         if (!unlocked) {
