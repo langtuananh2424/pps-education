@@ -81,6 +81,7 @@
     },
     "question": {
       "numberPrefix": "Question {{number}}.",
+      "multiSelectHint": "Selected {{count}}/{{max}} — choose exactly {{max}} best answers.",
       "pointsSuffix": "{{points}} pt",
       "recordAnswerLabel": "Record your answer",
       "manualGradingNote": "This question will be graded by your teacher after you submit.",

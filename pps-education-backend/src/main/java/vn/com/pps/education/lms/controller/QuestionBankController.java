@@ -12,12 +12,17 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.lms.dto.CreateCkeditorChoiceQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorChunkQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorWordBankQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorEssayQuestionRequest;
 import vn.com.pps.education.lms.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.lms.dto.CreateQuestionRequest;
 import vn.com.pps.education.lms.dto.QuestionBankResponse;
 import vn.com.pps.education.lms.dto.QuestionResponse;
 import vn.com.pps.education.lms.dto.QuestionSearchItemResponse;
 import vn.com.pps.education.lms.dto.UpdateQuestionBankStatusRequest;
+import vn.com.pps.education.lms.dto.UpdateCkeditorQuestionRequest;
 import vn.com.pps.education.lms.dto.UpdateQuestionRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.lms.service.QuestionBankService;
@@ -62,12 +67,52 @@ public class QuestionBankController {
         return ResponseEntity.ok(questionBankService.createQuestion(request, actor.userId()));
     }
 
+    /** Soạn "Ô trống"/"Hộp từ vựng" bằng khung CKEditor5 mới — xem Javadoc CreateCkeditorWordBankQuestionRequest. */
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
+    @PostMapping("/api/questions/ckeditor-word-bank")
+    public ResponseEntity<QuestionResponse> createCkeditorWordBankQuestion(@Valid @RequestBody CreateCkeditorWordBankQuestionRequest request,
+                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(questionBankService.createCkeditorWordBankQuestion(request, actor.userId()));
+    }
+
+    /** Soạn "Tự luận" (chấm AI) bằng khung CKEditor5 mới — xem Javadoc CreateCkeditorEssayQuestionRequest. */
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
+    @PostMapping("/api/questions/ckeditor-essay")
+    public ResponseEntity<QuestionResponse> createCkeditorEssayQuestion(@Valid @RequestBody CreateCkeditorEssayQuestionRequest request,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(questionBankService.createCkeditorEssayQuestion(request, actor.userId()));
+    }
+
+    /** Soạn "Nhóm lựa chọn" bằng khung CKEditor5 mới — xem Javadoc CreateCkeditorChoiceQuestionRequest. */
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
+    @PostMapping("/api/questions/ckeditor-choice")
+    public ResponseEntity<QuestionResponse> createCkeditorChoiceQuestion(@Valid @RequestBody CreateCkeditorChoiceQuestionRequest request,
+                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(questionBankService.createCkeditorChoiceQuestion(request, actor.userId()));
+    }
+
+    /** Soạn "Khối sắp xếp" bằng khung CKEditor5 mới — xem Javadoc CreateCkeditorChunkQuestionRequest. */
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
+    @PostMapping("/api/questions/ckeditor-chunk")
+    public ResponseEntity<QuestionResponse> createCkeditorChunkQuestion(@Valid @RequestBody CreateCkeditorChunkQuestionRequest request,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(questionBankService.createCkeditorChunkQuestion(request, actor.userId()));
+    }
+
     @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.update')")
     @PutMapping("/api/questions/{id}")
     public ResponseEntity<QuestionResponse> updateQuestion(@PathVariable Long id,
                                                              @Valid @RequestBody UpdateQuestionRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(questionBankService.updateQuestion(id, request, actor.userId()));
+    }
+
+    @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.update')")
+    @PutMapping("/api/questions/{id}/ckeditor")
+    public ResponseEntity<QuestionResponse> updateCkeditorQuestion(@PathVariable Long id,
+                                                                     @Valid @RequestBody UpdateCkeditorQuestionRequest request,
+                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(questionBankService.updateCkeditorQuestion(id, request, actor.userId()));
     }
 
     @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.view')")
