@@ -199,6 +199,12 @@ export interface QuestionResponse {
   displayNumberOverride: number | null;
   /** V226 (Nghe ép) — lời thoại RIÊNG của câu (chỉ người soạn thấy, học sinh chỉ nhận qua API tapescript khi câu đã mở). */
   tapescript: string | null;
+  /**
+   * Nhãn số hiển thị TUỲ CHỌN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15) — dùng
+   * khi 1 câu "chiếm" nhiều ô đánh số liền nhau trong đề gốc (VD IELTS "Questions 14 and 15 — Choose
+   * TWO letters A-E"). null = hiện số thường theo displayOrder/displayNumberOverride như cũ.
+   */
+  displayNumberLabel: string | null;
 }
 
 /** Key Grammar — 1 mã cấu trúc khả dụng để chọn, nguồn cho dropdown ở modal "Sửa câu hỏi". */
@@ -328,6 +334,138 @@ export function createExamQuestion(examId: number, request: CreateExamQuestionRe
 
 export function updateExamQuestion(examId: number, questionId: number, request: UpdateQuestionRequest): Promise<QuestionResponse> {
   return apiRequest<QuestionResponse>(`/exams/${examId}/questions/${questionId}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/**
+ * Soạn "Ô trống"/"Hộp từ vựng" bằng khung CKEditor5 (tab "Soạn tự do (CKEditor5)" ở
+ * CreateAndAssignExerciseModal.tsx) — `html` là nội dung ĐÃ CÓ các widget `.q-blank`/`.q-word-bank`
+ * (xem admin/src/features/lms/ckeditor/), backend tự sanitize + trích `structuredContent.blanks`
+ * theo thứ tự tài liệu (xem Javadoc backend CkeditorWordBankParser). Khác CreateQuestionRequest —
+ * KHÔNG có `questionType`/`choices`/`structuredContent` vì backend tự suy ra toàn bộ từ `html`.
+ */
+export interface CreateCkeditorWordBankQuestionRequest {
+  questionBankId: number;
+  html: string;
+  skill?: QuestionSkill;
+  difficulty?: QuestionDifficulty;
+  audioUrl?: string;
+  imageUrl?: string;
+  referencePassage?: string;
+  explanation?: string;
+  defaultPoints?: number;
+  tags?: string[];
+  groupKey?: string;
+  displayNumberOverride?: number;
+  tapescript?: string;
+  /**
+   * Nhãn số hiển thị TUỲ CHỌN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15) — dùng
+   * khi 1 câu "chiếm" nhiều ô đánh số liền nhau trong đề gốc (VD "Questions 14 and 15 — Choose TWO
+   * letters A-E"). Để trống = hiện số thường như cũ.
+   */
+  displayNumberLabel?: string;
+}
+
+export type CreateExamCkeditorWordBankQuestionRequest = Omit<CreateCkeditorWordBankQuestionRequest, "questionBankId">;
+
+/** Bản generic bank (trang "Ngân hàng câu hỏi" độc lập) — không dùng trong luồng theo Đề. */
+export function createCkeditorWordBankQuestion(request: CreateCkeditorWordBankQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>("/questions/ckeditor-word-bank", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** V75: bản theo Đề, backend tự resolve bank nội bộ — không gửi questionBankId. */
+export function createExamCkeditorWordBankQuestion(examId: number, request: CreateExamCkeditorWordBankQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/exams/${examId}/questions/ckeditor-word-bank`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/**
+ * Soạn "Nhóm lựa chọn" (Trắc nghiệm/Nhiều đáp án, suy ra tự động từ số lựa chọn đúng) bằng khung
+ * CKEditor5. Khác CreateCkeditorWordBankQuestionRequest — widget "Nhóm lựa chọn" BỊ BÓC khỏi
+ * `html` lúc lưu, chuyển thành `choices[]` chuẩn ở backend (xem Javadoc CkeditorChoiceParser).
+ */
+export type CreateCkeditorChoiceQuestionRequest = CreateCkeditorWordBankQuestionRequest;
+export type CreateExamCkeditorChoiceQuestionRequest = CreateExamCkeditorWordBankQuestionRequest;
+
+/** Bản generic bank (trang "Ngân hàng câu hỏi" độc lập) — không dùng trong luồng theo Đề. */
+export function createCkeditorChoiceQuestion(request: CreateCkeditorChoiceQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>("/questions/ckeditor-choice", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** V75: bản theo Đề, backend tự resolve bank nội bộ — không gửi questionBankId. */
+export function createExamCkeditorChoiceQuestion(examId: number, request: CreateExamCkeditorChoiceQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/exams/${examId}/questions/ckeditor-choice`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/**
+ * Soạn "Bảng lưới"/"Lựa chọn trong câu" bằng khung CKEditor5 — 1 lần gửi tạo NHIỀU câu trắc nghiệm
+ * cùng nhóm (mỗi dòng lưới / mỗi ô chọn 1 câu). `defaultPoints` là điểm của MỖI câu con. Chỉ có bản
+ * theo Đề (xem Javadoc backend CreateCkeditorGroupExamQuestionRequest).
+ */
+export interface CreateExamCkeditorGroupQuestionRequest {
+  html: string;
+  difficulty?: QuestionDifficulty;
+  explanation?: string;
+  defaultPoints?: number;
+}
+
+export function createExamCkeditorGroupQuestions(examId: number, request: CreateExamCkeditorGroupQuestionRequest): Promise<QuestionResponse[]> {
+  return apiRequest<QuestionResponse[]>(`/exams/${examId}/questions/ckeditor-group`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Bài nhiều phần ngăn bằng đường kẻ ngang — mỗi phần thành câu riêng, chung 1 groupKey (học sinh thấy chung 1 khung). */
+export function createExamCkeditorMultipartQuestions(examId: number, request: CreateExamCkeditorGroupQuestionRequest): Promise<QuestionResponse[]> {
+  return apiRequest<QuestionResponse[]>(`/exams/${examId}/questions/ckeditor-multipart`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/**
+ * Soạn "Khối sắp xếp" (SENTENCE_BUILDING) bằng khung CKEditor5. Khác CreateCkeditorWordBankQuestionRequest
+ * — widget "Khối sắp xếp" BỊ BÓC khỏi `html` lúc lưu, chuyển thành `structuredContent.chunks[]`/
+ * `chunkOrder[]` chuẩn ở backend (xem Javadoc CkeditorChunkParser).
+ */
+export type CreateCkeditorChunkQuestionRequest = CreateCkeditorWordBankQuestionRequest;
+export type CreateExamCkeditorChunkQuestionRequest = CreateExamCkeditorWordBankQuestionRequest;
+
+/** Bản generic bank (trang "Ngân hàng câu hỏi" độc lập) — không dùng trong luồng theo Đề. */
+export function createCkeditorChunkQuestion(request: CreateCkeditorChunkQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>("/questions/ckeditor-chunk", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** V75: bản theo Đề, backend tự resolve bank nội bộ — không gửi questionBankId. */
+export function createExamCkeditorChunkQuestion(examId: number, request: CreateExamCkeditorChunkQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/exams/${examId}/questions/ckeditor-chunk`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/**
+ * Soạn "Tự luận" (ESSAY, chấm AI) bằng khung CKEditor5 — bổ sung 2026-11-15, đã xác nhận với người
+ * dùng. KHÁC các loại khác ở chỗ `html` KHÔNG cần widget đáp án nào (không có Ô trống/Nhóm lựa
+ * chọn/...) — chỉ là đề bài, luồng chấm AI chạy sẵn theo QuestionType.ESSAY (xem Javadoc backend
+ * CkeditorEssayParser). Backend TỪ CHỐI nếu phát hiện widget đáp án lẫn trong `html`.
+ */
+export type CreateCkeditorEssayQuestionRequest = CreateCkeditorWordBankQuestionRequest;
+export type CreateExamCkeditorEssayQuestionRequest = CreateExamCkeditorWordBankQuestionRequest;
+
+/** Bản generic bank (trang "Ngân hàng câu hỏi" độc lập) — không dùng trong luồng theo Đề. */
+export function createCkeditorEssayQuestion(request: CreateCkeditorEssayQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>("/questions/ckeditor-essay", { method: "POST", body: JSON.stringify(request) });
+}
+
+/** V75: bản theo Đề, backend tự resolve bank nội bộ — không gửi questionBankId. */
+export function createExamCkeditorEssayQuestion(examId: number, request: CreateExamCkeditorEssayQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/exams/${examId}/questions/ckeditor-essay`, { method: "POST", body: JSON.stringify(request) });
+}
+
+/** Sửa câu hỏi đã tạo bằng CKEditor5 — backend parse lại HTML, giữ nguyên loại câu (không cho đổi loại). */
+export interface UpdateCkeditorQuestionRequest {
+  html: string;
+  explanation?: string;
+  defaultPoints?: number;
+}
+
+export function updateCkeditorQuestion(questionId: number, request: UpdateCkeditorQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/questions/${questionId}/ckeditor`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function updateExamCkeditorQuestion(examId: number, questionId: number, request: UpdateCkeditorQuestionRequest): Promise<QuestionResponse> {
+  return apiRequest<QuestionResponse>(`/exams/${examId}/questions/${questionId}/ckeditor`, { method: "PUT", body: JSON.stringify(request) });
 }
 
 // ===================== Soạn đề nhanh: import Excel/Word (UC-40, bổ sung ngoài SDD gốc) =====================
@@ -918,6 +1056,12 @@ export interface ExerciseQuestionResponse {
   imageUrl: string | null;
   /** V226 (Nghe ép) — bài tập con chứa câu này, null với Bài thường. */
   sectionId: number | null;
+  /** Nhãn số hiển thị TUỲ CHỌN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15) — VD
+   * "14-15" khi 1 câu chiếm nhiều ô đánh số liền nhau trong đề gốc. null = hiện số thường. */
+  displayNumberLabel: string | null;
+  /** Chỉ có ở MULTIPLE_ANSWER: số lượng đáp án đúng — xem Javadoc backend
+   * ExerciseQuestionResponse#multipleAnswerRequiredCount (mirror portal/src/features/portal/api.ts). */
+  multipleAnswerRequiredCount: number | null;
 }
 
 export function addExerciseQuestion(exerciseId: number, request: AddExerciseQuestionRequest): Promise<ExerciseQuestionResponse> {

@@ -1,0 +1,29 @@
+/**
+ * CSS tối thiểu để hiển thị nội dung câu hỏi soạn bằng CKEditor5 (Ô trống/Hộp từ vựng, Nhóm lựa
+ * chọn, Khối sắp xếp, Bảng lưới, Lựa chọn trong câu...) bên Cổng Học viên — mirror ĐÚNG CÁC class
+ * mà admin/src/features/lms/ckeditor/ckeditor.css đã định nghĩa lúc soạn, chỉ bỏ phần style riêng
+ * cho LÚC SOẠN (3 trạng thái màu ô trống, icon ☐/☑...) — học sinh không cần thấy các trạng thái đó,
+ * ô trống luôn hiện <input> trống thật (xem CkeditorWordBankAnswer.tsx).
+ */
+.q-word-bank {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* fallback — thường bị ghi đè bởi style inline lúc soạn */
+  gap: 4px 16px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  background: #f8fafc;
+}
+
+.q-word-bank-item {
+  font-style: italic;
+}
+
+.q-choice-option img {
+  display: block;
+  max-width: 220px;
+  max-height: 160px;
+  width: auto;
+  height: auto;
+}

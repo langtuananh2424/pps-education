@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -37,10 +37,31 @@ import {
 } from "../skillCategoryKinds";
 import FloatingError from "@/components/ui/FloatingError";
 
+// CKEditor5 + plugin chiếm phần lớn bundle — chỉ tải khi GV mở tab CKE.
+const CkeditorWordBankComposer = lazy(() => import("./CkeditorWordBankComposer"));
+
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 type Step = "info" | "questions" | "publish";
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — fix bug thật: danh sách "Đã gán vào Bài" (xem
+ * ExerciseQuestionsStep) dùng `renderRichText` (chỉ hiểu markup đơn giản ** _ _ của 21 loại cũ) để
+ * tóm tắt 1 dòng — câu soạn qua tab CKEditor5 lưu NGUYÊN HTML đầy đủ (bảng/ảnh/widget), đi qua
+ * renderRichText bị hiện nguyên thẻ `<p>...</p>` dạng chữ thô thay vì đọc được. Tự nhận diện content
+ * trông như HTML (có thẻ mở) thì bóc hết thẻ, chỉ giữ lại TEXT THUẦN rút gọn cho dòng tóm tắt 1
+ * dòng này — không cố hiển thị lại HTML đầy đủ (không cần thiết cho 1 nhãn bị truncate).
+ */
+function summarizeAttachedContent(content: string): React.ReactNode {
+  if (/<[a-z][\s\S]*>/i.test(content)) {
+    const container = document.createElement("div");
+    container.innerHTML = content;
+    const text = (container.textContent || "").replace(/\s+/g, " ").trim();
+    return text || "(không có nội dung văn bản)";
+  }
+  return renderRichText(content);
+}
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — hình dạng tối giản dùng chung để gom
@@ -168,7 +189,10 @@ export default function CreateAndAssignExerciseModal({ examId, teacherType, onCl
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Modal open onClose={onClose} title={t("assignModal.modalTitle")} size="lg">
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — bước "gắn câu hỏi" rộng hơn ("xl") từ khi
+    // có thêm tab "Soạn tự do (CKEditor5)" (editor cần nhiều chiều ngang hơn form 1 cột cũ); 2 bước
+    // còn lại (info/publish) giữ "lg" như cũ, không cần rộng.
+    <Modal open onClose={onClose} title={t("assignModal.modalTitle")} size={step === "questions" ? "xl" : "lg"}>
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {step === "info" && (
@@ -400,7 +424,7 @@ function ExerciseInfoStep({
   );
 }
 
-type QuestionSourceMode = "compose" | "import";
+type QuestionSourceMode = "compose" | "import" | "ckeditor";
 
 interface AttachedQuestion {
   /** id của ExerciseQuestion (dòng gắn câu hỏi vào đề) — dùng để sửa điểm qua updateExerciseQuestionPoints, KHÔNG phải id của Question trong ngân hàng. */
@@ -467,7 +491,14 @@ export function ExerciseQuestionsStep({
    * là điều kiện đúng cho "có import được không" — tách riêng READING làm trường hợp thứ 2.
    */
   const canImport = allowedKinds.length > 0 || exercise.skillCategory === "READING";
-  const availableModes: QuestionSourceMode[] = canImport ? ["import", "compose"] : ["compose"];
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — tab "Soạn tự do (CKEditor5)" (Ô trống/Hộp
+  // từ vựng giữ layout/bảng/ảnh tự do) luôn hiện thêm, không phụ thuộc skillCategoryKinds.ts vì nó
+  // không đi qua kind-picker cũ — map thẳng QuestionType.WORD_BANK như mọi Nhóm kỹ năng.
+  // Bổ sung 2026-11-15, đã xác nhận với người dùng — "ckeditor" lên ĐẦU (mặc định) vì nay đã bao
+  // phủ hết các loại câu hỏi phổ biến với UX soạn tự nhiên hơn hẳn "compose" (QuestionEditorForm —
+  // 19 kind dồn vào 1 dropdown, bị đánh giá nặng nhận thức); "compose" vẫn giữ lại (không xoá) để
+  // SỬA các câu hỏi cũ đã tạo trước khi có CKE, chỉ không còn là lựa chọn đầu tiên khi tạo mới.
+  const availableModes: QuestionSourceMode[] = canImport ? ["ckeditor", "import", "compose"] : ["ckeditor", "compose"];
   const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
   const [composeSubMode, setComposeSubMode] = useState<ComposeSubMode>(composeModes[0]);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — Bài có thể ĐÃ có sẵn câu hỏi (mở
@@ -549,6 +580,8 @@ export function ExerciseQuestionsStep({
   // câu hỏi) — không thể "bỏ chọn" được nữa, chỉ có thể gỡ lại ở trang Soạn & giao đề.
   const [attached, setAttached] = useState<AttachedQuestion[]>([]);
   const [composeFormKey, setComposeFormKey] = useState(0);
+  // CKE là tab mặc định nên "Hủy" ở đó xoá trắng khung soạn (remount) thay vì chuyển tab.
+  const [ckeditorKey, setCkeditorKey] = useState(0);
   // V226 (Nghe ép) — bài tập con đang gắn câu hỏi vào; Bài thường không dùng. Chưa chọn thì chưa cho soạn/import
   // (câu hỏi sẽ được tạo vào ngân hàng nhưng không gắn được vào Bài).
   const [targetSectionId, setTargetSectionId] = useState<number | null>(null);
@@ -641,8 +674,18 @@ export function ExerciseQuestionsStep({
 
   const modeLabels: Record<QuestionSourceMode, string> = {
     compose: t("assignModal.questionsStep.modeCompose"),
-    import: t("assignModal.questionsStep.modeImport")
+    import: t("assignModal.questionsStep.modeImport"),
+    ckeditor: t("assignModal.questionsStep.modeCkeditor")
   };
+
+  const skillCategoryLabel =
+    exercise.skillCategory === "READING"
+      ? t("assignModal.infoStep.skillCategoryReading")
+      : exercise.skillCategory === "WRITING"
+        ? t("assignModal.infoStep.skillCategoryWriting")
+        : exercise.skillCategory === "VOCAB_GRAMMAR"
+          ? t("assignModal.infoStep.skillCategoryVocabGrammar")
+          : t("assignModal.infoStep.skillCategoryListening");
 
   return (
     <div className="space-y-3">
@@ -748,6 +791,19 @@ export function ExerciseQuestionsStep({
           onImported={handleImportCompleted}
         />
       )}
+
+      {mode === "ckeditor" && (
+        <Suspense fallback={<div className="py-10 text-center text-sm text-slate-400">Đang tải khung soạn...</div>}>
+          <CkeditorWordBankComposer
+            key={ckeditorKey}
+            examId={exercise.examId}
+            skillCategoryLabel={skillCategoryLabel}
+            onCreated={handleComposeCreated}
+            onCreatedMany={handleCompositeCreated}
+            onCancel={() => setCkeditorKey((k) => k + 1)}
+          />
+        </Suspense>
+      )}
       </>
       )}
 
@@ -756,7 +812,7 @@ export function ExerciseQuestionsStep({
           <div className="px-3 py-1.5 text-[12px] font-bold text-emerald-700 uppercase">{t("assignModal.questionsStep.attachedSectionTitle")}</div>
           {attached.map((a) => (
             <div key={a.exerciseQuestionId} className="px-3 py-1.5 text-sm flex items-center justify-between gap-2">
-              <span className="flex-1 truncate">{renderRichText(a.content)}</span>
+              <span className="flex-1 truncate">{summarizeAttachedContent(a.content)}</span>
               <input
                 key={`${a.exerciseQuestionId}-${a.points}`}
                 type="number"

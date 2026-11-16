@@ -1,0 +1,287 @@
+/**
+ * CSS cho tab CKEditor5 ("Ô trống"/"Hộp từ vựng") ở CreateAndAssignExerciseModal.tsx — mirror các
+ * rule thật đã xác nhận ở PoC (feature/ckeditor5-poc), chỉ giữ phần widget thật dùng tới (Ô trống +
+ * Hộp từ vựng — Nhóm lựa chọn/Khối sắp xếp/Audio/Lựa chọn trong câu còn ở PoC, chưa lên production).
+ */
+.ck-font-size-dropdown .ck-list .ck-button__label {
+  font-size: var(--ck-font-size-base) !important;
+}
+
+/* CSS reset toàn cục của Tailwind (Preflight) đè lên padding/margin mặc định của CKEditor5. */
+.ck-editor__editable_inline {
+  padding: 1rem 1.5rem !important;
+  min-height: 220px;
+}
+
+.ck-content p {
+  margin: 0 0 0.75em !important;
+}
+
+.ck-content h1,
+.ck-content h2,
+.ck-content h3 {
+  margin: 0.5em 0 !important;
+}
+
+/* Widget "Hộp từ vựng" — viền + chia lưới nhiều cột. */
+.q-word-bank {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px 16px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  background: #f8fafc;
+}
+
+.q-word-bank-item {
+  font-style: italic;
+}
+
+/* Widget "Ô trống" — 3 trạng thái (xem BlankWidgetPlugin.ts): chưa cấu hình (chặn Lưu), để trống
+   có chủ đích (hợp lệ), đã có đáp án — hiện NGAY đáp án thật của GV (không che bằng placeholder,
+   GV không cần giấu đáp án của chính mình). */
+.q-blank {
+  display: inline-block;
+  padding: 1px 8px;
+  margin: 0 2px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.q-blank-answered {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.q-blank-intentional-empty {
+  background: #e2e8f0;
+  color: #475569;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.q-blank-unconfigured {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Widget "Nhóm lựa chọn" — khung bao nhóm + từng lựa chọn, tick xanh khi đã đánh dấu đúng. */
+.q-choice-group {
+  display: block;
+  border: 1px dashed #94a3b8;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 8px 0;
+  background: #f8fafc;
+}
+
+.q-choice-option {
+  display: block;
+  padding: 2px 4px 2px 22px;
+  margin: 2px 0;
+  position: relative;
+}
+
+.q-choice-option::before {
+  content: "☐";
+  position: absolute;
+  left: 2px;
+  color: #94a3b8;
+}
+
+.q-choice-option.q-choice-correct::before {
+  content: "☑";
+  color: #10b981;
+  font-weight: bold;
+}
+
+/* Ảnh chèn trong lựa chọn (dạng "đáp án là hình") — giới hạn khung vừa phải, tránh tràn layout.
+   Dùng chung cho CẢ soạn (class thật "q-choice-option") lẫn xem trước (class riêng
+   "q-choice-answer-html", xem CkeditorHtmlPreview.tsx — không tái dùng "q-choice-option" ở đó để
+   tránh dính icon ☐/☑ không liên quan). */
+.q-choice-option img,
+.q-choice-answer-html img {
+  display: block;
+  max-width: 220px;
+  max-height: 160px;
+  width: auto;
+  height: auto;
+}
+
+/* Widget "Khối sắp xếp" — mỗi khối là 1 "viên gạch" bo tròn, dễ phân biệt với chữ thường xung quanh. */
+.q-chunk {
+  display: inline-block;
+  padding: 1px 8px;
+  margin: 0 2px;
+  border-radius: 9999px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-weight: 600;
+}
+
+/* Widget "Lựa chọn trong câu" — nền vàng nhạt, khác màu Ô trống (xanh/đỏ) và Khối sắp xếp (tím). */
+.q-inline-choice {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 2px;
+  border-radius: 4px;
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+}
+
+/* Widget "Bảng lưới" — đầu bảng liệt kê bộ đáp án chung, mỗi dòng là 1 câu, cuối dòng hiện đáp án đúng. */
+.q-grid {
+  display: block;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  margin: 8px 0;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.q-grid::before {
+  content: attr(data-options-label);
+  display: block;
+  padding: 6px 10px;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.9em;
+}
+
+.q-grid-row {
+  display: block;
+  padding: 6px 10px;
+  border-top: 1px solid #cbd5e1;
+}
+
+.q-grid-row::after {
+  content: "⚠ Chưa chọn đáp án";
+  float: right;
+  margin-left: 12px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+  font-size: 0.85em;
+}
+
+.q-grid-row[data-correct-label]::after {
+  content: attr(data-correct-label);
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* Widget "Audio" — khung viền rõ quanh thẻ <audio> gốc, dễ nhận ra lúc soạn (nằm giữa chữ dễ bị lẫn). */
+.q-audio {
+  display: block;
+  margin: 8px 0;
+  padding: 6px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #f8fafc;
+  width: fit-content;
+}
+
+/* Dropdown "Chèn câu hỏi" (QuestionWidgetsMenuPlugin) — panel xổ xuống giữ nguyên layout "cục"
+   nhiều hàng/nhiều cột như toolbar gốc (không phải list dọc từng dòng) — chỉ giới hạn chiều rộng để
+   tự xuống dòng gọn trong panel thay vì tràn ngang quá dài. */
+.ck-pps-question-widgets-dropdown {
+  max-width: 520px;
+}
+
+/* Nút bấm mở dropdown trên — chỉ còn đúng mũi tên xổ xuống (không icon/chữ riêng), đẩy sát GÓC PHẢI
+   của khung soạn bằng margin-left: auto (toolbar là flex row). */
+.ck-pps-insert-question-widget {
+  margin-left: auto;
+}
+
+/* Modal thay window.prompt/window.alert (dialogs.ts) — mount thẳng vào document.body, nằm NGOÀI
+   cây React nên viết CSS thuần thay vì class Tailwind có điều kiện; màu/khoảng cách mirror style
+   modal thật của app (card trắng bo góc, nút chính màu cam — xem nút "Tạo câu hỏi"). */
+.ck-pps-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 16px;
+}
+.ck-pps-dialog-card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+  padding: 20px;
+  font-family: inherit;
+}
+.ck-pps-dialog-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+.ck-pps-dialog-message {
+  font-size: 13.5px;
+  color: #334155;
+  white-space: pre-line;
+  margin-bottom: 16px;
+}
+.ck-pps-dialog-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  white-space: pre-line;
+  margin-bottom: 6px;
+}
+.ck-pps-dialog-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  color: #0f172a;
+  margin-bottom: 16px;
+  resize: vertical;
+}
+.ck-pps-dialog-input:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+.ck-pps-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.ck-pps-dialog-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ck-pps-dialog-btn:hover {
+  background: #f1f5f9;
+}
+.ck-pps-dialog-btn-primary {
+  border-color: #f97316;
+  background: #f97316;
+  color: #ffffff;
+}
+.ck-pps-dialog-btn-primary:hover {
+  background: #ea580c;
+}

@@ -14,6 +14,10 @@ import vn.com.pps.education.lms.domain.QuestionBank;
 import vn.com.pps.education.lms.domain.QuestionChoice;
 import vn.com.pps.education.lms.domain.QuestionHistory;
 import vn.com.pps.education.auth.domain.User;
+import vn.com.pps.education.lms.dto.CreateCkeditorChoiceQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorChunkQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorWordBankQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorEssayQuestionRequest;
 import vn.com.pps.education.lms.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.lms.dto.CreateQuestionRequest;
 import vn.com.pps.education.lms.dto.KeyGrammarStructureResponse;
@@ -22,6 +26,7 @@ import vn.com.pps.education.lms.dto.QuestionChoiceRequest;
 import vn.com.pps.education.lms.dto.QuestionChoiceResponse;
 import vn.com.pps.education.lms.dto.QuestionResponse;
 import vn.com.pps.education.lms.dto.QuestionSearchItemResponse;
+import vn.com.pps.education.lms.dto.UpdateCkeditorQuestionRequest;
 import vn.com.pps.education.lms.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.lms.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.DuplicateQuestionContentException;
@@ -37,6 +42,13 @@ import vn.com.pps.education.lms.repository.QuestionRepository;
 import vn.com.pps.education.lms.repository.StudentAnswerRepository;
 import vn.com.pps.education.auth.repository.UserRepository;
 
+import java.math.BigDecimal;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
+
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -73,6 +85,11 @@ public class QuestionBankService {
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final UserRepository userRepository;
     private final KeyGrammarDictionaryLoader keyGrammarDictionaryLoader;
+    private final CkeditorWordBankParser ckeditorWordBankParser;
+    private final CkeditorChoiceParser ckeditorChoiceParser;
+    private final CkeditorChunkParser ckeditorChunkParser;
+    private final CkeditorGroupParser ckeditorGroupParser;
+    private final CkeditorEssayParser ckeditorEssayParser;
     private static final int MAX_SEARCH_PAGE_SIZE = 100;
 
     public QuestionBankService(QuestionBankRepository questionBankRepository,
@@ -84,7 +101,14 @@ public class QuestionBankService {
                                 CurriculumRepository curriculumRepository,
                                 CurriculumSubjectRepository curriculumSubjectRepository,
                                 UserRepository userRepository,
-                                KeyGrammarDictionaryLoader keyGrammarDictionaryLoader) {
+                                KeyGrammarDictionaryLoader keyGrammarDictionaryLoader,
+                                CkeditorWordBankParser ckeditorWordBankParser,
+                                CkeditorChoiceParser ckeditorChoiceParser,
+                                CkeditorChunkParser ckeditorChunkParser,
+                                CkeditorGroupParser ckeditorGroupParser,
+                                CkeditorEssayParser ckeditorEssayParser) {
+        this.ckeditorGroupParser = ckeditorGroupParser;
+        this.ckeditorEssayParser = ckeditorEssayParser;
         this.questionBankRepository = questionBankRepository;
         this.examRepository = examRepository;
         this.questionRepository = questionRepository;
@@ -95,6 +119,9 @@ public class QuestionBankService {
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.userRepository = userRepository;
         this.keyGrammarDictionaryLoader = keyGrammarDictionaryLoader;
+        this.ckeditorWordBankParser = ckeditorWordBankParser;
+        this.ckeditorChoiceParser = ckeditorChoiceParser;
+        this.ckeditorChunkParser = ckeditorChunkParser;
     }
 
     @Transactional
@@ -152,6 +179,305 @@ public class QuestionBankService {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-14 — soạn "Ô trống"/"Hộp từ vựng"
+     * bằng khung CKEditor5 mới. CHỈ tách HTML → {@code content}/{@code structuredContent.blanks[]}
+     * rồi giao lại cho {@link #createQuestion} xử lý — toàn bộ validate trùng/quyền/lưu lịch sử
+     * dùng NGUYÊN, không viết lại (xem Javadoc {@link CreateCkeditorWordBankQuestionRequest}).
+     */
+    @Transactional
+    public QuestionResponse createCkeditorWordBankQuestion(CreateCkeditorWordBankQuestionRequest request, Long actorUserId) {
+        CreateQuestionRequest built = buildCkeditorWordBankRequest(request.questionBankId(), request.html(), request.skill(),
+                request.difficulty(), request.audioUrl(), request.imageUrl(), request.referencePassage(), request.explanation(),
+                request.defaultPoints(), request.tags(), request.groupKey(), request.displayNumberOverride(), request.tapescript(),
+                request.displayNumberLabel());
+        return createQuestion(built, actorUserId);
+    }
+
+    /**
+     * Dùng chung cho cả 2 đường "Ô trống"/"Hộp từ vựng" bằng CKEditor5 — ngân hàng generic
+     * ({@link #createCkeditorWordBankQuestion}, chặn trùng) và theo Đề
+     * ({@link ExamQuestionService#createCkeditorWordBankQuestion}, cho phép trùng) — chỉ tách
+     * HTML → {@code CreateQuestionRequest}, KHÔNG lưu, caller tự quyết định gọi
+     * {@link #createQuestion} hay {@link #createQuestionInBank} trực tiếp.
+     */
+    CreateQuestionRequest buildCkeditorWordBankRequest(Long bankId, String html, String skill, String difficulty,
+                                                        String audioUrl, String imageUrl, String referencePassage,
+                                                        String explanation, BigDecimal defaultPoints,
+                                                        List<String> tags, String groupKey, Integer displayNumberOverride,
+                                                        String tapescript, String displayNumberLabel) {
+        CkeditorWordBankParser.ParsedWordBank parsed = ckeditorWordBankParser.parse(html);
+        String resolvedAudioUrl = parsed.audioUrl() != null ? parsed.audioUrl() : audioUrl;
+        String resolvedSkill = parsed.audioUrl() != null ? "LISTENING" : skill;
+        return new CreateQuestionRequest(
+                bankId, Question.QuestionType.WORD_BANK.name(), resolvedSkill, difficulty, parsed.sanitizedHtml(),
+                resolvedAudioUrl, imageUrl, referencePassage, explanation, null, defaultPoints, tags, null,
+                Map.of("blanks", parsed.blanks()), groupKey, displayNumberOverride, tapescript, displayNumberLabel);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15 — soạn câu "Tự luận" (ESSAY, chấm
+     * AI) bằng khung CKEditor5 mới. KHÔNG cần widget đáp án — chỉ cần đề bài (xem Javadoc
+     * {@link CkeditorEssayParser}, {@link CreateCkeditorEssayQuestionRequest}).
+     */
+    @Transactional
+    public QuestionResponse createCkeditorEssayQuestion(CreateCkeditorEssayQuestionRequest request, Long actorUserId) {
+        CreateQuestionRequest built = buildCkeditorEssayRequest(request.questionBankId(), request.html(), request.skill(),
+                request.difficulty(), request.audioUrl(), request.imageUrl(), request.referencePassage(), request.explanation(),
+                request.defaultPoints(), request.tags(), request.groupKey(), request.displayNumberOverride(), request.tapescript(),
+                request.displayNumberLabel());
+        return createQuestion(built, actorUserId);
+    }
+
+    /** Dùng chung cho cả 2 đường "Tự luận" bằng CKEditor5 — ngân hàng generic và theo Đề — mirror {@link #buildCkeditorWordBankRequest}. */
+    CreateQuestionRequest buildCkeditorEssayRequest(Long bankId, String html, String skill, String difficulty,
+                                                     String audioUrl, String imageUrl, String referencePassage,
+                                                     String explanation, BigDecimal defaultPoints,
+                                                     List<String> tags, String groupKey, Integer displayNumberOverride,
+                                                     String tapescript, String displayNumberLabel) {
+        CkeditorEssayParser.ParsedEssay parsed = ckeditorEssayParser.parse(html);
+        String resolvedAudioUrl = parsed.audioUrl() != null ? parsed.audioUrl() : audioUrl;
+        String resolvedSkill = parsed.audioUrl() != null ? "LISTENING" : skill;
+        return new CreateQuestionRequest(
+                bankId, Question.QuestionType.ESSAY.name(), resolvedSkill, difficulty, parsed.sanitizedHtml(),
+                resolvedAudioUrl, imageUrl, referencePassage, explanation, null, defaultPoints, tags, null,
+                null, groupKey, displayNumberOverride, tapescript, displayNumberLabel);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15 — soạn "Nhóm lựa chọn" bằng khung
+     * CKEditor5 mới. CHỈ tách HTML → {@code content}/{@code choices[]} rồi giao lại cho
+     * {@link #createQuestion} xử lý (xem Javadoc {@link CreateCkeditorChoiceQuestionRequest}).
+     */
+    @Transactional
+    public QuestionResponse createCkeditorChoiceQuestion(CreateCkeditorChoiceQuestionRequest request, Long actorUserId) {
+        CreateQuestionRequest built = buildCkeditorChoiceRequest(request.questionBankId(), request.html(), request.skill(),
+                request.difficulty(), request.audioUrl(), request.imageUrl(), request.referencePassage(), request.explanation(),
+                request.defaultPoints(), request.tags(), request.groupKey(), request.displayNumberOverride(), request.tapescript(),
+                request.displayNumberLabel());
+        return createQuestion(built, actorUserId);
+    }
+
+    /**
+     * Dùng chung cho cả 2 đường "Nhóm lựa chọn" bằng CKEditor5 — ngân hàng generic
+     * ({@link #createCkeditorChoiceQuestion}, chặn trùng) và theo Đề
+     * ({@link ExamQuestionService#createCkeditorChoiceQuestion}, cho phép trùng) — xem Javadoc
+     * {@link #buildCkeditorWordBankRequest} (cùng pattern, chỉ khác parser).
+     */
+    CreateQuestionRequest buildCkeditorChoiceRequest(Long bankId, String html, String skill, String difficulty,
+                                                      String audioUrl, String imageUrl, String referencePassage,
+                                                      String explanation, BigDecimal defaultPoints,
+                                                      List<String> tags, String groupKey, Integer displayNumberOverride,
+                                                      String tapescript, String displayNumberLabel) {
+        CkeditorChoiceParser.ParsedChoice parsed = ckeditorChoiceParser.parse(html);
+        Question.QuestionType questionType = parsed.trueFalse()
+                ? Question.QuestionType.TRUE_FALSE
+                : parsed.multipleAnswer() ? Question.QuestionType.MULTIPLE_ANSWER : Question.QuestionType.MULTIPLE_CHOICE;
+        List<QuestionChoiceRequest> choices = new ArrayList<>();
+        int displayOrder = 1;
+        for (CkeditorChoiceParser.ParsedChoiceOption option : parsed.options()) {
+            String choiceLabel = String.valueOf((char) ('A' + displayOrder - 1));
+            choices.add(new QuestionChoiceRequest(choiceLabel, option.content(), option.imageUrl(), option.isCorrect(), displayOrder));
+            displayOrder++;
+        }
+        String resolvedAudioUrl = parsed.audioUrl() != null ? parsed.audioUrl() : audioUrl;
+        String resolvedSkill = parsed.audioUrl() != null ? "LISTENING" : skill;
+        return new CreateQuestionRequest(
+                bankId, questionType.name(), resolvedSkill, difficulty, parsed.stemHtml(),
+                resolvedAudioUrl, imageUrl, referencePassage, explanation, null, defaultPoints, tags, choices,
+                null, groupKey, displayNumberOverride, tapescript, displayNumberLabel);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15 — soạn "Khối sắp xếp" bằng khung
+     * CKEditor5 mới. CHỈ tách HTML → {@code content}/{@code structuredContent.chunks[]}/
+     * {@code chunkOrder[]} rồi giao lại cho {@link #createQuestion} xử lý (xem Javadoc
+     * {@link CreateCkeditorChunkQuestionRequest}).
+     */
+    @Transactional
+    public QuestionResponse createCkeditorChunkQuestion(CreateCkeditorChunkQuestionRequest request, Long actorUserId) {
+        CreateQuestionRequest built = buildCkeditorChunkRequest(request.questionBankId(), request.html(), request.skill(),
+                request.difficulty(), request.audioUrl(), request.imageUrl(), request.referencePassage(), request.explanation(),
+                request.defaultPoints(), request.tags(), request.groupKey(), request.displayNumberOverride(), request.tapescript(),
+                request.displayNumberLabel());
+        return createQuestion(built, actorUserId);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-14 — "Bảng lưới"/"Lựa chọn trong câu"
+     * soạn bằng CKEditor5: tách HTML → N {@code CreateQuestionRequest} MULTIPLE_CHOICE cùng groupKey +
+     * referencePassage (đúng hình dạng GridQuestionBuilder/ClozeQuestionBuilder đang tạo). KHÔNG lưu
+     * — {@link ExamQuestionService#createCkeditorGroupQuestions} lưu từng câu trong cùng 1 giao dịch.
+     */
+    List<CreateQuestionRequest> buildCkeditorGroupRequests(Long bankId, String html, String difficulty,
+                                                           String explanation, BigDecimal defaultPoints) {
+        CkeditorGroupParser.ParsedGroup parsed = ckeditorGroupParser.parse(html);
+        String groupKey = parsed.kind() + "-" + System.currentTimeMillis();
+        String passage = parsed.passageHtml().isBlank() ? null : parsed.passageHtml();
+        String skill = parsed.audioUrl() != null ? "LISTENING" : "READING";
+        List<CreateQuestionRequest> requests = new ArrayList<>();
+        for (CkeditorGroupParser.ParsedSubQuestion sub : parsed.questions()) {
+            List<QuestionChoiceRequest> choices = new ArrayList<>();
+            int displayOrder = 1;
+            for (CkeditorGroupParser.ParsedOption option : sub.options()) {
+                String choiceLabel = String.valueOf((char) ('A' + displayOrder - 1));
+                choices.add(new QuestionChoiceRequest(choiceLabel, option.content(), null, option.isCorrect(), displayOrder));
+                displayOrder++;
+            }
+            requests.add(new CreateQuestionRequest(
+                    bankId, Question.QuestionType.MULTIPLE_CHOICE.name(), skill, difficulty, sub.content(),
+                    parsed.audioUrl(), null, passage, explanation, null, defaultPoints, null, choices,
+                    null, groupKey, null, null));
+        }
+        return requests;
+    }
+
+    private static final String DEFAULT_CHUNK_INSTRUCTION ="Sắp xếp các khối từ dưới đây thành câu hoàn chỉnh:";
+
+    /**
+     * Dùng chung cho cả 2 đường "Khối sắp xếp" bằng CKEditor5 — ngân hàng generic
+     * ({@link #createCkeditorChunkQuestion}, chặn trùng) và theo Đề
+     * ({@link ExamQuestionService#createCkeditorChunkQuestion}, cho phép trùng) — xem Javadoc
+     * {@link #buildCkeditorWordBankRequest} (cùng pattern, chỉ khác parser). {@code content}
+     * (@NotBlank ở CreateQuestionRequest) rơi về hướng dẫn mặc định khi GV không gõ thêm chữ nào
+     * ngoài chính nhóm khối (trường hợp phổ biến nhất — câu gồm TOÀN BỘ là các khối, không có chữ
+     * dẫn riêng, xem Javadoc CkeditorChunkParser).
+     */
+    CreateQuestionRequest buildCkeditorChunkRequest(Long bankId, String html, String skill, String difficulty,
+                                                     String audioUrl, String imageUrl, String referencePassage,
+                                                     String explanation, BigDecimal defaultPoints,
+                                                     List<String> tags, String groupKey, Integer displayNumberOverride,
+                                                     String tapescript, String displayNumberLabel) {
+        CkeditorChunkParser.ParsedChunk parsed = ckeditorChunkParser.parse(html);
+        String resolvedAudioUrl = parsed.audioUrl() != null ? parsed.audioUrl() : audioUrl;
+        String resolvedSkill = parsed.audioUrl() != null ? "LISTENING" : skill;
+        String content = parsed.stemHtml().isBlank() ? DEFAULT_CHUNK_INSTRUCTION : parsed.stemHtml();
+        return new CreateQuestionRequest(
+                bankId, Question.QuestionType.SENTENCE_BUILDING.name(), resolvedSkill, difficulty, content,
+                resolvedAudioUrl, imageUrl, referencePassage, explanation, null, defaultPoints, tags, null,
+                Map.of("chunks", parsed.correctOrder(), "chunkOrder", parsed.displayOrder()), groupKey, displayNumberOverride, tapescript,
+                displayNumberLabel);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15 — sửa câu hỏi tạo bằng CKEditor5:
+     * parse lại HTML bằng ĐÚNG builder lúc tạo (theo questionType đã lưu), rồi chuyển thành
+     * {@link UpdateQuestionRequest} để đi qua {@link #updateResolvedQuestion} sẵn có (giữ nguyên quy
+     * tắc khoá sửa khi đã có bài làm). KHÔNG cho đổi loại câu khi sửa (UpdateQuestionRequest không có
+     * questionType) — VD câu 1 đáp án đúng bị đánh dấu thêm đáp án thứ 2 sẽ thành MULTIPLE_ANSWER →
+     * chặn, bắt tạo câu mới. Audio lấy THEO HTML (xoá widget Audio = xoá audio của câu).
+     */
+    UpdateQuestionRequest buildCkeditorUpdateRequest(Question question, UpdateCkeditorQuestionRequest request) {
+        Question.QuestionType type = question.getQuestionType();
+        Long bankId = question.getQuestionBank().getId();
+        String html = request.html();
+        CreateQuestionRequest built = switch (type) {
+            case WORD_BANK -> buildCkeditorWordBankRequest(bankId, html, null, null, null, null, null, null, null, null, null, null, null, null);
+            case ESSAY -> buildCkeditorEssayRequest(bankId, html, null, null, null, null, null, null, null, null, null, null, null, null);
+            case MULTIPLE_CHOICE, MULTIPLE_ANSWER, TRUE_FALSE ->
+                    buildCkeditorChoiceRequest(bankId, html, null, null, null, null, null, null, null, null, null, null, null, null);
+            case SENTENCE_BUILDING -> buildCkeditorChunkRequest(bankId, html, null, null, null, null, null, null, null, null, null, null, null, null);
+            default -> throw new IllegalArgumentException("Loại câu hỏi " + type + " không sửa được bằng khung CKEditor5.");
+        };
+        if (!type.name().equals(built.questionType())) {
+            throw new IllegalArgumentException("Nội dung sau khi sửa làm câu hỏi đổi loại (" + type + " → " + built.questionType()
+                    + ", VD đổi số đáp án đúng từ 1 sang nhiều) — không đổi loại được khi sửa, hãy tạo câu hỏi mới.");
+        }
+        return new UpdateQuestionRequest(
+                built.content(), built.audioUrl(), question.getImageUrl(), question.getReferencePassage(),
+                request.explanation(), question.getCorrectAnswerText(), built.structuredContent(), request.defaultPoints(),
+                question.getTags(), built.choices(), null, question.getKeyGrammar(), null);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-16 — 1 bài nhiều phần (VD "Ex. 3":
+     * A khoanh đáp án, B viết từ) soạn trong CÙNG 1 khung CKEditor5, các phần ngăn bằng đường kẻ
+     * ngang (thẻ hr cấp ngoài cùng). Mỗi phần đi qua ĐÚNG builder như khi tạo riêng (1 phần = 1 loại),
+     * rồi gán CHUNG 1 groupKey — Portal học sinh đã gom các câu cùng groupKey liền nhau vào 1 khung
+     * (TakeExerciseModal#groupQuestionsByGroupKey), kể cả trộn nhiều loại câu. KHÔNG lưu.
+     */
+    List<CreateQuestionRequest> buildCkeditorMultipartRequests(Long bankId, String html, String difficulty,
+                                                               String explanation, BigDecimal defaultPoints) {
+        List<String> parts = splitCkeditorParts(html);
+        if (parts.size() < 2) {
+            throw new IllegalArgumentException("Cần ít nhất 2 phần ngăn bằng đường kẻ ngang (nút \"—\" trên thanh công cụ).");
+        }
+        String groupKey = "multipart-" + System.currentTimeMillis();
+        List<CreateQuestionRequest> result = new ArrayList<>();
+        for (int i = 0; i < parts.size(); i++) {
+            String part = parts.get(i);
+            int partNo = i + 1;
+            Document doc = Jsoup.parseBodyFragment(part);
+            boolean hasGroup = !doc.select(".q-grid, .q-inline-choice").isEmpty();
+            boolean hasChoice = !doc.select(".q-choice-group").isEmpty();
+            boolean hasChunk = !doc.select(".q-chunk").isEmpty();
+            boolean hasBlank = !doc.select(".q-blank").isEmpty();
+            long kinds = java.util.stream.Stream.of(hasGroup, hasChoice, hasChunk, hasBlank).filter(b -> b).count();
+            if (kinds == 0) {
+                throw new IllegalArgumentException("Phần " + partNo + " chưa có Ô trống/Nhóm lựa chọn/Khối sắp xếp/Bảng lưới/Lựa chọn trong câu nào.");
+            }
+            if (kinds > 1) {
+                throw new IllegalArgumentException("Phần " + partNo + " trộn nhiều loại — mỗi phần chỉ 1 loại, chèn thêm đường kẻ ngang để tách.");
+            }
+            try {
+                if (hasGroup) {
+                    buildCkeditorGroupRequests(bankId, part, difficulty, explanation, defaultPoints)
+                            .forEach(r -> result.add(withGroupKey(r, groupKey)));
+                } else if (hasChoice) {
+                    result.add(buildCkeditorChoiceRequest(bankId, part, null, difficulty, null, null, null, explanation,
+                            defaultPoints, null, groupKey, null, null, null));
+                } else if (hasChunk) {
+                    result.add(buildCkeditorChunkRequest(bankId, part, null, difficulty, null, null, null, explanation,
+                            defaultPoints, null, groupKey, null, null, null));
+                } else {
+                    result.add(buildCkeditorWordBankRequest(bankId, part, null, difficulty, null, null, null, explanation,
+                            defaultPoints, null, groupKey, null, null, null));
+                }
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("Phần " + partNo + ": " + ex.getMessage(), ex);
+            }
+        }
+        return result;
+    }
+
+    /** Tách HTML theo thẻ hr cấp ngoài cùng, bỏ các phần rỗng (VD đường kẻ ở đầu/cuối). */
+    private List<String> splitCkeditorParts(String html) {
+        List<String> parts = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (Node node : Jsoup.parseBodyFragment(html == null ? "" : html).body().childNodes()) {
+            if (node instanceof Element el && el.tagName().equals("hr")) {
+                addPartIfNotBlank(parts, current.toString());
+                current.setLength(0);
+            } else {
+                current.append(node.outerHtml());
+            }
+        }
+        addPartIfNotBlank(parts, current.toString());
+        return parts;
+    }
+
+    private void addPartIfNotBlank(List<String> parts, String partHtml) {
+        Document doc = Jsoup.parseBodyFragment(partHtml);
+        if (!doc.body().text().isBlank() || !doc.select("img, audio, .q-blank, .q-choice-group, .q-chunk, .q-grid, .q-inline-choice").isEmpty()) {
+            parts.add(partHtml);
+        }
+    }
+
+    private CreateQuestionRequest withGroupKey(CreateQuestionRequest r, String groupKey) {
+        return new CreateQuestionRequest(r.questionBankId(), r.questionType(), r.skill(), r.difficulty(), r.content(),
+                r.audioUrl(), r.imageUrl(), r.referencePassage(), r.explanation(), r.correctAnswerText(), r.defaultPoints(),
+                r.tags(), r.choices(), r.structuredContent(), groupKey, r.displayNumberOverride(), r.tapescript(),
+                r.displayNumberLabel());
+    }
+
+    /** Sửa câu hỏi CKEditor5 ở ngân hàng generic — mirror {@link #updateQuestion}. */
+    @Transactional
+    public QuestionResponse updateCkeditorQuestion(Long id, UpdateCkeditorQuestionRequest request, Long actorUserId) {
+        Question question = questionOrThrow(id);
+        requireLegacyBank(question.getQuestionBank().getId());
+        return updateResolvedQuestion(question, buildCkeditorUpdateRequest(question, request), actorUserId);
+    }
+
+    /**
      * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — cho QuestionImportService dùng để pre-check
      * trùng nội dung TRƯỚC KHI tạo bất kỳ câu nào của 1 nhóm "DIEN_TU_NHOM" (nhiều Question/1 dòng
      * Excel) — tránh tạo dở dang N-1/N câu rồi mới phát hiện câu cuối trùng (không dùng transaction
@@ -206,6 +532,7 @@ public class QuestionBankService {
         }
         question.setTags(request.tags());
         question.setDisplayNumberOverride(request.displayNumberOverride());
+        question.setDisplayNumberLabel(request.displayNumberLabel());
         question.setCreatedBy(actor);
         question = questionRepository.save(question);
         List<QuestionChoice> savedChoices = saveChoices(question, request.choices());
@@ -519,7 +846,8 @@ public class QuestionBankService {
                 q.getContent(), q.getAudioUrl(), q.getImageUrl(), q.getReferencePassage(), q.getExplanation(),
                 q.getCorrectAnswerText(),
                 q.getDefaultPoints(), q.getTags(), q.getStatus().name(), q.getCreatedBy().getId(), choices,
-                q.getStructuredContent(), q.getGroupKey(), q.getKeyGrammar(), q.getDisplayNumberOverride(), q.getTapescript());
+                q.getStructuredContent(), q.getGroupKey(), q.getKeyGrammar(), q.getDisplayNumberOverride(), q.getTapescript(),
+                q.getDisplayNumberLabel());
     }
 
     private QuestionChoiceResponse toResponse(QuestionChoice c) {

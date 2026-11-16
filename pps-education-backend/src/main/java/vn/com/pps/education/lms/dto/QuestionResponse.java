@@ -35,5 +35,7 @@ public record QuestionResponse(
          */
         Integer displayNumberOverride,
         /** V226 (Nghe ép) — chỉ trả cho người soạn (API ngân hàng câu hỏi); học sinh KHÔNG bao giờ nhận field này. */
-        String tapescript
+        String tapescript,
+        /** Nhãn số hiển thị TUỲ CHỌN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15) — xem Javadoc {@code Question.displayNumberLabel}. */
+        String displayNumberLabel
 ) {}

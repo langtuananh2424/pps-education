@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import {
   Archive,
   Blocks,
@@ -34,6 +34,7 @@ import {
   updateQuestionBankStatus
 } from "../api";
 import QuestionEditorForm from "../components/QuestionEditorForm";
+import { isCkeditorAuthoredQuestion } from "../ckeditor/blankParser";
 import QuestionImportPanel from "../components/QuestionImportPanel";
 import Button from "@/components/ui/Button";
 import { ApiError } from "@/lib/apiClient";
@@ -44,6 +45,8 @@ import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
 import { useDialog } from "@/components/ui/DialogProvider";
 import FloatingError from "@/components/ui/FloatingError";
+
+const CkeditorWordBankComposer = lazy(() => import("../components/CkeditorWordBankComposer"));
 
 const typeBadge: Record<QuestionType, { icon: typeof CheckSquare; className: string }> = {
   MULTIPLE_CHOICE: { icon: CheckSquare, className: "text-emerald-700 bg-emerald-50 border-emerald-100" },
@@ -465,7 +468,7 @@ export default function QuestionBankPage() {
       {editingRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={() => setEditingRow(null)} />
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
+          <div className={`relative w-full ${isCkeditorAuthoredQuestion(editingRow.question) ? "max-w-4xl" : "max-w-2xl"} max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl`}>
             <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                 <Database className="w-4 h-4 text-brand-red" />
@@ -476,16 +479,31 @@ export default function QuestionBankPage() {
               </button>
             </div>
             <div className="p-6">
-              <QuestionEditorForm
-                questionBankId={editingRow.bankId}
-                existingQuestion={editingRow.question}
-                onCreated={(updated) => {
-                  handleMutated(updated.id);
-                  setEditingRow(null);
-                  showToast(t("bankPage.questionSavedToast"));
-                }}
-                onCancel={() => setEditingRow(null)}
-              />
+              {isCkeditorAuthoredQuestion(editingRow.question) ? (
+                <Suspense fallback={<div className="py-10 text-center text-sm text-slate-400">Đang tải khung soạn...</div>}>
+                  <CkeditorWordBankComposer
+                    skillCategoryLabel={editingRow.question.skill ?? "—"}
+                    existingQuestion={editingRow.question}
+                    onCreated={(updated) => {
+                      handleMutated(updated.id);
+                      setEditingRow(null);
+                      showToast(t("bankPage.questionSavedToast"));
+                    }}
+                    onCancel={() => setEditingRow(null)}
+                  />
+                </Suspense>
+              ) : (
+                <QuestionEditorForm
+                  questionBankId={editingRow.bankId}
+                  existingQuestion={editingRow.question}
+                  onCreated={(updated) => {
+                    handleMutated(updated.id);
+                    setEditingRow(null);
+                    showToast(t("bankPage.questionSavedToast"));
+                  }}
+                  onCancel={() => setEditingRow(null)}
+                />
+              )}
             </div>
           </div>
         </div>

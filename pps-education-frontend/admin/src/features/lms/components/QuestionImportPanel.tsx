@@ -97,6 +97,72 @@ const IMPORT_KIND_GROUPS: { labelKey: string; tokens: string[] }[] = [
  * đây) — dùng để khởi tạo lưới sửa tay VÀ dựng lại file .xlsx (buildXlsxTemplateBlob) khi bấm "Kiểm
  * tra lại".
  */
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — "Xem trước (học sinh)" cho bảng xem trước
+ * Excel/Word TRƯỚC KHI lưu thật (isPreview). Backend preview CHỈ trả về cột thô (QuestionImportRowPreview
+ * — chưa ép kiểu thành choices[]/structuredContent như Question thật), nên KHÔNG tái dùng được
+ * QuestionPreview/QuestionEditorForm (cần shape ExerciseQuestionResponse đầy đủ) mà không tự làm lại
+ * logic map theo 19 loại token ở backend (QuestionRowParser) — rủi ro lệch quy tắc. Card ở đây là bản
+ * ĐỌC rút gọn, đủ để GV soát lỗi nội dung/đáp án trước khi lưu, KHÔNG mô phỏng tương tác thật của học
+ * sinh (không phải thiếu sót — tái dùng rendering thật đòi hỏi backend preview trả thêm structuredContent
+ * đã ép kiểu, ngoài phạm vi đợt này).
+ */
+function ImportRowPreviewCard({ cells }: { cells: string[] }) {
+  const [, , content, ...rest] = cells;
+  const choiceLetters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+  const choices = rest.slice(0, 10);
+  const correctAnswer = rest[10] ?? "";
+  const audioUrl = rest[11] ?? "";
+  const imageUrl = rest[12] ?? "";
+  const correctTokens = correctAnswer
+    .split("|")
+    .map((t) => t.trim().toUpperCase())
+    .filter(Boolean);
+  const contentLines = content.split("|").map((c) => c.trim()).filter(Boolean);
+  const filledChoices = choices.map((c, i) => ({ letter: choiceLetters[i], content: c.trim() })).filter((c) => c.content);
+
+  return (
+    <div className="border border-slate-200 rounded-xl p-3 space-y-2 bg-white">
+      {contentLines.length > 1 ? (
+        <ol className="list-decimal list-inside space-y-1 text-sm text-slate-800">
+          {contentLines.map((line, i) => (
+            <li key={i}>
+              {line} {correctAnswer && <span className="text-emerald-600 font-bold">→ {correctAnswer.split("|")[i] ?? ""}</span>}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-sm text-slate-800 whitespace-pre-line">{content || "—"}</p>
+      )}
+      {audioUrl && <audio controls src={audioUrl} className="w-full h-8" />}
+      {imageUrl && (
+        <div className="flex gap-2 flex-wrap">
+          {imageUrl.split("|").filter(Boolean).map((url, i) => (
+            <img key={i} src={url.trim()} alt="" className="max-w-[160px] max-h-[120px] rounded border border-slate-200 object-contain" />
+          ))}
+        </div>
+      )}
+      {filledChoices.length > 0 && (
+        <div className="space-y-1">
+          {filledChoices.map((c) => {
+            const isCorrect = correctTokens.includes(c.letter);
+            return (
+              <div key={c.letter} className={`text-sm px-2 py-1 rounded-lg ${isCorrect ? "bg-emerald-50 text-emerald-800 font-bold" : "text-slate-600"}`}>
+                <span className="text-slate-400 mr-1">{c.letter}.</span>
+                {c.content}
+                {isCorrect && " ✓"}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {filledChoices.length === 0 && correctAnswer && (
+        <p className="text-sm text-emerald-700 font-bold">Đáp án: {correctAnswer}</p>
+      )}
+    </div>
+  );
+}
+
 function rowPreviewToCells(row: QuestionImportRowPreview): string[] {
   return [
     row.kind ?? "", row.difficulty ?? "", row.content ?? "",
@@ -137,6 +203,9 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   // trong runPreview mỗi lần preview/kiểm tra lại thành công), chỉ khác là mảng NÀY sửa được qua
   // input, còn result.rowPreviews là dữ liệu "đã validate" lần gần nhất (dùng để tô đỏ dòng lỗi).
   const [editedRows, setEditedRows] = useState<string[][]>([]);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — "Xem trước (học sinh)" cho từng dòng hợp lệ,
+  // xem ImportRowPreviewCard. Mặc định false = giữ bảng sửa trực tiếp như cũ.
+  const [showStudentPreview, setShowStudentPreview] = useState(false);
   const isPreview = result?.status === "PREVIEW";
   // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — "Loại câu hỏi mặc định": khớp thói quen thật
   // "1 Ex chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị — chọn 1 lần ở đây thay vì gõ lại cột
@@ -590,16 +659,39 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[12px] font-bold text-slate-600 uppercase">{t("questionImportPanel.previewRowsTitle")}</span>
-                <Button type="button" variant="secondary" size="sm" onClick={handleRevalidate} disabled={previewing || confirming}>
-                  {previewing ? t("questionImportPanel.previewing") : t("questionImportPanel.revalidateButton")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowStudentPreview((v) => !v)}
+                    className="text-[13px] font-bold text-slate-600 hover:text-brand-red"
+                  >
+                    {showStudentPreview ? "Xem dạng bảng sửa" : "Xem trước (học sinh)"}
+                  </button>
+                  <Button type="button" variant="secondary" size="sm" onClick={handleRevalidate} disabled={previewing || confirming}>
+                    {previewing ? t("questionImportPanel.previewing") : t("questionImportPanel.revalidateButton")}
+                  </Button>
+                </div>
               </div>
-              {/*
+
+              {showStudentPreview ? (
+                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                  {result.rowPreviews.map((meta, rowIdx) => (
+                    <div key={rowIdx} className={meta.valid ? "" : "opacity-60"}>
+                      <div className="text-[12px] font-mono text-slate-400 mb-1">
+                        {meta.sheetLabel ? `${meta.sheetLabel} · ` : ""}#{meta.rowNumber}
+                        {!meta.valid && <span className="text-rose-600 font-semibold ml-2">{meta.error}</span>}
+                      </div>
+                      <ImportRowPreviewCard cells={editedRows[rowIdx] ?? []} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+              /*
                * Bổ sung 2026-10-19 (đã xác nhận với người dùng) — bảng dạng Excel sửa trực tiếp: mỗi
                * input khớp 1 cột file mẫu (xem rowPreviewToCells), dòng lỗi tô đỏ + hiện lý do ngay dưới
                * dòng đó. Sửa xong bấm "Kiểm tra lại" (handleRevalidate) để dựng lại file + validate lại
                * qua ĐÚNG backend, không tự validate bằng JS.
-               */}
+               */
               <div className="border border-slate-200 rounded-lg overflow-auto max-h-[480px]">
                 <table className="text-[13px] border-collapse w-max">
                   <thead className="sticky top-0 bg-slate-50 z-10">
@@ -643,6 +735,7 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
 

@@ -5,11 +5,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.lms.domain.Exam;
 import vn.com.pps.education.lms.domain.Question;
+import vn.com.pps.education.lms.dto.CreateCkeditorChoiceExamQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorChunkExamQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorGroupExamQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorWordBankExamQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorEssayExamQuestionRequest;
 import vn.com.pps.education.lms.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.lms.dto.CreateQuestionRequest;
 import vn.com.pps.education.lms.dto.KeyGrammarStructureResponse;
 import vn.com.pps.education.lms.dto.QuestionImportResponse;
 import vn.com.pps.education.lms.dto.QuestionResponse;
+import vn.com.pps.education.lms.dto.UpdateCkeditorQuestionRequest;
 import vn.com.pps.education.lms.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.lms.repository.ExamRepository;
@@ -63,11 +69,90 @@ public class ExamQuestionService {
                 exam.getQuestionBank(), resolved, actorUserId, false);
     }
 
+    /** Mirror {@link #createQuestion} cho "Ô trống"/"Hộp từ vựng" soạn bằng CKEditor5 — xem Javadoc {@link CreateCkeditorWordBankExamQuestionRequest}. */
+    @Transactional
+    public QuestionResponse createCkeditorWordBankQuestion(Long examId, CreateCkeditorWordBankExamQuestionRequest request, Long actorUserId) {
+        Exam exam = examOrThrow(examId);
+        CreateQuestionRequest resolved = questionBankService.buildCkeditorWordBankRequest(
+                exam.getQuestionBank().getId(), request.html(), request.skill(), request.difficulty(),
+                request.audioUrl(), request.imageUrl(), request.referencePassage(), request.explanation(),
+                request.defaultPoints(), request.tags(), request.groupKey(), request.displayNumberOverride(), request.tapescript(),
+                request.displayNumberLabel());
+        return questionBankService.createQuestionInBank(exam.getQuestionBank(), resolved, actorUserId, false);
+    }
+
+    /** Mirror {@link #createCkeditorWordBankQuestion} cho "Tự luận" soạn bằng CKEditor5 — xem Javadoc {@link CreateCkeditorEssayExamQuestionRequest}. */
+    @Transactional
+    public QuestionResponse createCkeditorEssayQuestion(Long examId, CreateCkeditorEssayExamQuestionRequest request, Long actorUserId) {
+        Exam exam = examOrThrow(examId);
+        CreateQuestionRequest resolved = questionBankService.buildCkeditorEssayRequest(
+                exam.getQuestionBank().getId(), request.html(), request.skill(), request.difficulty(),
+                request.audioUrl(), request.imageUrl(), request.referencePassage(), request.explanation(),
+                request.defaultPoints(), request.tags(), request.groupKey(), request.displayNumberOverride(), request.tapescript(),
+                request.displayNumberLabel());
+        return questionBankService.createQuestionInBank(exam.getQuestionBank(), resolved, actorUserId, false);
+    }
+
+    /** Mirror {@link #createCkeditorWordBankQuestion} cho "Nhóm lựa chọn" soạn bằng CKEditor5 — xem Javadoc {@link CreateCkeditorChoiceExamQuestionRequest}. */
+    @Transactional
+    public QuestionResponse createCkeditorChoiceQuestion(Long examId, CreateCkeditorChoiceExamQuestionRequest request, Long actorUserId) {
+        Exam exam = examOrThrow(examId);
+        CreateQuestionRequest resolved = questionBankService.buildCkeditorChoiceRequest(
+                exam.getQuestionBank().getId(), request.html(), request.skill(), request.difficulty(),
+                request.audioUrl(), request.imageUrl(), request.referencePassage(), request.explanation(),
+                request.defaultPoints(), request.tags(), request.groupKey(), request.displayNumberOverride(), request.tapescript(),
+                request.displayNumberLabel());
+        return questionBankService.createQuestionInBank(exam.getQuestionBank(), resolved, actorUserId, false);
+    }
+
+    /** Mirror {@link #createCkeditorWordBankQuestion} cho "Khối sắp xếp" soạn bằng CKEditor5 — xem Javadoc {@link CreateCkeditorChunkExamQuestionRequest}. */
+    @Transactional
+    public QuestionResponse createCkeditorChunkQuestion(Long examId, CreateCkeditorChunkExamQuestionRequest request, Long actorUserId) {
+        Exam exam = examOrThrow(examId);
+        CreateQuestionRequest resolved = questionBankService.buildCkeditorChunkRequest(
+                exam.getQuestionBank().getId(), request.html(), request.skill(), request.difficulty(),
+                request.audioUrl(), request.imageUrl(), request.referencePassage(), request.explanation(),
+                request.defaultPoints(), request.tags(), request.groupKey(), request.displayNumberOverride(), request.tapescript(),
+                request.displayNumberLabel());
+        return questionBankService.createQuestionInBank(exam.getQuestionBank(), resolved, actorUserId, false);
+    }
+
+    /** "Bảng lưới"/"Lựa chọn trong câu" soạn bằng CKEditor5 — 1 lần gửi tạo NHIỀU câu cùng nhóm, xem Javadoc {@link CreateCkeditorGroupExamQuestionRequest}. */
+    @Transactional
+    public List<QuestionResponse> createCkeditorGroupQuestions(Long examId, CreateCkeditorGroupExamQuestionRequest request, Long actorUserId) {
+        Exam exam = examOrThrow(examId);
+        return questionBankService.buildCkeditorGroupRequests(
+                        exam.getQuestionBank().getId(), request.html(), request.difficulty(), request.explanation(), request.defaultPoints())
+                .stream()
+                .map(resolved -> questionBankService.createQuestionInBank(exam.getQuestionBank(), resolved, actorUserId, false))
+                .toList();
+    }
+
+    /** Bài nhiều phần (ngăn bằng đường kẻ ngang) — xem QuestionBankService#buildCkeditorMultipartRequests. */
+    @Transactional
+    public List<QuestionResponse> createCkeditorMultipartQuestions(Long examId, CreateCkeditorGroupExamQuestionRequest request, Long actorUserId) {
+        Exam exam = examOrThrow(examId);
+        return questionBankService.buildCkeditorMultipartRequests(
+                        exam.getQuestionBank().getId(), request.html(), request.difficulty(), request.explanation(), request.defaultPoints())
+                .stream()
+                .map(resolved -> questionBankService.createQuestionInBank(exam.getQuestionBank(), resolved, actorUserId, false))
+                .toList();
+    }
+
     @Transactional
     public QuestionResponse updateQuestion(Long examId, Long questionId,
                                            UpdateQuestionRequest request, Long actorUserId) {
         return questionBankService.updateResolvedQuestion(
                 questionOrThrow(examId, questionId), request, actorUserId);
+    }
+
+    /** Sửa câu hỏi tạo bằng CKEditor5 theo Đề — xem QuestionBankService#buildCkeditorUpdateRequest. */
+    @Transactional
+    public QuestionResponse updateCkeditorQuestion(Long examId, Long questionId,
+                                                   UpdateCkeditorQuestionRequest request, Long actorUserId) {
+        Question question = questionOrThrow(examId, questionId);
+        return questionBankService.updateResolvedQuestion(
+                question, questionBankService.buildCkeditorUpdateRequest(question, request), actorUserId);
     }
 
     /**
