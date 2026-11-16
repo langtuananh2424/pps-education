@@ -118,15 +118,10 @@ const AUDIO_SECTION_STYLE: Partial<Record<UiQuestionKind, { box: string; title: 
 };
 
 /**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — pane "Xem trước" dùng ĐÚNG 1 ví dụ
- * tĩnh cố định cho mỗi kind (không dựng lại từ state form đang gõ như bản trước) — GV chỉ cần hình
- * dung hình dạng/kiểu tương tác của loại câu hỏi đang chọn, không cần preview phản ánh đúng nội dung
- * thật đang soạn dở. Build bằng QuestionPreview (component dùng chung với ExerciseStudentPreviewModal.tsx)
- * nên luôn khớp đúng cách học sinh thật sự nhìn thấy.
+ * Đổi ngoài SDD gốc, đã xác nhận với người dùng — pane "Xem trước" ĐỔI từ ví dụ mẫu tĩnh (quyết
+ * định 2026-10-05, đã bỏ) sang dựng SỐNG từ chính nội dung GV đang gõ (xem livePreviewQuestion).
+ * `MOCK_BASE` giữ lại các field không đổi theo field form (id/exerciseId/...) cho gọn.
  */
-function mockChoices(labels: string[]): ExerciseQuestionResponse["choices"] {
-  return labels.map((content, i) => ({ id: i, choiceLabel: String.fromCharCode(65 + i), content, imageUrl: null, displayOrder: i + 1 }));
-}
 const MOCK_BASE: Omit<ExerciseQuestionResponse, "questionType" | "questionContent" | "choices" | "skill" | "audioUrl" | "referencePassage" | "structuredContent" | "imageUrl"> = {
   id: 0,
   exerciseId: 0,
@@ -134,40 +129,9 @@ const MOCK_BASE: Omit<ExerciseQuestionResponse, "questionType" | "questionConten
   displayOrder: 1,
   points: 1,
   groupKey: null,
-  sectionId: null
-};
-const MOCK_PREVIEW_QUESTIONS: Record<UiQuestionKind, ExerciseQuestionResponse> = {
-  MULTIPLE_CHOICE: { ...MOCK_BASE, questionType: "MULTIPLE_CHOICE", questionContent: "What is the capital of Vietnam?", choices: mockChoices(["Hà Nội", "Hồ Chí Minh", "Đà Nẵng", "Huế"]), skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  VOICE_MULTIPLE_CHOICE: { ...MOCK_BASE, questionType: "MULTIPLE_CHOICE", questionContent: "Listen to the audio and choose the correct answer.", choices: mockChoices(["A library", "A hospital", "A supermarket", "A school"]), skill: "LISTENING", audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  VOICE_PICTURE_CHOICE: { ...MOCK_BASE, questionType: "MULTIPLE_CHOICE", questionContent: "Listen to the audio and choose the correct picture.", choices: mockChoices(["🖼 Hình 1", "🖼 Hình 2", "🖼 Hình 3", "🖼 Hình 4"]), skill: "LISTENING", audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  INLINE_CHOICE: { ...MOCK_BASE, questionType: "MULTIPLE_CHOICE", questionContent: "She ___ to school every day.", choices: mockChoices(["goes", "go"]), skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  MULTIPLE_ANSWER: { ...MOCK_BASE, questionType: "MULTIPLE_ANSWER", questionContent: "Which of the following are fruits? (chọn tất cả đáp án đúng)", choices: mockChoices(["Apple", "Carrot", "Banana", "Potato"]), skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  LISTENING_MULTIPLE_ANSWER: { ...MOCK_BASE, questionType: "MULTIPLE_ANSWER", questionContent: "Which TWO reasons does Irina give for visiting the exhibition? (chọn 2 đáp án)", choices: mockChoices(["to meet a friend", "to improve her knowledge", "to buy something", "to entertain her child"]), skill: "LISTENING", audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  TRUE_FALSE: { ...MOCK_BASE, questionType: "TRUE_FALSE", questionContent: "The Earth is flat.", choices: mockChoices(["Đúng", "Sai"]), skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  FILL_IN_BLANK: { ...MOCK_BASE, questionType: "FILL_IN_BLANK", questionContent: "The cat sat on the ___.", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  FILL_IN_BLANK_PICTURE: { ...MOCK_BASE, questionType: "FILL_IN_BLANK", questionContent: "This is a picture of a ___.", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  LISTENING_FILL_IN_BLANK: { ...MOCK_BASE, questionType: "FILL_IN_BLANK", questionContent: "Listen to the audio and fill in the blank: I have two ___.", choices: [], skill: "LISTENING", audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  WORD_BANK: { ...MOCK_BASE, questionType: "WORD_BANK", questionContent: "I ___ to school ___ bus every day.", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: { blanks: ["go", "by"] }, imageUrl: null },
-  WORD_BANK_PICTURE: { ...MOCK_BASE, questionType: "WORD_BANK", questionContent: "Look at the picture and write the correct word: This is a ___.", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: { blanks: ["cat"], wordBankOptions: ["cat", "dog", "bird"] }, imageUrl: null },
-  // Gõ tay tự do — minh hoạ đúng tính năng "cho phép chỗ trống để trống" (VD mạo từ không bắt buộc).
-  WORD_BANK_PASSAGE: { ...MOCK_BASE, questionType: "WORD_BANK", questionContent: "She is ___ doctor. I like ___ music she plays.", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: { blanks: ["a", ""], inputMode: "text" }, imageUrl: null },
-  // format="form" — minh hoạ **chữ đậm** + 1 ô nhận nhiều đáp án cách nhau "/".
-  LISTENING_FORM_COMPLETION: {
-    ...MOCK_BASE,
-    questionType: "WORD_BANK",
-    questionContent: "**Hotel Booking Form**\nGuest name: John ___\nCheck-in time: ___",
-    choices: [],
-    skill: "LISTENING",
-    audioUrl: null,
-    referencePassage: "Nghe audio rồi điền thông tin vào phiếu dưới đây.",
-    structuredContent: { blanks: ["Smith", "9:30/nine thirty"], inputMode: "text", format: "form" },
-    imageUrl: null
-  },
-  SENTENCE_BUILDING: { ...MOCK_BASE, questionType: "SENTENCE_BUILDING", questionContent: "Sắp xếp các khối từ dưới đây thành câu hoàn chỉnh:", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: { chunks: ["This", "is", "a", "pen"] }, imageUrl: null },
-  LETTER_SCRAMBLE: { ...MOCK_BASE, questionType: "SENTENCE_BUILDING", questionContent: "Sắp xếp các chữ cái dưới đây thành từ đúng:", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: { chunks: ["c", "a", "t"] }, imageUrl: null },
-  ESSAY: { ...MOCK_BASE, questionType: "ESSAY", questionContent: "Write an essay about your favorite hobby (150–200 words).", choices: [], skill: null, audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  SPEAKING: { ...MOCK_BASE, questionType: "SPEAKING", questionContent: "Read the following sentence aloud: \"The weather today is sunny and warm.\"", choices: [], skill: "SPEAKING", audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null },
-  LISTENING_AUDIO_SUBMISSION: { ...MOCK_BASE, questionType: "SPEAKING", questionContent: "Listen to the question and record your answer.", choices: [], skill: "LISTENING", audioUrl: null, referencePassage: null, structuredContent: null, imageUrl: null }
+  sectionId: null,
+  displayNumberLabel: null,
+  multipleAnswerRequiredCount: null
 };
 
 /**
@@ -483,8 +447,67 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
               ? "SENTENCE_BUILDING"
               : kind;
 
-  // Pane "Xem trước" dùng đúng 1 ví dụ mẫu cố định của `kind` đang chọn — xem MOCK_PREVIEW_QUESTIONS.
-  const previewQuestion = MOCK_PREVIEW_QUESTIONS[kind];
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — đổi pane "Xem trước" từ ví dụ mẫu TĨNH
+   * (MOCK_PREVIEW_QUESTIONS, quyết định 2026-10-05) sang dựng SỐNG từ chính nội dung GV đang gõ,
+   * khớp UX đã thống nhất ở mockup tab CKEditor5 ("Xem trước (học sinh)" phản ánh đúng nội dung
+   * thật). Rơi về placeholder ngắn khi field còn trống (không để trắng trơn nhìn như lỗi — đúng lo
+   * ngại đã nêu 2026-10-05, nhưng placeholder rõ ràng khác hẳn bug).
+   */
+  const EMPTY_CONTENT_PLACEHOLDER = t("questionEditorForm.previewEmptyContentPlaceholder");
+  const livePreviewQuestion: ExerciseQuestionResponse = (() => {
+    const base = { ...MOCK_BASE, points: 1 };
+    const previewContent = content.trim() || EMPTY_CONTENT_PLACEHOLDER;
+    if (isChoiceKind) {
+      const previewChoices = options.map((opt, i) => ({
+        id: i,
+        choiceLabel: String.fromCharCode(65 + i),
+        content: kind === "VOICE_PICTURE_CHOICE" ? opt.trim() || String.fromCharCode(65 + i) : opt.trim() || t("questionEditorForm.previewEmptyOptionPlaceholder", { letter: String.fromCharCode(65 + i) }),
+        imageUrl: kind === "VOICE_PICTURE_CHOICE" ? choiceImageUrls[i]?.trim() || null : null,
+        isCorrect: isMultiAnswer ? correctIndices.has(i) : i === correctIndex,
+        displayOrder: i + 1
+      }));
+      return { ...base, questionType: resolvedQuestionType, questionContent: previewContent, choices: previewChoices, skill: isVoiceOrListeningAudio ? "LISTENING" : null, audioUrl: audioUrl.trim() || null, referencePassage: null, structuredContent: null, imageUrl: null };
+    }
+    if (kind === "WORD_BANK" || kind === "WORD_BANK_PICTURE" || kind === "WORD_BANK_PASSAGE" || kind === "LISTENING_FORM_COMPLETION") {
+      const trimmedOptions = wordBankOptions.map((o) => o.trim()).filter(Boolean);
+      return {
+        ...base,
+        questionType: "WORD_BANK",
+        questionContent: previewContent,
+        choices: [],
+        skill: kind === "LISTENING_FORM_COMPLETION" ? "LISTENING" : audioUrl.trim() ? "LISTENING" : null,
+        audioUrl: audioUrl.trim() || null,
+        referencePassage: transcript.trim() || null,
+        imageUrl: imageUrl.trim() || null,
+        structuredContent: {
+          blanks: wordBankBlanks,
+          ...(trimmedOptions.length > 0 ? { wordBankOptions: trimmedOptions } : {}),
+          ...(kind === "WORD_BANK_PASSAGE" || kind === "LISTENING_FORM_COMPLETION" ? { inputMode: "text" as const } : {}),
+          ...(kind === "LISTENING_FORM_COMPLETION" ? { format: "form" as const } : {})
+        }
+      };
+    }
+    if (kind === "SENTENCE_BUILDING" || kind === "LETTER_SCRAMBLE") {
+      const chunks = sentenceChunks.filter((c) => c.trim()).map((c) => c.trim());
+      return {
+        ...base,
+        questionType: "SENTENCE_BUILDING",
+        questionContent: previewContent,
+        choices: [],
+        skill: audioUrl.trim() ? "LISTENING" : null,
+        audioUrl: audioUrl.trim() || null,
+        referencePassage: transcript.trim() || null,
+        imageUrl: imageUrl.trim() || null,
+        structuredContent: { chunks: chunks.length > 0 ? chunks : [t("questionEditorForm.previewEmptyChunkPlaceholder", { index: 1 }), t("questionEditorForm.previewEmptyChunkPlaceholder", { index: 2 })] }
+      };
+    }
+    if (kind === "SPEAKING" || kind === "LISTENING_AUDIO_SUBMISSION") {
+      return { ...base, questionType: "SPEAKING", questionContent: previewContent, choices: [], skill: kind === "LISTENING_AUDIO_SUBMISSION" ? "LISTENING" : "SPEAKING", audioUrl: audioUrl.trim() || null, referencePassage: phoneticKeywords.trim() || null, structuredContent: null, imageUrl: null };
+    }
+    // FILL_IN_BLANK/FILL_IN_BLANK_PICTURE/LISTENING_FILL_IN_BLANK/ESSAY — không có choices/structuredContent riêng.
+    return { ...base, questionType: resolvedQuestionType, questionContent: previewContent, choices: [], skill: isVoiceOrListeningAudio ? "LISTENING" : null, audioUrl: audioUrl.trim() || null, referencePassage: isVoiceOrListeningAudio ? transcript.trim() || null : null, structuredContent: null, imageUrl: supportsImage ? imageUrl.trim() || null : null };
+  })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -746,14 +769,14 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       </div>
 
       {/*
-       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-05 — pane "Xem trước" dùng 1 ví dụ
-       * TĨNH cố định theo `kind` đang chọn (MOCK_PREVIEW_QUESTIONS), KHÔNG dựng lại từ nội dung GV
-       * đang gõ (đã thử bản SỐNG trước đó — GV phản hồi không cần, ô trống hiện "chưa nhập" nhìn như
-       * lỗi). Tái dùng QuestionPreview (component dùng chung với ExerciseStudentPreviewModal.tsx) nên
-       * hình dạng/kiểu tương tác luôn khớp đúng màn học sinh thật. Đặt NGAY sau kind-picker (thay vì
-       * cuối form như bản đầu) — đã xác nhận với người dùng 2026-10-05: cuối form phải lướt hết các
-       * field riêng theo loại mới thấy, dễ bị bỏ qua. Vì nội dung preview không phụ thuộc field nào
-       * bên dưới (tĩnh theo kind), hiện ngay khi chọn xong loại là hợp lý nhất, không cần lướt.
+       * Đổi ngoài SDD gốc, đã xác nhận với người dùng — pane "Xem trước" ĐỔI từ ví dụ mẫu tĩnh
+       * (MOCK_PREVIEW_QUESTIONS, quyết định 2026-10-05) sang dựng SỐNG từ chính nội dung GV đang
+       * gõ (livePreviewQuestion), khớp UX "Xem trước (học sinh)" đã thống nhất ở tab CKEditor5 —
+       * field trống hiện placeholder rõ ràng (EMPTY_CONTENT_PLACEHOLDER...) thay vì để trắng trơn,
+       * tránh đúng lo ngại "nhìn như lỗi" đã nêu lúc quyết định cũ. Tái dùng QuestionPreview (dùng
+       * chung với ExerciseStudentPreviewModal.tsx) nên hình dạng/kiểu tương tác luôn khớp đúng màn
+       * học sinh thật. revealAnswers vẫn giữ true — đây là form của GV tự soạn, không cần giấu đáp
+       * án của chính họ.
        */}
       <div className="bg-slate-50/60 p-4 rounded-xl border border-slate-200 space-y-2">
         <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-wider text-[13px]">
@@ -762,8 +785,8 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         </div>
         <p className="text-[13px] text-slate-400">{t("questionEditorForm.previewSectionHint")}</p>
         {/* key={kind} — ép remount khi đổi loại, tránh state nội bộ (dropdown đã chọn, khối đã xếp...)
-            của ví dụ loại CŨ còn sót lại khi hiện ví dụ loại MỚI (xem Javadoc WordBankPreview). */}
-        <QuestionPreview key={kind} question={previewQuestion} displayNumber={1} revealAnswers />
+            của loại CŨ còn sót lại khi hiện preview của loại MỚI. */}
+        <QuestionPreview key={kind} question={livePreviewQuestion} displayNumber={1} revealAnswers />
       </div>
 
       {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

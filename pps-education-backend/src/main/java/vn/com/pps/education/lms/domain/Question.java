@@ -149,4 +149,14 @@ public class Question {
      */
     @Column(name = "display_number_override")
     private Integer displayNumberOverride;
+
+    /**
+     * Nhãn số hiển thị TUỲ CHỌN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15) — dùng
+     * khi 1 câu "chiếm" nhiều ô đánh số liền nhau trong đề gốc (VD IELTS "Questions 14 and 15 — Choose
+     * TWO letters A-E", 1 câu MULTIPLE_ANSWER nhưng đề in sẵn 2 số). THUẦN HIỂN THỊ, không tham gia
+     * logic đếm/sắp xếp — {@code null} = hiện số thường theo {@link #displayNumberOverride}/thứ tự
+     * tuần tự như cũ; có giá trị (VD "14-15") = hiện ĐÚNG chuỗi này thay cho số.
+     */
+    @Column(name = "display_number_label", length = 20)
+    private String displayNumberLabel;
 }

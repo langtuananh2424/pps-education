@@ -766,10 +766,17 @@ public class ExerciseService {
 
     private ExerciseQuestionResponse toResponse(ExerciseQuestion eq) {
         Question question = eq.getQuestion();
-        List<ExerciseQuestionChoiceResponse> choices = CHOICE_BASED_TYPES.contains(question.getQuestionType())
-                ? questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId()).stream()
-                        .map(this::toChoiceResponse).toList()
+        List<QuestionChoice> rawChoices = CHOICE_BASED_TYPES.contains(question.getQuestionType())
+                ? questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId())
                 : List.of();
+        List<ExerciseQuestionChoiceResponse> choices = rawChoices.stream().map(this::toChoiceResponse).toList();
+        // Sửa lại 2026-11-15 (đã xác nhận với người dùng, đi kèm việc bỏ trừ điểm chọn thừa ở
+        // ExerciseAttemptService#multipleAnswerPartialScore) — lộ SỐ LƯỢNG đáp án đúng (KHÔNG lộ
+        // DANH TÍNH, choices[] vẫn không kèm is_correct như trước) để FE giới hạn số ô được tick, mirror
+        // đúng ràng buộc "số ô trả lời cố định" của đề giấy IELTS thật (xem Javadoc saveAnswer).
+        Integer multipleAnswerRequiredCount = question.getQuestionType() == Question.QuestionType.MULTIPLE_ANSWER
+                ? (int) rawChoices.stream().filter(QuestionChoice::isCorrect).count()
+                : null;
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: referencePassage của câu Nghe
         // (skill=LISTENING) là transcript/đáp án gợi ý — trước đây trả không điều kiện ở đây khiến học
         // sinh đọc được ngay qua DevTools/Network dù FE chưa render ra UI. Giờ chỉ lộ qua endpoint
@@ -784,7 +791,8 @@ public class ExerciseService {
                 question.getSkill() == null ? null : question.getSkill().name(),
                 question.getAudioUrl(), referencePassage,
                 shuffledStructuredContent(question), question.getGroupKey(), question.getImageUrl(),
-                eq.getSection() == null ? null : eq.getSection().getId());
+                eq.getSection() == null ? null : eq.getSection().getId(), question.getDisplayNumberLabel(),
+                multipleAnswerRequiredCount);
     }
 
     /**

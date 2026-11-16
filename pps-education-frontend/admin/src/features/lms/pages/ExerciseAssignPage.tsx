@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, ClipboardList, Download, Layers, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -44,6 +44,7 @@ import BulkMediaUploadModal from "../components/BulkMediaUploadModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
 import ExerciseStudentPreviewModal from "../components/ExerciseStudentPreviewModal";
 import QuestionEditorForm from "../components/QuestionEditorForm";
+import { isCkeditorAuthoredQuestion, summarizeQuestionContent } from "../ckeditor/blankParser";
 import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -55,6 +56,8 @@ import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import { useDialog } from "@/components/ui/DialogProvider";
 import FloatingError from "@/components/ui/FloatingError";
+
+const CkeditorWordBankComposer = lazy(() => import("../components/CkeditorWordBankComposer"));
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
@@ -758,7 +761,9 @@ function AddQuestionsModal({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Modal open onClose={onClose} title={t("assignPage.addQuestionsModal.modalTitle", { code: exercise.code })} size="lg">
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng — "xl" (mirror CreateAndAssignExerciseModal.tsx)
+    // từ khi ExerciseQuestionsStep có thêm tab "Soạn tự do (CKEditor5)" cần nhiều chiều ngang hơn.
+    <Modal open onClose={onClose} title={t("assignPage.addQuestionsModal.modalTitle", { code: exercise.code })} size="xl">
       <FloatingError message={error} onClose={() => setError(null)} />
       <ExerciseQuestionsStep exercise={exercise} teacherType={teacherType} onDone={onDone} onError={setError} onClose={onClose} />
     </Modal>
@@ -1017,6 +1022,15 @@ function ExerciseRow({
   // (QuestionLockedException), không cần lặp lại điều kiện ở FE.
   const [editingQuestion, setEditingQuestion] = useState<QuestionResponse | null>(null);
   const [loadingEditQuestionId, setLoadingEditQuestionId] = useState<number | null>(null);
+
+  const handleQuestionEdited = (updated: QuestionResponse) => {
+    setQuestions((prev) =>
+      prev
+        ? prev.map((x) => (x.questionId === updated.id ? { ...x, questionContent: updated.content, questionType: updated.questionType } : x))
+        : prev
+    );
+    setEditingQuestion(null);
+  };
 
   const handleEditQuestion = async (q: ExerciseQuestionResponse) => {
     setLoadingEditQuestionId(q.id);
@@ -1283,20 +1297,30 @@ function ExerciseRow({
       )}
 
       {editingQuestion && (
-        <Modal open onClose={() => setEditingQuestion(null)} title={t("assignPage.exerciseRow.editQuestionModalTitle", { id: editingQuestion.id })} size="lg">
-          <QuestionEditorForm
-            examId={exercise.examId}
-            existingQuestion={editingQuestion}
-            onCreated={(updated) => {
-              setQuestions((prev) =>
-                prev
-                  ? prev.map((x) => (x.questionId === updated.id ? { ...x, questionContent: updated.content, questionType: updated.questionType } : x))
-                  : prev
-              );
-              setEditingQuestion(null);
-            }}
-            onCancel={() => setEditingQuestion(null)}
-          />
+        <Modal
+          open
+          onClose={() => setEditingQuestion(null)}
+          title={t("assignPage.exerciseRow.editQuestionModalTitle", { id: editingQuestion.id })}
+          size={isCkeditorAuthoredQuestion(editingQuestion) ? "xl" : "lg"}
+        >
+          {isCkeditorAuthoredQuestion(editingQuestion) ? (
+            <Suspense fallback={<div className="py-10 text-center text-sm text-slate-400">Đang tải khung soạn...</div>}>
+              <CkeditorWordBankComposer
+                examId={exercise.examId}
+                skillCategoryLabel={editingQuestion.skill ?? "—"}
+                existingQuestion={editingQuestion}
+                onCreated={handleQuestionEdited}
+                onCancel={() => setEditingQuestion(null)}
+              />
+            </Suspense>
+          ) : (
+            <QuestionEditorForm
+              examId={exercise.examId}
+              existingQuestion={editingQuestion}
+              onCreated={handleQuestionEdited}
+              onCancel={() => setEditingQuestion(null)}
+            />
+          )}
         </Modal>
       )}
 
@@ -1348,11 +1372,11 @@ function ExerciseRow({
                         />
                       )}
                       <span className="truncate">
-                        {q.displayOrder}. {q.questionContent}
+                        {q.displayOrder}. {summarizeQuestionContent(q.questionContent)}
                       </span>
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
-                      <span className="text-slate-400">{q.questionType} ·</span>
+                      <span className="text-slate-400">{t(`bankPage.typeBadge.${q.questionType}`)} ·</span>
                       {canManage && exercise.status === "DRAFT" ? (
                         <input
                           key={`${q.id}-${q.points}`}
