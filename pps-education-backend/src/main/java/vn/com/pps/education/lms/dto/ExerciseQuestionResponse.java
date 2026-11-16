@@ -41,5 +41,19 @@ public record ExerciseQuestionResponse(
         /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — trước đây câu hỏi có ảnh (ESSAY, và giờ WORD_BANK/SENTENCE_BUILDING) không hiện được ảnh cho học sinh vì thiếu field này. */
         String imageUrl,
         /** V226 (Nghe ép) — bài tập con chứa câu này, NULL với Bài thường. */
-        Long sectionId
+        Long sectionId,
+        /**
+         * Nhãn số hiển thị TUỲ CHỌN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15) —
+         * dùng khi 1 câu "chiếm" nhiều ô đánh số liền nhau trong đề gốc (VD "Questions 14 and 15 —
+         * Choose TWO letters A-E"). {@code null} = hiện số thường theo {@code displayOrder} như cũ.
+         * Xem Javadoc {@code Question.displayNumberLabel}.
+         */
+        String displayNumberLabel,
+        /**
+         * Sửa lại 2026-11-15 (đã xác nhận với người dùng) — chỉ có ở MULTIPLE_ANSWER: số lượng đáp án
+         * đúng (KHÔNG phải danh tính — {@code choices[]} vẫn không kèm is_correct). FE dùng để giới
+         * hạn số ô được tick, mirror ràng buộc "số ô trả lời cố định" của đề giấy IELTS thật — xem
+         * Javadoc {@code ExerciseAttemptService#saveAnswer}. {@code null} với mọi loại câu khác.
+         */
+        Integer multipleAnswerRequiredCount
 ) {}

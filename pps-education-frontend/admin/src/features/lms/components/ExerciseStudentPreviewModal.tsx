@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
 import { renderRichText } from "@/lib/richText";
+import { isCkeditorHtml } from "../ckeditor/blankParser";
+import CkeditorHtmlPreview from "../ckeditor/CkeditorHtmlPreview";
 import { ExerciseQuestionResponse, ExerciseResponse, listExerciseQuestions } from "../api";
 import {
   CHOICE_TYPES,
@@ -233,11 +235,17 @@ function GridQuestionGroupPreview({ block }: { block: Extract<RenderBlock, { typ
     !isSharedImageGroup &&
     block.questions.length >= 2 &&
     block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent));
+  let lastPassage: string | null = block.referencePassage ?? null;
   return (
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
-      {block.referencePassage && (
+      {block.referencePassage && isCkeditorHtml(block.referencePassage) ? (
+        // Đoạn văn tham chiếu của Bảng lưới/Lựa chọn trong câu soạn qua CKEditor5 — HTML đầy đủ
+        // (bảng/ảnh), khác hẳn chữ thường "Tên: nội dung" mà parsePassageParagraphs bên dưới xử lý.
+        <div className="bg-slate-50 rounded-xl p-3 ck-content" dangerouslySetInnerHTML={{ __html: block.referencePassage }} />
+      ) : null}
+      {block.referencePassage && !isCkeditorHtml(block.referencePassage) && (
         <div className="bg-slate-50 rounded-xl p-3 space-y-2">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
             <div key={i} className={p.isSectionBreak ? "pt-2 mt-1 border-t border-slate-200" : undefined}>
@@ -313,6 +321,9 @@ function GridQuestionGroupPreview({ block }: { block: Extract<RenderBlock, { typ
       ) : (
         <div className="divide-y divide-slate-100">
           {attachSectionInstructions(block.questions, block.instruction).map(({ question: q, sectionInstruction }) => {
+            // Mirror TakeExerciseModal — đoạn văn riêng của phần sau (khối chỉ hiện sẵn đoạn văn câu đầu).
+            const showOwnPassage = !!q.referencePassage && q.referencePassage !== lastPassage;
+            if (q.referencePassage) lastPassage = q.referencePassage;
             // Fix bug thật 2026-10-29 (đã xác nhận với người dùng qua ảnh chụp) — câu WORD_BANK tự hiện
             // "Hướng dẫn" riêng qua prop `instruction` của WordBankPreview bên dưới (xem GridQuestionRowPreview),
             // nếu CŨNG hiện thêm đoạn <p> sectionInstruction ở đây thì "Hướng dẫn" bị lặp 2 LẦN cho câu
@@ -327,6 +338,15 @@ function GridQuestionGroupPreview({ block }: { block: Extract<RenderBlock, { typ
               <React.Fragment key={q.id}>
                 {sectionInstruction && !isWordBankRow && (
                   <p className="pt-2 text-sm sm:text-base italic font-bold text-slate-500 whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
+                )}
+                {showOwnPassage && (
+                  <div className="pt-3">
+                    {isCkeditorHtml(q.referencePassage) ? (
+                      <div className="bg-slate-50 rounded-xl p-3 ck-content" dangerouslySetInnerHTML={{ __html: q.referencePassage! }} />
+                    ) : (
+                      <p className="bg-slate-50 rounded-xl p-3 text-sm text-slate-600 whitespace-pre-line">{renderRichText(q.referencePassage)}</p>
+                    )}
+                  </div>
                 )}
                 <GridQuestionRowPreview
                   question={q}
@@ -377,12 +397,27 @@ function GridQuestionRowPreview({
   // WordBankPreview bên dưới tự render questionContent làm chính văn bản tương tác (mirror
   // QuestionPreview#WORD_BANK câu đơn lẻ) — hiện lại nguyên văn ở đây sẽ bị lặp cả đoạn 2 lần.
   const hideContentText = isWordBankRow || (hideImage && isBlankOnlyContent(question.questionContent));
+  // Mirror TakeExerciseModal#GridQuestionGroup — phần soạn bằng CKEditor5 trong bài nhiều phần tự mang
+  // tiêu đề + đánh số riêng trong HTML, không gắn thêm số thứ tự của khối.
+  const isHtmlRow = isCkeditorHtml(question.questionContent);
+
+  if (isHtmlRow && isWordBankRow) {
+    return (
+      <div className="py-2.5">
+        <CkeditorHtmlPreview authoredHtml={question.questionContent} />
+      </div>
+    );
+  }
 
   return (
     <div className="py-2.5 space-y-2">
-      <span className="text-sm font-normal text-slate-800">
-        {displayNumber}.{!hideContentText && <> {renderRichText(question.questionContent)}</>}
-      </span>
+      {isHtmlRow ? (
+        <span className="ck-content block text-sm text-slate-800" dangerouslySetInnerHTML={{ __html: question.questionContent }} />
+      ) : (
+        <span className="text-sm font-normal text-slate-800">
+          {question.displayNumberLabel ?? displayNumber}.{!hideContentText && <> {renderRichText(question.questionContent)}</>}
+        </span>
+      )}
 
       {!hideImage && question.imageUrl && <QuestionImages imageUrl={question.imageUrl} />}
 

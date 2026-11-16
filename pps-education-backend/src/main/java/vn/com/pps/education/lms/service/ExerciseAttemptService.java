@@ -363,6 +363,18 @@ public class ExerciseAttemptService {
         answer.setQuestion(question);
         answer.setAutoGradable(AUTO_GRADABLE_TYPES.contains(question.getQuestionType()));
         answer.setAnswerText(request.answerText());
+        // Sửa lại 2026-11-15 (đã xác nhận với người dùng, đi kèm việc bỏ trừ điểm chọn thừa ở
+        // multipleAnswerPartialScore) — KHÔNG trừ điểm nữa đồng nghĩa chọn CẢ danh sách luôn chắc chắn
+        // trúng hết đáp án đúng (vì đáp án đúng chắc chắn nằm trong tập đã chọn), mất hẳn ý nghĩa đề
+        // thi — IELTS giấy thật chặn việc này bằng số Ô TRẢ LỜI CỐ ĐỊNH (VD "Choose TWO" chỉ có đúng 2
+        // ô trên phiếu). Mirror lại giới hạn đó ở đây: chặn lưu nếu chọn NHIỀU HƠN số đáp án đúng.
+        if (question.getQuestionType() == Question.QuestionType.MULTIPLE_ANSWER && request.selectedChoiceIds() != null) {
+            long correctCount = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId()).stream()
+                    .filter(QuestionChoice::isCorrect).count();
+            if (request.selectedChoiceIds().size() > correctCount) {
+                throw new IllegalArgumentException("Câu này chỉ được chọn tối đa " + correctCount + " đáp án — bỏ bớt lựa chọn trước khi chọn thêm.");
+            }
+        }
         answer.setSelectedChoiceIds(request.selectedChoiceIds());
         answer.setAudioAnswerUrl(request.audioAnswerUrl());
         answer.setStructuredAnswer(request.structuredAnswer());
@@ -1064,11 +1076,13 @@ public class ExerciseAttemptService {
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-19 — MULTIPLE_ANSWER (VD IELTS Listening
-     * "Choose TWO letters A-E") chấm TỪNG PHẦN thay vì all-or-nothing: mỗi đáp án đúng đã chọn được 1/N
-     * điểm, mỗi đáp án sai đã chọn bị trừ 1/N (N = số đáp án đúng), sàn 0 — để học sinh chọn hết mọi
-     * ô cũng không thể đạt điểm. {@code isCorrect} của câu vẫn chỉ true khi chọn ĐÚNG HẾT
-     * (xem {@link #isAnswerCorrect}), chỉ điểm số là từng phần.
+     * Sửa lại 2026-11-15 (đã xác nhận với người dùng — đổi sang ĐÚNG chuẩn IELTS thật) — MULTIPLE_ANSWER
+     * (VD IELTS Listening/Reading "Choose TWO letters A-E") chấm TỪNG PHẦN theo SỐ ĐÁP ÁN ĐÚNG đã chọn
+     * trên tổng số đáp án đúng, KHÔNG trừ điểm khi chọn thêm đáp án sai (bản cũ trước 2026-11-15 có trừ
+     * bù 1/N mỗi đáp án sai — nghiêm hơn IELTS thật, nay bỏ theo yêu cầu người dùng). VD 5 lựa chọn, 3
+     * đáp án đúng, học sinh chọn đúng 2 + sai 1 → vẫn được 2/3 điểm câu (không còn 1/3 như công thức cũ).
+     * {@code isCorrect} của câu vẫn chỉ true khi chọn ĐÚNG HẾT và KHÔNG thừa (xem {@link #isAnswerCorrect}
+     * — giữ nguyên, chỉ ảnh hưởng icon ✓/✗ hiển thị, không ảnh hưởng điểm số).
      */
     private BigDecimal multipleAnswerPartialScore(StudentAnswer answer, BigDecimal points) {
         List<QuestionChoice> choices = questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(answer.getQuestion().getId());
@@ -1078,9 +1092,7 @@ public class ExerciseAttemptService {
         }
         Set<Long> selected = Set.copyOf(answer.getSelectedChoiceIds());
         long right = selected.stream().filter(correctIds::contains).count();
-        long wrong = selected.size() - right;
-        long net = Math.max(0, right - wrong);
-        return points.multiply(BigDecimal.valueOf(net)).divide(BigDecimal.valueOf(correctIds.size()), 2, RoundingMode.HALF_UP);
+        return points.multiply(BigDecimal.valueOf(right)).divide(BigDecimal.valueOf(correctIds.size()), 2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal structuredPartialScore(Question question, String key, List<String> given, BigDecimal points) {
@@ -1227,7 +1239,7 @@ public class ExerciseAttemptService {
         ExerciseAttempt attempt = a.getExerciseAttempt();
         Exercise exercise = attempt.getExercise();
         boolean revealAnswer = attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS
-                && exercise.isShowCorrectAnswers();
+                && (exercise.isShowCorrectAnswers() || exercise.isForcedListening()); // Nghe ép: đạt hết thì luôn được xem đáp án (2026-11-12)
         // UC-24/A4, UC-27/A2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
         // 2026-08-05): nếu Bài có giới hạn số lần làm lại (max_attempts khác
         // NULL), đáp án chỉ hiện từ lượt làm CUỐI CÙNG (attemptNumber ==

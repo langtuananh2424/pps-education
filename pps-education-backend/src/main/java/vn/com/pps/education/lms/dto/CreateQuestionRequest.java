@@ -45,15 +45,31 @@ public record CreateQuestionRequest(
          */
         Integer displayNumberOverride,
         /** V226 (Nghe ép, đã xác nhận với người dùng 2026-11-09) — lời thoại RIÊNG của câu, xem Javadoc {@code Question.tapescript}. */
-        String tapescript
+        String tapescript,
+        /**
+         * Nhãn số hiển thị TUỲ CHỌN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15) —
+         * xem Javadoc {@code Question.displayNumberLabel}. {@code null} = hiện số thường theo
+         * {@code displayNumberOverride}/thứ tự tuần tự như cũ.
+         */
+        String displayNumberLabel
 ) {
-    /** Giữ chữ ký cũ (không tapescript) cho các nơi tạo câu hỏi hiện có (import theo dạng khác, test). */
+    /** Giữ chữ ký cũ (không tapescript/displayNumberLabel) cho các nơi tạo câu hỏi hiện có (import theo dạng khác, test). */
     public CreateQuestionRequest(Long questionBankId, String questionType, String skill, String difficulty, String content,
                                   String audioUrl, String imageUrl, String referencePassage, String explanation,
                                   String correctAnswerText, BigDecimal defaultPoints, List<String> tags,
                                   List<QuestionChoiceRequest> choices, Map<String, Object> structuredContent,
                                   String groupKey, Integer displayNumberOverride) {
         this(questionBankId, questionType, skill, difficulty, content, audioUrl, imageUrl, referencePassage, explanation,
-                correctAnswerText, defaultPoints, tags, choices, structuredContent, groupKey, displayNumberOverride, null);
+                correctAnswerText, defaultPoints, tags, choices, structuredContent, groupKey, displayNumberOverride, null, null);
+    }
+
+    /** Giữ chữ ký cũ (không displayNumberLabel) cho các nơi tạo câu hỏi hiện có (CKE/compose). */
+    public CreateQuestionRequest(Long questionBankId, String questionType, String skill, String difficulty, String content,
+                                  String audioUrl, String imageUrl, String referencePassage, String explanation,
+                                  String correctAnswerText, BigDecimal defaultPoints, List<String> tags,
+                                  List<QuestionChoiceRequest> choices, Map<String, Object> structuredContent,
+                                  String groupKey, Integer displayNumberOverride, String tapescript) {
+        this(questionBankId, questionType, skill, difficulty, content, audioUrl, imageUrl, referencePassage, explanation,
+                correctAnswerText, defaultPoints, tags, choices, structuredContent, groupKey, displayNumberOverride, tapescript, null);
     }
 }

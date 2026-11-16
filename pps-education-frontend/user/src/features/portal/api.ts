@@ -1178,6 +1178,14 @@ export interface ExerciseQuestionResponse {
   imageUrl: string | null;
   /** V226 (Nghe ép) — bài tập con chứa câu này, NULL với Bài thường. */
   sectionId: number | null;
+  /** Nhãn số hiển thị TUỲ CHỌN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-11-15) — VD
+   * "14-15" khi câu này chiếm nhiều ô đánh số liền nhau trong đề gốc (IELTS "Questions 14 and 15 —
+   * Choose TWO letters A-E"). null = hiện số thường theo displayOrder. */
+  displayNumberLabel: string | null;
+  /** Sửa lại 2026-11-15 (đã xác nhận với người dùng) — chỉ có ở MULTIPLE_ANSWER: số lượng đáp án
+   * đúng (KHÔNG phải danh tính). FE dùng để giới hạn số ô được tick, mirror ràng buộc "số ô trả lời
+   * cố định" của đề giấy IELTS thật. null với mọi loại câu khác. */
+  multipleAnswerRequiredCount: number | null;
 }
 
 export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuestionResponse[]> {

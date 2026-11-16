@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle2, GraduationCap, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, Sparkles, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import { renderRichText } from "@/lib/richText";
+import RichQuestionContent, { isCkeditorHtml } from "../ckeditor/RichQuestionContent";
+import CkeditorWordBankAnswer from "../ckeditor/CkeditorWordBankAnswer";
 import {
   AssignedExerciseResponse,
   ExerciseAttemptResponse,
@@ -32,7 +34,7 @@ import {
 import { useActiveTimeTracker } from "../hooks/useActiveTimeTracker";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import { useTextAnswerSaves } from "../hooks/useTextAnswerSaves";
-import ForcedListeningPanel from "./ForcedListeningPanel";
+import ForcedListeningPanel, { QuestionTapescript } from "./ForcedListeningPanel";
 import MonitoringBadge from "./MonitoringBadge";
 import { ScoreSticker } from "./ScoreSticker";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
@@ -415,11 +417,14 @@ function parsePassageParagraphs(text: string): { name: string | null; content: s
  * Bổ sung 2026-10-19 — câu MULTIPLE_ANSWER nằm TRONG nhóm (VD Nghe trắc nghiệm nhiều đáp án chung 1 audio)
  * phải bật/tắt từng lựa chọn thay vì luôn thay bằng đúng 1 lựa chọn vừa bấm (như câu MULTIPLE_CHOICE).
  */
-function nextChoiceSelection(questionType: string, selected: Set<number>, choiceId: number): number[] {
+/** Sửa lại 2026-11-15 (đã xác nhận với người dùng) — `maxSelect`: mirror cap ở QuestionBlock#toggleChoice
+ * (xem Javadoc ở đó) cho nhánh MULTIPLE_ANSWER NẰM TRONG 1 nhóm (grid/listening-group, dùng helper
+ * dùng chung này thay vì toggleChoice riêng của câu đơn lẻ). */
+function nextChoiceSelection(questionType: string, selected: Set<number>, choiceId: number, maxSelect: number = Infinity): number[] {
   if (questionType !== "MULTIPLE_ANSWER") return [choiceId];
   const next = new Set(selected);
   if (next.has(choiceId)) next.delete(choiceId);
-  else next.add(choiceId);
+  else if (next.size < maxSelect) next.add(choiceId);
   return [...next];
 }
 
@@ -910,6 +915,18 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       return groupQuestionsByGroupKey(sectionQuestions).map((block, i) => ({ block, sectionTitle: i === 0 ? title : null }));
     });
   })();
+  const unlockedTapescripts = new Set(sectionResults?.sections.flatMap((sec) => sec.unlockedQuestionIds) ?? []);
+  const tapescriptSlot =
+    forced && attempt
+      ? (questionId: number, number: number, feedback?: React.ReactNode) =>
+          unlockedTapescripts.has(questionId) ? (
+            <QuestionTapescript attemptId={attempt.id} questionId={questionId} number={number}>
+              {feedback}
+            </QuestionTapescript>
+          ) : (
+            feedback
+          )
+      : undefined;
   const canReopenSection =
     forced && readOnly && !justClosedEarly && attempt != null && exerciseMeta != null && canRetakeExercise(item, exerciseMeta, attempt) && sectionResults?.answersRevealed !== true;
 
@@ -1148,9 +1165,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
           {forced && sectionResults && attempt && !loading && (
             <div ref={panelRef}>
               <ForcedListeningPanel
-                attemptId={attempt.id}
                 results={sectionResults}
-                questions={questions}
                 canReopen={canReopenSection}
                 busy={loading}
                 onReopen={(sectionId) => handleRetake([sectionId])}
@@ -1186,6 +1201,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   onFilePickerOpen={suppressForFilePicker}
                   attemptId={forced ? undefined : attempt?.id}
                   forcedListening={forced}
+                  tapescriptSlot={tapescriptSlot}
                   listeningProgress={listeningProgress}
                   onListeningEnded={handleListeningEnded}
                 />
@@ -1207,6 +1223,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   onFilePickerOpen={suppressForFilePicker}
                   attemptId={forced ? undefined : attempt?.id}
                   forcedListening={forced}
+                  tapescriptSlot={tapescriptSlot}
                   listeningProgress={listeningProgress}
                   onListeningEnded={handleListeningEnded}
                 />
@@ -1371,6 +1388,7 @@ export function QuestionBlock({
   onFilePickerOpen,
   attemptId,
   forcedListening,
+  tapescriptSlot,
   listeningProgress,
   onListeningEnded
 }: {
@@ -1393,6 +1411,8 @@ export function QuestionBlock({
   attemptId: number | undefined;
   /** V226 (Nghe ép) — đổi nhãn khoá của câu mang sang từ lượt trước (cả bài đã đạt, không phải 'đã đúng'). */
   forcedListening?: boolean;
+  /** Nghe ép — lời thoại (tapescript) của từng câu; `feedback` (dòng Chính xác/Sai) nếu truyền thì nút nằm cùng hàng. Trả `feedback` nguyên vẹn khi câu chưa được mở. */
+  tapescriptSlot?: (questionId: number, number: number, feedback?: React.ReactNode) => React.ReactNode;
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
@@ -1423,12 +1443,18 @@ export function QuestionBlock({
    */
   const notAnswered = showFeedback && answer!.isAutoGradable && answer!.isCorrect == null;
 
+  // Sửa lại 2026-11-15 (đã xác nhận với người dùng) — chặn tick QUÁ số đáp án đúng cho phép, mirror
+  // ràng buộc "số ô trả lời cố định" của đề giấy IELTS thật (xem Javadoc backend
+  // ExerciseQuestionResponse#multipleAnswerRequiredCount) — không còn cách "tick hết cho chắc" để ăn
+  // điểm tối đa sau khi bỏ trừ điểm chọn thừa (xem ExerciseAttemptService#multipleAnswerPartialScore).
+  const maxMultiSelect = question.multipleAnswerRequiredCount ?? Infinity;
   const toggleChoice = (choiceId: number) => {
     if (readOnly || saving) return;
     if (isMultiSelect) {
       const next = new Set(selected);
       if (next.has(choiceId)) next.delete(choiceId);
-      else next.add(choiceId);
+      else if (next.size < maxMultiSelect) next.add(choiceId);
+      else return; // đã đủ số lượng cho phép — bỏ 1 ô đã chọn trước khi chọn ô khác
       onChoiceToggle([...next]);
     } else {
       onChoiceToggle([choiceId]);
@@ -1454,10 +1480,10 @@ export function QuestionBlock({
             <span className="block text-base sm:text-lg italic font-bold text-muted whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
           )}
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
-            {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
+            {t("takeExercise.question.numberPrefix", { number: question.displayNumberLabel ?? displayNumber ?? question.displayOrder })}
           </span>
           {question.questionType !== "WORD_BANK" && (
-            <span className="text-base sm:text-base lg:text-lg whitespace-pre-line">{renderRichText(question.questionContent)}</span>
+            <RichQuestionContent content={question.questionContent} className="text-base sm:text-base lg:text-lg whitespace-pre-line" />
           )}
         </p>
         <div className="flex items-center gap-2 shrink-0">
@@ -1479,6 +1505,10 @@ export function QuestionBlock({
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
       {question.imageUrl && <QuestionImages imageUrl={question.imageUrl} className="w-full max-w-[520px] rounded-xl border border-line/60" />}
+
+      {isMultiSelect && !showFeedback && Number.isFinite(maxMultiSelect) && (
+        <p className="text-xs sm:text-sm font-bold text-muted">{t("takeExercise.question.multiSelectHint", { count: selected.size, max: maxMultiSelect })}</p>
+      )}
 
       {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
         // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
@@ -1586,6 +1616,17 @@ export function QuestionBlock({
           </div>
           <p className="text-[10px] text-muted italic">{t("takeExercise.question.manualGradingNote")}</p>
         </div>
+      ) : question.questionType === "WORD_BANK" && isCkeditorHtml(question.questionContent) ? (
+        // Ô trống/Hộp từ vựng soạn qua tab CKEditor5 (Admin) — content là HTML đầy đủ (bảng/ảnh/nhiều
+        // ô trống rải rác), khác hẳn chữ thường tách "___" mà WordBankBlock bên dưới xử lý — xem
+        // Javadoc CkeditorWordBankAnswer.tsx.
+        <CkeditorWordBankAnswer
+          content={question.questionContent}
+          initialAnswer={answer?.structuredAnswer ?? undefined}
+          readOnly={readOnly}
+          onChange={onStructuredAnswer}
+          onDraft={onStructuredDraft}
+        />
       ) : question.questionType === "WORD_BANK" && question.structuredContent?.blanks ? (
         <WordBankBlock
           content={question.questionContent}
@@ -1636,16 +1677,20 @@ export function QuestionBlock({
             placeholder={t("takeExercise.question.answerPlaceholder")}
             className="w-full bg-sky-2 border border-line/70 text-sm sm:text-base lg:text-lg p-3 sm:p-4 rounded-xl focus:outline-none disabled:opacity-70"
           />
-          {isFillInBlank && showFeedback && (
-            <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
-              {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-              {notAnswered
-                ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
-                : answer?.isCorrect
-                  ? t("takeExercise.question.correct")
-                  : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
-            </div>
-          )}
+          {isFillInBlank &&
+            (() => {
+              const feedback = showFeedback && (
+                <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+                {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                {notAnswered
+                  ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
+                  : answer?.isCorrect
+                    ? t("takeExercise.question.correct")
+                    : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
+                </div>
+              );
+              return tapescriptSlot ? tapescriptSlot(question.questionId, displayNumber ?? question.displayOrder, feedback || undefined) : feedback;
+            })()}
         </div>
       )}
 
@@ -1778,6 +1823,8 @@ export function QuestionBlock({
       )}
 
       {answerLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}
+
+      {!isFillInBlank && tapescriptSlot?.(question.questionId, displayNumber ?? question.displayOrder)}
     </div>
   );
 }
@@ -2298,6 +2345,7 @@ export function GridQuestionGroup({
   onFilePickerOpen,
   attemptId,
   forcedListening,
+  tapescriptSlot,
   listeningProgress,
   onListeningEnded
 }: {
@@ -2319,6 +2367,8 @@ export function GridQuestionGroup({
   attemptId: number | undefined;
   /** V226 (Nghe ép) — đổi nhãn khoá của câu mang sang từ lượt trước (cả bài đã đạt, không phải 'đã đúng'). */
   forcedListening?: boolean;
+  /** Nghe ép — lời thoại (tapescript) của từng câu; `feedback` (dòng Chính xác/Sai) nếu truyền thì nút nằm cùng hàng. Trả `feedback` nguyên vẹn khi câu chưa được mở. */
+  tapescriptSlot?: (questionId: number, number: number, feedback?: React.ReactNode) => React.ReactNode;
   listeningProgress: Map<string, ListeningPlayProgressResponse>;
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
@@ -2348,11 +2398,20 @@ export function GridQuestionGroup({
     !isSharedImageGroup &&
     block.questions.length >= 2 &&
     block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent));
+  // Đoạn văn đã hiện gần nhất trong khối — dùng để chỉ hiện thêm đoạn văn của phần sau khi nó khác.
+  let lastPassage: string | null = block.referencePassage ?? null;
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
           đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
-      {block.referencePassage && (
+      {block.referencePassage && isCkeditorHtml(block.referencePassage) ? (
+        // Đoạn văn tham chiếu của Bảng lưới/Lựa chọn trong câu soạn qua CKEditor5 — HTML đầy đủ
+        // (bảng/ảnh), khác hẳn chữ thường "Tên: nội dung" mà parsePassageParagraphs bên dưới xử lý.
+        <div className="bg-sky-2 rounded-xl p-3 sm:p-4">
+          <RichQuestionContent content={block.referencePassage} className="text-sm sm:text-base lg:text-lg text-ink" />
+        </div>
+      ) : null}
+      {block.referencePassage && !isCkeditorHtml(block.referencePassage) && (
         <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
             <div key={i} className={p.isSectionBreak ? "pt-2.5 sm:pt-3 mt-1 border-t border-line/60" : undefined}>
@@ -2503,6 +2562,13 @@ export function GridQuestionGroup({
           // WordBankBlock bên dưới tự render questionContent làm chính văn bản tương tác (mirror
           // QuestionBlock#WORD_BANK ở trên) — hiện lại nguyên văn ở đây sẽ bị lặp cả đoạn 2 lần.
           const hideContentText = isWordBankRow || (isSharedImageGroup && isBlankOnlyContent(q.questionContent));
+          // Phần soạn bằng CKEditor5 trong bài nhiều phần (VD "Ex. 3" A/B) — nội dung HTML tự mang tiêu đề
+          // phần + đánh số riêng như đề giấy, nên không gắn thêm số thứ tự của khối phía trước.
+          const isHtmlRow = isCkeditorHtml(q.questionContent);
+          // Đoạn văn riêng của phần sau (VD phần B cũng là "Lựa chọn trong câu") — khối chỉ hiện sẵn đoạn
+          // văn của câu đầu tiên ở trên cùng.
+          const showOwnPassage = !!q.referencePassage && q.referencePassage !== lastPassage;
+          if (q.referencePassage) lastPassage = q.referencePassage;
           // WORD_BANK tự hiện Hướng dẫn riêng qua prop `instruction` của WordBankBlock bên dưới (xem
           // q.structuredContent.instruction truyền vào đó) — không lặp lại sub-header ở đây.
           return (
@@ -2510,11 +2576,28 @@ export function GridQuestionGroup({
               {sectionInstruction && !isWordBankRow && (
                 <p className="pt-2.5 lg:pt-3.5 text-sm sm:text-base italic font-bold text-muted whitespace-pre-line">{renderRichText(sectionInstruction)}</p>
               )}
+              {showOwnPassage && (
+                <div className="pt-3 lg:pt-4">
+                  <div className="bg-sky-2 rounded-xl p-3 sm:p-4">
+                    {isCkeditorHtml(q.referencePassage) ? (
+                      <RichQuestionContent content={q.referencePassage!} className="text-sm sm:text-base lg:text-lg text-ink" />
+                    ) : (
+                      <p className="text-sm sm:text-base lg:text-lg text-ink whitespace-pre-line">{renderRichText(q.referencePassage)}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             <div className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-base sm:text-base lg:text-lg font-normal text-ink flex-1 min-w-[160px]">
-                  {startNumber != null ? startNumber + qIndex : q.displayOrder}.{!hideContentText && <> {renderRichText(q.questionContent)}</>}
-                </span>
+                {isHtmlRow ? (
+                  !isWordBankRow && (
+                    <RichQuestionContent content={q.questionContent} className="flex-1 min-w-[160px] text-base sm:text-base lg:text-lg text-ink" />
+                  )
+                ) : (
+                  <span className="text-base sm:text-base lg:text-lg font-normal text-ink flex-1 min-w-[160px]">
+                    {q.displayNumberLabel ?? (startNumber != null ? startNumber + qIndex : q.displayOrder)}.{!hideContentText && <> {renderRichText(q.questionContent)}</>}
+                  </span>
+                )}
                 {isLockedCarriedOver(answer) && <CarriedOverBadge forced={forcedListening} />}
               </div>
 
@@ -2557,7 +2640,7 @@ export function GridQuestionGroup({
                             key={c.id}
                             type="button"
                             disabled={rowReadOnly || saving}
-                            onClick={() => onChoiceToggle(q.questionId, nextChoiceSelection(q.questionType, selected, c.id))}
+                            onClick={() => onChoiceToggle(q.questionId, nextChoiceSelection(q.questionType, selected, c.id, q.multipleAnswerRequiredCount ?? Infinity))}
                             className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
                           >
                             <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
@@ -2594,7 +2677,7 @@ export function GridQuestionGroup({
                           key={c.id}
                           type="button"
                           disabled={rowReadOnly || saving}
-                          onClick={() => onChoiceToggle(q.questionId, nextChoiceSelection(q.questionType, selected, c.id))}
+                          onClick={() => onChoiceToggle(q.questionId, nextChoiceSelection(q.questionType, selected, c.id, q.multipleAnswerRequiredCount ?? Infinity))}
                           className={`w-full text-left text-sm sm:text-base font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
                           <span>
@@ -2627,16 +2710,19 @@ export function GridQuestionGroup({
                     placeholder={t("takeExercise.question.answerPlaceholder")}
                     className="w-full bg-sky-2 border border-line/70 text-sm sm:text-base lg:text-lg p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
                   />
-                  {showFeedback && (
-                    <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+                  {(() => {
+                    const feedback = showFeedback && (
+                      <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
                       {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                       {notAnswered
                         ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
                         : answer?.isCorrect
                           ? t("takeExercise.question.correct")
                           : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
-                    </div>
-                  )}
+                      </div>
+                    );
+                    return tapescriptSlot ? tapescriptSlot(q.questionId, startNumber != null ? startNumber + qIndex : q.displayOrder, feedback || undefined) : feedback;
+                  })()}
                 </div>
               )}
 
@@ -2662,7 +2748,16 @@ export function GridQuestionGroup({
                 </div>
               )}
 
-              {isWordBankRow && (
+              {isWordBankRow && isCkeditorHtml(q.questionContent) ? (
+                <CkeditorWordBankAnswer
+                  content={q.questionContent}
+                  initialAnswer={answer?.structuredAnswer ?? undefined}
+                  readOnly={rowReadOnly}
+                  onChange={(values) => onStructuredAnswer(q.questionId, values)}
+                  onDraft={(values) => onStructuredDraft?.(q.questionId, values)}
+                />
+              ) : null}
+              {isWordBankRow && !isCkeditorHtml(q.questionContent) && (
                 <WordBankBlock
                   content={q.questionContent}
                   wordPool={
@@ -2707,6 +2802,8 @@ export function GridQuestionGroup({
                         })}
                 </div>
               )}
+
+              {!isFillInBlankRow && tapescriptSlot?.(q.questionId, startNumber != null ? startNumber + qIndex : q.displayOrder)}
             </div>
             </React.Fragment>
           );

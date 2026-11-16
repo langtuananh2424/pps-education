@@ -318,6 +318,9 @@ class ForcedListeningServiceTest extends AbstractIntegrationTest {
         SectionResultsResponse after = results(attempt.id());
         assertThat(after.answersRevealed()).isTrue();
         assertThat(after.canRevealAnswers()).isFalse();
+        // Đã xem đáp án: tapescript của TẤT CẢ câu được mở (kể cả câu chưa từng mở theo số lượt chưa đạt).
+        assertThat(section(after, sectionA).unlockedQuestionIds()).hasSize(qa.size());
+        assertThat(forcedListeningService.viewTapescript(attempt.id(), qa.get(3).id(), studentUser.getId()).questionId()).isEqualTo(qa.get(3).id());
         assertThat(exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()))
                 .allSatisfy(x -> assertThat(x.isCorrect()).isNotNull());
         assertThatThrownBy(this::start).isInstanceOf(RetakeNotAllowedException.class);

@@ -12,10 +12,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.lms.dto.CreateCkeditorChoiceExamQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorChunkExamQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorGroupExamQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorWordBankExamQuestionRequest;
+import vn.com.pps.education.lms.dto.CreateCkeditorEssayExamQuestionRequest;
 import vn.com.pps.education.lms.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.lms.dto.KeyGrammarStructureResponse;
 import vn.com.pps.education.lms.dto.QuestionImportResponse;
 import vn.com.pps.education.lms.dto.QuestionResponse;
+import vn.com.pps.education.lms.dto.UpdateCkeditorQuestionRequest;
 import vn.com.pps.education.lms.dto.UpdateQuestionRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.lms.service.ExamQuestionService;
@@ -54,6 +60,60 @@ public class ExamQuestionController {
         return ResponseEntity.ok(examQuestionService.createQuestion(examId, request, actor.userId()));
     }
 
+    /** Soạn "Ô trống"/"Hộp từ vựng" bằng khung CKEditor5 theo Đề — xem Javadoc CreateCkeditorWordBankExamQuestionRequest. */
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
+    @PostMapping("/api/exams/{examId}/questions/ckeditor-word-bank")
+    public ResponseEntity<QuestionResponse> createCkeditorWordBankQuestion(@PathVariable Long examId,
+                                                                            @Valid @RequestBody CreateCkeditorWordBankExamQuestionRequest request,
+                                                                            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examQuestionService.createCkeditorWordBankQuestion(examId, request, actor.userId()));
+    }
+
+    /** Soạn "Tự luận" (chấm AI) bằng khung CKEditor5 theo Đề — xem Javadoc CreateCkeditorEssayExamQuestionRequest. */
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
+    @PostMapping("/api/exams/{examId}/questions/ckeditor-essay")
+    public ResponseEntity<QuestionResponse> createCkeditorEssayQuestion(@PathVariable Long examId,
+                                                                         @Valid @RequestBody CreateCkeditorEssayExamQuestionRequest request,
+                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examQuestionService.createCkeditorEssayQuestion(examId, request, actor.userId()));
+    }
+
+    /** Soạn "Nhóm lựa chọn" bằng khung CKEditor5 theo Đề — xem Javadoc CreateCkeditorChoiceExamQuestionRequest. */
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
+    @PostMapping("/api/exams/{examId}/questions/ckeditor-choice")
+    public ResponseEntity<QuestionResponse> createCkeditorChoiceQuestion(@PathVariable Long examId,
+                                                                          @Valid @RequestBody CreateCkeditorChoiceExamQuestionRequest request,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examQuestionService.createCkeditorChoiceQuestion(examId, request, actor.userId()));
+    }
+
+    /** Soạn "Bảng lưới"/"Lựa chọn trong câu" bằng khung CKEditor5 theo Đề — tạo NHIỀU câu cùng nhóm, xem Javadoc CreateCkeditorGroupExamQuestionRequest. */
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
+    @PostMapping("/api/exams/{examId}/questions/ckeditor-group")
+    public ResponseEntity<List<QuestionResponse>> createCkeditorGroupQuestions(@PathVariable Long examId,
+                                                                               @Valid @RequestBody CreateCkeditorGroupExamQuestionRequest request,
+                                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examQuestionService.createCkeditorGroupQuestions(examId, request, actor.userId()));
+    }
+
+    /** Bài nhiều phần (ngăn bằng đường kẻ ngang) soạn trong 1 khung CKEditor5 — mỗi phần thành câu riêng, chung 1 groupKey. */
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
+    @PostMapping("/api/exams/{examId}/questions/ckeditor-multipart")
+    public ResponseEntity<List<QuestionResponse>> createCkeditorMultipartQuestions(@PathVariable Long examId,
+                                                                                   @Valid @RequestBody CreateCkeditorGroupExamQuestionRequest request,
+                                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examQuestionService.createCkeditorMultipartQuestions(examId, request, actor.userId()));
+    }
+
+    /** Soạn "Khối sắp xếp" bằng khung CKEditor5 theo Đề — xem Javadoc CreateCkeditorChunkExamQuestionRequest. */
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
+    @PostMapping("/api/exams/{examId}/questions/ckeditor-chunk")
+    public ResponseEntity<QuestionResponse> createCkeditorChunkQuestion(@PathVariable Long examId,
+                                                                         @Valid @RequestBody CreateCkeditorChunkExamQuestionRequest request,
+                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examQuestionService.createCkeditorChunkQuestion(examId, request, actor.userId()));
+    }
+
     @PreAuthorize("hasPermission(null, 'lms.exam-question.update')")
     @PutMapping("/api/exams/{examId}/questions/{questionId}")
     public ResponseEntity<QuestionResponse> updateQuestion(@PathVariable Long examId,
@@ -61,6 +121,15 @@ public class ExamQuestionController {
                                                             @Valid @RequestBody UpdateQuestionRequest request,
                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(examQuestionService.updateQuestion(examId, questionId, request, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.update')")
+    @PutMapping("/api/exams/{examId}/questions/{questionId}/ckeditor")
+    public ResponseEntity<QuestionResponse> updateCkeditorQuestion(@PathVariable Long examId,
+                                                                    @PathVariable Long questionId,
+                                                                    @Valid @RequestBody UpdateCkeditorQuestionRequest request,
+                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examQuestionService.updateCkeditorQuestion(examId, questionId, request, actor.userId()));
     }
 
     /**

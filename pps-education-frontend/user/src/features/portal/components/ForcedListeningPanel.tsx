@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, Loader2, Lock, RotateCcw, ScrollText, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
-import { ExerciseQuestionResponse, SectionResultResponse, SectionResultsResponse, viewTapescript } from "../api";
+import { SectionResultResponse, SectionResultsResponse, viewTapescript } from "../api";
 
 interface ForcedListeningPanelProps {
-  attemptId: number;
   results: SectionResultsResponse;
-  questions: ExerciseQuestionResponse[];
   /** Cho phép làm lại tự nguyện bài đã đạt (đang xem lượt đã nộp, còn quyền mở lượt mới, chưa xem đáp án). */
   canReopen: boolean;
   busy: boolean;
@@ -20,35 +18,8 @@ interface ForcedListeningPanelProps {
  * sai khi lời thoại câu đó đã được mở. Mỗi lần học sinh mở một lời thoại là gọi API (backend ghi 1 lượt
  * xem cho thống kê giáo viên); đóng rồi mở lại tính thêm 1 lượt.
  */
-export default function ForcedListeningPanel({ attemptId, results, questions, canReopen, busy, onReopen }: ForcedListeningPanelProps) {
+export default function ForcedListeningPanel({ results, canReopen, busy, onReopen }: ForcedListeningPanelProps) {
   const { t } = useTranslation("portal-exercises");
-  const [openText, setOpenText] = useState<Record<number, string>>({});
-  const [loadingId, setLoadingId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const orderOf = (questionId: number) => questions.find((q) => q.questionId === questionId)?.displayOrder ?? questionId;
-
-  const toggleTapescript = async (questionId: number) => {
-    if (openText[questionId] !== undefined) {
-      setOpenText((prev) => {
-        const next = { ...prev };
-        delete next[questionId];
-        return next;
-      });
-      return;
-    }
-    setLoadingId(questionId);
-    setError(null);
-    try {
-      const res = await viewTapescript(attemptId, questionId);
-      setOpenText((prev) => ({ ...prev, [questionId]: res.tapescript ?? "" }));
-    } catch (err) {
-      setError(friendlyApiErrorMessage(err, t("forcedListening.tapescriptError")));
-    } finally {
-      setLoadingId(null);
-    }
-  };
-
   const sectionStatus = (s: SectionResultResponse) => {
     if (s.passed) return { label: t("forcedListening.passed"), className: "bg-emerald-50 text-emerald-700 border-emerald-200", Icon: CheckCircle2 };
     if (s.latestScorePercent == null) return { label: t("forcedListening.notAttempted"), className: "bg-slate-50 text-slate-600 border-slate-200", Icon: Lock };
@@ -69,7 +40,6 @@ export default function ForcedListeningPanel({ attemptId, results, questions, ca
         </p>
       )}
 
-      {error && <p className="text-xs font-bold text-rose-600">{error}</p>}
 
       <ul className="space-y-2">
         {results.sections.map((s) => {
@@ -92,33 +62,6 @@ export default function ForcedListeningPanel({ attemptId, results, questions, ca
                 <p className="text-[11px] font-bold text-amber-700">{t("forcedListening.untilNextTapescript", { count: s.attemptsUntilNextTapescript })}</p>
               )}
 
-              {s.unlockedQuestionIds.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-muted">{t("forcedListening.tapescriptTitle")}</p>
-                  {s.unlockedQuestionIds.map((questionId) => {
-                    const number = orderOf(questionId);
-                    const text = openText[questionId];
-                    return (
-                      <div key={questionId} className="space-y-1">
-                        <button
-                          onClick={() => toggleTapescript(questionId)}
-                          disabled={loadingId === questionId}
-                          className="inline-flex items-center gap-1.5 text-xs font-extrabold text-teal-deep bg-teal/10 hover:bg-teal/20 border border-teal/20 rounded-lg px-3 py-1.5 disabled:opacity-60"
-                        >
-                          {loadingId === questionId ? <Loader2 size={12} className="animate-spin" /> : <ScrollText size={12} />}
-                          {text !== undefined ? t("forcedListening.hideTapescript", { number }) : t("forcedListening.viewTapescript", { number })}
-                        </button>
-                        {text !== undefined && (
-                          <p className="text-sm font-bold text-ink whitespace-pre-line bg-amber-50/60 border border-amber-100 rounded-xl p-3">
-                            {text || t("forcedListening.tapescriptEmpty")}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               {s.passed && canReopen && (
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -136,5 +79,56 @@ export default function ForcedListeningPanel({ attemptId, results, questions, ca
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Nút + nội dung lời thoại (tapescript) của ĐÚNG 1 câu đã được mở — hiện ngay dưới câu hỏi. Mỗi lần mở là gọi API
+ * (backend ghi 1 lượt xem cho thống kê giáo viên); đóng rồi mở lại tính thêm 1 lượt.
+ */
+export function QuestionTapescript({ attemptId, questionId, number, children }: { attemptId: number; questionId: number; number: number; children?: ReactNode }) {
+  const { t } = useTranslation("portal-exercises");
+  const [text, setText] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggle = async () => {
+    if (text !== undefined) {
+      setText(undefined);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await viewTapescript(attemptId, questionId);
+      setText(res.tapescript ?? "");
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("forcedListening.tapescriptError")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {children}
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={loading}
+          className="inline-flex items-center gap-1.5 text-xs font-extrabold text-teal-deep bg-teal/10 hover:bg-teal/20 border border-teal/20 rounded-lg px-3 py-1.5 disabled:opacity-60"
+        >
+          {loading ? <Loader2 size={12} className="animate-spin" /> : <ScrollText size={12} />}
+          {text !== undefined ? t("forcedListening.hideTapescript", { number }) : t("forcedListening.viewTapescript", { number })}
+        </button>
+      </div>
+      {error && <p className="text-xs font-bold text-rose-600">{error}</p>}
+      {text !== undefined && (
+        <p className="text-sm font-bold text-ink whitespace-pre-line bg-amber-50/60 border border-amber-100 rounded-xl p-3">
+          {text || t("forcedListening.tapescriptEmpty")}
+        </p>
+      )}
+    </div>
   );
 }

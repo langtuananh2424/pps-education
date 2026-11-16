@@ -10,8 +10,11 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-react": "^12.0.0",
     "@react-oauth/google": "^0.13.5",
+    "ckeditor5": "^49.1.0",
     "firebase": "^12.17.1",
+    "html-react-parser": "^6.1.9",
     "i18next": "^26.3.6",
     "lucide-react": "^0.546.0",
     "react": "^19.0.1",

@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ExerciseQuestionResponse } from "../api";
 import { renderRichText } from "@/lib/richText";
+import { isCkeditorHtml } from "../ckeditor/blankParser";
+import CkeditorHtmlPreview from "../ckeditor/CkeditorHtmlPreview";
+import "ckeditor5/ckeditor5-content.css";
+import "../ckeditor/ckeditor.css";
 
 /**
  * Tách ra từ ExerciseStudentPreviewModal.tsx (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
@@ -380,6 +384,27 @@ export function QuestionPreview({
   const { t } = useTranslation("lms-question-authoring");
   const isChoice = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
   const { selected, toggle } = useChoiceSelection(question.questionType === "MULTIPLE_ANSWER");
+  // Nhãn số hiển thị TUỲ CHỌN (bổ sung 2026-11-15, đã xác nhận với người dùng) — VD "14-15" khi 1
+  // câu chiếm nhiều ô đánh số liền nhau trong đề gốc (IELTS "Questions 14 and 15..."). Không có thì
+  // hiện số thường như cũ.
+  const numberLabel = question.displayNumberLabel ?? displayNumber;
+  // Ô trống/Hộp từ vựng soạn qua tab CKEditor5 — content là HTML đầy đủ (bảng/ảnh/nhiều ô trống rải
+  // rác), khác hẳn chữ thường tách "___" mà WordBankPreview bên dưới xử lý. Admin LUÔN được xem đáp
+  // án (khác Portal học sinh — CkeditorHtmlPreview vốn soạn để GV tự xem đáp án lúc soạn, dùng lại
+  // nguyên ở đây là đúng, không cần ẩn gì thêm).
+  if (question.questionType === "WORD_BANK" && isCkeditorHtml(question.questionContent)) {
+    return (
+      <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <span className="block text-slate-400 text-sm uppercase tracking-wider">
+            {t("studentPreviewModal.questionNumberPrefix", { number: numberLabel })}
+          </span>
+          <span className="text-[12px] text-slate-400 font-bold shrink-0">{t("studentPreviewModal.pointsSuffix", { points: question.points })}</span>
+        </div>
+        <CkeditorHtmlPreview authoredHtml={question.questionContent} />
+      </div>
+    );
+  }
 
   return (
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
@@ -395,9 +420,14 @@ export function QuestionPreview({
             <span className="block text-sm italic font-bold text-slate-500 whitespace-pre-line mb-2">{renderRichText(question.structuredContent.instruction)}</span>
           )}
           <span className="block text-slate-400 text-sm uppercase tracking-wider mb-1">
-            {t("studentPreviewModal.questionNumberPrefix", { number: displayNumber })}
+            {t("studentPreviewModal.questionNumberPrefix", { number: numberLabel })}
           </span>
-          {question.questionType !== "WORD_BANK" && <span className="whitespace-pre-line">{renderRichText(question.questionContent)}</span>}
+          {question.questionType !== "WORD_BANK" &&
+            (isCkeditorHtml(question.questionContent) ? (
+              <span className="ck-content block" dangerouslySetInnerHTML={{ __html: question.questionContent }} />
+            ) : (
+              <span className="whitespace-pre-line">{renderRichText(question.questionContent)}</span>
+            ))}
         </p>
         <span className="text-[12px] text-slate-400 font-bold shrink-0">{t("studentPreviewModal.pointsSuffix", { points: question.points })}</span>
       </div>
